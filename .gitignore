@@ -1,0 +1,15 @@
+# Compiler artifacts
+cache/
+out/
+
+# Dependencies
+lib/
+
+# Node
+node_modules/
+
+# Dotenv
+.env
+
+# OS
+.DS_Store
