@@ -1,0 +1,3 @@
+[submodule "lib/infinity-core"]
+	path = lib/infinity-core
+	url = https://github.com/pancakeswap/infinity-core

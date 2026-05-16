@@ -1,0 +1,4 @@
+@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
+solady/=node_modules/solady/
+infinity-core/=lib/infinity-core/
+forge-std/=lib/forge-std/src/
