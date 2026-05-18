@@ -7,8 +7,11 @@ out = "out"
 libs = ["lib"]
 solc_version = "0.8.26"
 
-# BSC chain id for deployment target
-chain_id = 56
+# Chain id (31337 for local anvil; change to 56 for BSC mainnet deployment)
+chain_id = 31337
+
+# Allow Deploy script to write deployments/<chainid>/addresses.json
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
 # Fuzz testing configuration
 [profile.default.fuzz]

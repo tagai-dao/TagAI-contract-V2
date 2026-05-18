@@ -7,19 +7,26 @@ import "../src/nutbox/calculators/HourlyTickCalculator.sol";
 import "../src/pump/IPShare.sol";
 import "../src/pump/Pump.sol";
 import "../src/hook/TagAISwapHook.sol";
+import "../src/mocks/MockCLPoolManager.sol";
+import "../src/mocks/MockVault.sol";
 import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
 import {IVault} from "infinity-core/src/interfaces/IVault.sol";
 
 /**
  * @title Deploy
  * @notice Local anvil full deployment script for testing.
- * @dev Run: forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
+ * @dev Run:
+ *   PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+ *   forge script script/Deploy.s.sol:Deploy --rpc-url http://localhost:8545 --broadcast
  *
- * Deploys ALL contracts (real Nutbox stack + Pump + Hook) for local integration testing.
+ * Deploys the FULL stack (real Nutbox + Pump + Hook + DEX mocks) for local testing.
  *
  * Note: CommunityFactory and SocialCurationFactory are deployed via vm.getCode
  * to avoid ERC20 name collision between OpenZeppelin (used by MintableERC20) and
  * Solady (used by Token.sol) in the same compilation unit.
+ *
+ * After deployment, addresses are written to deployments/<chainid>/addresses.json
+ * for frontend consumption.
  */
 contract Deploy is Script {
     function run() external {
@@ -30,10 +37,13 @@ contract Deploy is Script {
 
         // ─── Phase 1: Deploy Committee ───
         Committee committee = new Committee(payable(deployer));
+        // Set fees to 0 for local testing
+        committee.adminSetCreateCommunityFee(0);
+        committee.adminSetCommunitySettingsFee(0);
+        committee.adminSetPoolOperationFee(0);
         console.log("Committee:", address(committee));
 
         // ─── Phase 2: Deploy CommunityFactory ───
-        // Deployed via low-level create to avoid OZ ERC20 / Solady ERC20 name collision
         address communityFactory = _deployCommunityFactory(address(committee));
         console.log("CommunityFactory:", communityFactory);
 
@@ -52,34 +62,51 @@ contract Deploy is Script {
 
         // ─── Phase 6: Deploy IPShare ───
         IPShare ipshare = new IPShare(deployer);
+        // Enable trading immediately for local testing
+        ipshare.adminStartTrade();
         console.log("IPShare:", address(ipshare));
 
-        // ─── Phase 7: Deploy Pump ───
+        // ─── Phase 7: Deploy DEX Mocks (PCS V4 substitute) ───
+        MockCLPoolManager mockPoolManager = new MockCLPoolManager();
+        console.log("MockCLPoolManager:", address(mockPoolManager));
+        MockVault mockVault = new MockVault();
+        console.log("MockVault:", address(mockVault));
+
+        // ─── Phase 8: Deploy Pump ───
         Pump pump = new Pump(address(ipshare), deployer);
+        pump.adminSetPoolManager(address(mockPoolManager));
+        pump.adminSetVault(address(mockVault));
         console.log("Pump:", address(pump));
 
-        // ─── Phase 8: Deploy TagAISwapHook ───
-        // Note: In production, need to mine CREATE2 salt for correct hooks bitmap address.
-        // For local testing, deploy normally (hook bitmap validation is skipped in mocks).
+        // ─── Phase 9: Deploy TagAISwapHook ───
         TagAISwapHook hook = new TagAISwapHook(
-            ICLPoolManager(address(0)), // placeholder for local testing
-            IVault(address(0)),          // placeholder for local testing
+            ICLPoolManager(address(mockPoolManager)),
+            IVault(address(mockVault)),
             address(pump)
         );
         console.log("TagAISwapHook:", address(hook));
 
-        // ─── Phase 9: Configure Pump ───
+        // ─── Phase 10: Configure Pump ───
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(
+        pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        console.log("Pump: configured with Hook, Calculator, Nutbox stack, and DEX mocks");
+
+        vm.stopBroadcast();
+
+        // ─── Write addresses to deployments/<chainid>/addresses.json ───
+        _writeAddresses(
+            address(committee),
             communityFactory,
             address(calculator),
             scf,
-            address(committee)
+            address(ipshare),
+            address(mockPoolManager),
+            address(mockVault),
+            address(pump),
+            address(hook),
+            deployer
         );
-        console.log("Pump: configured with Hook, Calculator, and Nutbox stack");
-
-        vm.stopBroadcast();
 
         console.log("");
         console.log("=== Deployment Summary ===");
@@ -90,11 +117,12 @@ contract Deploy is Script {
         console.log("HourlyTickCalculator:", address(calculator));
         console.log("SocialCurationFactory:", scf);
         console.log("IPShare:", address(ipshare));
+        console.log("MockCLPoolManager:", address(mockPoolManager));
+        console.log("MockVault:", address(mockVault));
         console.log("Pump:", address(pump));
         console.log("TagAISwapHook:", address(hook));
     }
 
-    /// @dev Deploy CommunityFactory using vm.getCode to avoid ERC20 collision
     function _deployCommunityFactory(address _committee) internal returns (address) {
         bytes memory bytecode = abi.encodePacked(
             vm.getCode("CommunityFactory.sol:CommunityFactory"),
@@ -108,7 +136,6 @@ contract Deploy is Script {
         return deployed;
     }
 
-    /// @dev Deploy SocialCurationFactory using vm.getCode to avoid ERC20 collision
     function _deploySocialCurationFactory(address _communityFactory, address _claimSigner) internal returns (address) {
         bytes memory bytecode = abi.encodePacked(
             vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
@@ -120,5 +147,44 @@ contract Deploy is Script {
         }
         require(deployed != address(0), "SocialCurationFactory deployment failed");
         return deployed;
+    }
+
+    function _writeAddresses(
+        address committee,
+        address communityFactory,
+        address calculator,
+        address scf,
+        address ipshare,
+        address mockPoolManager,
+        address mockVault,
+        address pump,
+        address hook,
+        address deployer
+    ) internal {
+        string memory chainIdStr = vm.toString(block.chainid);
+        string memory dir = string.concat("deployments/", chainIdStr);
+        string memory path = string.concat(dir, "/addresses.json");
+
+        // Build JSON manually for clarity & version-control friendliness
+        string memory json = string.concat(
+            "{\n",
+            '  "chainId": ', chainIdStr, ',\n',
+            '  "deployer": "', vm.toString(deployer), '",\n',
+            '  "Committee": "', vm.toString(committee), '",\n',
+            '  "CommunityFactory": "', vm.toString(communityFactory), '",\n',
+            '  "HourlyTickCalculator": "', vm.toString(calculator), '",\n',
+            '  "SocialCurationFactory": "', vm.toString(scf), '",\n',
+            '  "IPShare": "', vm.toString(ipshare), '",\n',
+            '  "MockCLPoolManager": "', vm.toString(mockPoolManager), '",\n',
+            '  "MockVault": "', vm.toString(mockVault), '",\n',
+            '  "Pump": "', vm.toString(pump), '",\n',
+            '  "TagAISwapHook": "', vm.toString(hook), '"\n',
+            "}\n"
+        );
+
+        // Ensure dir exists by trying to create it (safe to ignore failure)
+        try vm.createDir(dir, true) {} catch {}
+        vm.writeFile(path, json);
+        console.log("Addresses written to:", path);
     }
 }
