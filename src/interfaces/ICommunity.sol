@@ -45,4 +45,9 @@ interface ICommunity {
     ) external payable;
 
     function activedPools(uint256 index) external view returns (address);
+
+    function getPoolPendingRewards(
+        address poolAddress,
+        address user
+    ) external view returns (uint256);
 }
