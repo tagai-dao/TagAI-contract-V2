@@ -60,6 +60,11 @@ contract Deploy is Script {
         committee.adminAddContract(scf);
         console.log("Committee: whitelisted Calculator + SCF");
 
+        // ─── Phase 5.5: Deploy DFXStarScoreStakingFactory ───
+        address dfxFactory = _deployDFXStarScoreStakingFactory(communityFactory);
+        committee.adminAddContract(dfxFactory);
+        console.log("DFXStarScoreStakingFactory:", dfxFactory);
+
         // ─── Phase 6: Deploy IPShare ───
         IPShare ipshare = new IPShare(deployer);
         // Enable trading immediately for local testing
@@ -100,6 +105,7 @@ contract Deploy is Script {
             communityFactory,
             address(calculator),
             scf,
+            dfxFactory,
             address(ipshare),
             address(mockPoolManager),
             address(mockVault),
@@ -116,6 +122,7 @@ contract Deploy is Script {
         console.log("CommunityFactory:", communityFactory);
         console.log("HourlyTickCalculator:", address(calculator));
         console.log("SocialCurationFactory:", scf);
+        console.log("DFXStarScoreStakingFactory:", dfxFactory);
         console.log("IPShare:", address(ipshare));
         console.log("MockCLPoolManager:", address(mockPoolManager));
         console.log("MockVault:", address(mockVault));
@@ -149,11 +156,25 @@ contract Deploy is Script {
         return deployed;
     }
 
+    function _deployDFXStarScoreStakingFactory(address _communityFactory) internal returns (address) {
+        bytes memory bytecode = abi.encodePacked(
+            vm.getCode("DFXStarScoreStakingFactory.sol:DFXStarScoreStakingFactory"),
+            abi.encode(_communityFactory)
+        );
+        address deployed;
+        assembly {
+            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(deployed != address(0), "DFXStarScoreStakingFactory deployment failed");
+        return deployed;
+    }
+
     function _writeAddresses(
         address committee,
         address communityFactory,
         address calculator,
         address scf,
+        address dfxFactory,
         address ipshare,
         address mockPoolManager,
         address mockVault,
@@ -174,6 +195,7 @@ contract Deploy is Script {
             '  "CommunityFactory": "', vm.toString(communityFactory), '",\n',
             '  "HourlyTickCalculator": "', vm.toString(calculator), '",\n',
             '  "SocialCurationFactory": "', vm.toString(scf), '",\n',
+            '  "DFXStarScoreStakingFactory": "', vm.toString(dfxFactory), '",\n',
             '  "IPShare": "', vm.toString(ipshare), '",\n',
             '  "MockCLPoolManager": "', vm.toString(mockPoolManager), '",\n',
             '  "MockVault": "', vm.toString(mockVault), '",\n',
