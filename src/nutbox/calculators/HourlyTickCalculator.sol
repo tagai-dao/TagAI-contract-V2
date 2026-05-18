@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../interfaces/IHourlyTickCalculator.sol";
-import "../interfaces/ICommunity.sol";
+import "../../interfaces/IHourlyTickCalculator.sol";
+import "../../interfaces/ICommunity.sol";
 
 /**
  * @title HourlyTickCalculator

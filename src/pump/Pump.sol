@@ -240,7 +240,9 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
 
         emit NutboxLinked(instance, community, pool);
 
-        ICommunity(community).transferOwnership(creator);
+        // Transfer community ownership to creator (uses Ownable.transferOwnership)
+        (bool txOk,) = community.call(abi.encodeWithSignature("transferOwnership(address)", creator));
+        require(txOk, "Transfer ownership failed");
 
         createdTokens[instance] = true;
         totalTokens += 1;
