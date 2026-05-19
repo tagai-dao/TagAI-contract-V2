@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../../interfaces/IHourlyTickCalculator.sol";
 import "../../interfaces/ICommunity.sol";
 
@@ -17,6 +18,7 @@ import "../../interfaces/ICommunity.sol";
  * Tokens are transferred directly to the Community contract on inject.
  */
 contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
+    using SafeERC20 for IERC20;
     // ─── Constants ────────────────────────────────────────────────────────────
     uint256 public constant VEST_WINDOW = 168; // 7 days in hours
 
@@ -137,7 +139,7 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
 
         address token = communityToken[community];
         // Transfer tokens directly to the community contract
-        IERC20(token).transferFrom(msg.sender, community, amount);
+        IERC20(token).safeTransferFrom(msg.sender, community, amount);
 
         uint256 H = block.timestamp / 3600; // Current hour index
 

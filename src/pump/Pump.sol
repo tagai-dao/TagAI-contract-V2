@@ -37,7 +37,6 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
 
     mapping(address => bool) public createdTokens;
     mapping(string => bool) public createdTicks;
-    mapping(address => uint256) private createdSaltsIndex;
 
     uint256 public totalTokens;
 
@@ -138,10 +137,6 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         return hookAddress;
     }
 
-    function getLastSaltIndex(address user) public view returns (uint256) {
-        return createdSaltsIndex[user];
-    }
-
     function createToken(string calldata tick, bytes32 salt) public payable override nonReentrant returns (address) {
         require(msg.sender == tx.origin, "Only EOA");
 
@@ -155,9 +150,15 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         if (createdTicks[tick]) {
             revert TickHasBeenCreated();
         }
-        if (uint256(salt) <= createdSaltsIndex[msg.sender]) {
+        
+        // Predict the token address and check if it already exists
+        // If the same user uses the same salt, they would get the same token address
+        bytes32 cloneSalt = keccak256(abi.encode(msg.sender, salt));
+        address predictedAddress = Clones.predictDeterministicAddress(tokenImplementation, cloneSalt, address(this));
+        if (createdTokens[predictedAddress]) {
             revert SaltNotAvailable();
         }
+        
         createdTicks[tick] = true;
 
         address creator = msg.sender;
@@ -186,9 +187,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
             }
         }
 
-        bytes32 cloneSalt = keccak256(abi.encode(msg.sender, salt));
         address instance = Clones.cloneDeterministic(tokenImplementation, cloneSalt);
-        createdSaltsIndex[msg.sender] = uint256(salt);
 
         emit NewToken(tick, instance, creator);
 
@@ -204,7 +203,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
             uint256 receiveAmountUint = abi.decode(receiveAmount, (uint256));
 
             IERC20(instance).transfer(msg.sender, receiveAmountUint);
-            uint256 leftValue = address(this).balance;
+            uint256 leftValue = address(this).balance > nutboxFees ? address(this).balance - nutboxFees : 0;
             if (leftValue > 0) {
                 (bool success2,) = msg.sender.call{value: leftValue}("");
                 if (!success2) {

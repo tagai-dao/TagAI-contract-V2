@@ -78,12 +78,11 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     int24 private constant LISTING_TICK_UPPER = 887220;
     uint128 private constant LISTING_LIQUIDITY_DELTA = 6547423157242855;
 
-    receive() external payable {
+    receive() external payable nonReentrant {
         if (listed) revert TokenListed();
         _buyTokenDirect();
     }
 
-    /// @dev receive() 专用：直接买入，无签名检查
     function _buyTokenDirect() private {
         address sellsman = _checkBondingCurveState(address(0));
         (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
@@ -280,6 +279,10 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     function _antiSnipeInject(uint256 sellsmanEth) private {
         // Use sellsman ETH to buy tokens on the bonding curve
         uint256 tokensPurchased = bondingCurve.getBuyAmountByValue(bondingCurveSupply, sellsmanEth);
+        uint256 remaining = bondingCurveTotalAmount - bondingCurveSupply;
+        if (tokensPurchased > remaining) {
+            tokensPurchased = remaining;
+        }
         bondingCurveSupply += tokensPurchased;
 
         // Get calculator address and inject
