@@ -22,7 +22,7 @@ import {ICommittee} from "../src/interfaces/ICommittee.sol";
  * Deployment order:
  *   (1) HourlyTickCalculator
  *   (2) Pump
- *   (3) TagAISwapHook (CREATE2)
+ *   (3) TagAISwapHook (CREATE2 with mined salt)
  *   (4) Pump.adminSetHookAddress / adminSetCalculator / adminSetNutbox
  *   (5) Verify Committee.verifyContract(Calculator) == true
  *
@@ -34,10 +34,7 @@ import {ICommittee} from "../src/interfaces/ICommittee.sol";
  * Usage:
  *   forge script script/DeployBSC.s.sol --rpc-url $BSC_RPC_URL --broadcast --verify
  *
- * Post-processing:
- *   The script outputs addresses via console.log. To generate
- *   `deployments/56/addresses.json`, pipe the output through a
- *   post-processing script (e.g., jq or a custom Node.js script).
+ * Note: Uses PRIVATE_KEY_MAIN from .env for mainnet deployment
  */
 contract DeployBSCScript is Script {
     // ─── BSC Deployed Addresses (Reused) ─────────────────────────────────────────
@@ -47,15 +44,23 @@ contract DeployBSCScript is Script {
     address constant CL_POOL_MANAGER = 0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b;
     address constant VAULT = 0x238a358808379702088667322f80aC48bAd5e6c4;
 
-    // IPShare v1 deployed address (TBD — use placeholder until confirmed)
-    // TODO: Replace with actual v1 IPShare address before mainnet deployment
-    address constant IPSHARE = address(0xdead);
+    // IPShare v1 deployed address
+    address constant IPSHARE = 0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922;
 
     // Fee receiver for Pump
     address constant FEE_RECEIVER = 0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048;
 
+    // ─── Hook Salt (Mined for address with lower 16 bits = 0x0CC1) ─────────────
+    // This salt is mined using MineHookSalt.s.sol after Pump is deployed
+    // TODO: Update this salt after running MineHookSalt.s.sol with the deployed Pump address
+    bytes32 constant HOOK_SALT = bytes32(uint256(0x1)); // Placeholder - must be mined
+
+    // Target hook bitmap for verification
+    uint16 constant TARGET_BITMAP = 0x0CC1;
+
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        // Use PRIVATE_KEY_MAIN for mainnet deployment
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY_MAIN");
         address deployer = vm.addr(deployerPrivateKey);
 
         console.log("=== TagAI V2 BSC Deployment ===");
@@ -86,21 +91,19 @@ contract DeployBSCScript is Script {
         console.log("(2) Pump:", address(pump));
 
         // ─── (3) Deploy TagAISwapHook (CREATE2) ──────────────────────────────────
-        // NOTE: The salt must be mined offline so that the deployed address has
-        // low bits matching getHooksRegistrationBitmap(). Use a hook-address mining
-        // tool (e.g., CREATE2 deployer with brute-force) to find the correct salt.
-        // The bitmap for TagAISwapHook is:
-        //   (1<<0) | (1<<6) | (1<<7) | (1<<10) | (1<<11) = 0x0CC1
-        // The deployed address must satisfy: address & 0xFFFF == 0x0CC1
-        //
-        // TODO: Replace this placeholder salt with the mined salt before deployment.
-        bytes32 hookSalt = bytes32(uint256(0x1));
-        TagAISwapHook hook = new TagAISwapHook{salt: hookSalt}(
+        // The salt must be mined so that the deployed address has lower 16 bits = 0x0CC1
+        // Run MineHookSalt.s.sol with PUMP_ADDRESS=<pump address> to find the correct salt
+        TagAISwapHook hook = new TagAISwapHook{salt: HOOK_SALT}(
             ICLPoolManager(CL_POOL_MANAGER),
             IVault(VAULT),
             address(pump)
         );
         console.log("(3) TagAISwapHook (CREATE2):", address(hook));
+
+        // Verify hook address has correct bitmap
+        uint16 addressBitmap = uint16(uint160(address(hook)));
+        console.log("    Hook address lower 16 bits: 0x%04x", addressBitmap);
+        require(addressBitmap == TARGET_BITMAP, "Hook address does not have correct bitmap!");
 
         // ─── (4) Configure Pump ──────────────────────────────────────────────────
         pump.adminSetHookAddress(address(hook));
