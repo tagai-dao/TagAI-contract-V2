@@ -14,6 +14,14 @@ chain_id = 31337
 # Allow Deploy script to write deployments/<chainid>/addresses.json
 fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
+# BSC mainnet fork tests:
+#   FOUNDRY_PROFILE=fork forge test --match-contract BSCForkTest --fork-url $BSC_RPC_URL -vvv
+[profile.fork]
+chain_id = 56
+
+[rpc_endpoints]
+bsc = "${BSC_RPC_URL}"
+
 # Fuzz testing configuration
 [profile.default.fuzz]
 runs = 256

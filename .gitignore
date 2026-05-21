@@ -15,6 +15,5 @@ node_modules/
 .DS_Store
 .kiro/*
 .claude/*
-deployments/
 broadcast/
 mocks/

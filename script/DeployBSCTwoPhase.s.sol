@@ -20,14 +20,17 @@ import {ICommittee} from "../src/interfaces/ICommittee.sol";
  * @notice BSC mainnet deployment script with automatic salt mining.
  *
  * This script performs deployment in two phases within a single broadcast:
- *   Phase 1: Deploy HourlyTickCalculator and Pump
+ *   Phase 1: Deploy HourlyTickCalculator, Pump, and DFXStarScoreStakingFactory
  *   Phase 2: Mine salt for Hook, then deploy TagAISwapHook with CREATE2
  *   Phase 3: Configure Pump
+ *
+ * Committee whitelist (adminAddContract) is NOT executed by this script.
+ * Committee owner is a multisig — add Calculator + DFXStarScoreStakingFactory manually after deploy.
  *
  * The Hook address must satisfy: address & 0xFFFF == 0x0CC1
  *
  * Important: In Foundry's CREATE2 deployment with `new Contract{salt: ...}()`,
- * the deployer is the sender of the transaction (msg.sender), not the script address.
+ * the deployer is the deterministic CREATE2 proxy (0x4e59...956C), not the EOA.
  *
  * Usage:
  *   forge script script/DeployBSCTwoPhase.s.sol --rpc-url $BSC_RPC_URL --broadcast --verify
@@ -50,6 +53,9 @@ contract DeployBSCTwoPhaseScript is Script {
 
     // Target hook bitmap: 0x0CC1
     uint16 constant TARGET_BITMAP = 0x0CC1;
+
+    // Foundry routes `new Contract{salt: ...}()` through the deterministic deployer
+    address constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     // Maximum salt mining iterations
     uint256 constant MAX_MINING_ITERATIONS = 100_000_000;
@@ -75,10 +81,10 @@ contract DeployBSCTwoPhaseScript is Script {
         console.log("");
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // PHASE 1: Deploy HourlyTickCalculator and Pump
+        // PHASE 1: Deploy Calculator, Pump, DFXStarScoreStakingFactory
         // ═══════════════════════════════════════════════════════════════════════════
 
-        console.log("--- Phase 1: Deploy Calculator and Pump ---");
+        console.log("--- Phase 1: Deploy Calculator, Pump, DFXStarScoreStakingFactory ---");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -89,6 +95,14 @@ contract DeployBSCTwoPhaseScript is Script {
         pump.adminSetPoolManager(CL_POOL_MANAGER);
         pump.adminSetVault(VAULT);
         console.log("(2) Pump:", address(pump));
+
+        // vm.getCode avoids OpenZeppelin (DFXStar) vs Solady (Token) ERC20 symbol collision in scripts
+        address dfxFactory = _deployDFXStarScoreStakingFactory(COMMUNITY_FACTORY);
+        console.log("(3) DFXStarScoreStakingFactory:", dfxFactory);
+
+        address dfxAdmin = vm.envOr("DFX_STAKING_ADMIN", deployer);
+        _addDFXAdmin(dfxFactory, dfxAdmin);
+        console.log("(3b) DFXStarScoreStakingFactory admin set:", dfxAdmin);
 
         vm.stopBroadcast();
 
@@ -106,14 +120,16 @@ contract DeployBSCTwoPhaseScript is Script {
         );
         bytes32 bytecodeHash = keccak256(creationCode);
 
-        console.log("(3) Mining salt for Hook...");
+        console.log("(4) Mining salt for Hook...");
         console.log("    Pump address:", address(pump));
-        console.log("    Deployer:", deployer);
+        console.log("    EOA:", deployer);
+        console.log("    CREATE2 deployer:", CREATE2_DEPLOYER);
         console.log("    Bytecode hash:");
         console.logBytes32(bytecodeHash);
 
-        // Mine for salt (deployer is the CREATE2 deployer)
-        (bytes32 hookSalt, address predictedAddress, uint256 iterations) = mineSalt(deployer, bytecodeHash);
+        // Mine for salt (Foundry uses the deterministic CREATE2 proxy)
+        (bytes32 hookSalt, address predictedAddress, uint256 iterations) =
+            mineSalt(CREATE2_DEPLOYER, bytecodeHash);
 
         console.log("    Found salt after %d iterations", iterations);
         console.log("    Salt (decimal): %d", uint256(hookSalt));
@@ -135,7 +151,7 @@ contract DeployBSCTwoPhaseScript is Script {
         require(address(hook) == predictedAddress, "Hook address mismatch!");
         require(uint16(uint160(address(hook))) == TARGET_BITMAP, "Hook address does not have correct bitmap!");
 
-        console.log("(4) TagAISwapHook deployed:", address(hook));
+        console.log("(5) TagAISwapHook deployed:", address(hook));
         console.log("    Address lower 16 bits: 0x%04x (target: 0x0CC1)", uint16(uint160(address(hook))));
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -153,40 +169,107 @@ contract DeployBSCTwoPhaseScript is Script {
             SOCIAL_CURATION_FACTORY,
             COMMITTEE
         );
-        console.log("(5) Pump configured: hookAddress, calculator, nutbox set");
+        console.log("(6) Pump configured: hookAddress, calculator, nutbox set");
 
         vm.stopBroadcast();
 
-        // ─── Verify Committee whitelist ──────────────────────────────────────────
+        // ─── Manual follow-up (Committee multisig) ───────────────────────────────
         console.log("");
-        console.log("--- Post-Deployment Verification ---");
+        console.log("--- Manual Follow-up (Committee Multisig) ---");
+        console.log("Committee whitelist is NOT executed by this script.");
+        console.log("Before Pump.createToken / Community.adminAddPool, multisig owner must call:");
+        _logPendingWhitelist("HourlyTickCalculator", address(calculator));
+        _logPendingWhitelist("DFXStarScoreStakingFactory", dfxFactory);
 
-        bool isWhitelisted = ICommittee(COMMITTEE).verifyContract(address(calculator));
-        if (isWhitelisted) {
-            console.log("(6) VERIFIED: Calculator is whitelisted in Committee");
-        } else {
-            console.log("(6) WARNING: Calculator is NOT whitelisted in Committee!");
-            console.log("    Committee owner must call:");
-            console.log("    Committee.adminAddContract(", address(calculator), ")");
-            console.log("    before Pump.createToken can succeed.");
-        }
+        _writeAddresses(
+            calculator,
+            dfxFactory,
+            pump,
+            hook,
+            hookSalt,
+            deployer
+        );
 
         // ─── Output Summary ──────────────────────────────────────────────────────
         console.log("");
         console.log("=== BSC Deployment Complete ===");
         console.log("--- Newly Deployed ---");
-        console.log("  HourlyTickCalculator:", address(calculator));
-        console.log("  Pump:                ", address(pump));
-        console.log("  TagAISwapHook:       ", address(hook));
+        console.log("  HourlyTickCalculator:     ", address(calculator));
+        console.log("  Pump:                     ", address(pump));
+        console.log("  DFXStarScoreStakingFactory:", dfxFactory);
+        console.log("  TagAISwapHook:            ", address(hook));
         console.log("--- Hook Salt (for record) ---");
         console.log("  Salt (decimal): %d", uint256(hookSalt));
         console.log("--- Configuration ---");
-        console.log("  Pump.hookAddress:    ", address(hook));
-        console.log("  Pump.calculator:     ", address(calculator));
-        console.log("  Pump.committee:      ", COMMITTEE);
-        console.log("  Pump.communityFactory:", COMMUNITY_FACTORY);
+        console.log("  Pump.hookAddress:         ", address(hook));
+        console.log("  Pump.calculator:          ", address(calculator));
+        console.log("  Pump.committee:           ", COMMITTEE);
+        console.log("  Pump.communityFactory:    ", COMMUNITY_FACTORY);
         console.log("  Pump.socialCurationFactory:", SOCIAL_CURATION_FACTORY);
+        console.log("  DFXStarScoreStaking admin: ", dfxAdmin);
         console.log("");
+    }
+
+    function _deployDFXStarScoreStakingFactory(address communityFactory_) internal returns (address) {
+        bytes memory bytecode = abi.encodePacked(
+            vm.getCode("DFXStarScoreStakingFactory.sol:DFXStarScoreStakingFactory"),
+            abi.encode(communityFactory_)
+        );
+        address deployed;
+        assembly {
+            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(deployed != address(0), "DFXStarScoreStakingFactory deployment failed");
+        return deployed;
+    }
+
+    function _addDFXAdmin(address dfxFactory, address admin) internal {
+        (bool success,) = dfxFactory.call(abi.encodeWithSignature("addAdmin(address)", admin));
+        require(success, "DFXStarScoreStakingFactory.addAdmin failed");
+    }
+
+    /// @dev Log whether a contract still needs Committee.adminAddContract via multisig.
+    function _logPendingWhitelist(string memory label, address target) internal view {
+        if (ICommittee(COMMITTEE).verifyContract(target)) {
+            console.log(string.concat("  [OK] ", label, " already whitelisted: ", vm.toString(target)));
+        } else {
+            console.log(string.concat("  [TODO] ", label, " -> Committee.adminAddContract(", vm.toString(target), ")"));
+        }
+    }
+
+    function _writeAddresses(
+        HourlyTickCalculator calculator,
+        address dfxFactory,
+        Pump pump,
+        TagAISwapHook hook,
+        bytes32 hookSalt,
+        address deployer
+    ) internal {
+        string memory chainIdStr = vm.toString(block.chainid);
+        string memory dir = string.concat("deployments/", chainIdStr);
+        string memory path = string.concat(dir, "/addresses.json");
+
+        string memory json = string.concat(
+            "{\n",
+            '  "chainId": ', chainIdStr, ',\n',
+            '  "deployer": "', vm.toString(deployer), '",\n',
+            '  "Committee": "', vm.toString(COMMITTEE), '",\n',
+            '  "CommunityFactory": "', vm.toString(COMMUNITY_FACTORY), '",\n',
+            '  "HourlyTickCalculator": "', vm.toString(address(calculator)), '",\n',
+            '  "SocialCurationFactory": "', vm.toString(SOCIAL_CURATION_FACTORY), '",\n',
+            '  "DFXStarScoreStakingFactory": "', vm.toString(dfxFactory), '",\n',
+            '  "IPShare": "', vm.toString(IPSHARE), '",\n',
+            '  "CLPoolManager": "', vm.toString(CL_POOL_MANAGER), '",\n',
+            '  "Vault": "', vm.toString(VAULT), '",\n',
+            '  "Pump": "', vm.toString(address(pump)), '",\n',
+            '  "TagAISwapHook": "', vm.toString(address(hook)), '",\n',
+            '  "HookSalt": "', vm.toString(uint256(hookSalt)), '"\n',
+            "}\n"
+        );
+
+        try vm.createDir(dir, true) {} catch {}
+        vm.writeFile(path, json);
+        console.log(string.concat("Addresses written to: ", path));
     }
 
     /**
