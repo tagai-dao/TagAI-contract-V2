@@ -20,6 +20,7 @@ import {PoolId, PoolIdLibrary} from "infinity-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "infinity-core/src/types/Currency.sol";
 import {BalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
 import {CLPoolParametersHelper} from "infinity-core/src/pool-cl/libraries/CLPoolParametersHelper.sol";
+import {TickMath} from "infinity-core/src/pool-cl/libraries/TickMath.sol";
 import {IPoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
 
 interface ITipTagSwapHook {
@@ -69,14 +70,16 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     // fee=0 means zero native pool fee; all fees are collected by TipTagSwapHook.
     // tickSpacing=60 controls price-tick granularity only (no 0.3% DEX fee implied).
     int24 public constant TICK_SPACING = 60;
-    // Calibrated initial price for bounded-range listing so 19 ETH + 200M TOKEN are both used as much as possible.
-    uint160 private constant INITIAL_SQRT_PRICE_X96 = 27302121365878665742458286;
-    uint256 private constant LISTING_ETH_AMOUNT = 19 ether;
+    // Listing LP: 200M token 全进池 + 配对 BNB（~19.174，来自内盘收入）；tickLower=MIN；
+    // tickUpper 校准使 800M 外部卖压抽干池内 BNB。
+    uint160 private constant INITIAL_SQRT_PRICE_X96 = 229333670737072535143449936330532;
+    uint256 private constant LISTING_ETH_BUDGET = 19174083034210496243; // ~19.174 BNB
     uint256 private constant LISTING_TOKEN_AMOUNT = 200000000 ether;
-    // Precomputed listing constants for fixed strategy.
-    int24 private constant LISTING_TICK_LOWER = -191700;
-    int24 private constant LISTING_TICK_UPPER = 887220;
-    uint128 private constant LISTING_LIQUIDITY_DELTA = 6547423157242855;
+    int24 private constant LISTING_TICK_LOWER = -887220;
+    int24 private constant LISTING_TICK_UPPER = 191940;
+    // 离线标定（ListingParamsCalc.test_computeTokenFirstListingConstants）：200M token-first 单次 add
+    uint128 private constant LISTING_LIQUIDITY_DELTA = 69094226120069552406389;
+    uint256 private constant MAX_LISTING_TOKEN_DUST = 1 ether;
 
     receive() external payable nonReentrant {
         if (listed) revert TokenListed();
@@ -351,7 +354,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /********************************** to dex (PancakeSwap V4 Infinity) ********************************/
     function _makeLiquidityPool() private {
-        require(address(this).balance >= LISTING_ETH_AMOUNT, "Insufficient ETH for listing");
+        require(address(this).balance >= LISTING_ETH_BUDGET, "Insufficient ETH for listing");
         require(balanceOf(address(this)) >= LISTING_TOKEN_AMOUNT + NUTBOX_ALLOCATION, "Insufficient token for listing");
 
         // Transfer NUTBOX_ALLOCATION to Hook before creating the pool
@@ -405,33 +408,44 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         emit TokenListedToDex(address(this), PoolId.unwrap(poolId), sqrtPriceX96);
     }
 
-    /// @notice ILockCallback — called by Vault during lock() for atomic liquidity addition
+    /// @notice ILockCallback — 单次 token-first LP：200M token 全进池，配对 ~19.174 BNB。
     function lockAcquired(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(vault), "Only Vault");
 
         (PoolKey memory poolKey, int24 tickLower, int24 tickUpper) = abi.decode(data, (PoolKey, int24, int24));
 
+        _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+
+        require(balanceOf(address(this)) <= MAX_LISTING_TOKEN_DUST, "listing token dust too large");
+
+        return "";
+    }
+
+    /// @dev Shared modifyLiquidity + vault settle/take for listing LP adds.
+    function _modifyAndSettleLiquidity(
+        PoolKey memory poolKey,
+        int24 tickLower,
+        int24 tickUpper,
+        int256 liquidityDelta
+    ) private {
         ICLPoolManager.ModifyLiquidityParams memory params = ICLPoolManager.ModifyLiquidityParams({
             tickLower: tickLower,
             tickUpper: tickUpper,
-            liquidityDelta: int256(uint256(LISTING_LIQUIDITY_DELTA)),
+            liquidityDelta: liquidityDelta,
             salt: bytes32(0)
         });
 
-        (BalanceDelta callerDelta, ) = clPoolManager.modifyLiquidity(poolKey, params, "");
+        (BalanceDelta callerDelta,) = clPoolManager.modifyLiquidity(poolKey, params, "");
 
-        // Settle amounts owed to the pool
         int128 ethOwed = callerDelta.amount0();
         int128 tokenOwed = callerDelta.amount1();
 
-        // Settle ETH (native currency) — send ETH to Vault
         if (ethOwed < 0) {
             uint256 ethToSettle = uint256(uint128(-ethOwed));
-            require(ethToSettle <= LISTING_ETH_AMOUNT, "ETH budget exceeded");
+            require(ethToSettle <= LISTING_ETH_BUDGET, "ETH budget exceeded");
             vault.settle{value: ethToSettle}();
         }
 
-        // Settle Token — transfer tokens to Vault then call settle
         if (tokenOwed < 0) {
             uint256 tokenToSettle = uint256(uint128(-tokenOwed));
             require(tokenToSettle <= LISTING_TOKEN_AMOUNT, "Token budget exceeded");
@@ -440,15 +454,12 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
             vault.settle();
         }
 
-        // Take back any excess (should be minimal)
         if (ethOwed > 0) {
             vault.take(poolKey.currency0, address(this), uint256(uint128(ethOwed)));
         }
         if (tokenOwed > 0) {
             vault.take(poolKey.currency1, address(this), uint256(uint128(tokenOwed)));
         }
-
-        return "";
     }
 
     /********************************** erc20 function ********************************/
