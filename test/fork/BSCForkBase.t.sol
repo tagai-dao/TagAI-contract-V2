@@ -387,7 +387,7 @@ abstract contract BSCForkBase is Test {
         console2.log("  sqrtPriceX96:", sqrtPrice);
         console2.log("  vault token (actual, wei):", vaultTokenBal);
         console2.log("  vault token (actual, tokens):", vaultTokenBal / 1e18);
-        console2.log("  token contract dust:", contractDust / 1e18);
+        console2.log("  token contract dust:", contractDust);
         console2.log("  active LP BNB est (wei):", bnbAmt);
         console2.log("  active LP BNB est (ether):", bnbAmt / 1e18);
         console2.log("  active LP token est (tokens):", tokenAmt / 1e18);

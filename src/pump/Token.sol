@@ -79,7 +79,6 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     int24 private constant LISTING_TICK_UPPER = 191940;
     // 离线标定（ListingParamsCalc.test_computeTokenFirstListingConstants）：200M token-first 单次 add
     uint128 private constant LISTING_LIQUIDITY_DELTA = 69094226120069552406389;
-    uint256 private constant MAX_LISTING_TOKEN_DUST = 1 ether;
 
     receive() external payable nonReentrant {
         if (listed) revert TokenListed();
@@ -415,8 +414,6 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         (PoolKey memory poolKey, int24 tickLower, int24 tickUpper) = abi.decode(data, (PoolKey, int24, int24));
 
         _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
-
-        require(balanceOf(address(this)) <= MAX_LISTING_TOKEN_DUST, "listing token dust too large");
 
         return "";
     }
