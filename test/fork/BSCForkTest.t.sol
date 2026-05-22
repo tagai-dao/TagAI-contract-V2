@@ -60,19 +60,27 @@ contract BSCForkTest is BSCForkBase {
         assertTrue(tokensReceived > 0, "buy swap should deliver tokens");
         assertTrue(FEE_RECEIVER.balance > feeReceiverBalBefore, "platform fee collected on buy");
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        if (tokensReceived >= MIN_INJECT_AMOUNT) {
-            assertTrue(uint256(remainingAfter) < uint256(remainingBefore), "inject when above threshold");
+        uint32 ratioPpm = hook.getCurrentHourRatioPpm(tokenAddr);
+        assertEq(ratioPpm, FIRST_HOUR_RATIO_PPM, "first-hour dynamic ratio");
 
-            uint256 expectedInject = (tokensReceived * 20) / 10_000;
-            if (expectedInject > NUTBOX_ALLOCATION) expectedInject = NUTBOX_ALLOCATION;
+        uint256 expectedInject = _capInjectAmount(
+            _expectedInjectAmount(tokensReceived, ratioPpm),
+            uint256(remainingBefore)
+        );
+
+        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
+        if (expectedInject > 0) {
             assertEq(
                 uint256(remainingBefore) - uint256(remainingAfter),
                 expectedInject,
-                "inject equals 0.2% of bought tokens"
+                "inject matches dynamic ratio"
+            );
+            assertTrue(
+                calculator.totalInjected(token.nutboxCommunity()) > 0,
+                "calculator received inject"
             );
         } else {
-            assertEq(uint256(remainingAfter), uint256(remainingBefore), "no inject below threshold");
+            assertEq(uint256(remainingAfter), uint256(remainingBefore), "no inject below 16.8 output");
         }
     }
 

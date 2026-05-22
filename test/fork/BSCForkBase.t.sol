@@ -18,6 +18,7 @@ import {IHooks} from "infinity-core/src/interfaces/IHooks.sol";
 import {IPoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "infinity-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "infinity-core/src/types/PoolId.sol";
+import {BalanceDelta, toBalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
 import {Currency, CurrencyLibrary} from "infinity-core/src/types/Currency.sol";
 import {CLPoolParametersHelper} from "infinity-core/src/pool-cl/libraries/CLPoolParametersHelper.sol";
 import {TickMath} from "infinity-core/src/pool-cl/libraries/TickMath.sol";
@@ -42,7 +43,10 @@ abstract contract BSCForkBase is Test {
 
     uint256 internal constant NUTBOX_ALLOCATION = 150_000_000 ether;
     uint256 internal constant BONDING_CURVE_TOTAL = 650_000_000 ether;
-    uint256 internal constant MIN_INJECT_AMOUNT = 8400 ether;
+    uint256 internal constant RATIO_SCALE = 1e9;
+    uint32 internal constant FIRST_HOUR_RATIO_PPM = 1_000_000; // 0.1%
+    uint32 internal constant TIER_LOW_VOLUME_RATIO_PPM = 20_833_333; // < 400k prior-hour volume
+    uint256 internal constant MIN_INJECT_OUTPUT = 168 ether / 10; // 16.8 whole tokens
     uint256 internal constant LISTING_ETH_AMOUNT = 19 ether;
     uint256 internal constant EXTERNAL_SELLABLE = BONDING_CURVE_TOTAL + NUTBOX_ALLOCATION;
 
@@ -391,6 +395,43 @@ abstract contract BSCForkBase is Test {
         console2.log("  active LP BNB est (wei):", bnbAmt);
         console2.log("  active LP BNB est (ether):", bnbAmt / 1e18);
         console2.log("  active LP token est (tokens):", tokenAmt / 1e18);
+    }
+
+    /// @dev Expected inject from a buy; returns 0 when output would be below MIN_INJECT_OUTPUT.
+    function _expectedInjectAmount(uint256 tokensBought, uint32 ratioPpm) internal pure returns (uint256) {
+        uint256 amount = (tokensBought * ratioPpm) / RATIO_SCALE;
+        if (amount < MIN_INJECT_OUTPUT) return 0;
+        return amount;
+    }
+
+    function _capInjectAmount(uint256 injectAmount, uint256 remaining) internal pure returns (uint256) {
+        return injectAmount > remaining ? remaining : injectAmount;
+    }
+
+    function _readHourlyState(address tokenAddr)
+        internal
+        view
+        returns (uint32 hourIndex, uint32 ratioPpm, uint256 currentHourBuy, uint256 lastNonZeroHourBuy)
+    {
+        (hourIndex, ratioPpm, currentHourBuy, lastNonZeroHourBuy) = hook.hourlyState(tokenAddr);
+    }
+
+    function _warpToNextHour() internal returns (uint32 nextHour) {
+        uint32 current = uint32(block.timestamp / 3600);
+        nextHour = current + 1;
+        vm.warp(uint256(nextHour) * 3600 + 60);
+    }
+
+    /// @dev Drive hook afterSwap inject path with a controlled token delta (PCS buy uses positive amount1).
+    function _simulateHookBuy(PoolKey memory poolKey, uint256 boughtAmount) internal {
+        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: -1 ether,
+            sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
+        });
+        BalanceDelta delta = toBalanceDelta(0, int128(int256(boughtAmount)));
+        vm.prank(CL_POOL_MANAGER);
+        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
     }
 
     function _buildPoolKey(address tokenAddr) internal view returns (PoolKey memory) {

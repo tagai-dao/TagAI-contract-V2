@@ -24,7 +24,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @title HookProperty
  * @notice Property-based tests for TagAISwapHook (P4, P6, P7).
  * P4 - Allocation Cap: cumulative inject + remaining == NUTBOX_ALLOCATION
- * P6 - Injection Condition: inject only when buy + remaining > 0 + boughtAmount >= MIN
+ * P6 - Injection Condition: inject only when buy + remaining > 0 + inject output >= MIN
  * P7 - Asset Custody: Hook token balance only decreases via inject path
  */
 contract HookPropertyTest is Test {
@@ -47,9 +47,9 @@ contract HookPropertyTest is Test {
     address public claimSigner;
 
     uint256 constant NUTBOX_ALLOCATION = 150_000_000 ether;
-    uint256 constant MIN_INJECT_AMOUNT = 8400 ether;
-    uint256 constant INJECT_RATIO_BPS = 20;
-    uint256 constant DIVISOR = 10000;
+    uint256 constant RATIO_SCALE = 1e9;
+    uint32 constant FIRST_HOUR_RATIO_PPM = 1_000_000;
+    uint256 constant MIN_INJECT_OUTPUT = 168 ether / 10;
 
     function setUp() public {
         creator = makeAddr("creator");
@@ -199,9 +199,9 @@ contract HookPropertyTest is Test {
         uint256 amount2,
         uint256 amount3
     ) public {
-        amount1 = bound(amount1, MIN_INJECT_AMOUNT, 50_000_000_000 ether);
-        amount2 = bound(amount2, MIN_INJECT_AMOUNT, 50_000_000_000 ether);
-        amount3 = bound(amount3, MIN_INJECT_AMOUNT, 50_000_000_000 ether);
+        amount1 = bound(amount1, _minBuyForInject(FIRST_HOUR_RATIO_PPM), 50_000_000_000 ether);
+        amount2 = bound(amount2, _minBuyForInject(FIRST_HOUR_RATIO_PPM), 50_000_000_000 ether);
+        amount3 = bound(amount3, _minBuyForInject(FIRST_HOUR_RATIO_PPM), 50_000_000_000 ether);
 
         _simulateBuy(amount1);
         _simulateBuy(amount2);
@@ -217,11 +217,12 @@ contract HookPropertyTest is Test {
     // ═══════════════════════════════════════════════════════════════════
 
     /// Feature: tagai-v2-nutbox-integration, Property 6: Injection Condition
-    /// inject occurs IFF (buy AND remaining > 0 AND boughtAmount >= MIN_INJECT_AMOUNT)
+    /// inject occurs IFF (buy AND remaining > 0 AND inject output >= MIN_INJECT_OUTPUT)
     function testFuzz_P6_injectionCondition(uint256 boughtAmount, bool isBuy) public {
         boughtAmount = bound(boughtAmount, 1, 1_000_000_000 ether);
 
         (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
+        uint32 ratioPpm = hook.getCurrentHourRatioPpm(address(token));
 
         if (isBuy) {
             _simulateBuy(boughtAmount);
@@ -231,8 +232,9 @@ contract HookPropertyTest is Test {
 
         (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
 
+        uint256 injectOutput = (boughtAmount * ratioPpm) / RATIO_SCALE;
         bool shouldHaveInjected =
-            isBuy && remainingBefore > 0 && boughtAmount >= MIN_INJECT_AMOUNT;
+            isBuy && remainingBefore > 0 && injectOutput >= MIN_INJECT_OUTPUT;
 
         if (shouldHaveInjected) {
             assertLt(uint256(remainingAfter), uint256(remainingBefore));
@@ -252,15 +254,21 @@ contract HookPropertyTest is Test {
         assertEq(uint256(remainingAfter), uint256(remainingBefore));
     }
 
-    /// Below-minimum buys never inject
-    function testFuzz_P6_belowMinBuyDoesNotInject(uint256 boughtAmount) public {
-        boughtAmount = bound(boughtAmount, 1, MIN_INJECT_AMOUNT - 1);
+    /// Below-minimum inject output never injects
+    function testFuzz_P6_belowMinOutputDoesNotInject(uint256 boughtAmount) public {
+        uint256 maxBuy = _minBuyForInject(FIRST_HOUR_RATIO_PPM);
+        if (maxBuy <= 1) return;
+        boughtAmount = bound(boughtAmount, 1, maxBuy - 1);
 
         (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
         _simulateBuy(boughtAmount);
         (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
 
         assertEq(uint256(remainingAfter), uint256(remainingBefore));
+    }
+
+    function _minBuyForInject(uint32 ratioPpm) internal pure returns (uint256) {
+        return (MIN_INJECT_OUTPUT * RATIO_SCALE + ratioPpm - 1) / ratioPpm;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -270,7 +278,7 @@ contract HookPropertyTest is Test {
     /// Feature: tagai-v2-nutbox-integration, Property 7: Hook Asset Custody
     /// Hook token balance should only decrease via inject path
     function testFuzz_P7_balanceOnlyDecreasesViaInject(uint256 boughtAmount) public {
-        boughtAmount = bound(boughtAmount, MIN_INJECT_AMOUNT, 1_000_000_000 ether);
+        boughtAmount = bound(boughtAmount, _minBuyForInject(FIRST_HOUR_RATIO_PPM), 1_000_000_000 ether);
 
         uint256 hookBalBefore = IERC20(address(token)).balanceOf(address(hook));
         (, uint96 remainingBefore,) = hook.tokenInfo(address(token));

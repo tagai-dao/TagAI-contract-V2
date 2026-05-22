@@ -279,14 +279,13 @@ contract HookSecurityTest is Test {
             amountSpecified: -1 ether,
             sqrtPriceLimitX96: 0
         });
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
+        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(20_000 ether)));
 
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
         uint256 hookTokenBalanceAfter = IERC20(address(token)).balanceOf(address(hook));
-        // Balance should have decreased by exactly the inject amount (20 ether = 0.2% of 10_000)
-        uint256 expectedInject = 10_000 ether * 20 / 10000; // 20 ether
+        uint256 expectedInject = 20_000 ether * 1_000_000 / 1e9;
         assertEq(hookTokenBalanceBefore - hookTokenBalanceAfter, expectedInject);
     }
 

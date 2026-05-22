@@ -73,7 +73,7 @@ V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each commun
 
 | Source | When | Amount |
 |--------|------|--------|
-| **TagAISwapHook** | DEX buy (ETH → token), buy size ≥ 8,400 tokens | **0.2%** of tokens bought, capped by remaining 150M Nutbox allocation held by Hook |
+| **TagAISwapHook** | DEX buy (ETH → token) on PCS V4 | **Tiered %** of tokens bought (see [Dynamic Nutbox injection](#dynamic-nutbox-injection-tagaiswaphook)); per-swap output must be ≥ **16.8** whole tokens; also capped by **420M tokens/hour** buy volume and remaining **150M** Nutbox allocation per community |
 | **Token (anti-snipe)** | Bonding-curve buy within 15s of creation | Sellsman fee ETH is used to buy tokens on-curve, then injected into the community |
 
 **Claiming**
@@ -98,7 +98,63 @@ V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each commun
 - **Hook bitmap**: Hook address lower 16 bits must satisfy PCS V4 requirements (`0x0CC1`); deployed via CREATE2 salt mining
 - **IPShare fee share**: Hook can route part of swap fees to a chosen IPShare subject (creator by default)
 - **IPShare subject transfer**: The token’s current fee subject (`ipshareSubject`, set to the creator at launch) may call `transferIPShareOwner(newSubject)` to redirect default bonding-curve sellsman fees and the Hook’s fallback fee recipient to another **registered IPShare** address. Emits `IPShareSubjectTransferred`. Does not transfer Nutbox Community admin rights.
-- **Nutbox injection**: On large DEX buys, Hook injects **0.2%** of purchased tokens into `HourlyTickCalculator`, where they vest over 7 days and feed SocialCuration / staking pools (see above)
+- **Nutbox injection**: On DEX buys, Hook injects a **volume-tiered** share of purchased tokens into `HourlyTickCalculator` (see [Dynamic Nutbox injection](#dynamic-nutbox-injection-tagaiswaphook))
+
+### Dynamic Nutbox injection (`TagAISwapHook`)
+
+On each **ETH → community token** swap through a V4 pool wired to `TagAISwapHook`, the hook may call `HourlyTickCalculator.inject` with a slice of the tokens the buyer received.
+
+**How the ratio is chosen**
+
+- Time is split into **UTC hours** (`block.timestamp / 3600`).
+- At the **start of each hour**, the hook caches one injection ratio for that token for the whole hour.
+- The ratio is derived from the **previous hour’s cumulative buy volume** for that token (sum of token output on buys in that hour).
+- If the **immediately prior calendar hour had no buys**, the hook uses the **last non-zero hour’s** cumulative buy volume instead.
+- If the token has **never had a non-zero hour** (first hour with activity), the ratio is fixed at **0.1%** (`FIRST_HOUR_RATIO_PPM`).
+
+**Per-swap rules**
+
+- Only the **injectable** portion of a buy counts: `injectAmount = injectableBuy × ratio / 10⁹`, where `injectableBuy` is the part of this swap that still fits under the hourly buy cap.
+- If `injectAmount` is below **16.8** whole tokens (`MIN_INJECT_OUTPUT`), the hook **skips** injection for that swap (no partial top-up).
+- Injection is still limited by the token’s **remaining 150M** social/Nutbox balance held by the hook (same as before).
+
+**Volume → ratio tiers**
+
+Reference volume *V* is the prior (or last non-zero) hour’s cumulative buy volume in **whole tokens** (18 decimals). Ratio applies to the **current** hour once cached.
+
+| Prior-hour buy volume *V* (tokens) | Injection ratio |
+|-----------------------------------|-----------------|
+| First hour ever (no prior non-zero hour) | **0.1%** |
+| *V* &lt; 400,000 | **2.0833333%** |
+| 400,000 ≤ *V* &lt; 800,000 | **1.0416667%** |
+| 800,000 ≤ *V* &lt; 1,250,000 | **0.8888889%** |
+| 1,250,000 ≤ *V* &lt; 2,000,000 | **0.5555556%** |
+| 2,000,000 ≤ *V* &lt; 3,500,000 | **0.3968254%** |
+| 3,500,000 ≤ *V* &lt; 4,200,000 | **0.9920635%** |
+| 4,200,000 ≤ *V* &lt; 8,500,000 | **0.4901961%** |
+| 8,500,000 ≤ *V* &lt; 12,500,000 | **0.3333333%** |
+| 12,500,000 ≤ *V* &lt; 20,000,000 | **0.2083333%** |
+| 20,000,000 ≤ *V* &lt; 33,300,000 | **0.1251251%** |
+| 33,300,000 ≤ *V* &lt; 42,000,000 | **0.1322751%** |
+| 42,000,000 ≤ *V* &lt; 80,000,000 | **0.0694444%** |
+| 80,000,000 ≤ *V* &lt; 125,000,000 | **0.0444444%** |
+| 125,000,000 ≤ *V* &lt; 200,000,000 | **0.0277778%** |
+| 200,000,000 ≤ *V* &lt; 350,000,000 | **0.0198413%** |
+| 350,000,000 ≤ *V* &lt; 420,000,000 | **0.0264555%** |
+| *V* ≥ 420,000,000 | **0.0264555%** |
+
+**Caps and limits**
+
+| Limit | Value | Behavior |
+|-------|--------|----------|
+| **Minimum inject output** | **16.8** tokens per swap | Swaps that would inject less are skipped entirely. |
+| **Hourly buy volume cap** | **420,000,000** tokens per token per hour | Cumulative buy volume in the current hour is tracked; once the cap is reached, **further buys in that hour do not inject**. The last slice that crosses the cap can still inject on the portion up to 420M. |
+| **Nutbox allocation** | **150M** tokens per community | Hook stops injecting when the community’s remaining social allocation is exhausted. |
+
+**Observability**
+
+- `HourlyRatioSet(token, hourIndex, ratioPpm, lookupVolume)` when a new hour’s ratio is cached.
+- `getCurrentHourRatioPpm(token)` — view the active hour’s cached ratio.
 
 ## Protocol Versions
 
@@ -139,14 +195,24 @@ Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
 
 | Contract | Address |
 |----------|---------|
-| Pump | [`0x7FcBa2063899AF1a9bABc856339eC472D95CAEA8`](https://bscscan.com/address/0x7fcba2063899af1a9babc856339ec472d95caea8) |
-| Token (implementation) | [`0x502C1E6ed4a5B4F3c7050492FB9556De8216974c`](https://bscscan.com/address/0x502c1e6ed4a5b4f3c7050492fb9556de8216974c) |
-| TagAISwapHook | [`0x458e5E6b319Dbf5574a6feB60dFE7A063F5C0Cc1`](https://bscscan.com/address/0x458e5e6b319dbf5574a6feb60dfe7a063f5c0cc1) |
+| Pump | [`0x32b7afeF0Dbf1739c4135784735AbFC2d3b8FA21`](https://bscscan.com/address/0x32b7afef0dbf1739c4135784735abfc2d3b8fa21) |
+| Token (implementation) | [`0xDfcD039554FC9DE3117a6A367944367F03C6b9Cb`](https://bscscan.com/address/0xdfcd039554fc9de3117a6a367944367f03c6b9cb) |
+| TagAISwapHook | [`0x5917E8bb289766FddE79314DcaE626a241950cC1`](https://bscscan.com/address/0x5917e8bb289766fdde79314dcae626a241950cc1) |
 | HourlyTickCalculator | [`0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d`](https://bscscan.com/address/0x6ccec02e7d371fed954d7d16ecb7f2f57cccf54d) |
 | DFXStarScoreStakingFactory | [`0x77Fb65140B746e639bB512c2C25604d1924aE774`](https://bscscan.com/address/0x77fb65140b746e639bb512c2c25604d1924ae774) |
 | IPShare (reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
 
 **Reused Nutbox / PCS infrastructure:** Committee, CommunityFactory, SocialCurationFactory, PCS V4 CLPoolManager, Vault (see `addresses.json`).
+
+**Superseded V9 deployment (tokens already launched stay on these contracts):**
+
+| Contract | Address |
+|----------|---------|
+| Pump (previous) | `0x7FcBa2063899AF1a9bABc856339eC472D95CAEA8` |
+| Token implementation (previous) | `0x502C1E6ed4a5B4F3c7050492FB9556De8216974c` |
+| TagAISwapHook (previous) | `0x458e5E6b319Dbf5574a6feB60dFE7A063F5C0Cc1` |
+
+Only **new** community tokens created via the current Pump receive tiered Nutbox injection and the refreshed hook logic.
 
 ## Ecosystem
 
