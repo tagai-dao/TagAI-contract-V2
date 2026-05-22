@@ -7,6 +7,9 @@ interface IToken {
     error TokenNotListed();
     error TokenListed();
     error IPShareNotCreated();
+    error OnlyIPShareOwner();
+    error IPShareAlreadySet();
+    error ZeroIPShareSubject();
     error TokenInitialized();
     error ClaimOrderExist();
     error InvalidClaimAmount();
@@ -35,6 +38,12 @@ interface IToken {
         address indexed community,
         uint256 ethUsed,
         uint256 tokensPurchased
+    );
+
+    /// @notice Emitted when the community token fee subject (IPShare owner) is transferred.
+    event IPShareSubjectTransferred(
+        address indexed previousSubject,
+        address indexed newSubject
     );
 
     // ─── View Functions ──────────────────────────────────────────────────────────

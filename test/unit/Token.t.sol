@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
+import "../../src/interfaces/IToken.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
 import "../../src/pump/IPShare.sol";
@@ -244,6 +245,77 @@ contract TokenTest is Test {
 
     function test_ipshareSubject_isCreator() public {
         assertEq(token.ipshareSubject(), creator);
+    }
+
+    function test_transferIPShareOwner_success() public {
+        address newSubject = makeAddr("newSubject");
+        vm.deal(newSubject, 1 ether);
+
+        uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
+        vm.prank(newSubject, newSubject);
+        ipshare.createShare{value: ipsharePrice}(newSubject);
+
+        vm.prank(creator, creator);
+        vm.expectEmit(true, true, false, true);
+        emit IToken.IPShareSubjectTransferred(creator, newSubject);
+        token.transferIPShareOwner(newSubject);
+
+        assertEq(token.ipshareSubject(), newSubject);
+        assertEq(token.getIPShare(), newSubject);
+    }
+
+    function test_transferIPShareOwner_onlyCurrentSubject() public {
+        address newSubject = makeAddr("newSubject2");
+        vm.deal(newSubject, 1 ether);
+
+        uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
+        vm.prank(newSubject, newSubject);
+        ipshare.createShare{value: ipsharePrice}(newSubject);
+
+        vm.prank(buyer, buyer);
+        vm.expectRevert(IToken.OnlyIPShareOwner.selector);
+        token.transferIPShareOwner(newSubject);
+    }
+
+    function test_transferIPShareOwner_revertsZeroAddress() public {
+        vm.prank(creator, creator);
+        vm.expectRevert(IToken.ZeroIPShareSubject.selector);
+        token.transferIPShareOwner(address(0));
+    }
+
+    function test_transferIPShareOwner_revertsSameSubject() public {
+        vm.prank(creator, creator);
+        vm.expectRevert(IToken.IPShareAlreadySet.selector);
+        token.transferIPShareOwner(creator);
+    }
+
+    function test_transferIPShareOwner_revertsIfIPShareNotCreated() public {
+        address noShare = makeAddr("noShare");
+
+        vm.prank(creator, creator);
+        vm.expectRevert(IToken.IPShareNotCreated.selector);
+        token.transferIPShareOwner(noShare);
+    }
+
+    function test_transferIPShareOwner_canTransferTwice() public {
+        address subjectA = makeAddr("subjectA");
+        address subjectB = makeAddr("subjectB");
+        vm.deal(subjectA, 1 ether);
+        vm.deal(subjectB, 1 ether);
+
+        uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
+        vm.prank(subjectA, subjectA);
+        ipshare.createShare{value: ipsharePrice}(subjectA);
+        vm.prank(subjectB, subjectB);
+        ipshare.createShare{value: ipsharePrice}(subjectB);
+
+        vm.prank(creator, creator);
+        token.transferIPShareOwner(subjectA);
+
+        vm.prank(subjectA, subjectA);
+        token.transferIPShareOwner(subjectB);
+
+        assertEq(token.ipshareSubject(), subjectB);
     }
 
     function test_NUTBOX_ALLOCATION_isFifteenPercent() public {

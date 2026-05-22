@@ -112,6 +112,19 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         return ipshareSubject;
     }
 
+    /// @notice Transfer default sellsman / IPShare fee recipient to another registered IPShare subject.
+    /// @dev Callable only by current `ipshareSubject`. Updates bonding-curve defaults and Hook fallback via `getIPShare()`.
+    function transferIPShareOwner(address newIPShareSubject) external {
+        if (msg.sender != ipshareSubject) revert OnlyIPShareOwner();
+        if (newIPShareSubject == address(0)) revert ZeroIPShareSubject();
+        if (newIPShareSubject == ipshareSubject) revert IPShareAlreadySet();
+        if (!IIPShare(IPump(manager).getIPShare()).ipshareCreated(newIPShareSubject)) revert IPShareNotCreated();
+
+        address previousSubject = ipshareSubject;
+        ipshareSubject = newIPShareSubject;
+        emit IPShareSubjectTransferred(previousSubject, newIPShareSubject);
+    }
+
     function initialize(address manager_, address ipshareSubject_, string memory tick) public {
         if (initialized) {
             revert TokenInitialized();

@@ -39,13 +39,49 @@ User creates community token
 | **Token** | Per-community ERC20: curve trading → listing → V4 liquidity |
 | **IPShare** | Creator shares: buy/sell/stake with value capture (V2 reuses the live v1 deployment) |
 | **TagAISwapHook** | PCS V4 hook: before/after swap callbacks, platform fee, IPShare share, Nutbox injection |
-| **HourlyTickCalculator** | Nutbox reward calculator; distributes community tokens on hourly ticks |
+| **HourlyTickCalculator** | Nutbox reward calculator: hourly buckets + 168h linear vesting per injection |
 | **SocialCurationFactory** | Social curation reward pool (Nutbox dApp) |
 | **DFXStarScoreStakingFactory** | Score-staking reward pool (Nutbox dApp, e.g. DFXStar Score) |
 
 ### Nutbox Stack
 
 Nutbox handles **Community creation, multi-pool reward ratios, Committee governance, and contract whitelisting**. When Pump creates a token, it also creates a Community and mounts a default SocialCuration pool. The Community admin can later add pools such as DFXStar Score Staking and adjust reward splits.
+
+### Hourly reward distribution (`HourlyTickCalculator`)
+
+V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each community. It turns injected community tokens into a **hourly, linearly vesting** reward stream that SocialCuration / DFXStar Score Staking pools can claim against.
+
+**Time buckets**
+
+- Rewards are indexed by **hour** (`timestamp / 3600`), not block-by-block.
+- The active “reward head” is the start of the current hour (`rewardHead()`).
+
+**7-day linear vesting per injection**
+
+- Each `inject(community, amount)` starts a new vesting tranche.
+- Tranche length: **168 hours (7 days)**.
+- Within the window, tokens unlock **linearly at a constant hourly rate**: `amount / 168` per hour.
+- After 168 hours, that tranche is fully vested and counted toward cumulative rewards.
+
+**Injection rules**
+
+- Tokens are transferred from the caller to the **Community** contract on inject.
+- Multiple injects in the **same hour** are **merged** into one bucket (same `startHour`).
+- Only communities registered via `setDistributionEra()` (at Community creation) accept injects.
+
+**Where tokens come from**
+
+| Source | When | Amount |
+|--------|------|--------|
+| **TagAISwapHook** | DEX buy (ETH → token), buy size ≥ 8,400 tokens | **0.2%** of tokens bought, capped by remaining 150M Nutbox allocation held by Hook |
+| **Token (anti-snipe)** | Bonding-curve buy within 15s of creation | Sellsman fee ETH is used to buy tokens on-curve, then injected into the community |
+
+**Claiming**
+
+- Nutbox pools call `calculateReward(community, lastCursor, head)` to get newly vested tokens between two hour-aligned cursors.
+- The calculator uses a cumulative function `F(t)` with prefix sums and binary search — **O(log N)** per query, **O(1)** per inject.
+
+**Example:** Inject 168,000 tokens at hour *H* → ~1,000 tokens become claimable each hour from *H* through *H+167*, then the tranche is fully distributed.
 
 ### Token Supply (1B per community)
 
@@ -61,7 +97,8 @@ Nutbox handles **Community creation, multi-pool reward ratios, Committee governa
 - **Listing**: Once enough ETH accumulates on the curve, the Token initializes a V4 pool with bounded-range liquidity
 - **Hook bitmap**: Hook address lower 16 bits must satisfy PCS V4 requirements (`0x0CC1`); deployed via CREATE2 salt mining
 - **IPShare fee share**: Hook can route part of swap fees to a chosen IPShare subject (creator by default)
-- **Nutbox injection**: On large buys, Hook injects a small fraction (0.2%) of purchased tokens into Nutbox’s distributable balance
+- **IPShare subject transfer**: The token’s current fee subject (`ipshareSubject`, set to the creator at launch) may call `transferIPShareOwner(newSubject)` to redirect default bonding-curve sellsman fees and the Hook’s fallback fee recipient to another **registered IPShare** address. Emits `IPShareSubjectTransferred`. Does not transfer Nutbox Community admin rights.
+- **Nutbox injection**: On large DEX buys, Hook injects **0.2%** of purchased tokens into `HourlyTickCalculator`, where they vest over 7 days and feed SocialCuration / staking pools (see above)
 
 ## Protocol Versions
 
@@ -102,12 +139,12 @@ Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
 
 | Contract | Address |
 |----------|---------|
-| Pump | [`0xDb32C901409673D2543dc5C971EC44B2dE905B31`](https://bscscan.com/address/0xdb32c901409673d2543dc5c971ec44b2de905b31) |
-| Token (implementation) | [`0x91E43C37D4fAC9811961F692C3d988A3783491ac`](https://bscscan.com/address/0x91e43c37d4fac9811961f692c3d988a3783491ac) |
-| TagAISwapHook | [`0x23Daa598211F15CC8Cc301382BA440C318240CC1`](https://bscscan.com/address/0x23daa598211f15cc8cc301382ba440c318240cc1) |
+| Pump | [`0xA7642DD2869f8471399Fe134D0C16111b5Ed0629`](https://bscscan.com/address/0xa7642dd2869f8471399fe134d0c16111b5ed0629) |
+| Token (implementation) | [`0x0f28844F768909563aa5fd91D94533BBaD9A1a63`](https://bscscan.com/address/0x0f28844f768909563aa5fd91d94533bbad9a1a63) |
+| TagAISwapHook | [`0x24E50080bb20016D1626AA6978d426C8A8880cC1`](https://bscscan.com/address/0x24e50080bb20016d1626aa6978d426c8a8880cc1) |
 | HourlyTickCalculator | [`0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d`](https://bscscan.com/address/0x6ccec02e7d371fed954d7d16ecb7f2f57cccf54d) |
 | DFXStarScoreStakingFactory | [`0x77Fb65140B746e639bB512c2C25604d1924aE774`](https://bscscan.com/address/0x77fb65140b746e639bb512c2c25604d1924ae774) |
-| IPShare (v1, reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
+| IPShare (reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
 
 **Reused Nutbox / PCS infrastructure:** Committee, CommunityFactory, SocialCurationFactory, PCS V4 CLPoolManager, Vault (see `addresses.json`).
 
