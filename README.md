@@ -139,9 +139,9 @@ Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
 
 | Contract | Address |
 |----------|---------|
-| Pump | [`0xA7642DD2869f8471399Fe134D0C16111b5Ed0629`](https://bscscan.com/address/0xa7642dd2869f8471399fe134d0c16111b5ed0629) |
-| Token (implementation) | [`0x0f28844F768909563aa5fd91D94533BBaD9A1a63`](https://bscscan.com/address/0x0f28844f768909563aa5fd91d94533bbad9a1a63) |
-| TagAISwapHook | [`0x24E50080bb20016D1626AA6978d426C8A8880cC1`](https://bscscan.com/address/0x24e50080bb20016d1626aa6978d426c8a8880cc1) |
+| Pump | [`0x7FcBa2063899AF1a9bABc856339eC472D95CAEA8`](https://bscscan.com/address/0x7fcba2063899af1a9babc856339ec472d95caea8) |
+| Token (implementation) | [`0x502C1E6ed4a5B4F3c7050492FB9556De8216974c`](https://bscscan.com/address/0x502c1e6ed4a5b4f3c7050492fb9556de8216974c) |
+| TagAISwapHook | [`0x458e5E6b319Dbf5574a6feB60dFE7A063F5C0Cc1`](https://bscscan.com/address/0x458e5e6b319dbf5574a6feb60dfe7a063f5c0cc1) |
 | HourlyTickCalculator | [`0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d`](https://bscscan.com/address/0x6ccec02e7d371fed954d7d16ecb7f2f57cccf54d) |
 | DFXStarScoreStakingFactory | [`0x77Fb65140B746e639bB512c2C25604d1924aE774`](https://bscscan.com/address/0x77fb65140b746e639bb512c2c25604d1924ae774) |
 | IPShare (reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
