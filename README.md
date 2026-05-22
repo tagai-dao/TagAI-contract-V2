@@ -73,8 +73,8 @@ V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each commun
 
 | Source | When | Amount |
 |--------|------|--------|
-| **TagAISwapHook** | DEX buy (ETH → token) on PCS V4 | **Tiered %** of tokens bought (see [Dynamic Nutbox injection](#dynamic-nutbox-injection-tagaiswaphook)); per-swap output must be ≥ **16.8** whole tokens; also capped by **420M tokens/hour** buy volume and remaining **150M** Nutbox allocation per community |
-| **Token (anti-snipe)** | Bonding-curve buy within 15s of creation | Sellsman fee ETH is used to buy tokens on-curve, then injected into the community |
+| **TagAISwapHook** | DEX buy (BNB → token) on PCS V4 | **Tiered %** of tokens bought (see [Dynamic Nutbox injection](#dynamic-nutbox-injection-tagaiswaphook)); per-swap output must be ≥ **16.8** whole tokens; also capped by **420M tokens/hour** buy volume and remaining **150M** Nutbox allocation per community |
+| **Token (anti-snipe)** | Bonding-curve buy within 15s of creation | Sellsman fee BNB is used to buy tokens on-curve, then injected into the community |
 
 **Claiming**
 
@@ -94,7 +94,7 @@ V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each commun
 ### Key Mechanisms (summary)
 
 - **Anti-snipe**: Elevated sell fees right after creation that decay quickly, discouraging sniping
-- **Listing**: Once enough ETH accumulates on the curve, the Token initializes a V4 pool with bounded-range liquidity
+- **Listing**: Once enough BNB accumulates on the curve, the Token initializes a V4 pool with bounded-range liquidity
 - **Hook bitmap**: Hook address lower 16 bits must satisfy PCS V4 requirements (`0x0CC1`); deployed via CREATE2 salt mining
 - **IPShare fee share**: Hook can route part of swap fees to a chosen IPShare subject (creator by default)
 - **IPShare subject transfer**: The token’s current fee subject (`ipshareSubject`, set to the creator at launch) may call `transferIPShareOwner(newSubject)` to redirect default bonding-curve sellsman fees and the Hook’s fallback fee recipient to another **registered IPShare** address. Emits `IPShareSubjectTransferred`. Does not transfer Nutbox Community admin rights.
@@ -102,7 +102,7 @@ V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each commun
 
 ### Dynamic Nutbox injection (`TagAISwapHook`)
 
-On each **ETH → community token** swap through a V4 pool wired to `TagAISwapHook`, the hook may call `HourlyTickCalculator.inject` with a slice of the tokens the buyer received.
+On each **BNB → community token** swap through a V4 pool wired to `TagAISwapHook`, the hook may call `HourlyTickCalculator.inject` with a slice of the tokens the buyer received.
 
 **How the ratio is chosen**
 
