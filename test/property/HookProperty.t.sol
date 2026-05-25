@@ -49,8 +49,8 @@ contract HookPropertyTest is Test {
     uint256 constant NUTBOX_ALLOCATION = 150_000_000 ether;
     uint256 constant RATIO_SCALE = 1e9;
     uint256 constant PERIOD_LENGTH = 600;
-    uint256 constant MAX_PERIOD_BUY_VOLUME = 210_000_000 ether;
-    uint256 constant TIER0_RATIO_PPM = 20_833_333;
+    uint256 constant MAX_PERIOD_BUY_VOLUME = 420_000_000 ether;
+    uint256 constant TIER0_RATIO_PPM = 106_069_772;
     uint256 constant MIN_INJECT_OUTPUT = 168 ether / 10;
 
     function setUp() public {

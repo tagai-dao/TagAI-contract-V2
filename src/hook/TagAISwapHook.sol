@@ -26,7 +26,7 @@ import "../interfaces/IHourlyTickCalculator.sol";
 /// Fees are always collected from the ETH side for immediate distribution.
 /// On buy swaps, bought token volume is accumulated per 10-minute period (no per-swap inject).
 /// On the first buy of the next period, the previous period is settled once into HourlyTickCalculator.
-/// Settlement ratio uses periodVolume × 6 against the legacy hourly tier table (T0–T15).
+/// Settlement ratio uses 10-minute periodVolume directly against the extract-ratio tier table (T0–T12).
 contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     using PoolIdLibrary for PoolKey;
     using SafeCast for uint256;
@@ -61,27 +61,20 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     /// @dev 10-minute period length in seconds.
     uint256 private constant PERIOD_LENGTH = 600;
     /// @dev Per-period cumulative buy volume cap (210M tokens per 10-minute window).
-    uint256 private constant MAX_PERIOD_BUY_VOLUME = 210_000_000 ether;
-    /// @dev Scale 10-minute volume to legacy hourly tier lookup (periodVolume × 6).
-    uint256 private constant LOOKUP_SCALE = 6;
-
-    // Volume upper bounds (whole-token units, 18 decimals) and matching injection ratios (percent).
-    uint256 private constant T0 = 400_000 ether;
-    uint256 private constant T1 = 800_000 ether;
-    uint256 private constant T2 = 1_250_000 ether;
-    uint256 private constant T3 = 2_000_000 ether;
-    uint256 private constant T4 = 3_500_000 ether;
-    uint256 private constant T5 = 4_200_000 ether;
-    uint256 private constant T6 = 8_500_000 ether;
-    uint256 private constant T7 = 12_500_000 ether;
-    uint256 private constant T8 = 20_000_000 ether;
-    uint256 private constant T9 = 33_300_000 ether;
-    uint256 private constant T10 = 42_000_000 ether;
-    uint256 private constant T11 = 80_000_000 ether;
-    uint256 private constant T12 = 125_000_000 ether;
-    uint256 private constant T13 = 200_000_000 ether;
-    uint256 private constant T14 = 350_000_000 ether;
-    uint256 private constant T15 = 420_000_000 ether;
+    uint256 private constant MAX_PERIOD_BUY_VOLUME = 420_000_000 ether;
+    // Volume upper bounds (whole-token units, 18 decimals) from extract-ratio-table.json (10-minute tiers).
+    uint256 private constant T0 = 26_700 ether;
+    uint256 private constant T1 = 93_200 ether;
+    uint256 private constant T2 = 236_000 ether;
+    uint256 private constant T3 = 548_000 ether;
+    uint256 private constant T4 = 1_250_000 ether;
+    uint256 private constant T5 = 3_320_000 ether;
+    uint256 private constant T6 = 7_360_000 ether;
+    uint256 private constant T7 = 14_500_000 ether;
+    uint256 private constant T8 = 23_400_000 ether;
+    uint256 private constant T9 = 41_400_000 ether;
+    uint256 private constant T10 = 84_000_000 ether;
+    uint256 private constant T11 = 355_000_000 ether;
 
     // ================================ Data Structures ================================
     /// @notice Packed struct for per-token Nutbox info.
@@ -297,26 +290,22 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
 
     // ================================ Internal: Period ratio ================================
 
-    /// @notice Resolve injection ratio (parts-per-million of RATIO_SCALE) from hourly-equivalent volume.
-    /// @dev Volume tiers use whole-token thresholds; ratios are fixed at deploy time.
+    /// @notice Resolve injection ratio (parts-per-million of RATIO_SCALE) from 10-minute period volume.
+    /// @dev Volume tiers and ratioPpm values from extract-ratio-table.json; fixed at deploy time.
     function _resolveRatioPpm(uint256 volume) internal pure returns (uint32) {
-        if (volume < T0) return 20_833_333;
-        if (volume < T1) return 10_416_667;
-        if (volume < T2) return 8_888_889;
-        if (volume < T3) return 5_555_556;
-        if (volume < T4) return 3_968_254;
-        if (volume < T5) return 9_920_635;
-        if (volume < T6) return 4_901_961;
-        if (volume < T7) return 3_333_333;
-        if (volume < T8) return 2_083_333;
-        if (volume < T9) return 1_251_251;
-        if (volume < T10) return 1_322_751;
-        if (volume < T11) return 694_444;
-        if (volume < T12) return 444_444;
-        if (volume < T13) return 277_778;
-        if (volume < T14) return 198_413;
-        if (volume < T15) return 264_555;
-        return 264_555;
+        if (volume < T0) return 106_069_772;
+        if (volume < T1) return 53_034_886;
+        if (volume < T2) return 31_517_443;
+        if (volume < T3) return 15_758_722;
+        if (volume < T4) return 7_079_361;
+        if (volume < T5) return 6_003_489;
+        if (volume < T6) return 4_727_617;
+        if (volume < T7) return 3_651_745;
+        if (volume < T8) return 3_000_000;
+        if (volume < T9) return 1_575_873;
+        if (volume < T10) return 787_936;
+        if (volume < T11) return 393_969;
+        return 196_984;
     }
 
     /// @dev PCS V4 buy deltas report token output as positive to the trader; unit tests may use negative.
@@ -344,13 +333,13 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         state.currentPeriodBuy += addAmount;
     }
 
-    /// @notice Settle one completed period: inject periodVolume × ratio(periodVolume × 6) once.
+    /// @notice Settle one completed period: inject periodVolume × ratio(periodVolume) once.
     function _settlePeriod(address token, uint256 periodVolume, uint32 settledPeriodIndex) internal {
         HookTokenInfo storage info = tokenInfo[token];
         if (info.remaining == 0) return;
 
-        uint256 lookupVolume = periodVolume * LOOKUP_SCALE;
-        uint32 ratioPpm = _resolveRatioPpm(lookupVolume);
+        uint256 lookupVolume = periodVolume;
+        uint32 ratioPpm = _resolveRatioPpm(periodVolume);
         uint256 injectAmount = (periodVolume * ratioPpm) / RATIO_SCALE;
 
         if (injectAmount < MIN_INJECT_OUTPUT) {
@@ -394,8 +383,8 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         pure
         returns (uint256 lookupVolume, uint32 ratioPpm, uint256 injectAmount)
     {
-        lookupVolume = periodVolume * LOOKUP_SCALE;
-        ratioPpm = _resolveRatioPpm(lookupVolume);
+        lookupVolume = periodVolume;
+        ratioPpm = _resolveRatioPpm(periodVolume);
         injectAmount = (periodVolume * ratioPpm) / RATIO_SCALE;
     }
 

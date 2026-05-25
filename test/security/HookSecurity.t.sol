@@ -294,7 +294,7 @@ contract HookSecurityTest is Test {
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
         uint256 hookTokenBalanceAfter = IERC20(address(token)).balanceOf(address(hook));
-        uint256 expectedInject = 20_000 ether * 20_833_333 / 1e9;
+        uint256 expectedInject = 20_000 ether * 106_069_772 / 1e9;
         assertEq(hookTokenBalanceBefore - hookTokenBalanceAfter, expectedInject);
     }
 

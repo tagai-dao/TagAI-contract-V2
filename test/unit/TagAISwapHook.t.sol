@@ -48,9 +48,10 @@ contract TagAISwapHookTest is Test {
     uint256 constant NUTBOX_ALLOCATION = 150_000_000 ether;
     uint256 constant RATIO_SCALE = 1e9;
     uint256 constant MIN_INJECT_OUTPUT = 168 ether / 10; // 16.8 tokens
-    uint256 constant MAX_PERIOD_BUY_VOLUME = 210_000_000 ether;
+    uint256 constant MAX_PERIOD_BUY_VOLUME = 420_000_000 ether;
     uint256 constant PERIOD_LENGTH = 600;
-    uint256 constant TIER0_RATIO_PPM = 20_833_333; // volume < 400K hourly equivalent
+    uint256 constant TIER0_RATIO_PPM = 106_069_772; // 10-min volume < 26.7k (T0)
+    uint256 constant TIER1_RATIO_PPM = 53_034_886; // 10-min volume < 93.2k (T1)
 
     function setUp() public {
         creator = makeAddr("creator");
@@ -201,9 +202,9 @@ contract TagAISwapHookTest is Test {
     }
 
     function _ratioForLookup(uint256 lookupVolume) internal pure returns (uint256) {
-        if (lookupVolume < 400_000 ether) return TIER0_RATIO_PPM;
-        if (lookupVolume < 800_000 ether) return 10_416_667;
-        return 8_888_889;
+        if (lookupVolume < 26_700 ether) return TIER0_RATIO_PPM;
+        if (lookupVolume < 93_200 ether) return TIER1_RATIO_PPM;
+        return 31_517_443;
     }
 
     // ─── Injection logic via afterSwap ───
@@ -229,8 +230,8 @@ contract TagAISwapHookTest is Test {
         assertEq(uint256(initialRemaining) - uint256(remainingAfterSettle), expected);
     }
 
-    function test_injection_settleUsesVolumeTimes6ForTier() public {
-        // 50K in period → lookup 300K (< 400K) → highest tier ~2.083%
+    function test_injection_settleUsesDirectPeriodVolumeForTier() public {
+        // 50K in period → T1 (< 93.2K) → ratio 5.3035%
         _simulateBuy(50_000 ether);
 
         (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
@@ -238,15 +239,15 @@ contract TagAISwapHookTest is Test {
         _simulateBuy(10_000 ether);
 
         (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
-        uint256 expected = 50_000 ether * TIER0_RATIO_PPM / RATIO_SCALE;
+        uint256 expected = 50_000 ether * TIER1_RATIO_PPM / RATIO_SCALE;
         assertEq(uint256(remainingBefore) - uint256(remainingAfter), expected);
     }
 
     function test_injection_settleSkipsWhenTotalInjectBelowMinimum() public {
         (, uint96 initialRemaining,) = hook.tokenInfo(address(token));
 
-        // 800 tokens × ~2.083% ≈ 16.67 < 16.8 minimum
-        _simulateBuy(800 ether);
+        // 50 tokens × ~10.6% ≈ 5.3 < 16.8 minimum
+        _simulateBuy(50 ether);
         _warpNextPeriod();
         _simulateBuy(1 ether);
 
@@ -273,12 +274,12 @@ contract TagAISwapHookTest is Test {
         assertEq(uint256(remainingAfter), uint256(initialRemaining), "Sell should not inject");
     }
 
-    function test_injection_periodBuyVolumeCapAt210M() public {
+    function test_injection_periodBuyVolumeCapAt420M() public {
         (, uint96 remainingStart,) = hook.tokenInfo(address(token));
 
-        _simulateBuy(209_000_000 ether);
+        _simulateBuy(419_000_000 ether);
         (, uint256 periodBuy) = hook.periodState(address(token));
-        assertEq(periodBuy, 209_000_000 ether);
+        assertEq(periodBuy, 419_000_000 ether);
 
         (, uint96 remainingMid,) = hook.tokenInfo(address(token));
         assertEq(uint256(remainingMid), uint256(remainingStart), "same period cap accumulation does not inject");
@@ -326,9 +327,9 @@ contract TagAISwapHookTest is Test {
 
     function test_previewPeriodSettle_matchesSettlement() public view {
         (uint256 lookup, uint32 ratio, uint256 injectAmount) = hook.previewPeriodSettle(50_000 ether);
-        assertEq(lookup, 300_000 ether);
-        assertEq(ratio, uint32(TIER0_RATIO_PPM));
-        assertEq(injectAmount, 50_000 ether * TIER0_RATIO_PPM / RATIO_SCALE);
+        assertEq(lookup, 50_000 ether);
+        assertEq(ratio, uint32(TIER1_RATIO_PPM));
+        assertEq(injectAmount, 50_000 ether * TIER1_RATIO_PPM / RATIO_SCALE);
     }
 
     function _simulateBuy(uint256 boughtAmount) internal {

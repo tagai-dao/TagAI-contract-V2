@@ -33,7 +33,7 @@ contract BSCForkNutboxInject is BSCForkBase {
         assertEq(periodBuy, tokensReceived, "period buy accumulator");
     }
 
-    /// @dev Next period first buy settles prior period using periodVolume × 6 tier lookup.
+    /// @dev Next period first buy settles prior period using direct 10-minute volume tier lookup.
     function test_fork_nutboxInject_nextPeriod_settlesPriorPeriod() public onlyBscFork {
         Token token = _createAndListToken("FORKINJ2");
         address tokenAddr = address(token);

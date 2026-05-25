@@ -100,7 +100,8 @@ contract DeployBSCPumpRefreshScript is Script {
 
         console.log("");
         console.log("=== Deploy Complete ===");
-        console.log("Old Pump (deprecated): 0x7FcBa2063899AF1a9bABc856339eC472D95CAEA8");
+        console.log("Old Pump (deprecated): 0x32b7afeF0Dbf1739c4135784735AbFC2d3b8FA21");
+        console.log("Old Hook (deprecated): 0x5917E8bb289766FddE79314DcaE626a241950cC1");
         console.log("New Pump:", address(pump));
         console.log("New TokenImplementation:", pump.tokenImplementation());
         console.log("New TagAISwapHook:", address(hook));
@@ -129,9 +130,9 @@ contract DeployBSCPumpRefreshScript is Script {
             '  "TokenImplementation": "', vm.toString(pump.tokenImplementation()), '",\n',
             '  "TagAISwapHook": "', vm.toString(address(hook)), '",\n',
             '  "HookSalt": "', vm.toString(uint256(hookSalt)), '",\n',
-            '  "previousPump": "0x7FcBa2063899AF1a9bABc856339eC472D95CAEA8",\n',
-            '  "previousHook": "0x458e5E6b319Dbf5574a6feB60dFE7A063F5C0Cc1",\n',
-            '  "previousTokenImplementation": "0x502C1E6ed4a5B4F3c7050492FB9556De8216974c"\n',
+            '  "previousPump": "0x32b7afeF0Dbf1739c4135784735AbFC2d3b8FA21",\n',
+            '  "previousHook": "0x5917E8bb289766FddE79314DcaE626a241950cC1",\n',
+            '  "previousTokenImplementation": "0xDfcD039554FC9DE3117a6A367944367F03C6b9Cb"\n',
             "}\n"
         );
 

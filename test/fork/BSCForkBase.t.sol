@@ -44,9 +44,8 @@ abstract contract BSCForkBase is Test {
     uint256 internal constant NUTBOX_ALLOCATION = 150_000_000 ether;
     uint256 internal constant BONDING_CURVE_TOTAL = 650_000_000 ether;
     uint256 internal constant RATIO_SCALE = 1e9;
-    uint32 internal constant TIER_LOW_VOLUME_RATIO_PPM = 20_833_333; // hourly-equiv volume < 400k
+    uint32 internal constant TIER_LOW_VOLUME_RATIO_PPM = 106_069_772; // 10-min volume < 26.7k (T0)
     uint256 internal constant PERIOD_LENGTH = 600;
-    uint256 internal constant LOOKUP_SCALE = 6;
     uint256 internal constant MIN_INJECT_OUTPUT = 168 ether / 10; // 16.8 whole tokens
     uint256 internal constant LISTING_ETH_AMOUNT = 19 ether;
     uint256 internal constant EXTERNAL_SELLABLE = BONDING_CURVE_TOTAL + NUTBOX_ALLOCATION;
