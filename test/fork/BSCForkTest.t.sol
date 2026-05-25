@@ -60,11 +60,26 @@ contract BSCForkTest is BSCForkBase {
         assertTrue(tokensReceived > 0, "buy swap should deliver tokens");
         assertTrue(FEE_RECEIVER.balance > feeReceiverBalBefore, "platform fee collected on buy");
 
-        uint32 ratioPpm = hook.getCurrentHourRatioPpm(tokenAddr);
-        assertEq(ratioPpm, FIRST_HOUR_RATIO_PPM, "first-hour dynamic ratio");
+        // Same 10-minute period: accumulate only, no inject yet.
+        (, uint96 remainingAfterFirstBuy,) = hook.tokenInfo(tokenAddr);
+        assertEq(uint256(remainingAfterFirstBuy), uint256(remainingBefore), "same period: no inject");
+
+        _warpToNextPeriod();
+        vm.deal(buyer2, 20 ether);
+        vm.prank(buyer2);
+        router.swap{value: 20 ether}(
+            poolKey,
+            ICLPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -int256(20 ether),
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
+            }),
+            CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
+            bytes("")
+        );
 
         uint256 expectedInject = _capInjectAmount(
-            _expectedInjectAmount(tokensReceived, ratioPpm),
+            _expectedPeriodSettleInject(tokensReceived),
             uint256(remainingBefore)
         );
 
@@ -73,7 +88,7 @@ contract BSCForkTest is BSCForkBase {
             assertEq(
                 uint256(remainingBefore) - uint256(remainingAfter),
                 expectedInject,
-                "inject matches dynamic ratio"
+                "period settlement inject"
             );
             assertTrue(
                 calculator.totalInjected(token.nutboxCommunity()) > 0,

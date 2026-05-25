@@ -44,8 +44,9 @@ abstract contract BSCForkBase is Test {
     uint256 internal constant NUTBOX_ALLOCATION = 150_000_000 ether;
     uint256 internal constant BONDING_CURVE_TOTAL = 650_000_000 ether;
     uint256 internal constant RATIO_SCALE = 1e9;
-    uint32 internal constant FIRST_HOUR_RATIO_PPM = 1_000_000; // 0.1%
-    uint32 internal constant TIER_LOW_VOLUME_RATIO_PPM = 20_833_333; // < 400k prior-hour volume
+    uint32 internal constant TIER_LOW_VOLUME_RATIO_PPM = 20_833_333; // hourly-equiv volume < 400k
+    uint256 internal constant PERIOD_LENGTH = 600;
+    uint256 internal constant LOOKUP_SCALE = 6;
     uint256 internal constant MIN_INJECT_OUTPUT = 168 ether / 10; // 16.8 whole tokens
     uint256 internal constant LISTING_ETH_AMOUNT = 19 ether;
     uint256 internal constant EXTERNAL_SELLABLE = BONDING_CURVE_TOTAL + NUTBOX_ALLOCATION;
@@ -397,7 +398,14 @@ abstract contract BSCForkBase is Test {
         console2.log("  active LP token est (tokens):", tokenAmt / 1e18);
     }
 
-    /// @dev Expected inject from a buy; returns 0 when output would be below MIN_INJECT_OUTPUT.
+    /// @dev Expected period settlement inject; returns 0 when output would be below MIN_INJECT_OUTPUT.
+    function _expectedPeriodSettleInject(uint256 periodVolume) internal view returns (uint256) {
+        (,, uint256 injectAmount) = hook.previewPeriodSettle(periodVolume);
+        if (injectAmount < MIN_INJECT_OUTPUT) return 0;
+        return injectAmount;
+    }
+
+    /// @dev Legacy helper kept for per-swap ratio math in older tests.
     function _expectedInjectAmount(uint256 tokensBought, uint32 ratioPpm) internal pure returns (uint256) {
         uint256 amount = (tokensBought * ratioPpm) / RATIO_SCALE;
         if (amount < MIN_INJECT_OUTPUT) return 0;
@@ -408,18 +416,16 @@ abstract contract BSCForkBase is Test {
         return injectAmount > remaining ? remaining : injectAmount;
     }
 
-    function _readHourlyState(address tokenAddr)
+    function _readPeriodState(address tokenAddr)
         internal
         view
-        returns (uint32 hourIndex, uint32 ratioPpm, uint256 currentHourBuy, uint256 lastNonZeroHourBuy)
+        returns (uint32 periodIndex, uint256 currentPeriodBuy)
     {
-        (hourIndex, ratioPpm, currentHourBuy, lastNonZeroHourBuy) = hook.hourlyState(tokenAddr);
+        (periodIndex, currentPeriodBuy) = hook.periodState(tokenAddr);
     }
 
-    function _warpToNextHour() internal returns (uint32 nextHour) {
-        uint32 current = uint32(block.timestamp / 3600);
-        nextHour = current + 1;
-        vm.warp(uint256(nextHour) * 3600 + 60);
+    function _warpToNextPeriod() internal {
+        vm.warp(block.timestamp + PERIOD_LENGTH);
     }
 
     /// @dev Drive hook afterSwap inject path with a controlled token delta (PCS buy uses positive amount1).

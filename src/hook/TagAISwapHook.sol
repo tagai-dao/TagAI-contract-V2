@@ -24,9 +24,9 @@ import "../interfaces/IHourlyTickCalculator.sol";
 ///   - feeRatio[0] → platform feeReceiver
 ///   - feeRatio[1] → IPShare.valueCapture() for user-specified subject (or token creator as fallback)
 /// Fees are always collected from the ETH side for immediate distribution.
-/// On buy swaps, a dynamic portion of bought tokens are injected into the HourlyTickCalculator.
-/// The injection ratio for the current hour is fixed on the first buy of that hour, derived from
-/// the last hour that had buy volume (or 0.1% on the token's first hour ever).
+/// On buy swaps, bought token volume is accumulated per 10-minute period (no per-swap inject).
+/// On the first buy of the next period, the previous period is settled once into HourlyTickCalculator.
+/// Settlement ratio uses periodVolume × 6 against the legacy hourly tier table (T0–T15).
 contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     using PoolIdLibrary for PoolKey;
     using SafeCast for uint256;
@@ -43,21 +43,27 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     event SwapFeeCollected(PoolId indexed poolId, address indexed token, uint256 platformFee, uint256 deployerFee);
     event NutboxInjected(address indexed token, address indexed community, uint256 injectAmount, uint96 remaining);
     event NutboxInjectionFailed(address indexed token, address indexed community, uint256 injectAmount, bytes reason);
-    event HourlyRatioSet(
+    event PeriodSettled(
         address indexed token,
-        uint32 indexed hourIndex,
+        uint32 indexed settledPeriodIndex,
+        uint256 periodVolume,
         uint256 lookupVolume,
-        uint32 ratioPpm
+        uint32 ratioPpm,
+        uint256 injectAmount
     );
 
     // ================================ Constants ================================
     uint256 private constant DIVISOR = 10000;
     /// @dev Ratio scale: injectAmount = boughtAmount * ratioPpm / RATIO_SCALE (ratioPpm = percent * 1e7).
     uint256 private constant RATIO_SCALE = 1e9;
-    /// @dev Minimum inject output (16.8 whole tokens); below this the swap is skipped.
+    /// @dev Minimum inject output (16.8 whole tokens); below this the period settlement is skipped.
     uint256 private constant MIN_INJECT_OUTPUT = 168 ether / 10;
-    /// @dev First hour ever (no prior non-zero hour volume): 0.1%.
-    uint32 private constant FIRST_HOUR_RATIO_PPM = 1_000_000;
+    /// @dev 10-minute period length in seconds.
+    uint256 private constant PERIOD_LENGTH = 600;
+    /// @dev Per-period cumulative buy volume cap (210M tokens per 10-minute window).
+    uint256 private constant MAX_PERIOD_BUY_VOLUME = 210_000_000 ether;
+    /// @dev Scale 10-minute volume to legacy hourly tier lookup (periodVolume × 6).
+    uint256 private constant LOOKUP_SCALE = 6;
 
     // Volume upper bounds (whole-token units, 18 decimals) and matching injection ratios (percent).
     uint256 private constant T0 = 400_000 ether;
@@ -76,8 +82,6 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     uint256 private constant T13 = 200_000_000 ether;
     uint256 private constant T14 = 350_000_000 ether;
     uint256 private constant T15 = 420_000_000 ether;
-    /// @dev Hourly cumulative buy volume cap (last tier); excess buys in the same hour do not inject.
-    uint256 private constant MAX_HOURLY_BUY_VOLUME = T15;
 
     // ================================ Data Structures ================================
     /// @notice Packed struct for per-token Nutbox info.
@@ -89,12 +93,10 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         address calculator; // HourlyTickCalculator address
     }
 
-    /// @notice Per-token hourly buy tracking and cached injection ratio for the active hour.
-    struct HourlyBuyState {
-        uint32 hourIndex; // block.timestamp / 3600 for the active hour
-        uint32 currentHourRatioPpm; // Cached ratio for current hour (set on first buy of the hour)
-        uint256 currentHourBuy; // Cumulative buy volume in the active hour (capped at MAX_HOURLY_BUY_VOLUME)
-        uint256 lastNonZeroHourBuy; // Last hour with trades (used when a calendar hour has zero buys)
+    /// @notice Per-token 10-minute period buy accumulation (settled on next period's first buy).
+    struct PeriodBuyState {
+        uint32 periodIndex; // block.timestamp / PERIOD_LENGTH for the active period
+        uint256 currentPeriodBuy; // Cumulative buy volume in the active period (capped at MAX_PERIOD_BUY_VOLUME)
     }
 
     // ================================ State ================================
@@ -108,8 +110,8 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     // token → HookTokenInfo (Nutbox injection state)
     mapping(address => HookTokenInfo) public tokenInfo;
 
-    // token → hourly buy volume and cached ratio
-    mapping(address => HourlyBuyState) public hourlyState;
+    // token → 10-minute period buy accumulation
+    mapping(address => PeriodBuyState) public periodState;
 
     // ================================ Modifiers ================================
     modifier onlyPoolManager() {
@@ -293,9 +295,9 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         return totalFee.toInt128();
     }
 
-    // ================================ Internal: Hourly ratio ================================
+    // ================================ Internal: Period ratio ================================
 
-    /// @notice Resolve injection ratio (parts-per-million of RATIO_SCALE) from a reference buy volume.
+    /// @notice Resolve injection ratio (parts-per-million of RATIO_SCALE) from hourly-equivalent volume.
     /// @dev Volume tiers use whole-token thresholds; ratios are fixed at deploy time.
     function _resolveRatioPpm(uint256 volume) internal pure returns (uint32) {
         if (volume < T0) return 20_833_333;
@@ -324,104 +326,77 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         return 0;
     }
 
-    /// @notice Roll hour if needed, cache ratio, accumulate buy volume (capped), return injectable slice.
-    /// @return ratioPpm Injection ratio for the current swap.
-    /// @return injectableBuy Portion of boughtAmount that counts toward injection this hour (0 once cap hit).
-    function _updateHourlyState(address token, uint256 boughtAmount)
-        internal
-        returns (uint32 ratioPpm, uint256 injectableBuy)
-    {
-        HourlyBuyState storage state = hourlyState[token];
-        uint32 currentHour = uint32(block.timestamp / 3600);
+    /// @notice Accumulate buy volume for the current 10-minute period; settle the prior period on roll-over.
+    function _accumulateBuy(address token, uint256 boughtAmount) internal {
+        PeriodBuyState storage state = periodState[token];
+        uint32 currentPeriod = uint32(block.timestamp / PERIOD_LENGTH);
 
-        if (state.hourIndex != currentHour) {
-            // Snapshot completed hour volume when it had trades.
-            if (state.currentHourBuy > 0) {
-                state.lastNonZeroHourBuy = state.currentHourBuy;
+        if (state.periodIndex != currentPeriod) {
+            if (state.currentPeriodBuy > 0) {
+                _settlePeriod(token, state.currentPeriodBuy, state.periodIndex);
             }
-
-            state.hourIndex = currentHour;
-            state.currentHourBuy = 0;
-
-            uint256 lookupVolume = state.lastNonZeroHourBuy;
-            ratioPpm = lookupVolume == 0 ? FIRST_HOUR_RATIO_PPM : _resolveRatioPpm(lookupVolume);
-            state.currentHourRatioPpm = ratioPpm;
-
-            emit HourlyRatioSet(token, currentHour, lookupVolume, ratioPpm);
-        } else {
-            ratioPpm = state.currentHourRatioPpm;
-            // Defensive: should not happen after first buy of the hour.
-            if (ratioPpm == 0) {
-                uint256 lookupVolume = state.lastNonZeroHourBuy;
-                ratioPpm = lookupVolume == 0 ? FIRST_HOUR_RATIO_PPM : _resolveRatioPpm(lookupVolume);
-                state.currentHourRatioPpm = ratioPpm;
-            }
+            state.periodIndex = currentPeriod;
+            state.currentPeriodBuy = 0;
         }
 
-        uint256 buyBefore = state.currentHourBuy;
-        if (buyBefore >= MAX_HOURLY_BUY_VOLUME) {
-            injectableBuy = 0;
-        } else {
-            uint256 room = MAX_HOURLY_BUY_VOLUME - buyBefore;
-            injectableBuy = boughtAmount > room ? room : boughtAmount;
-        }
-
-        uint256 buyAfter = buyBefore + boughtAmount;
-        state.currentHourBuy = buyAfter > MAX_HOURLY_BUY_VOLUME ? MAX_HOURLY_BUY_VOLUME : buyAfter;
+        uint256 room = MAX_PERIOD_BUY_VOLUME - state.currentPeriodBuy;
+        uint256 addAmount = boughtAmount > room ? room : boughtAmount;
+        state.currentPeriodBuy += addAmount;
     }
 
-    // ================================ Internal: Nutbox Injection ================================
-
-    /// @notice Attempt to inject tokens into the Nutbox community reward pool.
-    /// @dev Skips when remaining is exhausted or computed inject is below MIN_INJECT_OUTPUT.
-    /// @param token The token address
-    /// @param tokenDelta The token delta from the swap (negative = tokens leaving pool to buyer)
-    function _tryInject(address token, int128 tokenDelta) internal {
+    /// @notice Settle one completed period: inject periodVolume × ratio(periodVolume × 6) once.
+    function _settlePeriod(address token, uint256 periodVolume, uint32 settledPeriodIndex) internal {
         HookTokenInfo storage info = tokenInfo[token];
-
-        // Fast-skip: allocation exhausted
         if (info.remaining == 0) return;
 
-        uint256 boughtAmount = _boughtAmountFromDelta(tokenDelta);
-        if (boughtAmount == 0) return;
+        uint256 lookupVolume = periodVolume * LOOKUP_SCALE;
+        uint32 ratioPpm = _resolveRatioPpm(lookupVolume);
+        uint256 injectAmount = (periodVolume * ratioPpm) / RATIO_SCALE;
 
-        (uint32 ratioPpm, uint256 injectableBuy) = _updateHourlyState(token, boughtAmount);
-        if (injectableBuy == 0) return;
+        if (injectAmount < MIN_INJECT_OUTPUT) {
+            emit PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, 0);
+            return;
+        }
 
-        uint256 injectAmount = (injectableBuy * ratioPpm) / RATIO_SCALE;
-        if (injectAmount < MIN_INJECT_OUTPUT) return;
-
-        // Cap to remaining
         if (injectAmount > uint256(info.remaining)) {
             injectAmount = uint256(info.remaining);
         }
 
-        // Update remaining
         info.remaining -= uint96(injectAmount);
 
-        // Try inject with try/catch
         try IHourlyTickCalculator(info.calculator).inject(info.community, injectAmount) {
             emit NutboxInjected(token, info.community, injectAmount, info.remaining);
+            emit PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, injectAmount);
         } catch (bytes memory reason) {
-            // Restore remaining on failure
             info.remaining += uint96(injectAmount);
             emit NutboxInjectionFailed(token, info.community, injectAmount, reason);
+            emit PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, 0);
         }
     }
 
-    /// @notice Preview the injection ratio that applies to the current hour (view-only).
-    function getCurrentHourRatioPpm(address token) external view returns (uint32) {
-        HourlyBuyState storage state = hourlyState[token];
-        uint32 currentHour = uint32(block.timestamp / 3600);
-        if (state.hourIndex == currentHour && state.currentHourRatioPpm != 0) {
-            return state.currentHourRatioPpm;
-        }
-        // Preview ratio before the first buy of a new hour: use the just-finished hour's volume.
-        uint256 lookupVolume = state.lastNonZeroHourBuy;
-        if (state.hourIndex != currentHour && state.currentHourBuy > 0) {
-            lookupVolume = state.currentHourBuy;
-        }
-        return lookupVolume == 0 ? FIRST_HOUR_RATIO_PPM : _resolveRatioPpm(lookupVolume);
+    // ================================ Internal: Nutbox Injection ================================
+
+    /// @notice Track buy volume per 10-minute period; prior period is settled on the next period's first buy.
+    /// @param token The token address
+    /// @param tokenDelta The token delta from the swap (negative = tokens leaving pool to buyer)
+    function _tryInject(address token, int128 tokenDelta) internal {
+        if (tokenInfo[token].remaining == 0) return;
+
+        uint256 boughtAmount = _boughtAmountFromDelta(tokenDelta);
+        if (boughtAmount == 0) return;
+
+        _accumulateBuy(token, boughtAmount);
+    }
+
+    /// @notice Preview settlement ratio and inject amount for a completed period volume (view-only).
+    function previewPeriodSettle(uint256 periodVolume)
+        external
+        pure
+        returns (uint256 lookupVolume, uint32 ratioPpm, uint256 injectAmount)
+    {
+        lookupVolume = periodVolume * LOOKUP_SCALE;
+        ratioPpm = _resolveRatioPpm(lookupVolume);
+        injectAmount = (periodVolume * ratioPpm) / RATIO_SCALE;
     }
 
     // ================================ Internal: Fee Distribution ================================

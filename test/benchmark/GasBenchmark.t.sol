@@ -229,6 +229,31 @@ contract GasBenchmarkTest is Test {
             amountSpecified: -1 ether,
             sqrtPriceLimitX96: 0
         });
+        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(20_000 ether)));
+
+        // Accumulate period 1 (no inject).
+        vm.prank(address(mockPoolManager));
+        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
+
+        vm.warp(block.timestamp + 600);
+
+        // Period 2 first buy triggers settlement inject.
+        vm.prank(address(mockPoolManager));
+        uint256 gasStart = gasleft();
+        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
+        uint256 gasUsed = gasStart - gasleft();
+
+        console.log("[BENCHMARK] Hook.afterSwap (period settle + inject) gas:", gasUsed);
+        assertLt(gasUsed, 500_000);
+    }
+
+    function test_gas_hookAfterSwap_buyAccumulateOnly() public {
+        PoolKey memory poolKey = _buildPoolKey();
+        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: -1 ether,
+            sqrtPriceLimitX96: 0
+        });
         BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
 
         vm.prank(address(mockPoolManager));
@@ -236,9 +261,8 @@ contract GasBenchmarkTest is Test {
         hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
         uint256 gasUsed = gasStart - gasleft();
 
-        console.log("[BENCHMARK] Hook.afterSwap (buy + inject) gas:", gasUsed);
-        // Target: under 300_000 (includes external calls to calculator, IPShare, vault)
-        assertLt(gasUsed, 500_000);
+        console.log("[BENCHMARK] Hook.afterSwap (buy accumulate only) gas:", gasUsed);
+        assertLt(gasUsed, 200_000);
     }
 
     function test_gas_hookAfterSwap_buyBelowMin_skipInject() public {

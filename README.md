@@ -73,7 +73,7 @@ V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each commun
 
 | Source | When | Amount |
 |--------|------|--------|
-| **TagAISwapHook** | DEX buy (BNB → token) on PCS V4 | **Tiered %** of tokens bought (see [Dynamic Nutbox injection](#dynamic-nutbox-injection-tagaiswaphook)); per-swap output must be ≥ **16.8** whole tokens; also capped by **420M tokens/hour** buy volume and remaining **150M** Nutbox allocation per community |
+| **TagAISwapHook** | DEX buy (BNB → token) on PCS V4 | **Tiered %** settled every **10 minutes** (see [Dynamic Nutbox injection](#dynamic-nutbox-injection-tagaiswaphook)); period settlement must be ≥ **16.8** whole tokens; capped at **210M tokens/10-min period** and **150M** Nutbox allocation per community |
 | **Token (anti-snipe)** | Bonding-curve buy within 15s of creation | Sellsman fee BNB is used to buy tokens on-curve, then injected into the community |
 
 **Claiming**
@@ -102,29 +102,34 @@ V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each commun
 
 ### Dynamic Nutbox injection (`TagAISwapHook`)
 
-On each **BNB → community token** swap through a V4 pool wired to `TagAISwapHook`, the hook may call `HourlyTickCalculator.inject` with a slice of the tokens the buyer received.
+On **BNB → community token** swaps through a V4 pool wired to `TagAISwapHook`, buy volume is **accumulated per 10-minute period** (`block.timestamp / 600`). There is **no per-swap inject** within the same period.
+
+**Settlement timing**
+
+- On the **first buy of the next 10-minute period**, the hook settles the **previous period’s cumulative buy volume** in a **single** `HourlyTickCalculator.inject` call.
+- If a period has no buys, nothing is settled for that period until a later period’s first buy rolls forward (empty periods are skipped).
+- If trading stops entirely, the last active period may never settle (by design).
 
 **How the ratio is chosen**
 
-- Time is split into **UTC hours** (`block.timestamp / 3600`).
-- At the **start of each hour**, the hook caches one injection ratio for that token for the whole hour.
-- The ratio is derived from the **previous hour’s cumulative buy volume** for that token (sum of token output on buys in that hour).
-- If the **immediately prior calendar hour had no buys**, the hook uses the **last non-zero hour’s** cumulative buy volume instead.
-- If the token has **never had a non-zero hour** (first hour with activity), the ratio is fixed at **0.1%** (`FIRST_HOUR_RATIO_PPM`).
+- For a completed period with cumulative buy volume *P* (whole tokens, 18 decimals):
+  - Lookup volume *V* = **P × 6** (equivalent hourly pace for tier table compatibility).
+  - Ratio comes from the legacy hourly tier table below (same thresholds and percentages as before).
+  - Settlement inject: `injectAmount = P × ratio / 10⁹`.
 
-**Per-swap rules**
+**Per-period rules**
 
-- Only the **injectable** portion of a buy counts: `injectAmount = injectableBuy × ratio / 10⁹`, where `injectableBuy` is the part of this swap that still fits under the hourly buy cap.
-- If `injectAmount` is below **16.8** whole tokens (`MIN_INJECT_OUTPUT`), the hook **skips** injection for that swap (no partial top-up).
-- Injection is still limited by the token’s **remaining 150M** social/Nutbox balance held by the hook (same as before).
+- Buys within the same period only **accumulate** toward *P* (no minimum per swap).
+- At settlement, if `injectAmount` is below **16.8** whole tokens (`MIN_INJECT_OUTPUT`), the **entire period is skipped** (no inject).
+- Period buy volume is capped at **210,000,000** tokens; excess buys in the same period do not count toward *P*.
+- Injection is still limited by the token’s **remaining 150M** social/Nutbox balance held by the hook.
 
 **Volume → ratio tiers**
 
-Reference volume *V* is the prior (or last non-zero) hour’s cumulative buy volume in **whole tokens** (18 decimals). Ratio applies to the **current** hour once cached.
+Reference volume *V* = **period buy volume × 6** (hourly-equivalent whole tokens). Ratio applies to the settled period volume *P*.
 
-| Prior-hour buy volume *V* (tokens) | Injection ratio |
-|-----------------------------------|-----------------|
-| First hour ever (no prior non-zero hour) | **0.1%** |
+| Hourly-equivalent volume *V* (tokens) | Injection ratio |
+|--------------------------------------|-----------------|
 | *V* &lt; 400,000 | **2.0833333%** |
 | 400,000 ≤ *V* &lt; 800,000 | **1.0416667%** |
 | 800,000 ≤ *V* &lt; 1,250,000 | **0.8888889%** |
@@ -147,14 +152,15 @@ Reference volume *V* is the prior (or last non-zero) hour’s cumulative buy vol
 
 | Limit | Value | Behavior |
 |-------|--------|----------|
-| **Minimum inject output** | **16.8** tokens per swap | Swaps that would inject less are skipped entirely. |
-| **Hourly buy volume cap** | **420,000,000** tokens per token per hour | Cumulative buy volume in the current hour is tracked; once the cap is reached, **further buys in that hour do not inject**. The last slice that crosses the cap can still inject on the portion up to 420M. |
+| **Minimum settlement inject** | **16.8** tokens per period | Periods whose settlement would inject less are skipped entirely. |
+| **Period buy volume cap** | **210,000,000** tokens per token per 10 minutes | Cumulative buy volume in the current period is tracked; excess does not count toward *P*. |
 | **Nutbox allocation** | **150M** tokens per community | Hook stops injecting when the community’s remaining social allocation is exhausted. |
 
 **Observability**
 
-- `HourlyRatioSet(token, hourIndex, ratioPpm, lookupVolume)` when a new hour’s ratio is cached.
-- `getCurrentHourRatioPpm(token)` — view the active hour’s cached ratio.
+- `PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, injectAmount)` when a prior period is settled (injectAmount may be 0 if skipped).
+- `previewPeriodSettle(periodVolume)` — view lookup volume, ratio, and inject amount for a hypothetical period volume.
+- `periodState(token)` — current period index and accumulated buy volume.
 
 ## Protocol Versions
 

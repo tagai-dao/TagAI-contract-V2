@@ -284,8 +284,17 @@ contract HookSecurityTest is Test {
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
+        // Same period: no inject yet.
+        uint256 hookTokenBalanceMid = IERC20(address(token)).balanceOf(address(hook));
+        assertEq(hookTokenBalanceMid, hookTokenBalanceBefore, "same period: no balance change");
+
+        vm.warp(block.timestamp + 600);
+
+        vm.prank(address(mockPoolManager));
+        hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
+
         uint256 hookTokenBalanceAfter = IERC20(address(token)).balanceOf(address(hook));
-        uint256 expectedInject = 20_000 ether * 1_000_000 / 1e9;
+        uint256 expectedInject = 20_000 ether * 20_833_333 / 1e9;
         assertEq(hookTokenBalanceBefore - hookTokenBalanceAfter, expectedInject);
     }
 

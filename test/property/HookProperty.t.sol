@@ -48,7 +48,9 @@ contract HookPropertyTest is Test {
 
     uint256 constant NUTBOX_ALLOCATION = 150_000_000 ether;
     uint256 constant RATIO_SCALE = 1e9;
-    uint32 constant FIRST_HOUR_RATIO_PPM = 1_000_000;
+    uint256 constant PERIOD_LENGTH = 600;
+    uint256 constant MAX_PERIOD_BUY_VOLUME = 210_000_000 ether;
+    uint256 constant TIER0_RATIO_PPM = 20_833_333;
     uint256 constant MIN_INJECT_OUTPUT = 168 ether / 10;
 
     function setUp() public {
@@ -160,6 +162,20 @@ contract HookPropertyTest is Test {
         hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
     }
 
+    function _warpNextPeriod() internal {
+        vm.warp(block.timestamp + PERIOD_LENGTH);
+    }
+
+    function _expectedSettleInject(uint256 periodVolume) internal view returns (uint256) {
+        (,, uint256 injectAmount) = hook.previewPeriodSettle(periodVolume);
+        if (injectAmount < MIN_INJECT_OUTPUT) return 0;
+        return injectAmount;
+    }
+
+    function _minPeriodVolumeForSettle() internal view returns (uint256) {
+        return (MIN_INJECT_OUTPUT * RATIO_SCALE + TIER0_RATIO_PPM - 1) / TIER0_RATIO_PPM;
+    }
+
     function _simulateSell(uint256 soldAmount) internal {
         PoolKey memory poolKey = _buildPoolKey();
         ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
@@ -199,12 +215,14 @@ contract HookPropertyTest is Test {
         uint256 amount2,
         uint256 amount3
     ) public {
-        amount1 = bound(amount1, _minBuyForInject(FIRST_HOUR_RATIO_PPM), 50_000_000_000 ether);
-        amount2 = bound(amount2, _minBuyForInject(FIRST_HOUR_RATIO_PPM), 50_000_000_000 ether);
-        amount3 = bound(amount3, _minBuyForInject(FIRST_HOUR_RATIO_PPM), 50_000_000_000 ether);
+        amount1 = bound(amount1, _minPeriodVolumeForSettle(), 50_000_000_000 ether);
+        amount2 = bound(amount2, 1, 50_000_000_000 ether);
+        amount3 = bound(amount3, 1, 50_000_000_000 ether);
 
         _simulateBuy(amount1);
+        _warpNextPeriod();
         _simulateBuy(amount2);
+        _warpNextPeriod();
         _simulateBuy(amount3);
 
         (, uint96 remaining,) = hook.tokenInfo(address(token));
@@ -217,29 +235,34 @@ contract HookPropertyTest is Test {
     // ═══════════════════════════════════════════════════════════════════
 
     /// Feature: tagai-v2-nutbox-integration, Property 6: Injection Condition
-    /// inject occurs IFF (buy AND remaining > 0 AND inject output >= MIN_INJECT_OUTPUT)
+    /// Settlement inject occurs on next period's first buy when prior period settle output >= MIN
     function testFuzz_P6_injectionCondition(uint256 boughtAmount, bool isBuy) public {
         boughtAmount = bound(boughtAmount, 1, 1_000_000_000 ether);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
-        uint32 ratioPpm = hook.getCurrentHourRatioPpm(address(token));
+        _simulateBuy(boughtAmount);
+        (, uint96 remainingAfterAccum,) = hook.tokenInfo(address(token));
+
+        _warpNextPeriod();
+
+        (, uint96 remainingBeforeSettle,) = hook.tokenInfo(address(token));
+        uint256 expectedSettle = _expectedSettleInject(boughtAmount > MAX_PERIOD_BUY_VOLUME ? MAX_PERIOD_BUY_VOLUME : boughtAmount);
 
         if (isBuy) {
-            _simulateBuy(boughtAmount);
+            _simulateBuy(1 ether);
         } else {
-            _simulateSell(boughtAmount);
+            _simulateSell(1 ether);
         }
 
         (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
 
-        uint256 injectOutput = (boughtAmount * ratioPpm) / RATIO_SCALE;
-        bool shouldHaveInjected =
-            isBuy && remainingBefore > 0 && injectOutput >= MIN_INJECT_OUTPUT;
-
-        if (shouldHaveInjected) {
-            assertLt(uint256(remainingAfter), uint256(remainingBefore));
+        if (isBuy && expectedSettle > 0 && remainingBeforeSettle > 0) {
+            assertEq(uint256(remainingAfterAccum), uint256(remainingBeforeSettle), "accum period unchanged");
+            assertEq(
+                uint256(remainingBeforeSettle) - uint256(remainingAfter),
+                expectedSettle > uint256(remainingBeforeSettle) ? uint256(remainingBeforeSettle) : expectedSettle
+            );
         } else {
-            assertEq(uint256(remainingAfter), uint256(remainingBefore));
+            assertEq(uint256(remainingAfter), uint256(remainingBeforeSettle));
         }
     }
 
@@ -254,21 +277,19 @@ contract HookPropertyTest is Test {
         assertEq(uint256(remainingAfter), uint256(remainingBefore));
     }
 
-    /// Below-minimum inject output never injects
-    function testFuzz_P6_belowMinOutputDoesNotInject(uint256 boughtAmount) public {
-        uint256 maxBuy = _minBuyForInject(FIRST_HOUR_RATIO_PPM);
-        if (maxBuy <= 1) return;
-        boughtAmount = bound(boughtAmount, 1, maxBuy - 1);
+    /// Below-minimum period settlement never injects
+    function testFuzz_P6_belowMinPeriodSettleDoesNotInject(uint256 periodVolume) public {
+        uint256 maxVolume = _minPeriodVolumeForSettle();
+        if (maxVolume <= 1) return;
+        periodVolume = bound(periodVolume, 1, maxVolume - 1);
 
         (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
-        _simulateBuy(boughtAmount);
+        _simulateBuy(periodVolume);
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
         (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
 
         assertEq(uint256(remainingAfter), uint256(remainingBefore));
-    }
-
-    function _minBuyForInject(uint32 ratioPpm) internal pure returns (uint256) {
-        return (MIN_INJECT_OUTPUT * RATIO_SCALE + ratioPpm - 1) / ratioPpm;
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -278,17 +299,19 @@ contract HookPropertyTest is Test {
     /// Feature: tagai-v2-nutbox-integration, Property 7: Hook Asset Custody
     /// Hook token balance should only decrease via inject path
     function testFuzz_P7_balanceOnlyDecreasesViaInject(uint256 boughtAmount) public {
-        boughtAmount = bound(boughtAmount, _minBuyForInject(FIRST_HOUR_RATIO_PPM), 1_000_000_000 ether);
+        boughtAmount = bound(boughtAmount, _minPeriodVolumeForSettle(), 1_000_000_000 ether);
+
+        _simulateBuy(boughtAmount);
 
         uint256 hookBalBefore = IERC20(address(token)).balanceOf(address(hook));
         (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
 
-        _simulateBuy(boughtAmount);
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
 
         uint256 hookBalAfter = IERC20(address(token)).balanceOf(address(hook));
         (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
 
-        // Balance decrease == remaining decrease == injected amount
         uint256 balanceDecrease = hookBalBefore - hookBalAfter;
         uint256 remainingDecrease = uint256(remainingBefore) - uint256(remainingAfter);
         assertEq(balanceDecrease, remainingDecrease, "Balance decrease must match remaining decrease");

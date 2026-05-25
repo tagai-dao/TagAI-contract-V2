@@ -190,27 +190,30 @@ contract FullLifecycleTest is Test {
             sqrtPriceLimitX96: 0
         });
 
-        // Mock returns delta with tokenOut = -10_000 ether (large enough to trigger inject)
+        // Mock returns delta with tokenOut = 10_000 ether (accumulated in period 1)
         BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
         hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
 
-        // Check remaining decreased
+        // Same period: no inject yet.
+        (, uint96 remainingAfterAccum,) = hook.tokenInfo(tokenAddr);
+        assertEq(uint256(remainingAfterAccum), uint256(initialRemaining), "Same period: no inject");
+
+        // Next period first buy settles prior period.
+        vm.warp(block.timestamp + 600);
+        vm.prank(address(mockPoolManager));
+        hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
+
         (, uint96 remainingAfterBuy,) = hook.tokenInfo(tokenAddr);
 
-        // The hook has NUTBOX_ALLOCATION tokens (transferred during listing)
-        // injectAmount = 10_000 * 20 / 10000 = 20 ether
-        // inject does transferFrom(hook, community, 20 ether) - hook approved calculator in registerPool
-        uint256 hookBalance = IERC20(tokenAddr).balanceOf(address(hook));
-        if (hookBalance >= 20 ether) {
-            // Inject should succeed, remaining decreases
-            assertTrue(uint256(remainingAfterBuy) < uint256(initialRemaining), "Remaining should decrease on buy");
+        (,, uint256 injectAmount) = hook.previewPeriodSettle(10_000 ether);
+        if (injectAmount >= 168 ether / 10) {
+            assertTrue(uint256(remainingAfterBuy) < uint256(initialRemaining), "Remaining should decrease after period settle");
             assertEq(
                 uint256(initialRemaining) - uint256(remainingAfterBuy),
-                20 ether,
-                "Should inject exactly 0.2% of bought amount"
+                injectAmount,
+                "Should inject period settlement amount"
             );
         }
-        // If inject fails (e.g., calculator not registered for this community), try/catch restores remaining
     }
 
     // ─── Test: Hook remaining stays same on sell swaps ───

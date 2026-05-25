@@ -47,9 +47,10 @@ contract TagAISwapHookTest is Test {
 
     uint256 constant NUTBOX_ALLOCATION = 150_000_000 ether;
     uint256 constant RATIO_SCALE = 1e9;
-    uint256 constant FIRST_HOUR_RATIO_PPM = 1_000_000; // 0.1%
     uint256 constant MIN_INJECT_OUTPUT = 168 ether / 10; // 16.8 tokens
-    uint256 constant MAX_HOURLY_BUY_VOLUME = 420_000_000 ether;
+    uint256 constant MAX_PERIOD_BUY_VOLUME = 210_000_000 ether;
+    uint256 constant PERIOD_LENGTH = 600;
+    uint256 constant TIER0_RATIO_PPM = 20_833_333; // volume < 400K hourly equivalent
 
     function setUp() public {
         creator = makeAddr("creator");
@@ -190,90 +191,67 @@ contract TagAISwapHookTest is Test {
         assertEq(calc, address(calculator), "Calculator should match");
     }
 
+    function _warpNextPeriod() internal {
+        vm.warp(block.timestamp + PERIOD_LENGTH);
+    }
+
+    function _expectedSettleInject(uint256 periodVolume) internal view returns (uint256) {
+        (,, uint256 injectAmount) = hook.previewPeriodSettle(periodVolume);
+        return injectAmount;
+    }
+
+    function _ratioForLookup(uint256 lookupVolume) internal pure returns (uint256) {
+        if (lookupVolume < 400_000 ether) return TIER0_RATIO_PPM;
+        if (lookupVolume < 800_000 ether) return 10_416_667;
+        return 8_888_889;
+    }
+
     // ─── Injection logic via afterSwap ───
 
-    function test_injection_decreasesRemainingOnBuy() public {
-        (, uint96 initialRemaining,) = hook.tokenInfo(address(token));
-        assertEq(uint256(initialRemaining), NUTBOX_ALLOCATION);
-
-        // Simulate a buy swap (zeroForOne=true, ETH→Token)
-        PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
-        // delta.amount1() < 0 means tokens leaving pool to buyer
-        // 20_000 tokens * 0.1% = 20 ether (above 16.8 ether minimum inject output)
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(20_000 ether)));
-
-        vm.prank(address(mockPoolManager));
-        hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
-
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
-        uint256 expected = 20_000 ether * FIRST_HOUR_RATIO_PPM / RATIO_SCALE;
-        assertEq(uint256(initialRemaining) - uint256(remainingAfter), expected);
-        assertEq(hook.getCurrentHourRatioPpm(address(token)), uint32(FIRST_HOUR_RATIO_PPM));
-    }
-
-    function test_injection_skipsWhenOutputBelowMinimum() public {
+    function test_injection_samePeriod_noInjectUntilNextPeriodFirstBuy() public {
         (, uint96 initialRemaining,) = hook.tokenInfo(address(token));
 
-        PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -0.01 ether,
-            sqrtPriceLimitX96: 0
-        });
-        // 1000 tokens * 0.1% = 1 token < 16.8 minimum inject output
-        BalanceDelta delta = toBalanceDelta(-0.01 ether, -int128(int256(1000 ether)));
+        _simulateBuy(20_000 ether);
+        _simulateBuy(30_000 ether);
 
-        vm.prank(address(mockPoolManager));
-        hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
+        (, uint96 remainingSamePeriod,) = hook.tokenInfo(address(token));
+        assertEq(uint256(remainingSamePeriod), uint256(initialRemaining), "same period should not inject");
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remainingAfter), uint256(initialRemaining), "Below-min output should not inject");
+        (uint32 periodIndex, uint256 periodBuy) = hook.periodState(address(token));
+        assertEq(periodBuy, 50_000 ether);
+        assertEq(periodIndex, uint32(block.timestamp / PERIOD_LENGTH));
+
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
+
+        (, uint96 remainingAfterSettle,) = hook.tokenInfo(address(token));
+        uint256 expected = _expectedSettleInject(50_000 ether);
+        assertEq(uint256(initialRemaining) - uint256(remainingAfterSettle), expected);
     }
 
-    function test_injection_usesTierFromLastNonZeroHour() public {
-        uint32 hour = uint32(block.timestamp / 3600);
+    function test_injection_settleUsesVolumeTimes6ForTier() public {
+        // 50K in period → lookup 300K (< 400K) → highest tier ~2.083%
+        _simulateBuy(50_000 ether);
 
-        // Hour 1: accumulate 300k buy volume (< 400k → 2.083% for next hour)
-        _simulateBuy(300_000 ether);
-
-        // Hour 2: ratio locked from hour 1 volume
-        vm.warp((uint256(hour) + 1) * 3600);
         (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
-        assertEq(hook.getCurrentHourRatioPpm(address(token)), 20_833_333);
-
+        _warpNextPeriod();
         _simulateBuy(10_000 ether);
+
         (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
-        uint256 expected = 10_000 ether * 20_833_333 / RATIO_SCALE;
+        uint256 expected = 50_000 ether * TIER0_RATIO_PPM / RATIO_SCALE;
         assertEq(uint256(remainingBefore) - uint256(remainingAfter), expected);
     }
 
-    function test_injection_skipsEmptyHourUsesLastNonZeroVolume() public {
-        uint32 hour = uint32(block.timestamp / 3600);
+    function test_injection_settleSkipsWhenTotalInjectBelowMinimum() public {
+        (, uint96 initialRemaining,) = hook.tokenInfo(address(token));
 
-        _simulateBuy(300_000 ether);
-        vm.warp((uint256(hour) + 1) * 3600);
-        _simulateBuy(20_000 ether); // lock ratio for hour 2 (inject output > 16.8)
+        // 800 tokens × ~2.083% ≈ 16.67 < 16.8 minimum
+        _simulateBuy(800 ether);
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
 
-        // Hour 3: no trades in hour 2, still use 300k tier
-        vm.warp((uint256(hour) + 2) * 3600);
-        assertEq(hook.getCurrentHourRatioPpm(address(token)), 20_833_333);
-    }
-
-    function _simulateBuy(uint256 boughtAmount) internal {
-        PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(boughtAmount)));
-        vm.prank(address(mockPoolManager));
-        hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
+        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
+        assertEq(uint256(remainingAfter), uint256(initialRemaining), "below-min period settlement skipped");
     }
 
     function test_injection_doesNotTriggerOnSell() public {
@@ -295,37 +273,29 @@ contract TagAISwapHookTest is Test {
         assertEq(uint256(remainingAfter), uint256(initialRemaining), "Sell should not inject");
     }
 
-    function test_injection_hourlyBuyVolumeCapAt420M() public {
+    function test_injection_periodBuyVolumeCapAt210M() public {
         (, uint96 remainingStart,) = hook.tokenInfo(address(token));
 
-        // First buy: 419M (under cap)
-        _simulateBuy(419_000_000 ether);
-        (,, uint256 hourBuy,) = hook.hourlyState(address(token));
-        assertEq(hourBuy, 419_000_000 ether);
+        _simulateBuy(209_000_000 ether);
+        (, uint256 periodBuy) = hook.periodState(address(token));
+        assertEq(periodBuy, 209_000_000 ether);
 
         (, uint96 remainingMid,) = hook.tokenInfo(address(token));
-        uint256 inject1 = uint256(remainingStart) - uint256(remainingMid);
-        assertEq(inject1, 419_000_000 ether * FIRST_HOUR_RATIO_PPM / RATIO_SCALE);
+        assertEq(uint256(remainingMid), uint256(remainingStart), "same period cap accumulation does not inject");
 
-        // Second buy: +2M → only 1M counts toward injection (hits 420M cap)
         _simulateBuy(2_000_000 ether);
-        (,, hourBuy,) = hook.hourlyState(address(token));
-        assertEq(hourBuy, MAX_HOURLY_BUY_VOLUME);
+        (, periodBuy) = hook.periodState(address(token));
+        assertEq(periodBuy, MAX_PERIOD_BUY_VOLUME);
 
-        (, uint96 remainingAfterPartial,) = hook.tokenInfo(address(token));
-        uint256 inject2 = uint256(remainingMid) - uint256(remainingAfterPartial);
-        assertEq(inject2, 1_000_000 ether * FIRST_HOUR_RATIO_PPM / RATIO_SCALE);
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
 
-        // Third buy: cap already reached → no further injection
-        _simulateBuy(100_000 ether);
-        (,, hourBuy,) = hook.hourlyState(address(token));
-        assertEq(hourBuy, MAX_HOURLY_BUY_VOLUME);
-
-        (, uint96 remainingEnd,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remainingEnd), uint256(remainingAfterPartial));
+        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
+        uint256 expected = _expectedSettleInject(MAX_PERIOD_BUY_VOLUME);
+        assertEq(uint256(remainingStart) - uint256(remainingAfter), expected);
     }
 
-    function test_injection_hugeBuyLimitedByHourlyCapNotFullBoughtAmount() public {
+    function test_injection_hugeBuyLimitedByPeriodCap() public {
         (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
 
         PoolKey memory poolKey = _buildPoolKey();
@@ -339,13 +309,38 @@ contract TagAISwapHookTest is Test {
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
-        uint256 expectedInject = MAX_HOURLY_BUY_VOLUME * FIRST_HOUR_RATIO_PPM / RATIO_SCALE;
-        assertEq(uint256(remainingBefore) - uint256(remainingAfter), expectedInject);
-        assertGt(uint256(remainingAfter), 0, "hourly cap prevents single swap from draining allocation");
+        (, uint256 periodBuy) = hook.periodState(address(token));
+        assertEq(periodBuy, MAX_PERIOD_BUY_VOLUME);
 
-        (,, uint256 hourBuy,) = hook.hourlyState(address(token));
-        assertEq(hourBuy, MAX_HOURLY_BUY_VOLUME);
+        (, uint96 remainingSamePeriod,) = hook.tokenInfo(address(token));
+        assertEq(uint256(remainingSamePeriod), uint256(remainingBefore), "cap period does not inject until settle");
+
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
+
+        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
+        uint256 expectedInject = _expectedSettleInject(MAX_PERIOD_BUY_VOLUME);
+        assertEq(uint256(remainingBefore) - uint256(remainingAfter), expectedInject);
+        assertGt(uint256(remainingAfter), 0, "period cap prevents single swap from draining allocation");
+    }
+
+    function test_previewPeriodSettle_matchesSettlement() public view {
+        (uint256 lookup, uint32 ratio, uint256 injectAmount) = hook.previewPeriodSettle(50_000 ether);
+        assertEq(lookup, 300_000 ether);
+        assertEq(ratio, uint32(TIER0_RATIO_PPM));
+        assertEq(injectAmount, 50_000 ether * TIER0_RATIO_PPM / RATIO_SCALE);
+    }
+
+    function _simulateBuy(uint256 boughtAmount) internal {
+        PoolKey memory poolKey = _buildPoolKey();
+        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: -1 ether,
+            sqrtPriceLimitX96: 0
+        });
+        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(boughtAmount)));
+        vm.prank(address(mockPoolManager));
+        hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
     }
 
     // ─── getHooksRegistrationBitmap ───
