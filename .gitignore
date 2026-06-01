@@ -17,3 +17,4 @@ node_modules/
 .claude/*
 broadcast/
 mocks/
+.vscode/
