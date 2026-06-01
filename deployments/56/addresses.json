@@ -13,5 +13,6 @@
   "Pump": "0x327a473c763bcf0d60CCd6811F832332939110D5",
   "TokenImplementation": "0x69B1B0635220e5f16A36Ad44c3B2B1FB9ca65e16",
   "TagAISwapHook": "0x78443e75aD3D70DAAab0De33d2D5Dea0cBae0cC1",
-  "HookSalt": "1105"
+  "HookSalt": "1105",
+  "ImportHelper": "0xF346A700830633bB27a46fC1e7eAAE49F593A4c6"
 }
