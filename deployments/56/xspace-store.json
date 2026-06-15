@@ -1,0 +1,14 @@
+{
+  "chainId": 56,
+  "deployer": "0x0De93A988D657e1E8897e1a70Ba1b95334297B63",
+  "token": "0xbe9D156892E55e7154BcD3cB0FEA677F9D3103E1",
+  "feeReceiver": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
+  "ipshare": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+  "clPoolManager": "0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b",
+  "vault": "0x238a358808379702088667322f80aC48bAd5e6c4",
+  "XSpaceStoreHook": "0xe64Caf44eff0841D213a716a449B4563cFEc0CC1",
+  "HookSalt": "33412",
+  "poolId": "0x8364c6a1ee0e1776cb32f817e69b74c1201704b74ff5d75a746d9893ca64d444",
+  "lpFeeBps": "4000",
+  "tickSpacing": "10"
+}

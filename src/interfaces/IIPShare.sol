@@ -6,7 +6,7 @@ interface IIPShare {
 
     function valueCapture(address subject) external payable;
 
-    function ipshareCreated(address subject) external returns (bool);
+    function ipshareCreated(address subject) external view returns (bool);
 
     function createShare(address subject) external payable;
 
