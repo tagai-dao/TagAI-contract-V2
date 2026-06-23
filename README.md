@@ -29,7 +29,7 @@ User creates community token
 1. Users create a community token via **Pump**, which also spins up a Nutbox **Community** and default reward pools
 2. The **Token** trades on the bonding curve; price follows the supply curve
 3. Once listing conditions are met, liquidity migrates to **PCS V4** and trading moves on-chain via the DEX
-4. **TagAISwapHook** is attached to the V4 pool: it collects swap fees, routes them by rule, and can inject community tokens into Nutbox on large buys
+4. **TagAISwapHook** is attached to the V4 pool: it collects swap fees, routes them by rule, and injects community tokens into Nutbox on a 10-minute settlement schedule
 
 ## Core Contracts
 
@@ -73,7 +73,7 @@ V9 uses **HourlyTickCalculator** as the Nutbox reward calculator for each commun
 
 | Source | When | Amount |
 |--------|------|--------|
-| **TagAISwapHook** | DEX buy (BNB → token) on PCS V4 | **Tiered %** settled every **10 minutes** (see [Dynamic Nutbox injection](#dynamic-nutbox-injection-tagaiswaphook)); period settlement must be ≥ **16.8** whole tokens; capped at **210M tokens/10-min period** and **150M** Nutbox allocation per community |
+| **TagAISwapHook** | DEX buy (BNB → token) on PCS V4 | **Tiered %** settled every **10 minutes** (see [Dynamic Nutbox injection](#dynamic-nutbox-injection-tagaiswaphook)); period settlement must be ≥ **16.8** whole tokens; capped at **420M tokens/10-min period** and **150M** Nutbox allocation per community |
 | **Token (anti-snipe)** | Bonding-curve buy within 15s of creation | Sellsman fee BNB is used to buy tokens on-curve, then injected into the community |
 
 **Claiming**
@@ -113,53 +113,50 @@ On **BNB → community token** swaps through a V4 pool wired to `TagAISwapHook`,
 **How the ratio is chosen**
 
 - For a completed period with cumulative buy volume *P* (whole tokens, 18 decimals):
-  - Lookup volume *V* = **P × 6** (equivalent hourly pace for tier table compatibility).
-  - Ratio comes from the legacy hourly tier table below (same thresholds and percentages as before).
-  - Settlement inject: `injectAmount = P × ratio / 10⁹`.
+  - The tier is looked up **directly from *P*** (10-minute volume; no hourly scaling).
+  - `ratioPpm` is fixed at deploy time from the 10-minute extract-ratio tier table (T0–T12).
+  - Settlement inject: `injectAmount = P × ratioPpm / 10⁹`.
+  - `lookupVolume` in events and `previewPeriodSettle` equals *P* (same value, kept for observability).
 
 **Per-period rules**
 
 - Buys within the same period only **accumulate** toward *P* (no minimum per swap).
 - At settlement, if `injectAmount` is below **16.8** whole tokens (`MIN_INJECT_OUTPUT`), the **entire period is skipped** (no inject).
-- Period buy volume is capped at **210,000,000** tokens; excess buys in the same period do not count toward *P*.
+- Period buy volume is capped at **420,000,000** tokens; excess buys in the same period do not count toward *P*.
 - Injection is still limited by the token’s **remaining 150M** social/Nutbox balance held by the hook.
 
 **Volume → ratio tiers**
 
-Reference volume *V* = **period buy volume × 6** (hourly-equivalent whole tokens). Ratio applies to the settled period volume *P*.
+Period buy volume *P* (whole tokens, 18 decimals). Ratio applies to the settled period volume *P*.
 
-| Hourly-equivalent volume *V* (tokens) | Injection ratio |
-|--------------------------------------|-----------------|
-| *V* &lt; 400,000 | **2.0833333%** |
-| 400,000 ≤ *V* &lt; 800,000 | **1.0416667%** |
-| 800,000 ≤ *V* &lt; 1,250,000 | **0.8888889%** |
-| 1,250,000 ≤ *V* &lt; 2,000,000 | **0.5555556%** |
-| 2,000,000 ≤ *V* &lt; 3,500,000 | **0.3968254%** |
-| 3,500,000 ≤ *V* &lt; 4,200,000 | **0.9920635%** |
-| 4,200,000 ≤ *V* &lt; 8,500,000 | **0.4901961%** |
-| 8,500,000 ≤ *V* &lt; 12,500,000 | **0.3333333%** |
-| 12,500,000 ≤ *V* &lt; 20,000,000 | **0.2083333%** |
-| 20,000,000 ≤ *V* &lt; 33,300,000 | **0.1251251%** |
-| 33,300,000 ≤ *V* &lt; 42,000,000 | **0.1322751%** |
-| 42,000,000 ≤ *V* &lt; 80,000,000 | **0.0694444%** |
-| 80,000,000 ≤ *V* &lt; 125,000,000 | **0.0444444%** |
-| 125,000,000 ≤ *V* &lt; 200,000,000 | **0.0277778%** |
-| 200,000,000 ≤ *V* &lt; 350,000,000 | **0.0198413%** |
-| 350,000,000 ≤ *V* &lt; 420,000,000 | **0.0264555%** |
-| *V* ≥ 420,000,000 | **0.0264555%** |
+| Period buy volume *P* (tokens) | `ratioPpm` | Injection ratio |
+|-------------------------------|------------|-----------------|
+| *P* &lt; 26,700 | 106,069,772 | **10.6069772%** |
+| 26,700 ≤ *P* &lt; 93,200 | 53,034,886 | **5.3034886%** |
+| 93,200 ≤ *P* &lt; 236,000 | 31,517,443 | **3.1517443%** |
+| 236,000 ≤ *P* &lt; 548,000 | 15,758,722 | **1.5758722%** |
+| 548,000 ≤ *P* &lt; 1,250,000 | 7,079,361 | **0.7079361%** |
+| 1,250,000 ≤ *P* &lt; 3,320,000 | 6,003,489 | **0.6003489%** |
+| 3,320,000 ≤ *P* &lt; 7,360,000 | 4,727,617 | **0.4727617%** |
+| 7,360,000 ≤ *P* &lt; 14,500,000 | 3,651,745 | **0.3651745%** |
+| 14,500,000 ≤ *P* &lt; 23,400,000 | 3,000,000 | **0.3000000%** |
+| 23,400,000 ≤ *P* &lt; 41,400,000 | 1,575,873 | **0.1575873%** |
+| 41,400,000 ≤ *P* &lt; 84,000,000 | 787,936 | **0.0787936%** |
+| 84,000,000 ≤ *P* &lt; 355,000,000 | 393,969 | **0.0393969%** |
+| *P* ≥ 355,000,000 | 196,984 | **0.0196984%** |
 
 **Caps and limits**
 
 | Limit | Value | Behavior |
 |-------|--------|----------|
 | **Minimum settlement inject** | **16.8** tokens per period | Periods whose settlement would inject less are skipped entirely. |
-| **Period buy volume cap** | **210,000,000** tokens per token per 10 minutes | Cumulative buy volume in the current period is tracked; excess does not count toward *P*. |
+| **Period buy volume cap** | **420,000,000** tokens per token per 10 minutes | Cumulative buy volume in the current period is tracked; excess does not count toward *P*. |
 | **Nutbox allocation** | **150M** tokens per community | Hook stops injecting when the community’s remaining social allocation is exhausted. |
 
 **Observability**
 
-- `PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, injectAmount)` when a prior period is settled (injectAmount may be 0 if skipped).
-- `previewPeriodSettle(periodVolume)` — view lookup volume, ratio, and inject amount for a hypothetical period volume.
+- `PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, injectAmount)` when a prior period is settled (`lookupVolume` equals `periodVolume`; `injectAmount` may be 0 if skipped).
+- `previewPeriodSettle(periodVolume)` — view period volume, `ratioPpm`, and inject amount for a hypothetical completed period.
 - `periodState(token)` — current period index and accumulated buy volume.
 
 ## Protocol Versions
@@ -201,24 +198,14 @@ Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
 
 | Contract | Address |
 |----------|---------|
-| Pump | [`0x32b7afeF0Dbf1739c4135784735AbFC2d3b8FA21`](https://bscscan.com/address/0x32b7afef0dbf1739c4135784735abfc2d3b8fa21) |
-| Token (implementation) | [`0xDfcD039554FC9DE3117a6A367944367F03C6b9Cb`](https://bscscan.com/address/0xdfcd039554fc9de3117a6a367944367f03c6b9cb) |
-| TagAISwapHook | [`0x5917E8bb289766FddE79314DcaE626a241950cC1`](https://bscscan.com/address/0x5917e8bb289766fdde79314dcae626a241950cc1) |
+| Pump | [`0x327a473c763bcf0d60CCd6811F832332939110D5`](https://bscscan.com/address/0x327a473c763bcf0d60ccd6811f832332939110d5) |
+| Token (implementation) | [`0x69B1B0635220e5f16A36Ad44c3B2B1FB9ca65e16`](https://bscscan.com/address/0x69b1b0635220e5f16a36ad44c3b2b1fb9ca65e16) |
+| TagAISwapHook | [`0x78443e75aD3D70DAAab0De33d2D5Dea0cBae0cC1`](https://bscscan.com/address/0x78443e75ad3d70daaab0de33d2d5dea0cbae0cc1) |
 | HourlyTickCalculator | [`0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d`](https://bscscan.com/address/0x6ccec02e7d371fed954d7d16ecb7f2f57cccf54d) |
 | DFXStarScoreStakingFactory | [`0x77Fb65140B746e639bB512c2C25604d1924aE774`](https://bscscan.com/address/0x77fb65140b746e639bb512c2c25604d1924ae774) |
 | IPShare (reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
 
 **Reused Nutbox / PCS infrastructure:** Committee, CommunityFactory, SocialCurationFactory, PCS V4 CLPoolManager, Vault (see `addresses.json`).
-
-**Superseded V9 deployment (tokens already launched stay on these contracts):**
-
-| Contract | Address |
-|----------|---------|
-| Pump (previous) | `0x7FcBa2063899AF1a9bABc856339eC472D95CAEA8` |
-| Token implementation (previous) | `0x502C1E6ed4a5B4F3c7050492FB9556De8216974c` |
-| TagAISwapHook (previous) | `0x458e5E6b319Dbf5574a6feB60dFE7A063F5C0Cc1` |
-
-Only **new** community tokens created via the current Pump receive tiered Nutbox injection and the refreshed hook logic.
 
 ## Ecosystem
 

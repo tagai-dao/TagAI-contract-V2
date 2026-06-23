@@ -43,6 +43,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     event SwapFeeCollected(PoolId indexed poolId, address indexed token, uint256 platformFee, uint256 deployerFee);
     event NutboxInjected(address indexed token, address indexed community, uint256 injectAmount, uint96 remaining);
     event NutboxInjectionFailed(address indexed token, address indexed community, uint256 injectAmount, bytes reason);
+    /// @param lookupVolume Same as periodVolume (kept for observability / off-chain indexing).
     event PeriodSettled(
         address indexed token,
         uint32 indexed settledPeriodIndex,
@@ -60,7 +61,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     uint256 private constant MIN_INJECT_OUTPUT = 168 ether / 10;
     /// @dev 10-minute period length in seconds.
     uint256 private constant PERIOD_LENGTH = 600;
-    /// @dev Per-period cumulative buy volume cap (210M tokens per 10-minute window).
+    /// @dev Per-period cumulative buy volume cap (420M tokens per 10-minute window).
     uint256 private constant MAX_PERIOD_BUY_VOLUME = 420_000_000 ether;
     // Volume upper bounds (whole-token units, 18 decimals) from extract-ratio-table.json (10-minute tiers).
     uint256 private constant T0 = 26_700 ether;
@@ -378,6 +379,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     }
 
     /// @notice Preview settlement ratio and inject amount for a completed period volume (view-only).
+    /// @return lookupVolume Equals periodVolume (tier lookup uses 10-minute volume directly).
     function previewPeriodSettle(uint256 periodVolume)
         external
         pure
