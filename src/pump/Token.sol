@@ -70,15 +70,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     // fee=0 means zero native pool fee; all fees are collected by TipTagSwapHook.
     // tickSpacing=60 controls price-tick granularity only (no 0.3% DEX fee implied).
     int24 public constant TICK_SPACING = 60;
-    // Listing LP: 200M token 全进池 + 配对 BNB（~19.174，来自内盘收入）；tickLower=MIN；
-    // tickUpper 校准使 800M 外部卖压抽干池内 BNB。
-    uint160 private constant INITIAL_SQRT_PRICE_X96 = 229333670737072535143449936330532;
-    uint256 private constant LISTING_ETH_BUDGET = 19174083034210496243; // ~19.174 BNB
+    // RH listing LP: 双边 ~200M + ~4.8 ETH；tickLower=MIN；tickUpper 校准使池外 800M 卖压抽干池内 ETH。
+    // 离线标定：ListingParamsCalc.test_solveRH_listingConstants
+    uint160 private constant INITIAL_SQRT_PRICE_X96 = 458583950375716805416895042066315;
+    uint256 private constant LISTING_ETH_BUDGET = 48 ether / 10; // 4.8 ETH（实际配对 ~4.792）
     uint256 private constant LISTING_TOKEN_AMOUNT = 200000000 ether;
     int24 private constant LISTING_TICK_LOWER = -887220;
-    int24 private constant LISTING_TICK_UPPER = 191940;
-    // 离线标定（ListingParamsCalc.test_computeTokenFirstListingConstants）：200M token-first 单次 add
-    uint128 private constant LISTING_LIQUIDITY_DELTA = 69094226120069552406389;
+    int24 private constant LISTING_TICK_UPPER = 205740;
+    uint128 private constant LISTING_LIQUIDITY_DELTA = 34553395272273650725680;
 
     receive() external payable nonReentrant {
         if (listed) revert TokenListed();
@@ -420,7 +419,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         emit TokenListedToDex(address(this), PoolId.unwrap(poolId), sqrtPriceX96);
     }
 
-    /// @notice ILockCallback — 单次 token-first LP：200M token 全进池，配对 ~19.174 BNB。
+    /// @notice ILockCallback — 双边 LP：~200M token + ~4.8 ETH 进池。
     function lockAcquired(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(vault), "Only Vault");
 

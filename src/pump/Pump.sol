@@ -30,9 +30,10 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     address public socialCurationFactory = 0xc4674D3fBbD201Ea401a8B7e7285F956178593D8;
     address public nutboxCommittee = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
 
-    // PancakeSwap V4 (Infinity)
-    address private poolManager = 0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b; // BSC CLPoolManager
-    address private vault = 0x238a358808379702088667322f80aC48bAd5e6c4; // BSC Vault
+    // Uniswap v4 PoolManager (Robinhood testnet PM552; override before deploy)
+    address private poolManager = 0x552815eF68E6eb418A3d65D0AA1043d93204F612;
+    // Legacy PCS vault — unused on Uniswap v4; kept for IPump ABI compatibility.
+    address private vault = address(0);
     address private hookAddress; // TagAISwapHook address
 
     mapping(address => bool) public createdTokens;
@@ -268,7 +269,8 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
      */
     function getPrice(uint256 supply, uint256 amount) public pure override returns (uint256) {
         require(supply <= 1000000000 ether && amount <= 1000000000 ether, "supply or amount too large");
-        uint256 a = 6_500_000_000;
+        // RH: `a` scaled so 650M sell raises ~5 ETH (BSC ~19.17 ETH at a=6.5e9, same `b`).
+        uint256 a = 1_624_898_729;
         uint256 b = 2.5175516438e26;
         uint256 x = FixedPointMathLib.mulWad(a, b);
         uint256 e1 = uint256(FixedPointMathLib.expWad(int256(((supply + amount) * 1e18) / b)));
@@ -292,7 +294,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
 
     function getBuyAmountByValue(uint256 bondingCurveSupply, uint256 ethAmount) public pure override returns (uint256) {
         require(bondingCurveSupply <= 1000000000 ether && ethAmount <= 1000000000 ether, "supply or amount too large");
-        uint256 a = 6_500_000_000;
+        uint256 a = 1_624_898_729;
         uint256 b = 2.5175516438e26;
         uint256 ab = FixedPointMathLib.mulWad(a, b);
         uint256 sab = FixedPointMathLib.divWad(ethAmount, ab);
