@@ -9,19 +9,16 @@ import "../interfaces/IIPShare.sol";
 import "../interfaces/IPump.sol";
 import "../interfaces/IBondingCurve.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
+import "../utils/CurrencySettler.sol";
 
-// PancakeSwap V4 (Infinity)
-import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
-import {IHooks} from "infinity-core/src/interfaces/IHooks.sol";
-import {ILockCallback} from "infinity-core/src/interfaces/ILockCallback.sol";
-import {IVault} from "infinity-core/src/interfaces/IVault.sol";
-import {PoolKey} from "infinity-core/src/types/PoolKey.sol";
-import {PoolId, PoolIdLibrary} from "infinity-core/src/types/PoolId.sol";
-import {Currency, CurrencyLibrary} from "infinity-core/src/types/Currency.sol";
-import {BalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
-import {CLPoolParametersHelper} from "infinity-core/src/pool-cl/libraries/CLPoolParametersHelper.sol";
-import {TickMath} from "infinity-core/src/pool-cl/libraries/TickMath.sol";
-import {IPoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
+// Uniswap v4
+import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import {IUnlockCallback} from "v4-core/src/interfaces/callback/IUnlockCallback.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
+import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
+import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 
 interface ITipTagSwapHook {
     function registerPool(PoolId poolId, address token) external;
@@ -30,7 +27,7 @@ interface ITipTagSwapHook {
 error OnlyPump();
 error NutboxAddressesAlreadySet();
 
-contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
+contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
 
@@ -62,13 +59,10 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     address public nutboxCommunity;
     address public nutboxSocialPool;
 
-    // PCS V4 pool info
-    ICLPoolManager public clPoolManager;
-    IVault public vault;
+    // Uniswap v4 pool info
+    IPoolManager public poolManager;
     PoolId public v4PoolId;
-    // In V4, tickSpacing and fee are fully decoupled.
-    // fee=0 means zero native pool fee; all fees are collected by TipTagSwapHook.
-    // tickSpacing=60 controls price-tick granularity only (no 0.3% DEX fee implied).
+    // fee=0：池子本身不收 swap fee，全部由 TipTagSwapHook 收取
     int24 public constant TICK_SPACING = 60;
     // RH listing LP: 双边 ~200M + ~4.8 ETH；tickLower=MIN；tickUpper 校准使池外 800M 卖压抽干池内 ETH。
     // 离线标定：ListingParamsCalc.test_solveRH_listingConstants
@@ -138,9 +132,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         // All tokens minted to Token itself
         _mint(address(this), bondingCurveTotalAmount + liquidityAmount + NUTBOX_ALLOCATION);
 
-        // Set PCS V4 references
-        clPoolManager = ICLPoolManager(IPump(manager).getPoolManager());
-        vault = IVault(IPump(manager).getVault());
+        poolManager = IPoolManager(IPump(manager_).getPoolManager());
     }
 
     /// @notice Records Nutbox `Community` and SocialCuration pool; callable once by Pump only.
@@ -158,7 +150,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         address sellsman,
         uint16 slippage
     ) public payable nonReentrant returns (uint256) {
-        require(msg.sender != address(clPoolManager), "can't buy token from pool");
+        require(msg.sender != address(poolManager), "can't buy token from pool");
         sellsman = _checkBondingCurveState(sellsman);
         (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
         uint256 buyFunds = msg.value;
@@ -363,7 +355,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         return sellsman;
     }
 
-    /********************************** to dex (PancakeSwap V4 Infinity) ********************************/
+    /********************************** to dex (Uniswap v4) ********************************/
     function _makeLiquidityPool() private {
         require(address(this).balance >= LISTING_ETH_BUDGET, "Insufficient ETH for listing");
         require(balanceOf(address(this)) >= LISTING_TOKEN_AMOUNT + NUTBOX_ALLOCATION, "Insufficient token for listing");
@@ -373,41 +365,29 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         require(hookAddr != address(0), "Hook not set");
         _transfer(address(this), hookAddr, NUTBOX_ALLOCATION);
 
-        // 1. Build the PoolKey (PCS V4 format)
-        //    currency0 = Native ETH (address(0)), currency1 = Token
-        //    tickSpacing is encoded in bytes32 parameters (bits [16-39])
-        uint16 hookBitmap = IHooks(hookAddr).getHooksRegistrationBitmap();
-        bytes32 parameters = CLPoolParametersHelper.setTickSpacing(bytes32(uint256(hookBitmap)), TICK_SPACING);
-
+        // currency0 = native ETH, currency1 = this token (address sort order)
         PoolKey memory poolKey = PoolKey({
-            currency0: CurrencyLibrary.NATIVE, // Native ETH
-            currency1: Currency.wrap(address(this)), // Token
-            hooks: IHooks(hookAddr),
-            poolManager: IPoolManager(address(clPoolManager)),
-            fee: 0, // No native LP fee, all fees via Hook
-            parameters: parameters
+            currency0: CurrencyLibrary.ADDRESS_ZERO,
+            currency1: Currency.wrap(address(this)),
+            fee: 0,
+            tickSpacing: TICK_SPACING,
+            hooks: IHooks(hookAddr)
         });
 
-        // 2. Use fixed initial price to avoid runtime price drift and overflow edge-cases.
         uint160 sqrtPriceX96 = INITIAL_SQRT_PRICE_X96;
-
-        // 3. Use precomputed bounded ticks to avoid per-list tick math.
         int24 tickLower = LISTING_TICK_LOWER;
         int24 tickUpper = LISTING_TICK_UPPER;
 
-        // 4. Initialize the pool
-        clPoolManager.initialize(poolKey, sqrtPriceX96);
+        poolManager.initialize(poolKey, sqrtPriceX96);
 
-        // 5. Register pool in Hook for fee collection
         PoolId poolId = poolKey.toId();
         v4PoolId = poolId;
         ITipTagSwapHook(hookAddr).registerPool(poolId, address(this));
 
-        // 6. Add bounded-range liquidity via vault.lock() callback.
-        bytes memory callbackData = abi.encode(poolKey, tickLower, tickUpper);
-        vault.lock(callbackData);
+        // Add bounded-range liquidity inside unlock callback
+        poolManager.unlock(abi.encode(poolKey, tickLower, tickUpper));
 
-        // 7. After LP is settled, send all remaining ETH to platform. Remaining token stays in this contract.
+        // After LP is settled, send all remaining ETH to platform. Remaining token stays in this contract.
         address tiptagFeeAddress = IPump(manager).getFeeReceiver();
         uint256 remainEth = address(this).balance;
         if (remainEth > 0) {
@@ -419,9 +399,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         emit TokenListedToDex(address(this), PoolId.unwrap(poolId), sqrtPriceX96);
     }
 
-    /// @notice ILockCallback — 双边 LP：~200M token + ~4.8 ETH 进池。
-    function lockAcquired(bytes calldata data) external override returns (bytes memory) {
-        require(msg.sender == address(vault), "Only Vault");
+    /// @notice IUnlockCallback — 双边 LP：~200M token + ~4.8 ETH 进池。
+    function unlockCallback(bytes calldata data) external override returns (bytes memory) {
+        require(msg.sender == address(poolManager), "Only PoolManager");
 
         (PoolKey memory poolKey, int24 tickLower, int24 tickUpper) = abi.decode(data, (PoolKey, int24, int24));
 
@@ -430,21 +410,21 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         return "";
     }
 
-    /// @dev Shared modifyLiquidity + vault settle/take for listing LP adds.
+    /// @dev modifyLiquidity + settle open deltas against PoolManager.
     function _modifyAndSettleLiquidity(
         PoolKey memory poolKey,
         int24 tickLower,
         int24 tickUpper,
         int256 liquidityDelta
     ) private {
-        ICLPoolManager.ModifyLiquidityParams memory params = ICLPoolManager.ModifyLiquidityParams({
+        IPoolManager.ModifyLiquidityParams memory params = IPoolManager.ModifyLiquidityParams({
             tickLower: tickLower,
             tickUpper: tickUpper,
             liquidityDelta: liquidityDelta,
             salt: bytes32(0)
         });
 
-        (BalanceDelta callerDelta,) = clPoolManager.modifyLiquidity(poolKey, params, "");
+        (BalanceDelta callerDelta,) = poolManager.modifyLiquidity(poolKey, params, "");
 
         int128 ethOwed = callerDelta.amount0();
         int128 tokenOwed = callerDelta.amount1();
@@ -452,22 +432,20 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         if (ethOwed < 0) {
             uint256 ethToSettle = uint256(uint128(-ethOwed));
             require(ethToSettle <= LISTING_ETH_BUDGET, "ETH budget exceeded");
-            vault.settle{value: ethToSettle}();
+            CurrencySettler.settle(poolKey.currency0, poolManager, address(this), ethToSettle, false);
         }
 
         if (tokenOwed < 0) {
             uint256 tokenToSettle = uint256(uint128(-tokenOwed));
             require(tokenToSettle <= LISTING_TOKEN_AMOUNT, "Token budget exceeded");
-            vault.sync(poolKey.currency1);
-            _transfer(address(this), address(vault), tokenToSettle);
-            vault.settle();
+            CurrencySettler.settle(poolKey.currency1, poolManager, address(this), tokenToSettle, false);
         }
 
         if (ethOwed > 0) {
-            vault.take(poolKey.currency0, address(this), uint256(uint128(ethOwed)));
+            CurrencySettler.take(poolKey.currency0, poolManager, address(this), uint256(uint128(ethOwed)), false);
         }
         if (tokenOwed > 0) {
-            vault.take(poolKey.currency1, address(this), uint256(uint128(tokenOwed)));
+            CurrencySettler.take(poolKey.currency1, poolManager, address(this), uint256(uint128(tokenOwed)), false);
         }
     }
 
@@ -482,8 +460,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     // only listed token can do erc20 transfer functions
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        // Before listing, prevent unauthorized token transfers to Vault
-        if (!listed && to == address(vault) && from != address(this)) {
+        // Before listing, prevent unauthorized token transfers to PoolManager
+        if (!listed && to == address(poolManager) && from != address(this)) {
             revert TokenNotListed();
         }
         return super._beforeTokenTransfer(from, to, amount);

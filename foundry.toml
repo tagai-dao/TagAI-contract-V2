@@ -6,9 +6,8 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.26"
-# TagAISwapHook (v4) vs Token.sol (PCS) type clash until Token is ported
+# PCS-only DepCheck + legacy tests until RH mocks/scripts are updated
 skip = [
-    "src/hook/TagAISwapHook.sol",
     "src/DepCheck.sol",
     "script/**",
     "test/benchmark/**",
@@ -38,6 +37,10 @@ chain_id = 56
 
 [rpc_endpoints]
 bsc = "${BSC_RPC_URL}"
+rh = "${RH_RPC_URL}"
+
+[profile.rh_fork]
+chain_id = 4663
 
 # Fuzz testing configuration
 [profile.default.fuzz]
