@@ -78,7 +78,7 @@ contract Deploy is Script {
         console.log("MockVault:", address(mockVault));
 
         // ─── Phase 8: Deploy Pump ───
-        Pump pump = new Pump(address(ipshare), deployer);
+        Pump pump = new Pump(address(ipshare), deployer, NutboxDeployConfigLib.empty());
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
         console.log("Pump:", address(pump));

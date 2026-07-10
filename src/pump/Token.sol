@@ -59,6 +59,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     address public nutboxCommunity;
     address public nutboxSocialPool;
 
+    /// @dev Set by Pump immediately before the deployer's bundled pre-buy; bypasses anti-snipe once.
+    bool private antiSnipeBypassArmed;
+
     // Uniswap v4 pool info
     IPoolManager public poolManager;
     PoolId public v4PoolId;
@@ -80,7 +83,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     function _buyTokenDirect() private {
         address sellsman = _checkBondingCurveState(address(0));
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatios();
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (buyFunds * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (buyFunds * sellsmanFeePercent) / divisor;
@@ -93,8 +96,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         } else {
             bondingCurveSupply += tokenReceived;
             this.transfer(msg.sender, tokenReceived);
-            (bool success, ) = tiptapFeeAddress.call{value: tiptagFee}("");
-            if (!success) revert CostFeeFail();
+            _sendPlatformFee(tiptapFeeAddress, tiptagFee);
             address feeRecipient = _getFeeRecipient(sellsman);
             _handleSellsmanFee(sellsmanFee, feeRecipient);
             emit Trade(msg.sender, feeRecipient, true, tokenReceived, buyFunds, tiptagFee, sellsmanFee);
@@ -135,6 +137,12 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         poolManager = IPoolManager(IPump(manager_).getPoolManager());
     }
 
+    /// @notice Arms a one-time anti-snipe bypass for the deployer's bundled pre-buy in `createToken`.
+    function armAntiSnipeBypass() external {
+        if (msg.sender != manager) revert OnlyPump();
+        antiSnipeBypassArmed = true;
+    }
+
     /// @notice Records Nutbox `Community` and SocialCuration pool; callable once by Pump only.
     function setNutboxAddresses(address community, address pool) external {
         if (msg.sender != manager) revert OnlyPump();
@@ -152,7 +160,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     ) public payable nonReentrant returns (uint256) {
         require(msg.sender != address(poolManager), "can't buy token from pool");
         sellsman = _checkBondingCurveState(sellsman);
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatios();
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (msg.value * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (msg.value * sellsmanFeePercent) / divisor;
@@ -184,10 +192,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
             bondingCurveSupply += tokenReceived;
             this.transfer(msg.sender, tokenReceived);
 
-            (bool success, ) = tiptapFeeAddress.call{value: tiptagFee}("");
-            if (!success) {
-                revert CostFeeFail();
-            }
+            _sendPlatformFee(tiptapFeeAddress, tiptagFee);
 
             address feeRecipient = _getFeeRecipient(sellsman);
             _handleSellsmanFee(sellsmanFee, feeRecipient);
@@ -233,33 +238,40 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         bondingCurveSupply -= sellAmount;
 
         {
-            (bool success1, ) = tiptagFeeAddress.call{value: tiptagFee}("");
             (bool success2, ) = msg.sender.call{value: receivedEth}("");
-            if (!success1 || !success2) {
+            if (!success2) {
                 revert RefundFail();
             }
         }
 
+        _sendPlatformFee(tiptagFeeAddress, tiptagFee);
+
         address feeRecipient = _getFeeRecipient(sellsman);
-        IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanFee}(feeRecipient);
+        _tryValueCapture(feeRecipient, sellsmanFee);
         emit Trade(msg.sender, feeRecipient, false, sellAmount, price, tiptagFee, sellsmanFee);
     }
 
     /**
      * Get current buy fee ratios (basis points, e.g. 100 = 1%).
-     * 1. First buy (bondingCurveSupply == 0): uses Pump's feeRatio as-is.
-     * 2. Within 15s after creation: tiptag = feeRatio[0]; sellsman decays quadratically from 80% to feeRatio[1].
-     * 3. After 15s: uses Pump's configured feeRatio.
+     * 1. Within 15s after creation: tiptag = feeRatio[0]; sellsman decays quadratically from 80% to feeRatio[1].
+     * 2. After 15s: uses Pump's configured feeRatio.
+     * @dev Deployer's bundled pre-buy in `createToken` uses normal fees via `armAntiSnipeBypass` (not visible here).
      */
     function getBuyFeeRatios() external view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
         return _getBuyFeeRatiosView();
     }
 
-    function _getBuyFeeRatiosView() private view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
-        if (bondingCurveSupply == 0) {
+    function _getBuyFeeRatios() private returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
+        if (antiSnipeBypassArmed) {
+            antiSnipeBypassArmed = false;
+            uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
             return (feeRatio[0], feeRatio[1]);
         }
+        return _getBuyFeeRatiosView();
+    }
+
+    function _getBuyFeeRatiosView() private view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
+        uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
         uint256 elapsed = block.timestamp - createdAt;
         if (elapsed >= ANTI_SNIPE_WINDOW) {
             return (feeRatio[0], feeRatio[1]);
@@ -272,12 +284,35 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         return (feeRatio[0], sellsmanFeePercent);
     }
 
+    /// @dev Platform fee transfer must not block bonding-curve trades.
+    function _sendPlatformFee(address recipient, uint256 amount) private {
+        if (amount == 0) return;
+        (bool success,) = recipient.call{value: amount}("");
+        success; // recipient is feeReceiver; if it rejects, ETH stays in Token
+    }
+
+    /// @dev IPShare valueCapture must not block trades; on failure route to Pump.feeReceiver.
+    function _tryValueCapture(address subject, uint256 amount) private {
+        if (amount == 0) return;
+        try IIPShare(IPump(manager).getIPShare()).valueCapture{value: amount}(subject) {} catch {
+            _sendToFeeReceiver(amount);
+        }
+    }
+
+    /// @dev Fallback recipient is always Pump.getFeeReceiver().
+    function _sendToFeeReceiver(uint256 amount) private {
+        if (amount == 0) return;
+        address feeReceiver = IPump(manager).getFeeReceiver();
+        (bool success,) = feeReceiver.call{value: amount}("");
+        success;
+    }
+
     /// @notice Handles sellsman fee: during anti-snipe window, injects into Calculator; otherwise sends to IPShare.
     function _handleSellsmanFee(uint256 sellsmanFee, address feeRecipient) private {
         if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
             _antiSnipeInject(sellsmanFee);
         } else {
-            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanFee}(feeRecipient);
+            _tryValueCapture(feeRecipient, sellsmanFee);
         }
     }
 
@@ -300,9 +335,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         try IHourlyTickCalculator(calculator).inject(nutboxCommunity, tokensPurchased) {
             emit AntiSnipeInjected(address(this), nutboxCommunity, sellsmanEth, tokensPurchased);
         } catch {
-            // Fallback: revert the supply change and send ETH to IPShare
+            // Fallback: revert the supply change and try IPShare valueCapture
             bondingCurveSupply -= tokensPurchased;
-            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            _tryValueCapture(ipshareSubject, sellsmanEth);
         }
     }
 
@@ -326,8 +361,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         bondingCurveSupply += actualAmount;
         this.transfer(msg.sender, actualAmount);
 
-        (bool success1, ) = tiptapFeeAddress.call{value: tiptagFee}("");
-        if (!success1) revert CostFeeFail();
+        _sendPlatformFee(tiptapFeeAddress, tiptagFee);
         address feeRecipient = _getFeeRecipient(sellsman);
         _handleSellsmanFee(sellsmanFee, feeRecipient);
         emit Trade(msg.sender, feeRecipient, true, actualAmount, usedEth, tiptagFee, sellsmanFee);

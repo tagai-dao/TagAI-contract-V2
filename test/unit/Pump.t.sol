@@ -1,155 +1,62 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import "forge-std/Test.sol";
-import "../../src/nutbox/Committee.sol";
-import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
-import "../../src/pump/IPShare.sol";
-import "../../src/pump/Pump.sol";
-import "../../src/pump/Token.sol";
-import "../../src/hook/TagAISwapHook.sol";
-import "../mocks/MockCLPoolManager.sol";
-import "../mocks/MockVault.sol";
-import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
-import {IVault} from "infinity-core/src/interfaces/IVault.sol";
+import {Pump} from "../../src/pump/Pump.sol";
+import {NutboxDeployConfigLib} from "../../src/pump/NutboxDeployConfig.sol";
+import {V4PumpTestBase} from "../helpers/V4PumpTestBase.sol";
 
 /**
  * @title PumpTest
- * @notice Unit tests for Pump contract — admin functions, createToken happy path/revert paths.
+ * @notice Unit tests for Pump — admin functions, createToken happy/revert paths (Uniswap v4 stack).
  */
-contract PumpTest is Test {
-    Committee public committee;
-    address public communityFactory;
-    HourlyTickCalculator public calculator;
-    address public scf;
-    MockCLPoolManager public mockPoolManager;
-    MockVault public mockVault;
-    IPShare public ipshare;
-    Pump public pump;
-    TagAISwapHook public hook;
-
-    address public deployer;
-    address public creator;
-    address public feeRecipient;
-    address public claimSigner;
-
-    function setUp() public {
-        deployer = address(this);
-        creator = makeAddr("creator");
-        feeRecipient = makeAddr("feeRecipient");
-        claimSigner = makeAddr("claimSigner");
-
-        vm.deal(creator, 1000 ether);
-        vm.deal(deployer, 1000 ether);
-
-        committee = new Committee(payable(feeRecipient));
-        committee.adminSetCreateCommunityFee(0);
-        committee.adminSetCommunitySettingsFee(0);
-        committee.adminSetPoolOperationFee(0);
-
-        // Deploy CommunityFactory via vm.getCode (avoids OZ ERC20 / Solady ERC20 collision)
-        communityFactory = _deployCommunityFactory(address(committee));
-        calculator = new HourlyTickCalculator(communityFactory);
-        scf = _deploySocialCurationFactory(communityFactory, claimSigner);
-
-        committee.adminAddContract(address(calculator));
-        committee.adminAddContract(scf);
-
-        mockPoolManager = new MockCLPoolManager();
-        mockVault = new MockVault();
-
-        ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
-        pump.adminSetPoolManager(address(mockPoolManager));
-        pump.adminSetVault(address(mockVault));
-
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
-
-        pump.adminSetHookAddress(address(hook));
-        pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(
-            communityFactory,
-            address(calculator),
-            scf,
-            address(committee)
-        );
-
-        vm.warp(3600);
-    }
-
-    function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
-        address d;
-        assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
-        require(d != address(0), "CommunityFactory deploy failed");
-        return d;
-    }
-
-    function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
-        address d;
-        assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
-        require(d != address(0), "SocialCurationFactory deploy failed");
-        return d;
-    }
-
+contract PumpTest is V4PumpTestBase {
     // ─── Admin Functions ───
 
-    function test_adminSetCalculator_onlyOwner() public {
+    function test_adminSetCalculator_onlyOwner() public onlyReady {
         address rando = makeAddr("rando");
         vm.prank(rando);
         vm.expectRevert();
         pump.adminSetCalculator(makeAddr("newCalc"));
     }
 
-    function test_adminSetCalculator_updatesAddress() public {
+    function test_adminSetCalculator_updatesAddress() public onlyReady {
         address newCalc = makeAddr("newCalc");
         pump.adminSetCalculator(newCalc);
         assertEq(pump.getCalculator(), newCalc);
     }
 
-    function test_adminSetHookAddress_onlyOwner() public {
+    function test_adminSetHookAddress_onlyOwner() public onlyReady {
         address rando = makeAddr("rando");
         vm.prank(rando);
         vm.expectRevert();
         pump.adminSetHookAddress(makeAddr("newHook"));
     }
 
-    function test_adminSetHookAddress_updatesAddress() public {
+    function test_adminSetHookAddress_updatesAddress() public onlyReady {
         address newHook = makeAddr("newHook");
         pump.adminSetHookAddress(newHook);
         assertEq(pump.getHookAddress(), newHook);
     }
 
-    function test_getCalculator_returnsConfiguredAddress() public {
+    function test_getCalculator_returnsConfiguredAddress() public onlyReady {
         assertEq(pump.getCalculator(), address(calculator));
     }
 
-    function test_getHookAddress_returnsConfiguredAddress() public {
+    function test_getHookAddress_returnsConfiguredAddress() public onlyReady {
         assertEq(pump.getHookAddress(), address(hook));
     }
 
-    function test_getIPShare_returnsConfiguredAddress() public {
+    function test_getIPShare_returnsConfiguredAddress() public onlyReady {
         assertEq(pump.getIPShare(), address(ipshare));
     }
 
-    function test_getFeeRatio_returnsDefaultValues() public {
+    function test_getFeeRatio_returnsDefaultValues() public onlyReady {
         uint256[2] memory ratio = pump.getFeeRatio();
-        assertEq(ratio[0], 30); // platform fee
-        assertEq(ratio[1], 30); // sellsman fee
+        assertEq(ratio[0], 30);
+        assertEq(ratio[1], 30);
     }
 
-    function test_adminChangeFeeRatio_onlyOwner() public {
+    function test_adminChangeFeeRatio_onlyOwner() public onlyReady {
         address rando = makeAddr("rando");
         uint256[2] memory newRatio = [uint256(50), uint256(50)];
         vm.prank(rando);
@@ -157,7 +64,7 @@ contract PumpTest is Test {
         pump.adminChangeFeeRatio(newRatio);
     }
 
-    function test_adminChangeFeeRatio_updatesValues() public {
+    function test_adminChangeFeeRatio_updatesValues() public onlyReady {
         uint256[2] memory newRatio = [uint256(50), uint256(50)];
         pump.adminChangeFeeRatio(newRatio);
         uint256[2] memory ratio = pump.getFeeRatio();
@@ -165,127 +72,93 @@ contract PumpTest is Test {
         assertEq(ratio[1], 50);
     }
 
-    function test_adminChangeFeeRatio_revertsTooMuchFee() public {
+    function test_adminChangeFeeRatio_revertsTooMuchFee() public onlyReady {
         uint256[2] memory tooMuch = [uint256(1001), uint256(50)];
         vm.expectRevert();
         pump.adminChangeFeeRatio(tooMuch);
     }
 
-    function test_adminChangeCreateFee_onlyOwner() public {
+    function test_adminChangeCreateFee_onlyOwner() public onlyReady {
         address rando = makeAddr("rando");
         vm.prank(rando);
         vm.expectRevert();
         pump.adminChangeCreateFee(0.01 ether);
     }
 
-    function test_adminChangeCreateFee_revertsTooMuchFee() public {
+    function test_adminChangeCreateFee_revertsTooMuchFee() public onlyReady {
         vm.expectRevert();
         pump.adminChangeCreateFee(2 ether);
     }
 
-    // ─── createToken happy path ───
+    // ─── createToken ───
 
-    function test_createToken_succeedsHappyPath() public {
-        vm.startPrank(creator, creator); // tx.origin = creator (Pump requires EOA)
-
-        // Create IPShare for creator first
-        uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
-        ipshare.createShare{value: ipsharePrice}(creator);
-
+    function test_createToken_succeedsHappyPath() public onlyReady {
+        _ensureCreatorIPShare();
+        vm.prank(creator, creator);
         address tokenAddr = pump.createToken{value: 0.005 ether}("TEST", bytes32(uint256(1)));
-
         assertTrue(pump.createdTokens(tokenAddr));
         assertTrue(tokenAddr != address(0));
-
-        vm.stopPrank();
     }
 
-    function test_createToken_revertsIfTickAlreadyExists() public {
-        vm.startPrank(creator, creator);
-        uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
-        ipshare.createShare{value: ipsharePrice}(creator);
-
+    function test_createToken_revertsIfTickAlreadyExists() public onlyReady {
+        _ensureCreatorIPShare();
+        vm.prank(creator, creator);
         pump.createToken{value: 0.005 ether}("DUPE", bytes32(uint256(1)));
-
-        // Same tick again should revert
+        vm.prank(creator, creator);
         vm.expectRevert();
         pump.createToken{value: 0.005 ether}("DUPE", bytes32(uint256(2)));
-
-        vm.stopPrank();
     }
 
-    function test_createToken_revertsIfInsufficientFee() public {
-        vm.startPrank(creator, creator);
-        uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
-        ipshare.createShare{value: ipsharePrice}(creator);
-
-        // Only 0.001 ether — less than createFee (0.005)
+    function test_createToken_revertsIfInsufficientFee() public onlyReady {
+        _ensureCreatorIPShare();
+        vm.prank(creator, creator);
         vm.expectRevert();
         pump.createToken{value: 0.001 ether}("LOWFEE", bytes32(uint256(1)));
-
-        vm.stopPrank();
     }
 
-    function test_createToken_revertsIfNotEOA() public {
-        // Call from this contract (not an EOA, no tx.origin trick)
-        // tx.origin == address(this) ≠ msg.sender
-        // Actually since we're calling directly from a contract, tx.origin == this and msg.sender == this
-        // Both equal, so the EOA check passes. To trigger Only EOA, we need a contract calling Pump.
-        // Use a helper proxy contract.
+    function test_createToken_revertsIfNotEOA() public onlyReady {
         ContractCaller caller = new ContractCaller(address(pump));
         vm.deal(address(caller), 1 ether);
-
         vm.expectRevert();
         caller.callCreateToken{value: 0.005 ether}("PROXY", bytes32(uint256(1)));
     }
 
-    function test_createToken_revertsIfNutboxNotConfigured() public {
-        // Deploy fresh Pump without adminSetNutbox to set calculator/community factory
-        Pump freshPump = new Pump(address(ipshare), feeRecipient);
-        freshPump.adminSetCalculator(address(0)); // explicitly clear calculator
-        // The check `hourlyTickCalculator == address(0)` will trigger NutboxNotConfigured
-        // BUT freshPump still has BSC mainnet hardcoded addresses for nutboxCommunityFactory etc.
-        // So the explicit zero on calculator will hit the revert check.
+    function test_createToken_revertsIfNutboxNotConfigured() public onlyReady {
+        Pump freshPump = new Pump(address(ipshare), feeRecipient, NutboxDeployConfigLib.empty());
+        freshPump.adminSetCalculator(address(0));
 
         vm.startPrank(creator, creator);
-        uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
-        ipshare.createShare{value: ipsharePrice}(creator);
-
+        if (!ipshare.ipshareCreated(creator)) {
+            ipshare.createShare{value: ipshare.createFee()}(creator);
+        }
         vm.expectRevert();
         freshPump.createToken{value: 0.005 ether}("FRESH", bytes32(uint256(1)));
-
         vm.stopPrank();
     }
 
-    function test_pump_doesNotHaveTradeSigner() public {
-        // Verify getTradeSigner() function does NOT exist on Pump.
-        // Try a low-level call with the tradeSigner selector — should fail.
+    function test_pump_doesNotHaveTradeSigner() public onlyReady {
         bytes4 selector = bytes4(keccak256("getTradeSigner()"));
         (bool success,) = address(pump).call(abi.encodeWithSelector(selector));
-        assertFalse(success, "getTradeSigner should not exist on v2 Pump");
+        assertFalse(success);
     }
 
-    function test_pump_doesNotHaveAdminSetTradeSigner() public {
+    function test_pump_doesNotHaveAdminSetTradeSigner() public onlyReady {
         bytes4 selector = bytes4(keccak256("adminSetTradeSigner(address)"));
         (bool success,) = address(pump).call(abi.encodeWithSelector(selector, address(0)));
-        assertFalse(success, "adminSetTradeSigner should not exist on v2 Pump");
+        assertFalse(success);
     }
 
-    // ─── Bonding curve formulas ───
+    // ─── Bonding curve (RH constants) ───
 
-    function test_getPrice_consistentWithV1() public {
-        // Sanity check: same constants (a = 6_500_000_000, b = 2.5175516438e26)
-        uint256 price = pump.getPrice(0, 100 ether);
-        assertGt(price, 0, "Price should be positive");
+    function test_getPrice_positive() public onlyReady {
+        assertGt(pump.getPrice(0, 100 ether), 0);
     }
 
-    function test_getBuyAmountByValue_consistentWithV1() public {
-        uint256 amount = pump.getBuyAmountByValue(0, 1 ether);
-        assertGt(amount, 0, "Buy amount should be positive");
+    function test_getBuyAmountByValue_positive() public onlyReady {
+        assertGt(pump.getBuyAmountByValue(0, 1 ether), 0);
     }
 }
 
-/// @dev Helper to call Pump.createToken from a contract context (not EOA).
 contract ContractCaller {
     Pump public pump;
 
@@ -300,214 +173,70 @@ contract ContractCaller {
     receive() external payable {}
 }
 
-// ─── Nutbox Fees Tests ───
-
 /**
  * @title PumpWithFeesTest
- * @notice Tests Pump behavior when nutboxFees > 0
- * @dev Separate contract because main PumpTest sets all fees to 0
+ * @notice Pump.createToken when nutboxFees > 0 — excess ETH must not refund nutbox portion.
  */
-contract PumpWithFeesTest is Test {
-    Committee public committee;
-    address public communityFactory;
-    HourlyTickCalculator public calculator;
-    address public scf;
-    MockCLPoolManager public mockPoolManager;
-    MockVault public mockVault;
-    IPShare public ipshare;
-    Pump public pump;
-    TagAISwapHook public hook;
-
-    address public deployer;
-    address public creator;
-    address public feeRecipient;
-    address public claimSigner;
-
-    // Fee constants (simulate mainnet-like fees)
+contract PumpWithFeesTest is V4PumpTestBase {
     uint256 constant CREATE_COMMUNITY_FEE = 0.01 ether;
     uint256 constant SETTINGS_FEE = 0.005 ether;
-    uint256 constant NUTBOX_FEES = CREATE_COMMUNITY_FEE + SETTINGS_FEE; // 0.015 ether
+    uint256 constant NUTBOX_FEES = CREATE_COMMUNITY_FEE + SETTINGS_FEE;
     uint256 constant PUMP_CREATE_FEE = 0.005 ether;
 
-    function setUp() public {
-        deployer = address(this);
-        creator = makeAddr("creator");
-        feeRecipient = makeAddr("feeRecipient");
-        claimSigner = makeAddr("claimSigner");
-
-        vm.deal(creator, 1000 ether);
-        vm.deal(deployer, 1000 ether);
-
-        committee = new Committee(payable(feeRecipient));
-        // Set non-zero nutbox fees
-        committee.adminSetCreateCommunityFee(CREATE_COMMUNITY_FEE);
-        committee.adminSetCommunitySettingsFee(SETTINGS_FEE);
-        committee.adminSetPoolOperationFee(0);
-
-        communityFactory = _deployCommunityFactory(address(committee));
-        calculator = new HourlyTickCalculator(communityFactory);
-        scf = _deploySocialCurationFactory(communityFactory, claimSigner);
-
-        committee.adminAddContract(address(calculator));
-        committee.adminAddContract(scf);
-
-        mockPoolManager = new MockCLPoolManager();
-        mockVault = new MockVault();
-
-        ipshare = new IPShare(feeRecipient);
-        // Set IPShare createFee to 0 to isolate nutboxFees testing
-        ipshare.adminSetCreateFee(0);
-
-        pump = new Pump(address(ipshare), feeRecipient);
-        pump.adminSetPoolManager(address(mockPoolManager));
-        pump.adminSetVault(address(mockVault));
-
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
-
-        pump.adminSetHookAddress(address(hook));
-        pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(
-            communityFactory,
-            address(calculator),
-            scf,
-            address(committee)
-        );
-
-        vm.warp(3600);
+    function _nutboxCreateCommunityFee() internal pure override returns (uint256) {
+        return CREATE_COMMUNITY_FEE;
     }
 
-    function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
-        address d;
-        assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
-        require(d != address(0), "CommunityFactory deploy failed");
-        return d;
+    function _nutboxCommunitySettingsFee() internal pure override returns (uint256) {
+        return SETTINGS_FEE;
     }
 
-    function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
-        address d;
-        assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
-        require(d != address(0), "SocialCurationFactory deploy failed");
-        return d;
+    function _zeroIpShareCreateFee() internal pure override returns (bool) {
+        return true;
     }
 
-    /// @dev Test that nutboxFees are NOT refunded to user when there's excess ETH
-    /// This test would FAIL with the old buggy code that used:
-    ///     uint256 leftValue = address(this).balance;
-    /// Instead of the fixed:
-    ///     uint256 leftValue = address(this).balance > nutboxFees ? address(this).balance - nutboxFees : 0;
-    function test_createToken_withNutboxFees_doesNotRefundFees() public {
-        vm.startPrank(creator, creator);
-
-        // Create IPShare (free since createFee=0)
-        ipshare.createShare(creator);
-
-        uint256 buyAmount = 0.1 ether;
-        uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES + buyAmount; // 0.005 + 0.015 + 0.1 = 0.12 ether
-
-        uint256 balanceBefore = creator.balance;
-        
-        address tokenAddr = pump.createToken{value: totalSent}("TESTFEE", bytes32(uint256(1)));
-        
-        uint256 balanceAfter = creator.balance;
-        uint256 actualSpent = balanceBefore - balanceAfter;
-
-        // Verify token was created
-        assertTrue(pump.createdTokens(tokenAddr), "Token should be created");
-
-        // actualSpent should include:
-        // - PUMP_CREATE_FEE (0.005) - goes to feeReceiver
-        // - NUTBOX_FEES (0.015) - stays in Pump for later community creation
-        // - Some ETH used for buying tokens (less than buyAmount due to bonding curve)
-        
-        // CRITICAL: Verify that nutboxFees are NOT refunded to user
-        // The refund should be: (buyAmount - actualTokenCost), NOT (buyAmount - actualTokenCost + nutboxFees)
-        // So actualSpent should be close to: PUMP_CREATE_FEE + NUTBOX_FEES + (some portion of buyAmount)
-        
-        // The user should have spent AT LEAST the fixed fees
-        assertGe(actualSpent, PUMP_CREATE_FEE + NUTBOX_FEES, "User should have paid at least fixed fees");
-        
-        // The user should have spent LESS than totalSent (because some ETH is refunded after token purchase)
-        // But the refund should NOT include nutboxFees
-        // With the bug, the refund would be too large (includes nutboxFees)
-        // With the fix, refund = buyAmount - actualTokenCost (nutboxFees stay in contract)
-        
-        uint256 refunded = totalSent - actualSpent;
-        
-        // refunded should be less than buyAmount (since some ETH bought tokens)
-        // With the bug: refunded would be roughly (buyAmount - tokenCost) + nutboxFees
-        // With the fix: refunded should be roughly (buyAmount - tokenCost)
-        
-        // Check Pump contract balance - it should have exactly NUTBOX_FEES remaining
-        // (nutboxFees are used later for createCommunity + adminAddPool)
-        uint256 pumpBalanceAfter = address(pump).balance;
-        
-        // After createToken, Pump should have nutboxFees ready for community creation
-        // But since createCommunity is called in the same transaction, the balance might be 0
-        // Actually looking at the code, nutboxFees are passed to createCommunity and adminAddPool
-        // So after the function completes, Pump balance should be 0
-        
-        // Let's verify the user didn't get back more than expected
-        // The maximum possible refund is buyAmount (if token cost was 0, which it isn't)
-        assertLe(refunded, buyAmount, "Refund should not exceed buyAmount (nutboxFees should not be refunded)");
-
-        vm.stopPrank();
-    }
-
-    /// @dev More precise test: verify exact balance change
-    function test_createToken_withNutboxFees_exactBalanceChange() public {
+    function test_createToken_withNutboxFees_doesNotRefundFees() public onlyReady {
         vm.startPrank(creator, creator);
         ipshare.createShare(creator);
 
         uint256 buyAmount = 0.1 ether;
         uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES + buyAmount;
-
         uint256 balanceBefore = creator.balance;
-        pump.createToken{value: totalSent}("TESTFEE2", bytes32(uint256(2)));
-        uint256 balanceAfter = creator.balance;
 
-        // User should have spent: createFee + nutboxFees + (ETH used for tokens)
-        // Since bonding curve prices > 0, some ETH was used to buy tokens
-        // So actualSpent > PUMP_CREATE_FEE + NUTBOX_FEES
-        uint256 actualSpent = balanceBefore - balanceAfter;
-        
-        // Verify the user didn't get nutboxFees back (the bug would give it back)
-        // With the bug: user gets back (buyAmount - tokenCost) + nutboxFees
-        // With the fix: user gets back (buyAmount - tokenCost)
-        // So actualSpent with fix should be higher by nutboxFees
-        
-        assertGt(actualSpent, PUMP_CREATE_FEE, "User should have spent more than just createFee");
-        assertGe(actualSpent, PUMP_CREATE_FEE + NUTBOX_FEES, "User should have paid nutboxFees");
+        address tokenAddr = pump.createToken{value: totalSent}("TESTFEE", bytes32(uint256(1)));
+        uint256 actualSpent = balanceBefore - creator.balance;
 
+        assertTrue(pump.createdTokens(tokenAddr));
+        assertGe(actualSpent, PUMP_CREATE_FEE + NUTBOX_FEES);
+        assertLe(totalSent - actualSpent, buyAmount);
         vm.stopPrank();
     }
 
-    /// @dev Test edge case: when contract balance equals nutboxFees (no refund)
-    function test_createToken_withNutboxFees_noRefundWhenExactAmount() public {
+    function test_createToken_withNutboxFees_exactBalanceChange() public onlyReady {
         vm.startPrank(creator, creator);
         ipshare.createShare(creator);
 
-        // Send exactly the required fees (no extra for token purchase)
-        uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES; // 0.02 ether
-
+        uint256 buyAmount = 0.1 ether;
+        uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES + buyAmount;
         uint256 balanceBefore = creator.balance;
+
+        pump.createToken{value: totalSent}("TESTFEE2", bytes32(uint256(2)));
+        uint256 actualSpent = balanceBefore - creator.balance;
+
+        assertGt(actualSpent, PUMP_CREATE_FEE);
+        assertGe(actualSpent, PUMP_CREATE_FEE + NUTBOX_FEES);
+        vm.stopPrank();
+    }
+
+    function test_createToken_withNutboxFees_noRefundWhenExactAmount() public onlyReady {
+        vm.startPrank(creator, creator);
+        ipshare.createShare(creator);
+
+        uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES;
+        uint256 balanceBefore = creator.balance;
+
         pump.createToken{value: totalSent}("TESTFEE3", bytes32(uint256(3)));
-        uint256 balanceAfter = creator.balance;
-
-        // User should have spent exactly totalSent (no refund since no token purchase)
-        assertEq(balanceBefore - balanceAfter, totalSent, "User should have spent exactly totalSent");
-
+        assertEq(balanceBefore - creator.balance, totalSent);
         vm.stopPrank();
     }
 }

@@ -91,7 +91,7 @@ contract DeployBSCTwoPhaseScript is Script {
         HourlyTickCalculator calculator = new HourlyTickCalculator(COMMUNITY_FACTORY);
         console.log("(1) HourlyTickCalculator:", address(calculator));
 
-        Pump pump = new Pump(IPSHARE, FEE_RECEIVER);
+        Pump pump = new Pump(IPSHARE, FEE_RECEIVER, NutboxDeployConfigLib.empty());
         pump.adminSetPoolManager(CL_POOL_MANAGER);
         pump.adminSetVault(VAULT);
         console.log("(2) Pump:", address(pump));

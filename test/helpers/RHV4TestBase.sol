@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {Pump} from "../../src/pump/Pump.sol";
+import {NutboxDeployConfig, NutboxDeployConfigLib} from "../../src/pump/NutboxDeployConfig.sol";
 import {Token} from "../../src/pump/Token.sol";
 import {TagAISwapHook} from "../../src/hook/TagAISwapHook.sol";
 import {HourlyTickCalculator} from "../../src/nutbox/calculators/HourlyTickCalculator.sol";
@@ -93,10 +94,10 @@ abstract contract RHV4TestBase is Test {
         return true;
     }
 
-    function _deployNutboxStack() internal {
+    function _deployNutboxStack() internal virtual {
         committee = new Committee(payable(feeRecipient));
-        committee.adminSetCreateCommunityFee(0);
-        committee.adminSetCommunitySettingsFee(0);
+        committee.adminSetCreateCommunityFee(_nutboxCreateCommunityFee());
+        committee.adminSetCommunitySettingsFee(_nutboxCommunitySettingsFee());
         committee.adminSetPoolOperationFee(0);
 
         communityFactory = _deployCommunityFactory(address(committee));
@@ -107,9 +108,27 @@ abstract contract RHV4TestBase is Test {
         committee.adminAddContract(scf);
     }
 
-    function _deployPumpAndHook() internal {
+    function _nutboxCreateCommunityFee() internal pure virtual returns (uint256) {
+        return 0;
+    }
+
+    function _nutboxCommunitySettingsFee() internal pure virtual returns (uint256) {
+        return 0;
+    }
+
+    function _deployPumpAndHook() internal virtual {
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(
+            address(ipshare),
+            feeRecipient,
+            NutboxDeployConfig({
+                communityFactory: communityFactory,
+                calculator: address(calculator),
+                socialCurationFactory: scf,
+                committee: address(committee),
+                poolManager: address(manager)
+            })
+        );
         pump.adminSetPoolManager(address(manager));
 
         hook = _deployHookWithValidFlags();
@@ -201,7 +220,7 @@ abstract contract RHV4TestBase is Test {
         vm.stopPrank();
     }
 
-    function _createAndListToken(string memory tick) internal returns (Token token) {
+    function _createAndListToken(string memory tick) internal virtual returns (Token token) {
         token = _createToken(tick);
         _fillBondingCurveUntilListed(token, buyer);
         assertTrue(token.listed(), "listing failed");

@@ -32,6 +32,9 @@ contract TagAISwapHook is IHooks, ReentrancyGuard {
 
     event PoolRegistered(PoolId indexed poolId, address indexed token);
     event SwapFeeCollected(PoolId indexed poolId, address indexed token, uint256 platformFee, uint256 deployerFee);
+    event PlatformFeeTransferFailed(address indexed receiver, uint256 amount);
+    event DeployerFeeCaptureFailed(address indexed subject, uint256 amount);
+    event FeeRoutedToFallback(address indexed feeReceiver, uint256 amount);
     event NutboxInjected(address indexed token, address indexed community, uint256 injectAmount, uint96 remaining);
     event NutboxInjectionFailed(address indexed token, address indexed community, uint256 injectAmount, bytes reason);
     event PeriodSettled(
@@ -332,6 +335,7 @@ contract TagAISwapHook is IHooks, ReentrancyGuard {
         return candidate;
     }
 
+    /// @dev Fee distribution must never revert a swap. Primary deployer path is IPShare; fallback is Pump.feeReceiver.
     function _distributeFees(
         address token,
         uint256 platformFee,
@@ -344,10 +348,27 @@ contract TagAISwapHook is IHooks, ReentrancyGuard {
 
         if (platformFee > 0) {
             (bool success,) = feeReceiver.call{value: platformFee}("");
-            require(success, "Platform fee transfer failed");
+            if (!success) {
+                emit PlatformFeeTransferFailed(feeReceiver, platformFee);
+            }
         }
         if (deployerFee > 0) {
-            IIPShare(ipshare).valueCapture{value: deployerFee}(subject);
+            try IIPShare(ipshare).valueCapture{value: deployerFee}(subject) {} catch {
+                emit DeployerFeeCaptureFailed(subject, deployerFee);
+                _sendToFeeReceiver(deployerFee);
+            }
+        }
+    }
+
+    /// @dev Fallback recipient is always Pump.getFeeReceiver() (same as platform fee destination).
+    function _sendToFeeReceiver(uint256 amount) private {
+        if (amount == 0) return;
+        address feeReceiver = pump.getFeeReceiver();
+        (bool success,) = feeReceiver.call{value: amount}("");
+        if (success) {
+            emit FeeRoutedToFallback(feeReceiver, amount);
+        } else {
+            emit PlatformFeeTransferFailed(feeReceiver, amount);
         }
     }
 

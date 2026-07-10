@@ -6,19 +6,10 @@ src = "src"
 out = "out"
 libs = ["lib"]
 solc_version = "0.8.26"
-# PCS-only DepCheck + legacy tests until RH mocks/scripts are updated
+# PCS-only DepCheck; BSC fork tests removed (use test/fork/RHFork*.t.sol)
 skip = [
     "src/DepCheck.sol",
     "script/**",
-    "test/benchmark/**",
-    "test/fork/**",
-    "test/integration/**",
-    "test/invariant/**",
-    "test/property/**",
-    "test/security/**",
-    "test/unit/TagAISwapHook.t.sol",
-    "test/unit/Token.t.sol",
-    "test/unit/Pump.t.sol",
     "test/unit/PCSV4ImportsCheck.t.sol"
 ]
 eth_rpc_url = "http://localhost:8545"
@@ -30,10 +21,11 @@ block_gas_limit = 20000000000
 # Allow Deploy script to write deployments/<chainid>/addresses.json
 fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
-# BSC mainnet fork tests:
-#   FOUNDRY_PROFILE=fork forge test --match-contract BSCForkTest --fork-url $BSC_RPC_URL -vvv
+# RH mainnet fork tests:
+#   RH_RPC_URL=https://rpc.mainnet.chain.robinhood.com \
+#   FOUNDRY_ETH_RPC_URL= forge test --match-path test/fork -vvv
 [profile.fork]
-chain_id = 56
+chain_id = 4663
 
 [rpc_endpoints]
 bsc = "${BSC_RPC_URL}"

@@ -15,6 +15,7 @@ import "../interfaces/IToken.sol";
 import "solady/src/utils/FixedPointMathLib.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Token.sol";
+import "./NutboxDeployConfig.sol";
 
 contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     address private ipshare;
@@ -44,11 +45,21 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     /**
      * @param _ipshare IPShare contract address
      * @param _feeReceiver Fee receiver address, pass address(0) to use default
+     * @param cfg Nutbox + PoolManager overrides; use NutboxDeployConfigLib.empty() for compile-time defaults
      */
-    constructor(address _ipshare, address _feeReceiver) {
+    constructor(address _ipshare, address _feeReceiver, NutboxDeployConfig memory cfg) {
+        _initPump(_ipshare, _feeReceiver, cfg);
+    }
+
+    function _initPump(address _ipshare, address _feeReceiver, NutboxDeployConfig memory cfg) private {
         ipshare = _ipshare;
         tokenImplementation = address(new Token());
         if (_feeReceiver != address(0)) feeReceiver = _feeReceiver;
+        if (cfg.communityFactory != address(0)) nutboxCommunityFactory = cfg.communityFactory;
+        if (cfg.calculator != address(0)) hourlyTickCalculator = cfg.calculator;
+        if (cfg.socialCurationFactory != address(0)) socialCurationFactory = cfg.socialCurationFactory;
+        if (cfg.committee != address(0)) nutboxCommittee = cfg.committee;
+        if (cfg.poolManager != address(0)) poolManager = cfg.poolManager;
     }
 
     function adminSetPoolManager(address _poolManager) public onlyOwner {
@@ -195,6 +206,8 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         Token(payable(instance)).initialize(address(this), creator, tick);
 
         if (msg.value > totalFixedFee) {
+            // Only the deployer's bundled pre-buy bypasses anti-snipe; external first buys still pay elevated fees.
+            Token(payable(instance)).armAntiSnipeBypass();
             (bool success1, bytes memory receiveAmount) = instance.call{value: msg.value - totalFixedFee}(
                 abi.encodeWithSignature("buyToken(uint256,address,uint16)", 0, creator, 0)
             );
