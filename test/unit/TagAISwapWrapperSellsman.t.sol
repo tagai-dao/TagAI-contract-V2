@@ -6,6 +6,8 @@ import "../../src/helper/TagAISwapWrapper.sol";
 import "../../src/interfaces/IImportHelper.sol";
 import "../../src/interfaces/IIPShare.sol";
 import "../../src/interfaces/IUniswapV2Router02.sol";
+import "../../src/interfaces/IUniswapV3SwapRouter.sol";
+import "../../src/interfaces/IWETH.sol";
 
 /// @dev Minimal ImportHelper mock for sellsman fallback.
 contract MockImportHelper is IImportHelper {
@@ -81,6 +83,79 @@ contract MockV2Router is IUniswapV2Router02 {
     }
 }
 
+/// @dev Minimal WETH mock for V3 sell unwrap path.
+contract MockWETH is IWETH {
+    mapping(address => uint256) public balanceOf;
+
+    function deposit() external payable {
+        balanceOf[msg.sender] += msg.value;
+    }
+
+    function withdraw(uint256 amount) external {
+        balanceOf[msg.sender] -= amount;
+        (bool ok,) = msg.sender.call{value: amount}("");
+        require(ok, "withdraw failed");
+    }
+
+    function transfer(address to, uint256 value) external returns (bool) {
+        balanceOf[msg.sender] -= value;
+        balanceOf[to] += value;
+        return true;
+    }
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    receive() external payable {}
+}
+
+/// @dev V3 router mock: transfers WETH to swap recipient.
+contract MockV3Router is IUniswapV3SwapRouter {
+    MockWETH public weth;
+    uint256 public swapWethOut;
+
+    constructor(MockWETH weth_) {
+        weth = weth_;
+    }
+
+    function setSwapWethOut(uint256 amount) external {
+        swapWethOut = amount;
+    }
+
+    function exactInputSingle(ExactInputSingleParams calldata params)
+        external
+        payable
+        returns (uint256 amountOut)
+    {
+        weth.mint(params.recipient, swapWethOut);
+        return swapWethOut;
+    }
+
+    function refundETH() external payable {}
+}
+
+/// @dev Minimal ERC20 with mint/approve for sell path.
+contract MockERC20 {
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+}
+
 /// @title TagAISwapWrapperSellsman
 /// @notice Unit tests for sellsman resolution + buy-side fee split (mocked router).
 contract TagAISwapWrapperSellsman is Test {
@@ -88,11 +163,15 @@ contract TagAISwapWrapperSellsman is Test {
     MockImportHelper public importHelper;
     MockIPShare public ipshare;
     MockV2Router public router;
+    MockWETH public mockWeth;
+    MockV3Router public v3Router;
+    MockERC20 public sellToken;
 
     address public weth;
     address public feeAddress;
     address public token;
     address public buyer;
+    address public seller;
     address public validSellsman;
     address public importer;
 
@@ -104,12 +183,17 @@ contract TagAISwapWrapperSellsman is Test {
         feeAddress = makeAddr("feeAddress");
         token = makeAddr("token");
         buyer = makeAddr("buyer");
+        seller = makeAddr("seller");
         validSellsman = makeAddr("validSellsman");
         importer = makeAddr("importer");
 
         importHelper = new MockImportHelper();
         ipshare = new MockIPShare();
         router = new MockV2Router();
+        mockWeth = new MockWETH();
+        weth = address(mockWeth);
+        v3Router = new MockV3Router(mockWeth);
+        sellToken = new MockERC20();
 
         wrapper = new TagAISwapWrapper(
             address(importHelper),
@@ -211,5 +295,43 @@ contract TagAISwapWrapperSellsman is Test {
         assertEq(validSellsman.balance, 0.02 ether, "1% sellsman of 2 ETH");
         assertEq(feeAddress.balance, 0.02 ether, "1% tagai of 2 ETH");
         assertEq(router.lastValue(), 1.96 ether, "98% to router");
+    }
+
+    /// @dev Residual ETH on wrapper must not inflate sell fees on V3 path.
+    function test_sellTokenV3_feesIgnoreResidualEth() public {
+        ipshare.setCreated(validSellsman, true);
+
+        uint256 residualEth = 0.5 ether;
+        uint256 swapEthOut = 1 ether;
+        uint256 amountIn = 1000 ether;
+
+        // Donate ETH sitting on the wrapper before the sell.
+        vm.deal(address(wrapper), residualEth);
+
+        sellToken.mint(seller, amountIn);
+        v3Router.setSwapWethOut(swapEthOut);
+        // MockWETH must hold underlying ETH for unwrap.
+        vm.deal(address(mockWeth), swapEthOut);
+
+        uint256 expectedSellsmanFee = (swapEthOut * SELLSMAN_BPS) / 10_000;
+        uint256 expectedTagaiFee = (swapEthOut * TAGAI_BPS) / 10_000;
+        uint256 expectedTo = swapEthOut - expectedSellsmanFee - expectedTagaiFee;
+
+        vm.prank(seller);
+        wrapper.sellTokenV3(
+            amountIn,
+            0,
+            address(sellToken),
+            seller,
+            block.timestamp + 1,
+            validSellsman,
+            address(v3Router),
+            3000
+        );
+
+        assertEq(validSellsman.balance, expectedSellsmanFee, "fee on swap output only");
+        assertEq(feeAddress.balance, expectedTagaiFee, "tagai fee on swap output only");
+        assertEq(seller.balance, expectedTo, "seller receives post-fee swap proceeds");
+        assertEq(address(wrapper).balance, residualEth, "residual ETH untouched");
     }
 }

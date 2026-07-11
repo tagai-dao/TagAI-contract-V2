@@ -221,6 +221,10 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
     ) external nonReentrant {
         sellsman = _resolveSellsman(token, sellsman);
 
+        // Snapshot balances so donated/residual ETH/WETH cannot inflate sell fees.
+        uint256 ethBefore = address(this).balance;
+        uint256 wethBefore = IERC20(WETH).balanceOf(address(this));
+
         IERC20 erc20 = IERC20(token);
         if (!erc20.transferFrom(msg.sender, address(this), amountIn)) revert TransferFailed();
         if (!erc20.approve(router, amountIn)) revert ApproveFailed();
@@ -238,12 +242,12 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         IUniswapV3SwapRouter(router).exactInputSingle(params);
         erc20.approve(router, 0);
 
-        uint256 wethBal = IERC20(WETH).balanceOf(address(this));
-        if (wethBal > 0) {
-            IWETH(WETH).withdraw(wethBal);
+        uint256 wethOut = IERC20(WETH).balanceOf(address(this)) - wethBefore;
+        if (wethOut > 0) {
+            IWETH(WETH).withdraw(wethOut);
         }
 
-        uint256 ethOut = address(this).balance;
+        uint256 ethOut = address(this).balance - ethBefore;
         uint256 remaining = _takeFeesFromEth(ethOut, sellsman);
         (bool ok,) = to.call{value: remaining}("");
         if (!ok) revert TransferToFailed();
@@ -307,6 +311,10 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         (bool ethIsCurrency0, bool ethIsNative, address token) = _parseEthPool(poolKey);
         sellsman = _resolveSellsman(token, sellsman);
 
+        // Snapshot balances so donated/residual ETH/WETH cannot inflate sell fees.
+        uint256 ethBefore = address(this).balance;
+        uint256 wethBefore = ethIsNative ? 0 : IERC20(WETH).balanceOf(address(this));
+
         IERC20 erc20 = IERC20(token);
         if (!erc20.transferFrom(msg.sender, address(this), amountIn)) revert TransferFailed();
 
@@ -336,13 +344,13 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         _activePoolManager = IPoolManager(address(0));
 
         if (!ethIsNative) {
-            uint256 wethBal = IERC20(WETH).balanceOf(address(this));
-            if (wethBal > 0) {
-                IWETH(WETH).withdraw(wethBal);
+            uint256 wethOut = IERC20(WETH).balanceOf(address(this)) - wethBefore;
+            if (wethOut > 0) {
+                IWETH(WETH).withdraw(wethOut);
             }
         }
 
-        uint256 ethOut = address(this).balance;
+        uint256 ethOut = address(this).balance - ethBefore;
         uint256 remaining = _takeFeesFromEth(ethOut, sellsman);
         (bool ok,) = to.call{value: remaining}("");
         if (!ok) revert TransferToFailed();
