@@ -9,6 +9,7 @@ import {IPShare} from "../src/pump/IPShare.sol";
 import {Pump} from "../src/pump/Pump.sol";
 import {NutboxDeployConfig} from "../src/pump/NutboxDeployConfig.sol";
 import {TagAISwapHook} from "../src/hook/TagAISwapHook.sol";
+import {ImportHelper} from "../src/helper/ImportHelper.sol";
 import {HookMiner} from "../src/utils/HookMiner.sol";
 import {ICommittee} from "../src/interfaces/ICommittee.sol";
 
@@ -33,6 +34,9 @@ contract DeployRHScript is Script {
 
     // RH testnet PoolManager552 (override via RH_POOL_MANAGER env)
     address internal constant DEFAULT_RH_POOL_MANAGER = 0x552815eF68E6eb418A3d65D0AA1043d93204F612;
+
+    // Foundry script 里 `new X{salt}` 实际经此工厂 CREATE2，挖 salt 必须用它（不是 EOA / Script）
+    address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -63,12 +67,9 @@ contract DeployRHScript is Script {
         address scf = _deploySocialCurationFactory(communityFactory, deployer);
         console.log("    SocialCurationFactory:", scf);
 
-        address dfxFactory = _deployDFXStarScoreStakingFactory(communityFactory);
-        console.log("    DFXStarScoreStakingFactory:", dfxFactory);
 
         committee.adminAddContract(address(calculator));
         committee.adminAddContract(scf);
-        committee.adminAddContract(dfxFactory);
         console.log("    Committee: whitelisted Calculator + SCF + DFX");
 
         // ─── (2) IPShare ────────────────────────────────────────────────────────
@@ -94,13 +95,16 @@ contract DeployRHScript is Script {
         pump.adminSetHookAddress(address(hook));
         console.log("(5) Pump.hookAddress set");
 
+        ImportHelper importHelper = new ImportHelper(communityFactory, scf, address(committee));
+        console.log("(6) ImportHelper:", address(importHelper));
+
         vm.stopBroadcast();
 
         bool isWhitelisted = ICommittee(address(committee)).verifyContract(address(calculator));
         if (isWhitelisted) {
-            console.log("(6) VERIFIED: Calculator whitelisted in Committee");
+            console.log("(7) VERIFIED: Calculator whitelisted in Committee");
         } else {
-            console.log("(6) WARNING: Calculator NOT whitelisted");
+            console.log("(7) WARNING: Calculator NOT whitelisted");
         }
 
         _writeAddresses(
@@ -114,17 +118,23 @@ contract DeployRHScript is Script {
             address(ipshare),
             rhPoolManager,
             address(pump),
-            address(hook)
+            pump.tokenImplementation(),
+            address(hook),
+            address(importHelper)
         );
 
         console.log("");
         console.log("=== RH Deployment Complete ===");
     }
 
-    function _deployHook(IPoolManager poolManager, address pumpAddr) internal returns (TagAISwapHook deployed) {
+    function _deployHook(IPoolManager poolManager, address pumpAddr)
+        internal
+        returns (TagAISwapHook deployed)
+    {
         bytes memory constructorArgs = abi.encode(poolManager, pumpAddr);
+        // salt 按 Create2Deployer 挖；与 forge script 广播时的 CREATE2 路径一致
         (address predicted, bytes32 salt) = HookMiner.find(
-            address(this),
+            CREATE2_DEPLOYER,
             HOOK_FLAGS,
             type(TagAISwapHook).creationCode,
             constructorArgs
@@ -184,7 +194,9 @@ contract DeployRHScript is Script {
         address ipshare,
         address poolManager,
         address pump,
-        address hook
+        address tokenImplementation,
+        address hook,
+        address importHelper
     ) internal {
         string memory chainIdStr = vm.toString(chainId);
         string memory dir = string.concat("deployments/", chainIdStr);
@@ -202,7 +214,9 @@ contract DeployRHScript is Script {
             '  "IPShare": "', vm.toString(ipshare), '",\n',
             '  "PoolManager": "', vm.toString(poolManager), '",\n',
             '  "Pump": "', vm.toString(pump), '",\n',
-            '  "TagAISwapHook": "', vm.toString(hook), '"\n',
+            '  "TokenImplementation": "', vm.toString(tokenImplementation), '",\n',
+            '  "TagAISwapHook": "', vm.toString(hook), '",\n',
+            '  "ImportHelper": "', vm.toString(importHelper), '"\n',
             "}\n"
         );
 

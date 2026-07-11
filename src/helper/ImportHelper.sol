@@ -10,11 +10,19 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /// @title ImportHelper
 /// @notice Shared helper contract for importing external tokens into the Nutbox community system.
 ///         Creates a Nutbox Community + SocialCuration pool in a single transaction.
-///         Replaces the old Pump6 import flow.
 contract ImportHelper {
-    address constant COMMUNITY_FACTORY      = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
-    address constant SOCIAL_CURATION_FACTORY = 0xc4674D3fBbD201Ea401a8B7e7285F956178593D8;
-    address constant NUTBOX_COMMITTEE       = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
+    address private immutable communityFactory;
+    address private immutable socialCurationFactory;
+    address private immutable nutboxCommittee;
+
+    constructor(address communityFactory_, address socialCurationFactory_, address nutboxCommittee_) {
+        require(communityFactory_ != address(0), "zero communityFactory");
+        require(socialCurationFactory_ != address(0), "zero socialCurationFactory");
+        require(nutboxCommittee_ != address(0), "zero nutboxCommittee");
+        communityFactory = communityFactory_;
+        socialCurationFactory = socialCurationFactory_;
+        nutboxCommittee = nutboxCommittee_;
+    }
 
     event CommunityCreated(
         address indexed token,
@@ -38,8 +46,8 @@ contract ImportHelper {
         address creator = msg.sender;
 
         // 1. Create Nutbox Community (ImportHelper becomes owner)
-        uint256 createFee = ICommittee(NUTBOX_COMMITTEE).getCreateCommunityFee();
-        community = ICommunityFactory(COMMUNITY_FACTORY).createCommunity{value: createFee}(
+        uint256 createFee = ICommittee(nutboxCommittee).getCreateCommunityFee();
+        community = ICommunityFactory(communityFactory).createCommunity{value: createFee}(
             false,              // isMintable = false (external token, not mintable)
             token,              // communityToken = the imported token
             address(0),         // communityTokenFactory = not needed
@@ -52,13 +60,13 @@ contract ImportHelper {
         Community(community).adminSetDev(creator);
 
         // 3. Create SocialCuration pool (100% reward allocation)
-        uint256 settingsFee = ICommittee(NUTBOX_COMMITTEE).getCommunitySettingsFee();
+        uint256 settingsFee = ICommittee(nutboxCommittee).getCommunitySettingsFee();
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10000;
         ICommunity(community).adminAddPool{value: settingsFee}(
             "Social Curation",
             ratios,
-            SOCIAL_CURATION_FACTORY,
+            socialCurationFactory,
             bytes("")
         );
         pool = ICommunity(community).activedPools(0);
