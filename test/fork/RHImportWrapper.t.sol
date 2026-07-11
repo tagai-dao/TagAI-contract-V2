@@ -15,7 +15,6 @@ import {SocialCuration} from "../../src/nutbox/dapps/social-curation/SocialCurat
 import {IPShare} from "../../src/pump/IPShare.sol";
 import {ICommunity} from "../../src/interfaces/ICommunity.sol";
 import {IIPShare} from "../../src/interfaces/IIPShare.sol";
-import {IUniswapV3SwapRouter} from "../../src/interfaces/IUniswapV3SwapRouter.sol";
 import {IWETH} from "../../src/interfaces/IWETH.sol";
 
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
@@ -25,74 +24,16 @@ import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {PoolModifyLiquidityTest} from "v4-core/src/test/PoolModifyLiquidityTest.sol";
 
-/// @dev RH SwapRouter02 uses ExactInputSingleParams *without* deadline; TagAISwapWrapper
-///      speaks the classic SwapRouter ABI (with deadline). This adapter bridges the two.
-interface ISwapRouter02ExactInput {
-    struct ExactInputSingleParams {
-        address tokenIn;
-        address tokenOut;
-        uint24 fee;
-        address recipient;
-        uint256 amountIn;
-        uint256 amountOutMinimum;
-        uint160 sqrtPriceLimitX96;
-    }
-
-    function exactInputSingle(ExactInputSingleParams calldata params)
-        external
-        payable
-        returns (uint256 amountOut);
+/// @dev Minimal Uniswap V3 pool surface (RH pool may omit public `fee()`; resolve via factory).
+interface IUniswapV3PoolMinimal {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function factory() external view returns (address);
+    function liquidity() external view returns (uint128);
 }
 
-contract ClassicV3RouterAdapter is IUniswapV3SwapRouter {
-    address public immutable router02;
-    address public immutable WETH;
-
-    constructor(address router02_, address weth_) {
-        router02 = router02_;
-        WETH = weth_;
-    }
-
-    receive() external payable {}
-
-    function exactInputSingle(ExactInputSingleParams calldata params)
-        external
-        payable
-        override
-        returns (uint256 amountOut)
-    {
-        // Sell path: pull ERC20 from wrapper and approve SwapRouter02.
-        if (msg.value == 0) {
-            require(
-                IERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn),
-                "pull"
-            );
-            require(IERC20(params.tokenIn).approve(router02, params.amountIn), "approve");
-        }
-
-        amountOut = ISwapRouter02ExactInput(router02).exactInputSingle{value: msg.value}(
-            ISwapRouter02ExactInput.ExactInputSingleParams({
-                tokenIn: params.tokenIn,
-                tokenOut: params.tokenOut,
-                fee: params.fee,
-                recipient: params.recipient,
-                amountIn: params.amountIn,
-                amountOutMinimum: params.amountOutMinimum,
-                sqrtPriceLimitX96: params.sqrtPriceLimitX96
-            })
-        );
-
-        if (msg.value == 0) {
-            IERC20(params.tokenIn).approve(router02, 0);
-        }
-    }
-
-    function refundETH() external payable override {
-        uint256 bal = address(this).balance;
-        if (bal == 0) return;
-        (bool ok,) = msg.sender.call{value: bal}("");
-        require(ok, "refundETH");
-    }
+interface IUniswapV3FactoryMinimal {
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool);
 }
 
 /// @dev Minimal NPM surface for create-pool + full-range mint on RH.
@@ -145,8 +86,14 @@ contract RHImportWrapper is Test {
     address internal constant V4_PM = 0x8366a39CC670B4001A1121B8F6A443A643e40951;
     /// @dev Uniswap V2 Router02 on RH (robinhood-chain-quickstart / docs).
     address internal constant V2_ROUTER = 0x89e5DB8B5aA49aA85AC63f691524311AEB649eba;
-    /// @dev Uniswap V3 SwapRouter02 on RH (classic-deadline ABI adapted in-test).
+    /// @dev Uniswap V3 SwapRouter02 on RH (no-deadline ExactInputSingleParams).
     address internal constant V3_SWAP_ROUTER02 = 0xCaf681a66D020601342297493863E78C959E5cb2;
+
+    /// @dev Live V3 pool token (not imported in this suite — fee sellsman falls back to feeAddress).
+    address internal constant LIVE_V3_TOKEN = 0x020bfC650A365f8BB26819deAAbF3E21291018b4;
+    address internal constant LIVE_V3_POOL = 0xA70fc67C9F69da90B63a0e4C05D229954574E313;
+    /// @dev factory.getPool(LIVE_V3_TOKEN, WETH, 10000) == LIVE_V3_POOL
+    uint24 internal constant LIVE_V3_FEE = 10_000;
 
     uint24 internal constant V3_FEE = 3000;
     int24 internal constant V3_TICK_SPACING = 60;
@@ -165,7 +112,6 @@ contract RHImportWrapper is Test {
     IPShare internal ipshare;
     ImportHelper internal importHelper;
     TagAISwapWrapper internal wrapper;
-    ClassicV3RouterAdapter internal v3Router;
     PoolModifyLiquidityTest internal v4LiquidityRouter;
 
     address internal feeRecipient;
@@ -252,7 +198,6 @@ contract RHImportWrapper is Test {
         );
         wrapper = new TagAISwapWrapper(address(importHelper), address(ipshare), WETH, feeRecipient);
 
-        v3Router = new ClassicV3RouterAdapter(V3_SWAP_ROUTER02, WETH);
         v4LiquidityRouter = new PoolModifyLiquidityTest(IPoolManager(V4_PM));
     }
 
@@ -353,7 +298,7 @@ contract RHImportWrapper is Test {
 
         vm.prank(tester);
         wrapper.buyTokenV3{value: ethIn}(
-            address(0), 0, TOKEN, tester, block.timestamp + 1 hours, address(v3Router), V3_FEE
+            address(0), 0, TOKEN, tester, block.timestamp + 1 hours, V3_SWAP_ROUTER02, V3_FEE
         );
 
         uint256 tokensBought = IERC20(TOKEN).balanceOf(tester) - tokenBefore;
@@ -367,12 +312,75 @@ contract RHImportWrapper is Test {
         vm.startPrank(tester);
         IERC20(TOKEN).approve(address(wrapper), sellAmt);
         wrapper.sellTokenV3(
-            sellAmt, 0, TOKEN, tester, block.timestamp + 1 hours, address(0), address(v3Router), V3_FEE
+            sellAmt, 0, TOKEN, tester, block.timestamp + 1 hours, address(0), V3_SWAP_ROUTER02, V3_FEE
         );
         vm.stopPrank();
 
         assertGt(tester.balance, ethBefore, "v3 sell eth");
         assertGt(feeRecipient.balance, feeBefore, "v3 sell fee");
+    }
+
+    // ─── Test 3b: Wrapper V3 against live RH pool (no ImportHelper) ───────────
+
+    function test_wrapper_v3_live_pool_buy_sell() public onlyRhFork {
+        // Sanity: live pool is TOKEN/WETH at the expected fee tier.
+        IUniswapV3PoolMinimal pool = IUniswapV3PoolMinimal(LIVE_V3_POOL);
+        assertEq(pool.factory(), V3_FACTORY, "live v3 factory");
+        assertTrue(
+            (pool.token0() == LIVE_V3_TOKEN && pool.token1() == WETH)
+                || (pool.token0() == WETH && pool.token1() == LIVE_V3_TOKEN),
+            "live v3 pair"
+        );
+        assertEq(
+            IUniswapV3FactoryMinimal(V3_FACTORY).getPool(LIVE_V3_TOKEN, WETH, LIVE_V3_FEE),
+            LIVE_V3_POOL,
+            "live v3 fee tier"
+        );
+        assertGt(pool.liquidity(), 0, "live v3 liquidity");
+
+        // Intentionally skip import: sellsman=0 → feeAddress receives both fee legs.
+        uint256 ethIn = 0.05 ether;
+        uint256 tokenBefore = IERC20(LIVE_V3_TOKEN).balanceOf(tester);
+        uint256 feeBefore = feeRecipient.balance;
+
+        vm.prank(tester);
+        wrapper.buyTokenV3{value: ethIn}(
+            address(0),
+            0,
+            LIVE_V3_TOKEN,
+            tester,
+            block.timestamp + 1 hours,
+            V3_SWAP_ROUTER02,
+            LIVE_V3_FEE
+        );
+
+        uint256 tokensBought = IERC20(LIVE_V3_TOKEN).balanceOf(tester) - tokenBefore;
+        assertGt(tokensBought, 0, "live v3 buy tokens");
+        // Without importer, both sellsman + tagai fees land on feeRecipient.
+        assertGt(feeRecipient.balance, feeBefore, "live v3 buy fee");
+
+        uint256 sellAmt = tokensBought / 2;
+        assertGt(sellAmt, 0, "live v3 sellAmt");
+
+        uint256 ethBefore = tester.balance;
+        feeBefore = feeRecipient.balance;
+
+        vm.startPrank(tester);
+        IERC20(LIVE_V3_TOKEN).approve(address(wrapper), sellAmt);
+        wrapper.sellTokenV3(
+            sellAmt,
+            0,
+            LIVE_V3_TOKEN,
+            tester,
+            block.timestamp + 1 hours,
+            address(0),
+            V3_SWAP_ROUTER02,
+            LIVE_V3_FEE
+        );
+        vm.stopPrank();
+
+        assertGt(tester.balance, ethBefore, "live v3 sell eth");
+        assertGt(feeRecipient.balance, feeBefore, "live v3 sell fee");
     }
 
     // ─── Test 4: Create V4 pool (zero hooks), then wrapper buy/sell ───────────

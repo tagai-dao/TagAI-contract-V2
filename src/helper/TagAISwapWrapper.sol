@@ -184,8 +184,11 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         if (!ok) revert TransferToFailed();
     }
 
-    // ─── V3 ──────────────────────────────────────────────────────────────────────
+    // ─── V3 (SwapRouter02 ABI — no deadline in ExactInputSingleParams) ───────────
 
+    /// @notice ETH → token via Uniswap V3 SwapRouter02.
+    /// @dev `deadline` is kept for call-site ABI stability but is unused: Router02 has no
+    ///      deadline field (classic SwapRouter encoding would misalign and revert on RH).
     function buyTokenV3(
         address sellsman,
         uint256 amountOutMin,
@@ -195,6 +198,7 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         address router,
         uint24 poolFee
     ) external payable nonReentrant {
+        deadline; // unused — SwapRouter02 ExactInputSingleParams has no deadline
         sellsman = _resolveSellsman(token, sellsman);
         uint256 buyFund = _takeFeesFromEth(msg.value, sellsman);
 
@@ -203,7 +207,6 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
             tokenOut: token,
             fee: poolFee,
             recipient: to,
-            deadline: deadline,
             amountIn: buyFund,
             amountOutMinimum: amountOutMin,
             sqrtPriceLimitX96: 0
@@ -216,6 +219,8 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         }
     }
 
+    /// @notice Token → ETH via Uniswap V3 SwapRouter02.
+    /// @dev `deadline` unused for the same Router02 ABI reason as buyTokenV3.
     function sellTokenV3(
         uint256 amountIn,
         uint256 amountOutMin,
@@ -226,6 +231,7 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         address router,
         uint24 poolFee
     ) external nonReentrant {
+        deadline; // unused — SwapRouter02 ExactInputSingleParams has no deadline
         sellsman = _resolveSellsman(token, sellsman);
 
         // Snapshot balances so donated/residual ETH/WETH cannot inflate sell fees.
@@ -241,7 +247,6 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
             tokenOut: WETH,
             fee: poolFee,
             recipient: address(this),
-            deadline: deadline,
             amountIn: amountIn,
             amountOutMinimum: amountOutMin,
             sqrtPriceLimitX96: 0
