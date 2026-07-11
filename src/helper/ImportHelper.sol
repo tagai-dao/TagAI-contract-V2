@@ -4,24 +4,41 @@ pragma solidity 0.8.26;
 import "../interfaces/ICommunityFactory.sol";
 import "../interfaces/ICommunity.sol";
 import "../interfaces/ICommittee.sol";
+import "../interfaces/IIPShare.sol";
+import "../interfaces/IImportHelper.sol";
 import "../nutbox/Community.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title ImportHelper
 /// @notice Shared helper contract for importing external tokens into the Nutbox community system.
-///         Creates a Nutbox Community + SocialCuration pool in a single transaction.
-contract ImportHelper {
+///         Ensures the importer has an IPShare subject, creates Community + SocialCuration pool,
+///         and records the importer for downstream fee routing.
+contract ImportHelper is IImportHelper {
     address private immutable communityFactory;
     address private immutable socialCurationFactory;
     address private immutable nutboxCommittee;
+    address public immutable ipshare;
 
-    constructor(address communityFactory_, address socialCurationFactory_, address nutboxCommittee_) {
+    /// @notice Token importer recorded at first successful import (one import per token).
+    mapping(address token => address importer) public importerOf;
+
+    error InsufficientFee();
+    error TokenAlreadyImported();
+
+    constructor(
+        address communityFactory_,
+        address socialCurationFactory_,
+        address nutboxCommittee_,
+        address ipshare_
+    ) {
         require(communityFactory_ != address(0), "zero communityFactory");
         require(socialCurationFactory_ != address(0), "zero socialCurationFactory");
         require(nutboxCommittee_ != address(0), "zero nutboxCommittee");
+        require(ipshare_ != address(0), "zero ipshare");
         communityFactory = communityFactory_;
         socialCurationFactory = socialCurationFactory_;
         nutboxCommittee = nutboxCommittee_;
+        ipshare = ipshare_;
     }
 
     event CommunityCreated(
@@ -45,8 +62,30 @@ contract ImportHelper {
     ) external payable returns (address community, address pool) {
         address creator = msg.sender;
 
-        // 1. Create Nutbox Community (ImportHelper becomes owner)
+        if (importerOf[token] != address(0)) {
+            revert TokenAlreadyImported();
+        }
+
+        // Fee math aligned with Pump.createToken (no Pump-level createFee here).
+        bool needCreateIPShare = !IIPShare(ipshare).ipshareCreated(creator);
+        uint256 ipshareCreateFee = 0;
+        if (needCreateIPShare) {
+            ipshareCreateFee = IIPShare(ipshare).createFee();
+        }
+
         uint256 createFee = ICommittee(nutboxCommittee).getCreateCommunityFee();
+        uint256 settingsFee = ICommittee(nutboxCommittee).getCommunitySettingsFee();
+        uint256 totalFixedFee = ipshareCreateFee + createFee + settingsFee;
+
+        if (msg.value < totalFixedFee) {
+            revert InsufficientFee();
+        }
+
+        if (needCreateIPShare) {
+            IIPShare(ipshare).createShare{value: ipshareCreateFee}(creator);
+        }
+
+        // 1. Create Nutbox Community (ImportHelper becomes owner)
         community = ICommunityFactory(communityFactory).createCommunity{value: createFee}(
             false,              // isMintable = false (external token, not mintable)
             token,              // communityToken = the imported token
@@ -60,7 +99,6 @@ contract ImportHelper {
         Community(community).adminSetDev(creator);
 
         // 3. Create SocialCuration pool (100% reward allocation)
-        uint256 settingsFee = ICommittee(nutboxCommittee).getCommunitySettingsFee();
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10000;
         ICommunity(community).adminAddPool{value: settingsFee}(
@@ -73,6 +111,14 @@ contract ImportHelper {
 
         // 4. Transfer ownership to user
         Ownable(community).transferOwnership(creator);
+
+        importerOf[token] = creator;
+
+        // Refund dust above the fixed fees.
+        if (msg.value > totalFixedFee) {
+            (bool success,) = creator.call{value: msg.value - totalFixedFee}("");
+            require(success, "refund failed");
+        }
 
         emit CommunityCreated(token, community, pool, creator, calculator);
     }
