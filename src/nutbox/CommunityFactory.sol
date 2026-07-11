@@ -17,7 +17,8 @@ import "./community-token/MintableERC20.sol";
 contract CommunityFactory {
 
     address immutable committee;
-    address immutable communityTemplate;
+    /// @dev EIP-1167 Community implementation（工厂构造时部署，供 clone）
+    address public immutable communityTemplate;
     mapping (address => bool) public createdCommunity;
 
     event CommunityCreated(address indexed creator, address indexed community, address communityToken);

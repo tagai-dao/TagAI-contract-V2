@@ -34,7 +34,7 @@ contract Community is
     // DAO fund ratio
     uint16 public feeRatio;
     // DAO fund address
-    address private devFund;
+    address public devFund;
     // Revenue can be withdrawn by community so far
     uint256 private retainedRevenue;
     // pool => hasOpened
@@ -48,7 +48,7 @@ contract Community is
     // pool => canUpdate, all added pools
     mapping(address => bool) private whitelists;
     // pool => ratios
-    mapping(address => uint16) private poolRatios;
+    mapping(address => uint16) public poolRatios;
     // actived pools right now
     address[] public activedPools;
     // all created pools include closed pools

@@ -37,15 +37,21 @@ User creates community token
 |----------|------|
 | **Pump** | Community token factory: creation fees, Nutbox wiring, listing trigger |
 | **Token** | Per-community ERC20: curve trading → listing → V4 liquidity |
-| **IPShare** | Creator shares: buy/sell/stake with value capture (V2 reuses the live v1 deployment) |
-| **TagAISwapHook** | PCS V4 hook: before/after swap callbacks, platform fee, IPShare share, Nutbox injection |
-| **HourlyTickCalculator** | Nutbox reward calculator: hourly buckets + 168h linear vesting per injection |
+| **IPShare** | Creator shares: buy/sell/stake with value capture |
+| **TagAISwapHook** | Uniswap / PCS V4 hook: swap fees, IPShare share, Nutbox injection |
+| **ImportHelper** | Import external ERC20 into Nutbox (IPShare gate + `importerOf`) |
+| **TagAISwapWrapper** | Fee-on-trade wrapper for Uni V2 / V3 / V4 buys & sells |
+| **HourlyTickCalculator** | Nutbox reward calculator: hourly buckets + 168h linear vesting |
+| **LinearTimeCalculator** | Optional calculator: per-second linear eras (timestamp clock) |
+| **MintableERC20Factory** | Community-mintable ERC20 factory (Nutbox `isMintable` communities) |
 | **SocialCurationFactory** | Social curation reward pool (Nutbox dApp) |
-| **DFXStarScoreStakingFactory** | Score-staking reward pool (Nutbox dApp, e.g. DFXStar Score) |
+| **ERC20StakingFactory** | ERC20 staking reward pool (Nutbox dApp) |
+| **ERC20LockingFactory** | ERC20 locking reward pool (Nutbox dApp; withdraw enters lock) |
+| **DFXStarScoreStakingFactory** | Score-staking pool (optional / not in RH DeployRH) |
 
 ### Nutbox Stack
 
-Nutbox handles **Community creation, multi-pool reward ratios, Committee governance, and contract whitelisting**. When Pump creates a token, it also creates a Community and mounts a default SocialCuration pool. The Community admin can later add pools such as DFXStar Score Staking and adjust reward splits.
+Nutbox handles **Community creation, multi-pool reward ratios, Committee governance, and contract whitelisting**. When Pump creates a token, it also creates a Community and mounts a default SocialCuration pool. The Community admin can later add pools such as ERC20 staking / locking (or DFXStar on BSC) and adjust reward splits.
 
 ### Hourly reward distribution (`HourlyTickCalculator`)
 
@@ -206,6 +212,36 @@ Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
 | IPShare (reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
 
 **Reused Nutbox / PCS infrastructure:** Committee, CommunityFactory, SocialCurationFactory, PCS V4 CLPoolManager, Vault (see `addresses.json`).
+
+## Robinhood Chain Mainnet (4663)
+
+Branch **`rh`** targets **Robinhood Chain** with Uniswap v4 (not PancakeSwap). Full Nutbox stack + Pump + Hook + ImportHelper + TagAISwapWrapper.
+
+- Explorer: [robinhoodchain.blockscout.com](https://robinhoodchain.blockscout.com)
+- Full list: [`deployments/4663/addresses.json`](deployments/4663/addresses.json)
+- Deploy: `FOUNDRY_PROFILE=rh_mainnet forge script script/DeployRH.s.sol:DeployRHScript --rpc-url https://rpc.mainnet.chain.robinhood.com --broadcast --legacy ...`
+- Verify: Blockscout (`--verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/`) — also verify EIP-1167 templates (`*Template` / `TokenImplementation` in `addresses.json`)
+
+| Contract | Address |
+|----------|---------|
+| Committee | [`0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0`](https://robinhoodchain.blockscout.com/address/0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0) |
+| CommunityFactory | [`0x24328DccA1bA54EeE82e2993F021802e64290486`](https://robinhoodchain.blockscout.com/address/0x24328DccA1bA54EeE82e2993F021802e64290486) |
+| HourlyTickCalculator | [`0x3DC52C69C3C8be568372E16d50E9F3FEc796610c`](https://robinhoodchain.blockscout.com/address/0x3DC52C69C3C8be568372E16d50E9F3FEc796610c) |
+| LinearTimeCalculator | [`0xf5D8d9402A4603bD67400500E62880eee91cF12C`](https://robinhoodchain.blockscout.com/address/0xf5D8d9402A4603bD67400500E62880eee91cF12C) |
+| MintableERC20Factory | [`0xd52624320654FBEA5F1f988d5F4E55B74C56e67D`](https://robinhoodchain.blockscout.com/address/0xd52624320654FBEA5F1f988d5F4E55B74C56e67D) |
+| SocialCurationFactory | [`0xddbAba530728b5B8939d7fdDC334432490916e90`](https://robinhoodchain.blockscout.com/address/0xddbAba530728b5B8939d7fdDC334432490916e90) |
+| ERC20StakingFactory | [`0x7Df32F7A177BcFe437A040579E3beA89dc99c023`](https://robinhoodchain.blockscout.com/address/0x7Df32F7A177BcFe437A040579E3beA89dc99c023) |
+| ERC20LockingFactory | [`0x4cA57c64DFe1cF1be977093C75f9d9cdd1DD2E10`](https://robinhoodchain.blockscout.com/address/0x4cA57c64DFe1cF1be977093C75f9d9cdd1DD2E10) |
+| IPShare | [`0x8A7b0d80FA92699CE3e5bB2c8fE404D6733796d1`](https://robinhoodchain.blockscout.com/address/0x8A7b0d80FA92699CE3e5bB2c8fE404D6733796d1) |
+| Pump | [`0x6C75E165E52E9c1661a75041650be2D919eE02A1`](https://robinhoodchain.blockscout.com/address/0x6C75E165E52E9c1661a75041650be2D919eE02A1) |
+| Token (implementation) | [`0x95c62F6A3AC1A3b7D08d866eeBDc74700aB954D6`](https://robinhoodchain.blockscout.com/address/0x95c62F6A3AC1A3b7D08d866eeBDc74700aB954D6) |
+| TagAISwapHook | [`0x5e8e2D77ce0d2e04BA058bbcECC13C7C8aDB20Cc`](https://robinhoodchain.blockscout.com/address/0x5e8e2D77ce0d2e04BA058bbcECC13C7C8aDB20Cc) |
+| ImportHelper | [`0xEC774DB6800B00BA1e87f0799cb29dEc21ACB4A9`](https://robinhoodchain.blockscout.com/address/0xEC774DB6800B00BA1e87f0799cb29dEc21ACB4A9) |
+| TagAISwapWrapper | [`0x9C280cCF30D1cB31562D8dBEB472521388Cb1d39`](https://robinhoodchain.blockscout.com/address/0x9C280cCF30D1cB31562D8dBEB472521388Cb1d39) |
+| Uniswap v4 PoolManager | [`0x8366a39CC670B4001A1121B8F6A443A643e40951`](https://robinhoodchain.blockscout.com/address/0x8366a39CC670B4001A1121B8F6A443A643e40951) |
+| WETH | [`0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73`](https://robinhoodchain.blockscout.com/address/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73) |
+
+Clone templates (`CommunityTemplate`, `SocialCurationTemplate`, `ERC20StakingTemplate`, `ERC20LockingTemplate`) are also recorded in `addresses.json` for Blockscout verification.
 
 ## Ecosystem
 
