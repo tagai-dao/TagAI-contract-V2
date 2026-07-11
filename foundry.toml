@@ -17,16 +17,27 @@ block_gas_limit = 20000000000
 fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
 # RH mainnet fork tests:
-#   RH_RPC_URL=https://rpc.mainnet.chain.robinhood.com \
-#   FOUNDRY_ETH_RPC_URL= forge test --match-path test/fork -vvv
+#   FOUNDRY_PROFILE=rh_fork forge test --match-path test/fork -vvv
 [profile.fork]
 chain_id = 4663
 
-[rpc_endpoints]
-rh = "${RH_RPC_URL}"
-
 [profile.rh_fork]
 chain_id = 4663
+eth_rpc_url = "https://rpc.mainnet.chain.robinhood.com"
+
+# Deploy: make deploy-rh-testnet / make deploy-rh-mainnet
+[profile.rh_testnet]
+chain_id = 46630
+eth_rpc_url = "https://rpc.testnet.chain.robinhood.com"
+
+[profile.rh_mainnet]
+chain_id = 4663
+eth_rpc_url = "https://rpc.mainnet.chain.robinhood.com"
+
+[rpc_endpoints]
+rh = "${RH_RPC_URL}"
+rh_testnet = "https://rpc.testnet.chain.robinhood.com"
+rh_mainnet = "https://rpc.mainnet.chain.robinhood.com"
 
 # Fuzz testing configuration
 [profile.default.fuzz]

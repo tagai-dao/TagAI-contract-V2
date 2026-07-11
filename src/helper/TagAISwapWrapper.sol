@@ -48,8 +48,6 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
     }
 
     error InvalidPath();
-    error PaySellsmanFeeFail();
-    error PayFeeFail();
     error TransferToFailed();
     error ApproveFailed();
     error TransferFailed();
@@ -112,21 +110,30 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         return feeAddress;
     }
 
-    /// @dev Take sellsman + tagai fees from an ETH notional; return remainder for the swap.
+    /// @dev 从 ETH 名义金额扣 sellsman + tagai 手续费，返回留给 swap / 用户的剩余。
+    ///      sellsman 收款失败时静默归集到 feeAddress，不阻断真正交易。
+    ///      feeAddress 由运营保证可收（可 admin 更换）。
     function _takeFeesFromEth(uint256 ethAmount, address sellsman) internal returns (uint256 remaining) {
         remaining = ethAmount;
         if (sellsmanRatio > 0) {
             uint256 sellsmanFee = (ethAmount * sellsmanRatio) / 10_000;
             remaining -= sellsmanFee;
-            (bool ok,) = sellsman.call{value: sellsmanFee}("");
-            if (!ok) revert PaySellsmanFeeFail();
+            if (!_trySendEth(sellsman, sellsmanFee)) {
+                // 拒收 / 无 receive → 归集到 feeAddress，交易继续
+                _trySendEth(feeAddress, sellsmanFee);
+            }
         }
         if (tagaiRatio > 0) {
             uint256 tagaiFee = (ethAmount * tagaiRatio) / 10_000;
             remaining -= tagaiFee;
-            (bool ok,) = feeAddress.call{value: tagaiFee}("");
-            if (!ok) revert PayFeeFail();
+            _trySendEth(feeAddress, tagaiFee);
         }
+    }
+
+    /// @dev 尽力转 ETH；失败只返回 false，绝不 revert（手续费不得拖垮成交）。
+    function _trySendEth(address to, uint256 amount) private returns (bool ok) {
+        if (amount == 0) return true;
+        (ok,) = to.call{value: amount}("");
     }
 
     // ─── V2 ──────────────────────────────────────────────────────────────────────

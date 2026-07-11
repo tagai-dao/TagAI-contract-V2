@@ -156,6 +156,11 @@ contract MockERC20 {
     }
 }
 
+/// @dev 拒收 ETH 的合约，用于验证手续费失败时静默归集到 feeAddress。
+contract RejectEthReceiver {
+    // 无 receive / fallback → call{value} 失败
+}
+
 /// @title TagAISwapWrapperSellsman
 /// @notice Unit tests for sellsman resolution + buy-side fee split (mocked router).
 contract TagAISwapWrapperSellsman is Test {
@@ -295,6 +300,27 @@ contract TagAISwapWrapperSellsman is Test {
         assertEq(validSellsman.balance, 0.02 ether, "1% sellsman of 2 ETH");
         assertEq(feeAddress.balance, 0.02 ether, "1% tagai of 2 ETH");
         assertEq(router.lastValue(), 1.96 ether, "98% to router");
+    }
+
+    /// @dev sellsman 拒收 ETH 时：交易仍成功，sellsman 份额归集到 feeAddress。
+    function test_buy_sellsmanReject_redirectsFeeToFeeAddress() public {
+        RejectEthReceiver rejector = new RejectEthReceiver();
+        ipshare.setCreated(address(rejector), true);
+
+        uint256 value = 1 ether;
+        uint256 expectedSellsmanFee = (value * SELLSMAN_BPS) / 10_000;
+        uint256 expectedTagaiFee = (value * TAGAI_BPS) / 10_000;
+
+        _buy(address(rejector), value);
+
+        assertEq(address(rejector).balance, 0, "rejector got nothing");
+        // sellsman 份额 + tagai 份额都进 feeAddress
+        assertEq(
+            feeAddress.balance,
+            expectedSellsmanFee + expectedTagaiFee,
+            "sellsman fee redirected + tagai"
+        );
+        assertEq(router.lastValue(), value - expectedSellsmanFee - expectedTagaiFee, "buy fund unchanged");
     }
 
     /// @dev Residual ETH on wrapper must not inflate sell fees on V3 path.
