@@ -32,6 +32,12 @@ contract NFTMiningCustomRenderer is INFTMiningRenderer {
     }
 }
 
+contract NFTMiningRejectEther {
+    receive() external payable {
+        revert("ETH rejected");
+    }
+}
+
 contract NFTMiningPoolTest is Test {
     Committee internal committee;
     CommunityFactory internal communityFactory;
@@ -53,6 +59,8 @@ contract NFTMiningPoolTest is Test {
     uint256 internal constant FIRST_BATCH_SUPPLY = 6;
     uint16 internal constant PLATFORM_FEE_BPS = 30;
     uint16 internal constant REFERRAL_BPS = 100;
+    uint256 internal constant WEEKLY_REWARD_INJECTION = 168_000 ether;
+    uint256 internal constant HOURLY_REWARD = 1_000 ether;
 
     function setUp() public {
         vm.warp(3_600);
@@ -264,6 +272,114 @@ contract NFTMiningPoolTest is Test {
         assertEq(child.batchId, 1);
     }
 
+    function test_ERC20MintWithoutReferralConservesFundsAndPoolKeepsNoBalance() public {
+        uint256 payerBefore = usdg.balanceOf(user1);
+        uint256 platformBefore = usdg.balanceOf(platformTreasury);
+        uint256 treasuryBefore = usdg.balanceOf(treasury);
+
+        _mintAs(user1, 0);
+
+        uint256 platformFee = (PRICE * PLATFORM_FEE_BPS) / 10_000;
+        uint256 treasuryAmount = PRICE - platformFee;
+        assertEq(payerBefore - usdg.balanceOf(user1), PRICE);
+        assertEq(usdg.balanceOf(platformTreasury) - platformBefore, platformFee);
+        assertEq(usdg.balanceOf(treasury) - treasuryBefore, treasuryAmount);
+        assertEq(usdg.balanceOf(address(pool)), 0);
+        assertEq(platformFee + treasuryAmount, PRICE);
+    }
+
+    function test_ERC20PaymentFailureRollsBackMintReferralAndAllBalances() public {
+        _mintAs(user1, 0);
+
+        vm.prank(user2);
+        usdg.approve(address(pool), 0);
+
+        uint256 supplyBefore = pool.totalSupply();
+        uint256 payerBefore = usdg.balanceOf(user2);
+        uint256 referrerBefore = usdg.balanceOf(user1);
+        uint256 platformBefore = usdg.balanceOf(platformTreasury);
+        uint256 treasuryBefore = usdg.balanceOf(treasury);
+
+        vm.expectRevert();
+        vm.prank(user2);
+        pool.mint(1);
+
+        assertEq(pool.totalSupply(), supplyBefore);
+        assertEq(pool.getNFTInfo(1).referralCount, 0);
+        assertEq(usdg.balanceOf(user2), payerBefore);
+        assertEq(usdg.balanceOf(user1), referrerBefore);
+        assertEq(usdg.balanceOf(platformTreasury), platformBefore);
+        assertEq(usdg.balanceOf(treasury), treasuryBefore);
+        (,,,,,,, uint256 minted) = pool.batches(1);
+        assertEq(minted, 1);
+    }
+
+    function test_InvalidReferrerRollsBackMintAndPayment() public {
+        uint256 payerBefore = usdg.balanceOf(user1);
+        uint256 platformBefore = usdg.balanceOf(platformTreasury);
+        uint256 treasuryBefore = usdg.balanceOf(treasury);
+
+        vm.expectRevert("ERC721: invalid token ID");
+        vm.prank(user1);
+        pool.mint(999);
+
+        assertEq(pool.totalSupply(), 0);
+        assertEq(usdg.balanceOf(user1), payerBefore);
+        assertEq(usdg.balanceOf(platformTreasury), platformBefore);
+        assertEq(usdg.balanceOf(treasury), treasuryBefore);
+    }
+
+    function test_FullPlatformFeeLeavesNoReferralOrTreasuryPayment() public {
+        _mintAs(user1, 0);
+        poolFactory.setPlatformFeeBps(10_000);
+
+        uint256 payerBefore = usdg.balanceOf(user2);
+        uint256 referrerBefore = usdg.balanceOf(user1);
+        uint256 platformBefore = usdg.balanceOf(platformTreasury);
+        uint256 treasuryBefore = usdg.balanceOf(treasury);
+
+        _mintAs(user2, 1);
+
+        assertEq(payerBefore - usdg.balanceOf(user2), PRICE);
+        assertEq(usdg.balanceOf(platformTreasury) - platformBefore, PRICE);
+        assertEq(usdg.balanceOf(user1), referrerBefore);
+        assertEq(usdg.balanceOf(treasury), treasuryBefore);
+        assertEq(pool.getNFTInfo(1).referralCount, 1);
+    }
+
+    function test_FullReferralRateReceivesAllFundsAfterPlatformFee() public {
+        _mintAs(user1, 0);
+        _sellOutCurrentBatch();
+        pool.createBatch(1, address(usdg), PRICE, 10_000);
+
+        uint256 payerBefore = usdg.balanceOf(user2);
+        uint256 referrerBefore = usdg.balanceOf(user1);
+        uint256 platformBefore = usdg.balanceOf(platformTreasury);
+        uint256 treasuryBefore = usdg.balanceOf(treasury);
+
+        _mintAs(user2, 1);
+
+        uint256 platformFee = (PRICE * PLATFORM_FEE_BPS) / 10_000;
+        assertEq(payerBefore - usdg.balanceOf(user2), PRICE);
+        assertEq(usdg.balanceOf(platformTreasury) - platformBefore, platformFee);
+        assertEq(usdg.balanceOf(user1) - referrerBefore, PRICE - platformFee);
+        assertEq(usdg.balanceOf(treasury), treasuryBefore);
+        assertEq(usdg.balanceOf(address(pool)), 0);
+    }
+
+    function test_FundsReceiverChangeOnlyAffectsFutureMints() public {
+        address newTreasury = makeAddr("newTreasury");
+        _mintAs(user1, 0);
+
+        uint256 oldTreasuryAfterFirstMint = usdg.balanceOf(treasury);
+        pool.setFundsReceiver(newTreasury);
+        _mintAs(user2, 0);
+
+        uint256 platformFee = (PRICE * PLATFORM_FEE_BPS) / 10_000;
+        assertEq(usdg.balanceOf(treasury), oldTreasuryAfterFirstMint);
+        assertEq(usdg.balanceOf(newTreasury), PRICE - platformFee);
+    }
+
     function test_RepeatedBuyerCountsEveryMintAndLevelsUpParent() public {
         _mintAs(user1, 0);
         _mintAs(user2, 1);
@@ -276,6 +392,56 @@ contract NFTMiningPoolTest is Test {
         assertEq(pool.getUserStakedAmount(user1), 12_000);
         assertEq(pool.getUserStakedAmount(user2), 20_000);
         assertEq(pool.getTotalStakedAmount(), 32_000);
+    }
+
+    function test_ReferralThresholdBoundariesAndMaximumLevelWeight() public {
+        _mintAs(user1, 0);
+
+        uint32[7] memory expectedLevels = [uint32(1), 2, 2, 3, 3, 4, 4];
+        uint256[7] memory expectedWeights = [uint256(10_000), 12_000, 12_000, 15_000, 15_000, 20_000, 20_000];
+
+        for (uint256 count = 1; count <= 7; ++count) {
+            if (count == FIRST_BATCH_SUPPLY) {
+                pool.createBatch(2, address(usdg), PRICE, REFERRAL_BPS);
+            }
+            _mintAs(user2, 1);
+
+            NFTMiningPool.NFTInfo memory parent = pool.getNFTInfo(1);
+            assertEq(parent.referralCount, count);
+            assertEq(parent.level, expectedLevels[count - 1]);
+            assertEq(parent.miningWeight, expectedWeights[count - 1]);
+            assertEq(pool.getUserStakedAmount(user1), expectedWeights[count - 1]);
+            assertEq(pool.getUserStakedAmount(user2), count * 10_000);
+            assertEq(pool.getTotalStakedAmount(), expectedWeights[count - 1] + count * 10_000);
+        }
+    }
+
+    function test_TransferredLeveledReferralNFTKeepsCountWeightAndFutureCommission() public {
+        _mintAs(user1, 0);
+        _mintAs(user2, 1);
+        _mintAs(user2, 1);
+        assertEq(pool.getNFTInfo(1).level, 2);
+
+        vm.prank(user1);
+        pool.transferFrom(user1, user3, 1);
+        assertEq(pool.getUserStakedAmount(user1), 0);
+        assertEq(pool.getUserStakedAmount(user3), 12_000);
+
+        uint256 user3Before = usdg.balanceOf(user3);
+        _mintAs(user2, 1);
+        _mintAs(user2, 1);
+
+        uint256 platformFee = (PRICE * PLATFORM_FEE_BPS) / 10_000;
+        uint256 commissionPerMint = ((PRICE - platformFee) * REFERRAL_BPS) / 10_000;
+        NFTMiningPool.NFTInfo memory parent = pool.getNFTInfo(1);
+        assertEq(usdg.balanceOf(user3) - user3Before, commissionPerMint * 2);
+        assertEq(parent.owner, user3);
+        assertEq(parent.referralCount, 4);
+        assertEq(parent.level, 3);
+        assertEq(parent.miningWeight, 15_000);
+        assertEq(pool.getUserStakedAmount(user3), 15_000);
+        assertEq(pool.getUserStakedAmount(user2), 40_000);
+        assertEq(pool.getTotalStakedAmount(), 55_000);
     }
 
     /// @dev Self-referral is token-based: the current NFT owner receives the batch commission.
@@ -399,13 +565,69 @@ contract NFTMiningPoolTest is Test {
         _sellOutCurrentBatch();
         pool.createBatch(2, address(0), 0.2 ether, 0);
 
+        uint256 platformBefore = platformTreasury.balance;
+        uint256 treasuryBefore = treasury.balance;
         vm.expectRevert(NFTMiningPool.InvalidPayment.selector);
         vm.prank(user1);
         pool.mint{value: 0.1 ether}(0);
 
+        vm.expectRevert(NFTMiningPool.InvalidPayment.selector);
+        vm.prank(user1);
+        pool.mint{value: 0.3 ether}(0);
+
         assertEq(pool.totalSupply(), FIRST_BATCH_SUPPLY);
+        assertEq(platformTreasury.balance, platformBefore);
+        assertEq(treasury.balance, treasuryBefore);
+        assertEq(address(pool).balance, 0);
         (,,,,,,, uint256 minted) = pool.batches(2);
         assertEq(minted, 0);
+    }
+
+    function test_NativePaymentReceiverFailureRollsBackEveryTransferAndMintState() public {
+        _mintAs(user1, 0);
+        _sellOutCurrentBatch();
+        pool.createBatch(1, address(0), 1 ether, 500);
+
+        NFTMiningRejectEther rejectingReceiver = new NFTMiningRejectEther();
+        pool.setFundsReceiver(address(rejectingReceiver));
+
+        uint256 payerBefore = user2.balance;
+        uint256 referrerBefore = user1.balance;
+        uint256 platformBefore = platformTreasury.balance;
+
+        vm.expectRevert("Address: unable to send value, recipient may have reverted");
+        vm.prank(user2);
+        pool.mint{value: 1 ether}(1);
+
+        assertEq(user2.balance, payerBefore);
+        assertEq(user1.balance, referrerBefore);
+        assertEq(platformTreasury.balance, platformBefore);
+        assertEq(address(rejectingReceiver).balance, 0);
+        assertEq(address(pool).balance, 0);
+        assertEq(pool.totalSupply(), FIRST_BATCH_SUPPLY);
+        assertEq(pool.getNFTInfo(1).referralCount, 0);
+        (,,,,,,, uint256 minted) = pool.batches(2);
+        assertEq(minted, 0);
+    }
+
+    function test_OneWeiNativePriceRoundingDustGoesToFundsReceiver() public {
+        _mintAs(user1, 0);
+        _sellOutCurrentBatch();
+        pool.createBatch(1, address(0), 1, 3_333);
+
+        uint256 payerBefore = user2.balance;
+        uint256 referrerBefore = user1.balance;
+        uint256 platformBefore = platformTreasury.balance;
+        uint256 treasuryBefore = treasury.balance;
+
+        vm.prank(user2);
+        pool.mint{value: 1}(1);
+
+        assertEq(payerBefore - user2.balance, 1);
+        assertEq(user1.balance, referrerBefore);
+        assertEq(platformTreasury.balance, platformBefore);
+        assertEq(treasury.balance - treasuryBefore, 1);
+        assertEq(address(pool).balance, 0);
     }
 
     function test_PlatformFeeReceiverFollowsCommitteeConfiguration() public {
@@ -504,35 +726,28 @@ contract NFTMiningPoolTest is Test {
     function test_TransferSettlesOldOwnerAndCommunityPaysClaim() public {
         _mintAs(user1, 0);
 
-        uint256 injected = 168_000 ether;
-        rewardToken.approve(address(calculator), injected);
-        calculator.inject(address(community), injected);
+        _injectWeeklyRewards();
 
         vm.warp(11 * 3_600);
         vm.prank(user1);
         pool.transferFrom(user1, user2, 1);
 
-        uint256 expected = 10_000 ether;
+        uint256 expected = 10 * HOURLY_REWARD;
         assertEq(community.getPoolPendingRewards(address(pool), user1), expected);
         assertEq(community.getPoolPendingRewards(address(pool), user2), 0);
 
-        address[] memory pools = new address[](1);
-        pools[0] = address(pool);
         uint256 beforeBalance = rewardToken.balanceOf(user1);
-        vm.prank(user1);
-        community.withdrawPoolsRewards(pools);
+        _claimAs(user1);
         assertEq(rewardToken.balanceOf(user1) - beforeBalance, expected);
 
         vm.warp(12 * 3_600);
-        assertEq(community.getPoolPendingRewards(address(pool), user2), 1_000 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), HOURLY_REWARD);
     }
 
     function test_LevelUpgradeSettlesAtOldWeight() public {
         _mintAs(user1, 0);
 
-        uint256 injected = 168_000 ether;
-        rewardToken.approve(address(calculator), injected);
-        calculator.inject(address(community), injected);
+        _injectWeeklyRewards();
         vm.warp(11 * 3_600);
 
         _mintAs(user2, 1);
@@ -540,25 +755,150 @@ contract NFTMiningPoolTest is Test {
 
         assertEq(pool.getNFTInfo(1).level, 2);
         assertEq(pool.getUserStakedAmount(user1), 12_000);
-        assertEq(community.getPoolPendingRewards(address(pool), user1), 10_000 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 10 * HOURLY_REWARD);
     }
 
-    function testFuzz_ERC20ReferralSplit(uint16 bps) public {
-        bps = uint16(bound(uint256(bps), 0, 10_000));
+    function test_MultipleTransfersWithinHourGiveCompletedHourToFinalOwnerOnly() public {
+        _mintAs(user1, 0);
+        _injectWeeklyRewards();
+
+        vm.warp(3_600 + 10 minutes);
+        vm.prank(user1);
+        pool.transferFrom(user1, user2, 1);
+
+        vm.warp(3_600 + 40 minutes);
+        vm.prank(user2);
+        pool.transferFrom(user2, user3, 1);
+
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 0);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), 0);
+        assertEq(community.getPoolPendingRewards(address(pool), user3), 0);
+
+        vm.warp(2 * 3_600);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 0);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), 0);
+        assertEq(community.getPoolPendingRewards(address(pool), user3), HOURLY_REWARD);
+
+        vm.prank(user3);
+        pool.transferFrom(user3, user1, 1);
+        vm.warp(3 * 3_600);
+
+        assertEq(community.getPoolPendingRewards(address(pool), user3), HOURLY_REWARD);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), HOURLY_REWARD);
+    }
+
+    function test_TwoEqualNFTsThenTransferUsesExactHourlySharesAndClaimsOnce() public {
+        _mintAs(user1, 0);
+        _mintAs(user2, 0);
+        _injectWeeklyRewards();
+
+        vm.warp(2 * 3_600);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 500 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), 500 ether);
+
+        vm.prank(user1);
+        pool.transferFrom(user1, user2, 1);
+
+        assertEq(pool.getUserStakedAmount(user1), 0);
+        assertEq(pool.getUserStakedAmount(user2), 20_000);
+        assertEq(community.getUserDebt(address(pool), user1), 0);
+        assertEq(community.getUserDebt(address(pool), user2), HOURLY_REWARD);
+
+        vm.warp(3 * 3_600);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 500 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), 1_500 ether);
+
+        uint256 user1Before = rewardToken.balanceOf(user1);
+        uint256 user2Before = rewardToken.balanceOf(user2);
+        _claimAs(user1);
+        _claimAs(user2);
+        assertEq(rewardToken.balanceOf(user1) - user1Before, 500 ether);
+        assertEq(rewardToken.balanceOf(user2) - user2Before, 1_500 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 0);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), 0);
+
+        _claimAs(user2);
+        assertEq(rewardToken.balanceOf(user2) - user2Before, 1_500 ether);
+    }
+
+    function test_LevelUpgradeChangesOnlyFutureHourlyWeightWithExactRewardDebt() public {
+        _mintAs(user1, 0);
+        _injectWeeklyRewards();
+        vm.warp(2 * 3_600);
+
+        _mintAs(user2, 1);
+        _mintAs(user2, 1);
+
+        assertEq(pool.getNFTInfo(1).level, 2);
+        assertEq(pool.getUserStakedAmount(user1), 12_000);
+        assertEq(pool.getUserStakedAmount(user2), 20_000);
+        assertEq(pool.getTotalStakedAmount(), 32_000);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), HOURLY_REWARD);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), 0);
+        assertEq(community.getUserDebt(address(pool), user1), 1_200 ether);
+        assertEq(community.getUserDebt(address(pool), user2), 2_000 ether);
+
+        vm.warp(3 * 3_600);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 1_375 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), 625 ether);
+    }
+
+    function test_TransferOfUpgradedNFTMovesFutureWeightedRewardsExactly() public {
+        _mintAs(user1, 0);
+        _injectWeeklyRewards();
+        vm.warp(2 * 3_600);
+        _mintAs(user2, 1);
+        _mintAs(user2, 1);
+
+        vm.warp(3 * 3_600);
+        vm.prank(user1);
+        pool.transferFrom(user1, user3, 1);
+
+        assertEq(pool.getUserStakedAmount(user1), 0);
+        assertEq(pool.getUserStakedAmount(user3), 12_000);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 1_375 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user3), 0);
+        assertEq(community.getUserDebt(address(pool), user1), 0);
+        assertEq(community.getUserDebt(address(pool), user3), 1_575 ether);
+
+        vm.warp(4 * 3_600);
+        assertEq(community.getPoolPendingRewards(address(pool), user1), 1_375 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user2), 1_250 ether);
+        assertEq(community.getPoolPendingRewards(address(pool), user3), 375 ether);
+        assertEq(
+            community.getPoolPendingRewards(address(pool), user1)
+                + community.getPoolPendingRewards(address(pool), user2)
+                + community.getPoolPendingRewards(address(pool), user3),
+            3 * HOURLY_REWARD
+        );
+    }
+
+    function testFuzz_ERC20PaymentConservation(uint16 platformBps, uint16 referralBps, uint96 rawPrice) public {
+        platformBps = uint16(bound(uint256(platformBps), 0, 10_000));
+        referralBps = uint16(bound(uint256(referralBps), 0, 10_000));
+        uint256 price = bound(uint256(rawPrice), 1, 10_000 ether);
+
         _mintAs(user1, 0);
         _sellOutCurrentBatch();
-        pool.createBatch(2, address(usdg), PRICE, bps);
+        poolFactory.setPlatformFeeBps(platformBps);
+        pool.createBatch(2, address(usdg), price, referralBps);
 
+        uint256 payerBefore = usdg.balanceOf(user2);
         uint256 referrerBefore = usdg.balanceOf(user1);
         uint256 treasuryBefore = usdg.balanceOf(treasury);
         uint256 platformBefore = usdg.balanceOf(platformTreasury);
         _mintAs(user2, 1);
 
-        uint256 expectedPlatformFee = (PRICE * PLATFORM_FEE_BPS) / 10_000;
-        uint256 expectedCommission = ((PRICE - expectedPlatformFee) * bps) / 10_000;
+        uint256 expectedPlatformFee = (price * platformBps) / 10_000;
+        uint256 expectedCommission = ((price - expectedPlatformFee) * referralBps) / 10_000;
+        uint256 expectedTreasury = price - expectedPlatformFee - expectedCommission;
+
+        assertEq(payerBefore - usdg.balanceOf(user2), price);
         assertEq(usdg.balanceOf(platformTreasury) - platformBefore, expectedPlatformFee);
         assertEq(usdg.balanceOf(user1) - referrerBefore, expectedCommission);
-        assertEq(usdg.balanceOf(treasury) - treasuryBefore, PRICE - expectedPlatformFee - expectedCommission);
+        assertEq(usdg.balanceOf(treasury) - treasuryBefore, expectedTreasury);
+        assertEq(expectedPlatformFee + expectedCommission + expectedTreasury, price);
+        assertEq(usdg.balanceOf(address(pool)), 0);
     }
 
     function testFuzz_TransfersPreserveWeightAccounting(uint8 moves) public {
@@ -592,9 +932,49 @@ contract NFTMiningPoolTest is Test {
         assertEq(tokenWeightSum, pool.getTotalStakedAmount());
     }
 
+    function testFuzz_SameHourTransfersGiveExactlyOneHourToFinalOwner(uint8 moves) public {
+        moves = uint8(bound(uint256(moves), 1, 40));
+        _mintAs(user1, 0);
+        _injectWeeklyRewards();
+
+        address[3] memory users = [user1, user2, user3];
+        address currentOwner = user1;
+        for (uint256 i = 0; i < moves; ++i) {
+            address nextOwner = users[(i + 1) % users.length];
+            if (nextOwner == currentOwner) nextOwner = users[(i + 2) % users.length];
+
+            vm.warp(3_600 + i + 1);
+            vm.prank(currentOwner);
+            pool.transferFrom(currentOwner, nextOwner, 1);
+            currentOwner = nextOwner;
+        }
+
+        vm.warp(2 * 3_600);
+        uint256 totalPending;
+        for (uint256 i = 0; i < users.length; ++i) {
+            uint256 expected = users[i] == currentOwner ? HOURLY_REWARD : 0;
+            uint256 pending = community.getPoolPendingRewards(address(pool), users[i]);
+            assertEq(pending, expected);
+            totalPending += pending;
+        }
+        assertEq(totalPending, HOURLY_REWARD);
+    }
+
     function _mintAs(address user, uint256 referrerTokenId) internal returns (uint256 tokenId) {
         vm.prank(user);
         tokenId = pool.mint(referrerTokenId);
+    }
+
+    function _injectWeeklyRewards() internal {
+        rewardToken.approve(address(calculator), WEEKLY_REWARD_INJECTION);
+        calculator.inject(address(community), WEEKLY_REWARD_INJECTION);
+    }
+
+    function _claimAs(address user) internal {
+        address[] memory pools = new address[](1);
+        pools[0] = address(pool);
+        vm.prank(user);
+        community.withdrawPoolsRewards(pools);
     }
 
     function _sellOutCurrentBatch() internal {
