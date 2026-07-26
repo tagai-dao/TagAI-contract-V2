@@ -9,6 +9,7 @@ import {LinearTimeCalculator} from "../src/nutbox/calculators/LinearTimeCalculat
 import {MintableERC20Factory} from "../src/nutbox/community-token/MintableERC20Factory.sol";
 import {ERC20StakingFactory} from "../src/nutbox/dapps/erc20-staking/ERC20StakingFactory.sol";
 import {ERC20LockingFactory} from "../src/nutbox/dapps/erc20-locking/ERC20LockingFactory.sol";
+import {NFTMiningPoolFactory} from "../src/nutbox/dapps/nft-mining/NFTMiningPoolFactory.sol";
 import {IPShare} from "../src/pump/IPShare.sol";
 import {Pump} from "../src/pump/Pump.sol";
 import {NutboxDeployConfig} from "../src/pump/NutboxDeployConfig.sol";
@@ -64,6 +65,8 @@ contract DeployRHScript is Script {
         address stakingTemplate;
         address lockingFactory;
         address lockingTemplate;
+        address nftMiningFactory;
+        address nftMiningTemplate;
         address ipshare;
         address poolManager;
         address weth;
@@ -129,15 +132,20 @@ contract DeployRHScript is Script {
         a.lockingFactory = address(new ERC20LockingFactory(a.communityFactory));
         console.log("    ERC20LockingFactory:", a.lockingFactory);
 
+        a.nftMiningFactory = address(new NFTMiningPoolFactory(a.communityFactory));
+        console.log("    NFTMiningPoolFactory:", a.nftMiningFactory);
+
         // 读取工厂构造时部署的 EIP-1167 模板地址
         a.communityTemplate = ICommunityFactoryTemplate(a.communityFactory).communityTemplate();
         a.socialCurationTemplate = IPoolTemplate(a.scf).poolTemplate();
         a.stakingTemplate = IPoolTemplate(a.stakingFactory).poolTemplate();
         a.lockingTemplate = IPoolTemplate(a.lockingFactory).poolTemplate();
+        a.nftMiningTemplate = IPoolTemplate(a.nftMiningFactory).poolTemplate();
         console.log("    CommunityTemplate:", a.communityTemplate);
         console.log("    SocialCurationTemplate:", a.socialCurationTemplate);
         console.log("    ERC20StakingTemplate:", a.stakingTemplate);
         console.log("    ERC20LockingTemplate:", a.lockingTemplate);
+        console.log("    NFTMiningPoolTemplate:", a.nftMiningTemplate);
 
         committee.adminAddContract(a.hourlyTick);
         committee.adminAddContract(a.linearTime);
@@ -145,7 +153,8 @@ contract DeployRHScript is Script {
         committee.adminAddContract(a.scf);
         committee.adminAddContract(a.stakingFactory);
         committee.adminAddContract(a.lockingFactory);
-        console.log("    Committee: whitelisted calculators + mintable + SCF + staking + locking");
+        committee.adminAddContract(a.nftMiningFactory);
+        console.log("    Committee: whitelisted calculators + mintable + SCF + staking + locking + NFT mining");
     }
 
     /// @dev IPShare + Pump + Hook + ImportHelper + Wrapper（Pump 默认 HourlyTick）
@@ -188,6 +197,7 @@ contract DeployRHScript is Script {
         _assertWhitelisted(a.committee, a.scf, "SocialCurationFactory");
         _assertWhitelisted(a.committee, a.stakingFactory, "ERC20StakingFactory");
         _assertWhitelisted(a.committee, a.lockingFactory, "ERC20LockingFactory");
+        _assertWhitelisted(a.committee, a.nftMiningFactory, "NFTMiningPoolFactory");
     }
 
     function _assertWhitelisted(address committee, address c, string memory label) internal view {
@@ -276,6 +286,8 @@ contract DeployRHScript is Script {
         json = string.concat(json, '  "ERC20StakingTemplate": "', vm.toString(a.stakingTemplate), '",\n');
         json = string.concat(json, '  "ERC20LockingFactory": "', vm.toString(a.lockingFactory), '",\n');
         json = string.concat(json, '  "ERC20LockingTemplate": "', vm.toString(a.lockingTemplate), '",\n');
+        json = string.concat(json, '  "NFTMiningPoolFactory": "', vm.toString(a.nftMiningFactory), '",\n');
+        json = string.concat(json, '  "NFTMiningPoolTemplate": "', vm.toString(a.nftMiningTemplate), '",\n');
         json = string.concat(json, '  "IPShare": "', vm.toString(a.ipshare), '",\n');
         json = string.concat(json, '  "PoolManager": "', vm.toString(a.poolManager), '",\n');
         json = string.concat(json, '  "WETH": "', vm.toString(a.weth), '",\n');

@@ -47,11 +47,12 @@ User creates community token
 | **SocialCurationFactory** | Social curation reward pool (Nutbox dApp) |
 | **ERC20StakingFactory** | ERC20 staking reward pool (Nutbox dApp) |
 | **ERC20LockingFactory** | ERC20 locking reward pool (Nutbox dApp; withdraw enters lock) |
+| **NFTMiningPoolFactory** | ERC721 mining pool with batch sales, token-owned referrals, weighted levels, and dynamic on-chain SVG ([guide](docs/NFT_MINING_POOL.md)) |
 | **DFXStarScoreStakingFactory** | Score-staking pool (optional / not in RH DeployRH) |
 
 ### Nutbox Stack
 
-Nutbox handles **Community creation, multi-pool reward ratios, Committee governance, and contract whitelisting**. When Pump creates a token, it also creates a Community and mounts a default SocialCuration pool. The Community admin can later add pools such as ERC20 staking / locking (or DFXStar on BSC) and adjust reward splits.
+Nutbox handles **Community creation, multi-pool reward ratios, Committee governance, and contract whitelisting**. When Pump creates a token, it also creates a Community and mounts a default SocialCuration pool. The Community admin can later add pools such as ERC20 staking / locking, NFT mining (or DFXStar on BSC) and adjust reward splits.
 
 ### Hourly reward distribution (`HourlyTickCalculator`)
 
