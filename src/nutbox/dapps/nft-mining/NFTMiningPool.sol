@@ -109,7 +109,8 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
         uint16 referralBps,
         uint8 paletteId
     );
-    event BatchClosed(uint256 indexed batchId, bool soldOut);
+    /// @dev Batches only ever close by selling out.
+    event BatchClosed(uint256 indexed batchId);
     event BatchPausedSet(uint256 indexed batchId, bool paused);
     event FundsReceiverChanged(address indexed previousReceiver, address indexed newReceiver);
     event PlatformFeePaid(
@@ -139,9 +140,8 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
     );
     event MiningWeightMoved(uint256 indexed tokenId, address indexed from, address indexed to, uint256 weight);
 
-    /// @dev ERC-4906 metadata refresh events.
+    /// @dev ERC-4906 metadata refresh event.
     event MetadataUpdate(uint256 _tokenId);
-    event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
 
     /// @dev ERC-7572 contract-level metadata refresh event.
     event ContractURIUpdated();
@@ -381,7 +381,7 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
 
         if (batch.minted == batch.maxSupply) {
             batch.active = false;
-            emit BatchClosed(currentBatchId, true);
+            emit BatchClosed(currentBatchId);
         }
 
         emit NFTMinted(msg.sender, tokenId, currentBatchId, referrerTokenId, batch.paymentAsset, batch.mintPrice);
