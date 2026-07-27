@@ -23,6 +23,8 @@ interface INFTMiningPool is IERC721Enumerable, IPool {
 
     function setCurrentBatchPaused(bool paused) external;
 
+    function closeCurrentBatch() external;
+
     function setFundsReceiver(address newReceiver) external;
 
     function getNFTInfo(uint256 tokenId) external view returns (NFTInfo memory);

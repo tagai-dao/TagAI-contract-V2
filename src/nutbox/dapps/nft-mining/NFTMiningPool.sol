@@ -109,8 +109,8 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
         uint16 referralBps,
         uint8 paletteId
     );
-    /// @dev Batches only ever close by selling out.
     event BatchClosed(uint256 indexed batchId);
+    event BatchClosedEarly(uint256 indexed batchId, uint256 minted, uint256 maxSupply);
     event BatchPausedSet(uint256 indexed batchId, bool paused);
     event FundsReceiverChanged(address indexed previousReceiver, address indexed newReceiver);
     event PlatformFeePaid(
@@ -306,6 +306,18 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
         if (!batch.active) revert NoActiveBatch();
         batch.paused = paused;
         emit BatchPausedSet(currentBatchId, paused);
+    }
+
+    /// @notice Permanently closes the current batch before it sells out.
+    /// @dev A closed batch cannot be reopened; the owner may create a new batch afterwards.
+    function closeCurrentBatch() external onlyOwner {
+        Batch storage batch = batches[currentBatchId];
+        if (!batch.active) revert NoActiveBatch();
+
+        batch.active = false;
+        batch.paused = false;
+        emit BatchClosed(currentBatchId);
+        emit BatchClosedEarly(currentBatchId, batch.minted, batch.maxSupply);
     }
 
     function setFundsReceiver(address newReceiver) external onlyOwner {

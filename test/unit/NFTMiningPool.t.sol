@@ -518,6 +518,42 @@ contract NFTMiningPoolTest is Test {
         pool.createBatch(100, address(0), 1 ether, 0);
     }
 
+    function test_OwnerCanCloseUnsoldBatchAndCreateNextBatch() public {
+        _mintAs(user1, 0);
+
+        vm.expectEmit(true, false, false, false, address(pool));
+        emit NFTMiningPool.BatchClosed(1);
+        vm.expectEmit(true, false, false, true, address(pool));
+        emit NFTMiningPool.BatchClosedEarly(1, 1, FIRST_BATCH_SUPPLY);
+        pool.closeCurrentBatch();
+
+        (,,, bool active, bool paused,, uint256 maxSupply, uint256 minted) = pool.batches(1);
+        assertFalse(active);
+        assertFalse(paused);
+        assertEq(maxSupply, FIRST_BATCH_SUPPLY);
+        assertEq(minted, 1);
+
+        vm.expectRevert(NFTMiningPool.NoActiveBatch.selector);
+        vm.prank(user2);
+        pool.mint(0);
+
+        uint256 nextBatchId = pool.createBatch(3, address(0), 0.25 ether, 250);
+        assertEq(nextBatchId, 2);
+        assertEq(pool.currentBatchId(), 2);
+    }
+
+    function test_OwnerCanClosePausedBatchButCannotCloseItTwice() public {
+        pool.setCurrentBatchPaused(true);
+        pool.closeCurrentBatch();
+
+        (,,, bool active, bool paused,,,) = pool.batches(1);
+        assertFalse(active);
+        assertFalse(paused);
+
+        vm.expectRevert(NFTMiningPool.NoActiveBatch.selector);
+        pool.closeCurrentBatch();
+    }
+
     function test_BatchPaletteCyclesAutomaticallyFromBatchId() public {
         for (uint256 batchId = 1; batchId <= 7; ++batchId) {
             (,, uint8 paletteId,,,,,) = pool.batches(batchId);
@@ -558,6 +594,8 @@ contract NFTMiningPoolTest is Test {
         pool.setCurrentBatchPaused(true);
         vm.expectRevert("Ownable: caller is not the owner");
         pool.setFundsReceiver(user1);
+        vm.expectRevert("Ownable: caller is not the owner");
+        pool.closeCurrentBatch();
         vm.stopPrank();
     }
 
