@@ -31,19 +31,31 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
     address public nftMiningPool;
     address public childPoolTemplate;
     uint256 public lockDuration;
+    uint16 public nftRewardBps;
     string public name;
 
     mapping(address basket => BasketStake stake) private _basketStakes;
     mapping(address beneficiary => uint256 amount) private _beneficiaryMiningAmount;
     uint256 private _totalMiningAmount;
 
-    event BasketStakeCreated(address indexed basket, address indexed owner, uint256 miningAmount, uint256 updatedAt);
+    event BasketStakeCreated(
+        address indexed basket,
+        address indexed basketCreator,
+        uint256 indexed nftTokenId,
+        uint256 miningAmount,
+        uint256 updatedAt
+    );
     event BasketChildPoolCreated(
-        address indexed basket, address indexed childPool, address indexed owner, uint256 lockDuration
+        address indexed basket,
+        address indexed childPool,
+        address indexed basketCreator,
+        uint256 nftTokenId,
+        uint16 nftRewardBps,
+        uint256 lockDuration
     );
     event BasketStakeUpdated(
         address indexed basket,
-        address indexed owner,
+        address indexed basketCreator,
         uint256 previousMiningAmount,
         uint256 newMiningAmount,
         uint256 updatedAt
@@ -53,7 +65,8 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
     error InvalidBasket();
     error BasketStakeAlreadyExists();
     error BasketStakeNotFound();
-    error OwnerHasNoMiningNFT();
+    error OnlyBasketCreator();
+    error OwnerDoesNotOwnMiningNFT();
     error PoolIsInactive();
 
     constructor() {
@@ -66,11 +79,12 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         address basketRegistry_,
         address nftMiningPool_,
         address childPoolTemplate_,
-        uint256 lockDuration_
+        uint256 lockDuration_,
+        uint16 nftRewardBps_
     ) external initializer {
         if (
             community_ == address(0) || basketRegistry_.code.length == 0 || nftMiningPool_.code.length == 0
-                || childPoolTemplate_.code.length == 0 || lockDuration_ == 0
+                || childPoolTemplate_.code.length == 0 || lockDuration_ == 0 || nftRewardBps_ > 10_000
         ) {
             revert InvalidAddress();
         }
@@ -82,23 +96,36 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         nftMiningPool = nftMiningPool_;
         childPoolTemplate = childPoolTemplate_;
         lockDuration = lockDuration_;
+        nftRewardBps = nftRewardBps_;
     }
 
     /**
      * @notice Registers a Basket, creates its child pool, and attributes WETH NAV to that child pool.
-     * @dev Permissionless. The Basket creator must own at least one NFT from the configured NFT mining pool.
+     * @dev Only the Basket's creator payout address may register it, and that address
+     * must own the selected NFT when the child pool is created.
      */
-    function createBasketStake(address basket) external override nonReentrant returns (address childPool) {
+    function createBasketStake(address basket, uint256 nftTokenId)
+        external
+        override
+        nonReentrant
+        returns (address childPool)
+    {
         if (!ICommunity(community).poolActived(address(this))) revert PoolIsInactive();
         if (!IBasketRegistry(basketRegistry).isBasket(basket)) revert InvalidBasket();
         if (_basketStakes[basket].exists) revert BasketStakeAlreadyExists();
 
-        address basketOwner = IBasketToken(basket).creatorPayout();
-        if (basketOwner == address(0)) revert InvalidAddress();
-        if (IERC721(nftMiningPool).balanceOf(basketOwner) == 0) revert OwnerHasNoMiningNFT();
+        address basketCreator = IBasketToken(basket).creatorPayout();
+        if (basketCreator == address(0)) revert InvalidAddress();
+        if (msg.sender != basketCreator) revert OnlyBasketCreator();
+        try IERC721(nftMiningPool).ownerOf(nftTokenId) returns (address nftOwner) {
+            if (nftOwner != basketCreator) revert OwnerDoesNotOwnMiningNFT();
+        } catch {
+            revert OwnerDoesNotOwnMiningNFT();
+        }
 
         childPool = Clones.clone(childPoolTemplate);
-        BasketStakePool(childPool).initialize(address(this), community, basket, lockDuration);
+        BasketStakePool(childPool)
+            .initialize(address(this), community, basket, nftMiningPool, nftTokenId, nftRewardBps, lockDuration);
 
         uint256 miningAmount = _basketNavWeth(basket);
         ICommunity communityContract = ICommunity(community);
@@ -107,8 +134,9 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         _settleUser(communityContract, childPool, shareAcc);
 
         _basketStakes[basket] = BasketStake({
-            owner: basketOwner,
+            basketCreator: basketCreator,
             childPool: childPool,
+            nftTokenId: nftTokenId,
             miningAmount: miningAmount,
             updatedAt: block.timestamp,
             exists: true
@@ -120,8 +148,8 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
             childPool, Math.mulDiv(_beneficiaryMiningAmount[childPool], shareAcc, ACC_PRECISION)
         );
 
-        emit BasketStakeCreated(basket, basketOwner, miningAmount, block.timestamp);
-        emit BasketChildPoolCreated(basket, childPool, basketOwner, lockDuration);
+        emit BasketStakeCreated(basket, basketCreator, nftTokenId, miningAmount, block.timestamp);
+        emit BasketChildPoolCreated(basket, childPool, basketCreator, nftTokenId, nftRewardBps, lockDuration);
     }
 
     /**
@@ -134,7 +162,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
 
         uint256 newMiningAmount = _basketNavWeth(basket);
         uint256 previousMiningAmount = stake.miningAmount;
-        address basketOwner = stake.owner;
+        address basketCreator = stake.basketCreator;
         address childPool = stake.childPool;
 
         ICommunity communityContract = ICommunity(community);
@@ -152,7 +180,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
             childPool, Math.mulDiv(_beneficiaryMiningAmount[childPool], shareAcc, ACC_PRECISION)
         );
 
-        emit BasketStakeUpdated(basket, basketOwner, previousMiningAmount, newMiningAmount, block.timestamp);
+        emit BasketStakeUpdated(basket, basketCreator, previousMiningAmount, newMiningAmount, block.timestamp);
     }
 
     function getFactory() external view override returns (address) {

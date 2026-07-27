@@ -243,6 +243,7 @@ contract BasketTVLMiningPoolTest is Test {
     uint256 internal constant LOCK_DURATION = 7 days;
     uint256 internal constant REWARD_INJECTION = 168_000 ether;
     uint256 internal constant HOURLY_REWARD = 1_000 ether;
+    uint16 internal constant NFT_REWARD_BPS = 500;
 
     Committee internal committee;
     CommunityFactory internal communityFactory;
@@ -260,6 +261,8 @@ contract BasketTVLMiningPoolTest is Test {
     BasketTVLTestExecutor internal executor;
     BasketTVLTestBasket internal basketA;
     BasketTVLTestBasket internal basketB;
+    uint256 internal nftA;
+    uint256 internal nftB;
 
     address internal ownerA = makeAddr("ownerA");
     address internal ownerB = makeAddr("ownerB");
@@ -268,13 +271,24 @@ contract BasketTVLMiningPoolTest is Test {
     address internal keeper = makeAddr("keeper");
     address internal feeRecipient = makeAddr("feeRecipient");
 
-    event BasketStakeCreated(address indexed basket, address indexed owner, uint256 miningAmount, uint256 updatedAt);
+    event BasketStakeCreated(
+        address indexed basket,
+        address indexed basketCreator,
+        uint256 indexed nftTokenId,
+        uint256 miningAmount,
+        uint256 updatedAt
+    );
     event BasketChildPoolCreated(
-        address indexed basket, address indexed childPool, address indexed owner, uint256 lockDuration
+        address indexed basket,
+        address indexed childPool,
+        address indexed basketCreator,
+        uint256 nftTokenId,
+        uint16 nftRewardBps,
+        uint256 lockDuration
     );
     event BasketStakeUpdated(
         address indexed basket,
-        address indexed owner,
+        address indexed basketCreator,
         uint256 previousMiningAmount,
         uint256 newMiningAmount,
         uint256 updatedAt
@@ -315,8 +329,8 @@ contract BasketTVLMiningPoolTest is Test {
         );
         registry.setBasket(address(basketA), true);
         registry.setBasket(address(basketB), true);
-        miningNFT.mint(ownerA);
-        miningNFT.mint(ownerB);
+        nftA = miningNFT.mint(ownerA);
+        nftB = miningNFT.mint(ownerB);
 
         factory = new BasketTVLMiningPoolFactory(
             address(communityFactory), address(registry), address(miningNFT), LOCK_DURATION
@@ -331,7 +345,7 @@ contract BasketTVLMiningPoolTest is Test {
 
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10_000;
-        community.adminAddPool("Basket TVL Mining", ratios, address(factory), bytes(""));
+        community.adminAddPool("Basket TVL Mining", ratios, address(factory), abi.encode(NFT_REWARD_BPS));
         pool = BasketTVLMiningPool(community.activedPools(0));
 
         rewardToken.mint(address(this), 10_000_000 ether);
@@ -353,6 +367,7 @@ contract BasketTVLMiningPoolTest is Test {
         assertEq(pool.nftMiningPool(), address(miningNFT));
         assertEq(pool.childPoolTemplate(), factory.childPoolTemplate());
         assertEq(pool.lockDuration(), LOCK_DURATION);
+        assertEq(pool.nftRewardBps(), NFT_REWARD_BPS);
         assertEq(pool.name(), "Basket TVL Mining");
         assertEq(pool.getTotalStakedAmount(), 0);
     }
@@ -360,20 +375,20 @@ contract BasketTVLMiningPoolTest is Test {
     function test_RevertFactoryCreatePoolWhenCallerIsNotCommunity() public {
         vm.expectRevert(bytes("Permission denied: caller is not community"));
         vm.prank(keeper);
-        factory.createPool(address(community), "Unauthorized", bytes(""));
+        factory.createPool(address(community), "Unauthorized", abi.encode(NFT_REWARD_BPS));
     }
 
     function test_RevertFactoryCreatePoolForUnknownCommunity() public {
         address unknownCommunity = makeAddr("unknownCommunity");
         vm.expectRevert(bytes("Invalid community"));
         vm.prank(unknownCommunity);
-        factory.createPool(unknownCommunity, "Unknown", bytes(""));
+        factory.createPool(unknownCommunity, "Unknown", abi.encode(NFT_REWARD_BPS));
     }
 
     function test_RevertFactoryCreatePoolTwiceForSameCommunity() public {
         vm.expectRevert(BasketTVLMiningPoolFactory.PoolAlreadyExists.selector);
         vm.prank(address(community));
-        factory.createPool(address(community), "Duplicate", bytes(""));
+        factory.createPool(address(community), "Duplicate", abi.encode(NFT_REWARD_BPS));
     }
 
     function test_ImplementationTemplatesCannotBeInitialized() public {
@@ -388,11 +403,21 @@ contract BasketTVLMiningPoolTest is Test {
                 address(registry),
                 address(miningNFT),
                 childTemplate,
-                LOCK_DURATION
+                LOCK_DURATION,
+                NFT_REWARD_BPS
             );
 
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        BasketStakePool(childTemplate).initialize(address(pool), address(community), address(basketA), LOCK_DURATION);
+        BasketStakePool(childTemplate)
+            .initialize(
+                address(pool),
+                address(community),
+                address(basketA),
+                address(miningNFT),
+                nftA,
+                NFT_REWARD_BPS,
+                LOCK_DURATION
+            );
     }
 
     function test_InitializedClonesCannotBeReinitialized() public {
@@ -401,11 +426,19 @@ contract BasketTVLMiningPoolTest is Test {
 
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
         pool.initialize(
-            address(community), "Hijacked Parent", address(registry), address(miningNFT), childTemplate, LOCK_DURATION
+            address(community),
+            "Hijacked Parent",
+            address(registry),
+            address(miningNFT),
+            childTemplate,
+            LOCK_DURATION,
+            NFT_REWARD_BPS
         );
 
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
-        child.initialize(address(pool), address(community), address(basketA), LOCK_DURATION);
+        child.initialize(
+            address(pool), address(community), address(basketA), address(miningNFT), nftA, NFT_REWARD_BPS, LOCK_DURATION
+        );
     }
 
     function test_ParentInitializeRejectsInvalidConfiguration() public {
@@ -436,17 +469,26 @@ contract BasketTVLMiningPoolTest is Test {
         address childClone = Clones.clone(factory.childPoolTemplate());
         vm.expectRevert(BasketStakePool.InvalidAddress.selector);
         BasketStakePool(childClone)
-            .initialize(address(pool), address(sameTokenCommunity), address(basketA), LOCK_DURATION);
+            .initialize(
+                address(pool),
+                address(sameTokenCommunity),
+                address(basketA),
+                address(miningNFT),
+                nftA,
+                NFT_REWARD_BPS,
+                LOCK_DURATION
+            );
     }
 
-    function test_CreateBasketStakeIsPermissionlessAndCreatesConfiguredChild() public {
-        vm.prank(keeper);
-        address childAddress = pool.createBasketStake(address(basketA));
+    function test_BasketCreatorCreatesConfiguredChild() public {
+        vm.prank(ownerA);
+        address childAddress = pool.createBasketStake(address(basketA), nftA);
         BasketStakePool child = BasketStakePool(childAddress);
 
         IBasketTVLMiningPool.BasketStake memory stake = pool.getBasketStake(address(basketA));
-        assertEq(stake.owner, ownerA);
+        assertEq(stake.basketCreator, ownerA);
         assertEq(stake.childPool, childAddress);
+        assertEq(stake.nftTokenId, nftA);
         assertEq(stake.miningAmount, 10 ether);
         assertTrue(stake.exists);
         assertEq(child.parentMiningPool(), address(pool));
@@ -454,18 +496,28 @@ contract BasketTVLMiningPoolTest is Test {
         assertEq(child.stakeToken(), address(basketA));
         assertEq(child.rewardToken(), address(rewardToken));
         assertEq(child.holderFeeToken(), address(weth));
+        assertEq(child.nftMiningPool(), address(miningNFT));
+        assertEq(child.nftTokenId(), nftA);
+        assertEq(child.nftRewardBps(), NFT_REWARD_BPS);
         assertEq(child.lockDuration(), LOCK_DURATION);
         assertEq(pool.getUserStakedAmount(childAddress), 10 ether);
         assertEq(pool.getUserStakedAmount(ownerA), 0);
         assertEq(pool.getTotalStakedAmount(), 10 ether);
     }
 
+    function test_RevertCreateBasketStakeWhenCallerIsNotBasketCreator() public {
+        vm.expectRevert(BasketTVLMiningPool.OnlyBasketCreator.selector);
+        vm.prank(keeper);
+        pool.createBasketStake(address(basketA), nftA);
+    }
+
     function test_CreateAndUpdateEmitIndexerCriticalParameters() public {
         vm.expectEmit(true, true, false, true, address(pool));
-        emit BasketStakeCreated(address(basketA), ownerA, 10 ether, block.timestamp);
+        emit BasketStakeCreated(address(basketA), ownerA, nftA, 10 ether, block.timestamp);
         vm.expectEmit(true, false, true, true, address(pool));
-        emit BasketChildPoolCreated(address(basketA), address(0), ownerA, LOCK_DURATION);
-        pool.createBasketStake(address(basketA));
+        emit BasketChildPoolCreated(address(basketA), address(0), ownerA, nftA, NFT_REWARD_BPS, LOCK_DURATION);
+        vm.prank(ownerA);
+        pool.createBasketStake(address(basketA), nftA);
 
         basketA.setActiveReserve(25 ether);
         vm.expectEmit(true, true, false, true, address(pool));
@@ -477,7 +529,7 @@ contract BasketTVLMiningPoolTest is Test {
         community.adminClosePool(0, new uint16[](0));
 
         vm.expectRevert(BasketTVLMiningPool.PoolIsInactive.selector);
-        pool.createBasketStake(address(basketA));
+        pool.createBasketStake(address(basketA), nftA);
     }
 
     function test_CreateTwoBasketsAggregatesTvlByChildAddress() public {
@@ -492,7 +544,7 @@ contract BasketTVLMiningPoolTest is Test {
     function test_RevertCreateForUnregisteredBasket() public {
         BasketTVLTestBasket invalidBasket = _newBasket(makeAddr("invalidOwner"), 1 ether);
         vm.expectRevert(BasketTVLMiningPool.InvalidBasket.selector);
-        pool.createBasketStake(address(invalidBasket));
+        pool.createBasketStake(address(invalidBasket), nftA);
     }
 
     function test_RevertCreateWhenBasketOwnerHasNoNFT() public {
@@ -500,14 +552,15 @@ contract BasketTVLMiningPoolTest is Test {
         BasketTVLTestBasket noNFTBasket = _newBasket(ownerWithoutNFT, 1 ether);
         registry.setBasket(address(noNFTBasket), true);
 
-        vm.expectRevert(BasketTVLMiningPool.OwnerHasNoMiningNFT.selector);
-        pool.createBasketStake(address(noNFTBasket));
+        vm.expectRevert(BasketTVLMiningPool.OwnerDoesNotOwnMiningNFT.selector);
+        vm.prank(ownerWithoutNFT);
+        pool.createBasketStake(address(noNFTBasket), nftA);
     }
 
     function test_RevertDuplicateBasketStake() public {
         _createStake(basketA);
         vm.expectRevert(BasketTVLMiningPool.BasketStakeAlreadyExists.selector);
-        pool.createBasketStake(address(basketA));
+        pool.createBasketStake(address(basketA), nftA);
     }
 
     function test_RevertUpdateUnknownBasket() public {
@@ -540,7 +593,8 @@ contract BasketTVLMiningPoolTest is Test {
             new BasketTVLTestMultiAssetBasket(ownerA, address(executor), address(weth), assets, reserves);
         registry.setBasket(address(basket), true);
 
-        BasketStakePool child = BasketStakePool(pool.createBasketStake(address(basket)));
+        vm.prank(ownerA);
+        BasketStakePool child = BasketStakePool(pool.createBasketStake(address(basket), nftA));
 
         assertEq(pool.basketNavWeth(address(basket)), 45 ether);
         assertEq(pool.getBasketStake(address(basket)).miningAmount, 45 ether);
@@ -585,9 +639,9 @@ contract BasketTVLMiningPoolTest is Test {
 
         (uint256 rewardA,) = _claim(childA, alice);
         (uint256 rewardB,) = _claim(childB, bob);
-        assertApproxEqAbs(rewardA, 250 ether, 1e8);
-        assertApproxEqAbs(rewardB, 750 ether, 1e8);
-        assertApproxEqAbs(rewardA + rewardB, HOURLY_REWARD, 1e8);
+        assertApproxEqAbs(rewardA, 237.5 ether, 1e8);
+        assertApproxEqAbs(rewardB, 712.5 ether, 1e8);
+        assertApproxEqAbs(rewardA + rewardB, 950 ether, 1e8);
     }
 
     function test_TvlUpdateSettlesOldRatioBeforeUsingNewRatio() public {
@@ -603,9 +657,9 @@ contract BasketTVLMiningPoolTest is Test {
 
         (uint256 rewardA,) = _claim(childA, alice);
         (uint256 rewardB,) = _claim(childB, bob);
-        assertApproxEqAbs(rewardA, 750 ether, 1e8);
-        assertApproxEqAbs(rewardB, 1_250 ether, 1e8);
-        assertApproxEqAbs(rewardA + rewardB, 2 * HOURLY_REWARD, 1e8);
+        assertApproxEqAbs(rewardA, 712.5 ether, 1e8);
+        assertApproxEqAbs(rewardB, 1_187.5 ether, 1e8);
+        assertApproxEqAbs(rewardA + rewardB, 1_900 ether, 1e8);
     }
 
     function test_ChildSplitsCommunityRewardsByActiveStake() public {
@@ -616,8 +670,128 @@ contract BasketTVLMiningPoolTest is Test {
 
         (uint256 aliceReward,) = _claim(child, alice);
         (uint256 bobReward,) = _claim(child, bob);
-        assertApproxEqAbs(aliceReward, 250 ether, 1e8);
-        assertApproxEqAbs(bobReward, 750 ether, 1e8);
+        assertApproxEqAbs(aliceReward, 237.5 ether, 1e8);
+        assertApproxEqAbs(bobReward, 712.5 ether, 1e8);
+    }
+
+    function test_CommunityRewardsSplitBetweenStakersAndBoundNft() public {
+        BasketStakePool child = _createStake(basketA);
+        _mintAndDeposit(basketA, child, alice, 100 ether);
+        _injectRewardsAndWarp(1 hours);
+
+        assertApproxEqAbs(child.pendingRewards(alice), 950 ether, 1e8);
+        assertApproxEqAbs(child.pendingNftRewards(), 50 ether, 1e8);
+
+        (uint256 stakerAmount,) = _claim(child, alice);
+        assertApproxEqAbs(stakerAmount, 950 ether, 1e8);
+        assertApproxEqAbs(child.accruedNftRewards(), 50 ether, 1e8);
+
+        vm.prank(ownerA);
+        uint256 nftAmount = child.claimNftRewards();
+        assertApproxEqAbs(nftAmount, 50 ether, 1e8);
+        assertEq(rewardToken.balanceOf(ownerA), nftAmount);
+        assertEq(child.accruedNftRewards(), 0);
+    }
+
+    function test_FiftyPercentConfigurationSplitsRewardsExactlyInHalf() public {
+        (Community isolatedCommunity, BasketTVLMiningPool isolatedPool) = _createPoolWithBps(5_000);
+        vm.prank(ownerA);
+        BasketStakePool child = BasketStakePool(isolatedPool.createBasketStake(address(basketA), nftA));
+        _mintAndDeposit(basketA, child, alice, 100 ether);
+
+        calculator.inject(address(isolatedCommunity), REWARD_INJECTION);
+        vm.warp(block.timestamp + 1 hours);
+
+        (uint256 stakerAmount,) = _claim(child, alice);
+        vm.prank(ownerA);
+        uint256 nftAmount = child.claimNftRewards();
+        assertApproxEqAbs(stakerAmount, 500 ether, 1e8);
+        assertApproxEqAbs(nftAmount, 500 ether, 1e8);
+        assertApproxEqAbs(stakerAmount + nftAmount, HOURLY_REWARD, 1e8);
+    }
+
+    function test_ZeroPercentSendsAllCommunityRewardsToStakers() public {
+        (Community isolatedCommunity, BasketTVLMiningPool isolatedPool) = _createPoolWithBps(0);
+        vm.prank(ownerA);
+        BasketStakePool child = BasketStakePool(isolatedPool.createBasketStake(address(basketA), nftA));
+        _mintAndDeposit(basketA, child, alice, 100 ether);
+
+        calculator.inject(address(isolatedCommunity), REWARD_INJECTION);
+        vm.warp(block.timestamp + 1 hours);
+
+        (uint256 stakerAmount,) = _claim(child, alice);
+        assertApproxEqAbs(stakerAmount, HOURLY_REWARD, 1e8);
+        assertEq(child.pendingNftRewards(), 0);
+
+        vm.expectRevert(BasketStakePool.NothingToClaim.selector);
+        child.claimNftRewards();
+    }
+
+    function test_FullNftPercentSendsAllCommunityRewardsToNft() public {
+        (Community isolatedCommunity, BasketTVLMiningPool isolatedPool) = _createPoolWithBps(10_000);
+        vm.prank(ownerA);
+        BasketStakePool child = BasketStakePool(isolatedPool.createBasketStake(address(basketA), nftA));
+        _mintAndDeposit(basketA, child, alice, 100 ether);
+
+        calculator.inject(address(isolatedCommunity), REWARD_INJECTION);
+        vm.warp(block.timestamp + 1 hours);
+
+        assertEq(child.pendingRewards(alice), 0);
+        vm.prank(ownerA);
+        uint256 nftAmount = child.claimNftRewards();
+        assertApproxEqAbs(nftAmount, HOURLY_REWARD, 1e8);
+        assertEq(rewardToken.balanceOf(alice), 0);
+        assertEq(rewardToken.balanceOf(ownerA), nftAmount);
+    }
+
+    function test_RevertPoolCreationWhenNftRewardBpsExceedsOneHundredPercent() public {
+        Community isolatedCommunity = _createCommunity();
+        uint16[] memory ratios = new uint16[](1);
+        ratios[0] = 10_000;
+
+        vm.expectRevert(BasketTVLMiningPoolFactory.InvalidNftRewardBps.selector);
+        isolatedCommunity.adminAddPool("Invalid NFT reward", ratios, address(factory), abi.encode(uint16(10_001)));
+    }
+
+    function test_UnclaimedNftRewardsFollowTokenToItsCurrentOwner() public {
+        BasketStakePool child = _createStake(basketA);
+        _mintAndDeposit(basketA, child, alice, 100 ether);
+        _injectRewardsAndWarp(1 hours);
+
+        _claim(child, alice);
+        uint256 carriedRewards = child.accruedNftRewards();
+        assertApproxEqAbs(carriedRewards, 50 ether, 1e8);
+        assertEq(rewardToken.balanceOf(ownerA), 0);
+
+        vm.prank(ownerA);
+        miningNFT.transferFrom(ownerA, bob, nftA);
+        assertEq(miningNFT.ownerOf(nftA), bob);
+
+        // The caller cannot redirect payment: it always goes to ownerOf(nftTokenId).
+        vm.prank(keeper);
+        uint256 claimed = child.claimNftRewards();
+        assertEq(claimed, carriedRewards);
+        assertEq(rewardToken.balanceOf(ownerA), 0);
+        assertEq(rewardToken.balanceOf(bob), carriedRewards);
+    }
+
+    function test_NftKeepsAccruingAfterTransferAndClaimsOldAndNewRewardsTogether() public {
+        BasketStakePool child = _createStake(basketA);
+        _mintAndDeposit(basketA, child, alice, 100 ether);
+        _injectRewardsAndWarp(1 hours);
+        _claim(child, alice);
+
+        vm.prank(ownerA);
+        miningNFT.transferFrom(ownerA, bob, nftA);
+
+        vm.warp(block.timestamp + 1 hours);
+        _claim(child, alice);
+        assertApproxEqAbs(child.accruedNftRewards(), 100 ether, 1e8);
+
+        vm.prank(bob);
+        uint256 claimed = child.claimNftRewards();
+        assertApproxEqAbs(claimed, 100 ether, 1e8);
+        assertEq(rewardToken.balanceOf(bob), claimed);
     }
 
     function test_DepositSettlesPastRewardsBeforeAddingNewStake() public {
@@ -629,8 +803,8 @@ contract BasketTVLMiningPoolTest is Test {
 
         (uint256 aliceReward,) = _claim(child, alice);
         (uint256 bobReward,) = _claim(child, bob);
-        assertApproxEqAbs(aliceReward, 1_250 ether, 1e8);
-        assertApproxEqAbs(bobReward, 750 ether, 1e8);
+        assertApproxEqAbs(aliceReward, 1_187.5 ether, 1e8);
+        assertApproxEqAbs(bobReward, 712.5 ether, 1e8);
     }
 
     function test_WithdrawSettlesRewardsBeforeRemovingStake() public {
@@ -645,8 +819,8 @@ contract BasketTVLMiningPoolTest is Test {
 
         (uint256 aliceReward,) = _claim(child, alice);
         (uint256 bobReward,) = _claim(child, bob);
-        assertApproxEqAbs(aliceReward, 500 ether, 1e8);
-        assertApproxEqAbs(bobReward, 1_500 ether, 1e8);
+        assertApproxEqAbs(aliceReward, 475 ether, 1e8);
+        assertApproxEqAbs(bobReward, 1_425 ether, 1e8);
     }
 
     function test_HolderFeesAreTransferredAndSplitByActiveStake() public {
@@ -752,7 +926,7 @@ contract BasketTVLMiningPoolTest is Test {
         _injectRewardsAndWarp(1 hours);
 
         (uint256 communityAmount, uint256 holderFeeAmount) = _claim(child, alice);
-        assertApproxEqAbs(communityAmount, HOURLY_REWARD, 1e8);
+        assertApproxEqAbs(communityAmount, 950 ether, 1e8);
         assertApproxEqAbs(holderFeeAmount, 80 ether, 1);
         assertEq(rewardToken.balanceOf(alice), communityAmount);
         assertEq(weth.balanceOf(alice), holderFeeAmount);
@@ -774,11 +948,11 @@ contract BasketTVLMiningPoolTest is Test {
         _injectRewardsAndWarp(1 hours);
         _mintAndDeposit(basketA, child, alice, 100 ether);
 
-        assertApproxEqAbs(child.undistributedRewards(), HOURLY_REWARD, 1e8);
-        assertApproxEqAbs(child.pendingRewards(alice), HOURLY_REWARD, 1e8);
+        assertApproxEqAbs(child.undistributedRewards(), 950 ether, 1e8);
+        assertApproxEqAbs(child.pendingRewards(alice), 950 ether, 1e8);
 
         (uint256 claimed,) = _claim(child, alice);
-        assertApproxEqAbs(claimed, HOURLY_REWARD, 1e8);
+        assertApproxEqAbs(claimed, 950 ether, 1e8);
     }
 
     function test_ChildRejectsZeroAndExcessAmountsAndEmptyRedeem() public {
@@ -984,7 +1158,7 @@ contract BasketTVLMiningPoolTest is Test {
         assertEq(feeRecipient.balance, recipientBefore);
         assertEq(address(rejector).balance, rejectorBefore);
         assertEq(rewardToken.balanceOf(address(rejector)), 0);
-        assertApproxEqAbs(child.pendingRewards(address(rejector)), HOURLY_REWARD, 1e8);
+        assertApproxEqAbs(child.pendingRewards(address(rejector)), 950 ether, 1e8);
     }
 
     function test_DepositRevertsAfterParentPoolIsClosed() public {
@@ -1010,7 +1184,7 @@ contract BasketTVLMiningPoolTest is Test {
 
         vm.prank(alice);
         (uint256 communityAmount, uint256 holderFeeAmount) = child.claimRewards{value: operationFee}();
-        assertApproxEqAbs(communityAmount, HOURLY_REWARD, 1e8);
+        assertApproxEqAbs(communityAmount, 950 ether, 1e8);
         assertEq(holderFeeAmount, 0);
         assertTrue(child.closedParentRewardsHarvested());
 
@@ -1076,11 +1250,15 @@ contract BasketTVLMiningPoolTest is Test {
         (uint256 bobReward,) = _claim(child, bob);
         (uint256 keeperReward,) = _claim(child, keeper);
         uint256 totalClaimed = aliceReward + bobReward + keeperReward;
+        vm.prank(ownerA);
+        uint256 nftClaimed = child.claimNftRewards();
 
-        assertApproxEqAbs(totalClaimed, HOURLY_REWARD, 16);
+        assertApproxEqAbs(totalClaimed, 950 ether, 16);
+        assertApproxEqAbs(totalClaimed + nftClaimed, HOURLY_REWARD, 16);
         assertEq(rewardToken.balanceOf(alice), aliceReward);
         assertEq(rewardToken.balanceOf(bob), bobReward);
         assertEq(rewardToken.balanceOf(keeper), keeperReward);
+        assertEq(rewardToken.balanceOf(ownerA), nftClaimed);
         assertLe(rewardToken.balanceOf(address(child)), 16);
     }
 
@@ -1115,7 +1293,9 @@ contract BasketTVLMiningPoolTest is Test {
     }
 
     function _createStake(BasketTVLTestBasket basket) internal returns (BasketStakePool child) {
-        address childAddress = pool.createBasketStake(address(basket));
+        uint256 tokenId = address(basket) == address(basketB) ? nftB : nftA;
+        vm.prank(basket.creatorPayout());
+        address childAddress = pool.createBasketStake(address(basket), tokenId);
         child = BasketStakePool(childAddress);
     }
 
@@ -1146,6 +1326,25 @@ contract BasketTVLMiningPoolTest is Test {
         );
     }
 
+    function _createPoolWithBps(uint16 bps)
+        internal
+        returns (Community isolatedCommunity, BasketTVLMiningPool isolatedPool)
+    {
+        isolatedCommunity = _createCommunity();
+        uint16[] memory ratios = new uint16[](1);
+        ratios[0] = 10_000;
+        isolatedCommunity.adminAddPool("Isolated Basket TVL Mining", ratios, address(factory), abi.encode(bps));
+        isolatedPool = BasketTVLMiningPool(isolatedCommunity.activedPools(0));
+    }
+
+    function _createCommunity() internal returns (Community isolatedCommunity) {
+        isolatedCommunity = Community(
+            payable(communityFactory.createCommunity(
+                    false, address(rewardToken), address(0), bytes(""), address(calculator), bytes("")
+                ))
+        );
+    }
+
     function _expectInvalidParentInitialize(
         address community_,
         address registry_,
@@ -1156,7 +1355,7 @@ contract BasketTVLMiningPoolTest is Test {
         address parentClone = Clones.clone(factory.poolTemplate());
         vm.expectRevert(BasketTVLMiningPool.InvalidAddress.selector);
         BasketTVLMiningPool(parentClone)
-            .initialize(community_, "Invalid", registry_, nft_, childTemplate_, lockDuration_);
+            .initialize(community_, "Invalid", registry_, nft_, childTemplate_, lockDuration_, NFT_REWARD_BPS);
     }
 
     function _expectInvalidChildInitialize(
@@ -1167,7 +1366,8 @@ contract BasketTVLMiningPoolTest is Test {
     ) internal {
         address childClone = Clones.clone(factory.childPoolTemplate());
         vm.expectRevert(BasketStakePool.InvalidAddress.selector);
-        BasketStakePool(childClone).initialize(parent_, community_, stakeToken_, lockDuration_);
+        BasketStakePool(childClone)
+            .initialize(parent_, community_, stakeToken_, address(miningNFT), nftA, NFT_REWARD_BPS, lockDuration_);
     }
 
     function _assertChildStakeInvariant(BasketStakePool child) internal view {

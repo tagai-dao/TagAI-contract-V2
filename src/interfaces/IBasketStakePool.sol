@@ -17,7 +17,11 @@ interface IBasketStakePool {
 
     function claimRewards() external payable returns (uint256 communityAmount, uint256 holderFeeAmount);
 
+    function claimNftRewards() external payable returns (uint256 amount);
+
     function pendingRewards(address user) external view returns (uint256);
+
+    function pendingNftRewards() external view returns (uint256);
 
     function pendingHolderFees(address user) external view returns (uint256);
 

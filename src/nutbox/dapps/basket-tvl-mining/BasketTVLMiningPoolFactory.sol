@@ -13,6 +13,8 @@ import "./BasketTVLMiningPool.sol";
  * @notice Creates one shared Basket TVL mining pool for each verified Nutbox community.
  */
 contract BasketTVLMiningPoolFactory is IPoolFactory {
+    uint16 public constant BPS_DENOMINATOR = 10_000;
+
     address public immutable communityFactory;
     address public immutable basketRegistry;
     address public immutable nftMiningPool;
@@ -27,10 +29,12 @@ contract BasketTVLMiningPoolFactory is IPoolFactory {
         address indexed community,
         address indexed basketRegistry,
         address nftMiningPool,
+        uint16 nftRewardBps,
         string name
     );
 
     error InvalidAddress();
+    error InvalidNftRewardBps();
     error PoolAlreadyExists();
 
     constructor(address communityFactory_, address basketRegistry_, address nftMiningPool_, uint256 lockDuration_) {
@@ -49,17 +53,24 @@ contract BasketTVLMiningPoolFactory is IPoolFactory {
         childPoolTemplate = address(new BasketStakePool());
     }
 
-    function createPool(address community, string memory name, bytes calldata) external override returns (address) {
+    function createPool(address community, string memory name, bytes calldata meta)
+        external
+        override
+        returns (address)
+    {
         require(community == msg.sender, "Permission denied: caller is not community");
         require(CommunityFactory(payable(communityFactory)).createdCommunity(community), "Invalid community");
         if (poolOfCommunity[community] != address(0)) revert PoolAlreadyExists();
 
+        uint16 nftRewardBps = abi.decode(meta, (uint16));
+        if (nftRewardBps > BPS_DENOMINATOR) revert InvalidNftRewardBps();
+
         address clone = Clones.clone(poolTemplate);
         BasketTVLMiningPool(clone)
-            .initialize(community, name, basketRegistry, nftMiningPool, childPoolTemplate, lockDuration);
+            .initialize(community, name, basketRegistry, nftMiningPool, childPoolTemplate, lockDuration, nftRewardBps);
         poolOfCommunity[community] = clone;
 
-        emit BasketTVLMiningPoolCreated(clone, community, basketRegistry, nftMiningPool, name);
+        emit BasketTVLMiningPoolCreated(clone, community, basketRegistry, nftMiningPool, nftRewardBps, name);
         return clone;
     }
 }

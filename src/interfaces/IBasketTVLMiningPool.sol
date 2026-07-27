@@ -5,14 +5,15 @@ import {IPool} from "./IPool.sol";
 
 interface IBasketTVLMiningPool is IPool {
     struct BasketStake {
-        address owner;
+        address basketCreator;
         address childPool;
+        uint256 nftTokenId;
         uint256 miningAmount;
         uint256 updatedAt;
         bool exists;
     }
 
-    function createBasketStake(address basket) external returns (address childPool);
+    function createBasketStake(address basket, uint256 nftTokenId) external returns (address childPool);
 
     function updateBasketStake(address basket) external;
 

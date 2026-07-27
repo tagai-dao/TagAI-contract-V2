@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "../../../interfaces/IBasketStakePool.sol";
@@ -20,6 +21,7 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant ACC_PRECISION = 1e24;
+    uint16 public constant BPS_DENOMINATOR = 10_000;
 
     struct UserInfo {
         uint256 amount;
@@ -39,12 +41,16 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
     address public stakeToken;
     address public rewardToken;
     address public holderFeeToken;
+    address public nftMiningPool;
+    uint256 public nftTokenId;
+    uint16 public nftRewardBps;
     uint256 public lockDuration;
 
     uint256 public totalStakedAmount;
     uint256 public accRewardPerShare;
     uint256 public accHolderFeePerShare;
     uint256 public undistributedRewards;
+    uint256 public accruedNftRewards;
     uint256 public undistributedHolderFees;
     uint256 public accountedHolderFeeBalance;
     bool public closedParentRewardsHarvested;
@@ -56,6 +62,8 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
     event WithdrawRequested(address indexed user, uint256 amount, uint256 startTime, uint256 endTime);
     event Redeemed(address indexed user, uint256 amount);
     event RewardsHarvested(uint256 amount);
+    event NftRewardsAccrued(uint256 amount);
+    event NftRewardsClaimed(uint256 indexed nftTokenId, address indexed recipient, uint256 amount);
     event ClosedParentRewardsHarvested(uint256 amount);
     event HolderFeesHarvested(uint256 amount);
     event RewardsClaimed(address indexed user, uint256 communityAmount, uint256 holderFeeAmount);
@@ -71,13 +79,18 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
         _disableInitializers();
     }
 
-    function initialize(address parentMiningPool_, address community_, address stakeToken_, uint256 lockDuration_)
-        external
-        initializer
-    {
+    function initialize(
+        address parentMiningPool_,
+        address community_,
+        address stakeToken_,
+        address nftMiningPool_,
+        uint256 nftTokenId_,
+        uint16 nftRewardBps_,
+        uint256 lockDuration_
+    ) external initializer {
         if (
             parentMiningPool_ == address(0) || community_ == address(0) || stakeToken_.code.length == 0
-                || lockDuration_ == 0
+                || nftMiningPool_.code.length == 0 || nftRewardBps_ > BPS_DENOMINATOR || lockDuration_ == 0
         ) {
             revert InvalidAddress();
         }
@@ -85,6 +98,9 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
         parentMiningPool = parentMiningPool_;
         community = community_;
         stakeToken = stakeToken_;
+        nftMiningPool = nftMiningPool_;
+        nftTokenId = nftTokenId_;
+        nftRewardBps = nftRewardBps_;
         rewardToken = ICommunity(community_).getCommunityToken();
         holderFeeToken = IBasketToken(stakeToken_).weth();
         if (rewardToken == address(0) || holderFeeToken == address(0) || rewardToken == holderFeeToken) {
@@ -173,6 +189,22 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
         emit RewardsClaimed(msg.sender, communityAmount, holderFeeAmount);
     }
 
+    /**
+     * @notice Claims all Community-token rewards accrued to the NFT.
+     * @dev Rewards are stored against the token id, not an address. Anyone may trigger
+     * the claim, but payment always goes to the NFT's owner at execution time.
+     */
+    function claimNftRewards() external payable override nonReentrant returns (uint256 amount) {
+        _harvestParentRewards(msg.value);
+        amount = accruedNftRewards;
+        if (amount == 0) revert NothingToClaim();
+
+        address recipient = IERC721(nftMiningPool).ownerOf(nftTokenId);
+        accruedNftRewards = 0;
+        IERC20(rewardToken).safeTransfer(recipient, amount);
+        emit NftRewardsClaimed(nftTokenId, recipient, amount);
+    }
+
     function pendingRewards(address account) external view override returns (uint256) {
         UserInfo storage user = _users[account];
         uint256 projectedAcc = accRewardPerShare;
@@ -180,7 +212,8 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
         if (!closedParentRewardsHarvested) {
             pendingFromParent = ICommunity(community).getPoolPendingRewards(parentMiningPool, address(this));
         }
-        uint256 distributable = pendingFromParent + undistributedRewards;
+        uint256 stakerShare = pendingFromParent - Math.mulDiv(pendingFromParent, nftRewardBps, BPS_DENOMINATOR);
+        uint256 distributable = stakerShare + undistributedRewards;
 
         if (totalStakedAmount != 0 && distributable != 0) {
             projectedAcc += Math.mulDiv(distributable, ACC_PRECISION, totalStakedAmount);
@@ -189,6 +222,14 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
         uint256 accumulated = Math.mulDiv(user.amount, projectedAcc, ACC_PRECISION);
         uint256 newlyAccrued = accumulated > user.rewardDebt ? accumulated - user.rewardDebt : 0;
         return user.pendingReward + newlyAccrued;
+    }
+
+    function pendingNftRewards() external view override returns (uint256) {
+        uint256 pendingFromParent;
+        if (!closedParentRewardsHarvested) {
+            pendingFromParent = ICommunity(community).getPoolPendingRewards(parentMiningPool, address(this));
+        }
+        return accruedNftRewards + Math.mulDiv(pendingFromParent, nftRewardBps, BPS_DENOMINATOR);
     }
 
     function pendingHolderFees(address account) external view override returns (uint256) {
@@ -279,7 +320,13 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
             emit ClosedParentRewardsHarvested(received);
         }
 
-        uint256 distributable = received + undistributedRewards;
+        uint256 nftAmount = Math.mulDiv(received, nftRewardBps, BPS_DENOMINATOR);
+        if (nftAmount != 0) {
+            accruedNftRewards += nftAmount;
+            emit NftRewardsAccrued(nftAmount);
+        }
+
+        uint256 distributable = received - nftAmount + undistributedRewards;
         if (totalStakedAmount == 0) {
             undistributedRewards = distributable;
         } else if (distributable != 0) {
