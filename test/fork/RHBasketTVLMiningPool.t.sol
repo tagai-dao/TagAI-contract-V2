@@ -249,12 +249,37 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     }
 
     function testFork_RealBasketOwnerMustStillHoldEligibilityNft() public onlyRhFork {
-        miningNFT.burn(1);
-        assertEq(miningNFT.balanceOf(IBasketToken(LIVE_BASKET_A).creatorPayout()), 0);
+        address creator = IBasketToken(LIVE_BASKET_A).creatorPayout();
+        miningNFT.burn(NFT_A);
+        assertEq(miningNFT.balanceOf(creator), 0);
 
         vm.expectRevert(BasketTVLMiningPool.OwnerDoesNotOwnMiningNFT.selector);
-        vm.prank(IBasketToken(LIVE_BASKET_A).creatorPayout());
+        vm.prank(creator);
         pool.createBasketStake(LIVE_BASKET_A, NFT_A);
+    }
+
+    function testFork_CurrentDesignAllowsOneNftToBindTwoLiveBaskets() public onlyRhFork {
+        BasketStakePool childA = _createLiveStake(LIVE_BASKET_A);
+        address creatorA = IBasketToken(LIVE_BASKET_A).creatorPayout();
+        address creatorB = IBasketToken(LIVE_BASKET_B).creatorPayout();
+
+        vm.prank(creatorA);
+        miningNFT.transferFrom(creatorA, creatorB, NFT_A);
+        vm.prank(creatorB);
+        BasketStakePool childB = BasketStakePool(pool.createBasketStake(LIVE_BASKET_B, NFT_A));
+
+        assertEq(childA.nftTokenId(), NFT_A);
+        assertEq(childB.nftTokenId(), NFT_A);
+        assertEq(miningNFT.ownerOf(NFT_A), creatorB);
+
+        _injectRewardsAndWarpOneHour();
+        uint256 before = rewardToken.balanceOf(creatorB);
+        uint256 rewardA = childA.claimNftRewards();
+        uint256 rewardB = childB.claimNftRewards();
+
+        assertGt(rewardA, 0);
+        assertGt(rewardB, 0);
+        assertEq(rewardToken.balanceOf(creatorB) - before, rewardA + rewardB);
     }
 
     function testFork_ClosedParentBlocksNewBasketAndChildDeposits() public onlyRhFork {
@@ -469,6 +494,55 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         assertEq(address(child).balance, 0);
     }
 
+    function testFork_NftRewardsFollowTransferredTokenAndCannotBeRedirected() public onlyRhFork {
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
+        address holder = IBasketToken(LIVE_BASKET_B).creatorPayout();
+        address trigger = makeAddr("rhForkNftClaimTrigger");
+        _deposit(child, LIVE_BASKET_B, holder, IERC20(LIVE_BASKET_B).balanceOf(holder) / 2);
+        _injectRewardsAndWarpOneHour();
+
+        vm.prank(holder);
+        child.claimRewards();
+        uint256 accrued = child.accruedNftRewards();
+        assertApproxEqAbs(accrued, ONE_HOUR_REWARD - _stakerShare(ONE_HOUR_REWARD), 1e8);
+
+        vm.prank(holder);
+        miningNFT.transferFrom(holder, keeper, NFT_B);
+        vm.prank(trigger);
+        uint256 claimed = child.claimNftRewards();
+
+        assertEq(claimed, accrued);
+        assertApproxEqAbs(rewardToken.balanceOf(holder), _stakerShare(ONE_HOUR_REWARD), 1e8);
+        assertEq(rewardToken.balanceOf(keeper), claimed);
+        assertEq(rewardToken.balanceOf(trigger), 0);
+    }
+
+    function testFork_NftClaimChargesOneOperationFeeAndRefundsExcess() public onlyRhFork {
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
+        address nftOwner = IBasketToken(LIVE_BASKET_B).creatorPayout();
+        _injectRewardsAndWarpOneHour();
+
+        uint256 operationFee = 0.01 ether;
+        uint256 supplied = 0.04 ether;
+        committee.adminSetPoolOperationFee(operationFee);
+        vm.deal(keeper, 1 ether);
+
+        vm.expectRevert(BasketStakePool.InvalidAmount.selector);
+        vm.prank(keeper);
+        child.claimNftRewards();
+
+        uint256 keeperBefore = keeper.balance;
+        uint256 recipientBefore = feeRecipient.balance;
+        vm.prank(keeper);
+        uint256 claimed = child.claimNftRewards{value: supplied}();
+
+        assertApproxEqAbs(claimed, ONE_HOUR_REWARD - _stakerShare(ONE_HOUR_REWARD), 1e8);
+        assertEq(rewardToken.balanceOf(nftOwner), claimed);
+        assertEq(keeperBefore - keeper.balance, operationFee);
+        assertEq(feeRecipient.balance - recipientBefore, operationFee);
+        assertEq(address(child).balance, 0);
+    }
+
     function testFork_ClosedParentAllowsExactlyOneFinalRealBasketHarvest() public onlyRhFork {
         BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
         address holder = IBasketToken(LIVE_BASKET_B).creatorPayout();
@@ -482,6 +556,10 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         assertApproxEqAbs(finalReward, _stakerShare(ONE_HOUR_REWARD), 1e8);
         assertTrue(child.closedParentRewardsHarvested());
         assertEq(child.pendingRewards(holder), 0);
+
+        uint256 nftReward = child.claimNftRewards();
+        assertApproxEqAbs(nftReward, ONE_HOUR_REWARD - _stakerShare(ONE_HOUR_REWARD), 1e8);
+        assertEq(rewardToken.balanceOf(holder), finalReward + nftReward);
 
         vm.expectRevert(BasketStakePool.NothingToClaim.selector);
         vm.prank(holder);
