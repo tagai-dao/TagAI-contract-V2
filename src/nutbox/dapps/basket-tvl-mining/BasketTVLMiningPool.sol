@@ -24,6 +24,7 @@ import "./BasketStakePool.sol";
  */
 contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyGuard {
     uint256 public constant ACC_PRECISION = 1e12;
+    uint256 public constant MAX_BASKET_POOLS_PER_NFT = 3;
 
     address public factory;
     address public community;
@@ -36,6 +37,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
 
     mapping(address basket => BasketStake stake) private _basketStakes;
     mapping(address beneficiary => uint256 amount) private _beneficiaryMiningAmount;
+    mapping(uint256 nftTokenId => uint256 count) public override nftBasketPoolCount;
     uint256 private _totalMiningAmount;
 
     event BasketStakeCreated(
@@ -67,6 +69,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
     error BasketStakeNotFound();
     error OnlyBasketCreator();
     error OwnerDoesNotOwnMiningNFT();
+    error NftBasketPoolLimitReached();
     error PoolIsInactive();
 
     constructor() {
@@ -122,6 +125,9 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         } catch {
             revert OwnerDoesNotOwnMiningNFT();
         }
+        if (nftBasketPoolCount[nftTokenId] >= MAX_BASKET_POOLS_PER_NFT) {
+            revert NftBasketPoolLimitReached();
+        }
 
         childPool = Clones.clone(childPoolTemplate);
         BasketStakePool(childPool)
@@ -143,6 +149,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         });
         _beneficiaryMiningAmount[childPool] += miningAmount;
         _totalMiningAmount += miningAmount;
+        nftBasketPoolCount[nftTokenId] += 1;
 
         communityContract.setUserDebt(
             childPool, Math.mulDiv(_beneficiaryMiningAmount[childPool], shareAcc, ACC_PRECISION)

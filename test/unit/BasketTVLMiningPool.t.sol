@@ -604,6 +604,36 @@ contract BasketTVLMiningPoolTest is Test {
         pool.createBasketStake(address(basketA), nftA);
     }
 
+    function test_OneNftCanCreateAtMostThreeBasketPools() public {
+        BasketTVLTestBasket basketC = _newBasket(ownerA, 40 ether);
+        BasketTVLTestBasket basketD = _newBasket(ownerA, 50 ether);
+        BasketTVLTestBasket basketE = _newBasket(ownerA, 60 ether);
+        registry.setBasket(address(basketC), true);
+        registry.setBasket(address(basketD), true);
+        registry.setBasket(address(basketE), true);
+
+        vm.startPrank(ownerA);
+        pool.createBasketStake(address(basketA), nftA);
+        pool.createBasketStake(address(basketC), nftA);
+        pool.createBasketStake(address(basketD), nftA);
+        assertEq(pool.nftBasketPoolCount(nftA), 3);
+
+        vm.expectRevert(BasketTVLMiningPool.NftBasketPoolLimitReached.selector);
+        pool.createBasketStake(address(basketE), nftA);
+        vm.stopPrank();
+
+        assertFalse(pool.getBasketStake(address(basketE)).exists);
+        assertEq(pool.nftBasketPoolCount(nftA), 3);
+    }
+
+    function test_DifferentNftIdsHaveIndependentBasketPoolLimits() public {
+        _createStake(basketA);
+        _createStake(basketB);
+
+        assertEq(pool.nftBasketPoolCount(nftA), 1);
+        assertEq(pool.nftBasketPoolCount(nftB), 1);
+    }
+
     function test_RevertUpdateUnknownBasket() public {
         vm.expectRevert(BasketTVLMiningPool.BasketStakeNotFound.selector);
         pool.updateBasketStake(address(basketA));

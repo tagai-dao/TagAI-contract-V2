@@ -19,5 +19,7 @@ interface IBasketTVLMiningPool is IPool {
 
     function getBasketStake(address basket) external view returns (BasketStake memory);
 
+    function nftBasketPoolCount(uint256 nftTokenId) external view returns (uint256);
+
     function basketNavWeth(address basket) external view returns (uint256);
 }
