@@ -51,8 +51,32 @@ contract RHForkRewardToken is ERC20 {
 
 contract RHForkMiningNFT is ERC721 {
     uint256 private _nextId;
+    address private _factory;
+    address private _community;
 
     constructor() ERC721("Fork Mining Access", "FORK-NFT") {}
+
+    function configure(address factory_, address community_) external {
+        require(_factory == address(0) && _community == address(0), "ALREADY_SET");
+        _factory = factory_;
+        _community = community_;
+    }
+
+    function getCommunity() external view returns (address) {
+        return _community;
+    }
+
+    function getFactory() external view returns (address) {
+        return _factory;
+    }
+
+    function getUserStakedAmount(address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getTotalStakedAmount() external pure returns (uint256) {
+        return 0;
+    }
 
     function mint(address to) external {
         _mint(to, ++_nextId);
@@ -60,6 +84,19 @@ contract RHForkMiningNFT is ERC721 {
 
     function burn(uint256 tokenId) external {
         _burn(tokenId);
+    }
+}
+
+contract RHForkMiningNFTFactory {
+    address public immutable pool;
+
+    constructor(address pool_) {
+        pool = pool_;
+    }
+
+    function createPool(address community, string calldata, bytes calldata) external view returns (address) {
+        require(msg.sender == community, "ONLY_COMMUNITY");
+        return pool;
     }
 }
 
@@ -97,6 +134,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
 
     RHForkRewardToken internal rewardToken;
     RHForkMiningNFT internal miningNFT;
+    RHForkMiningNFTFactory internal nftPoolFactory;
     Committee internal committee;
     CommunityFactory internal communityFactory;
     HourlyTickCalculator internal calculator;
@@ -135,16 +173,12 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         calculator = new HourlyTickCalculator(address(communityFactory));
         rewardToken = new RHForkRewardToken();
         miningNFT = new RHForkMiningNFT();
-
-        // The eligibility NFT is local because the NFT mining contract is independent
-        // from Basket. The Basket, Registry, Executor, routes, reserves and WETH are live.
-        miningNFT.mint(IBasketToken(LIVE_BASKET_A).creatorPayout());
-        miningNFT.mint(IBasketToken(LIVE_BASKET_B).creatorPayout());
-
+        nftPoolFactory = new RHForkMiningNFTFactory(address(miningNFT));
         factory = new BasketTVLMiningPoolFactory(
-            address(communityFactory), RH_BASKET_REGISTRY, address(miningNFT), LOCK_DURATION
+            address(communityFactory), RH_BASKET_REGISTRY, address(nftPoolFactory), LOCK_DURATION
         );
         committee.adminAddContract(address(calculator));
+        committee.adminAddContract(address(nftPoolFactory));
         committee.adminAddContract(address(factory));
 
         community = Community(
@@ -152,11 +186,24 @@ contract RHBasketTVLMiningPoolForkTest is Test {
                     false, address(rewardToken), address(0), bytes(""), address(calculator), bytes("")
                 ))
         );
+        miningNFT.configure(address(nftPoolFactory), address(community));
 
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10_000;
-        community.adminAddPool("RH Live Basket TVL Mining", ratios, address(factory), abi.encode(NFT_REWARD_BPS));
-        pool = BasketTVLMiningPool(community.activedPools(0));
+        community.adminAddPool("Fork NFT Mining", ratios, address(nftPoolFactory), bytes(""));
+
+        // The eligibility NFT is local because the NFT mining contract is independent
+        // from Basket. The Basket, Registry, Executor, routes, reserves and WETH are live.
+        miningNFT.mint(IBasketToken(LIVE_BASKET_A).creatorPayout());
+        miningNFT.mint(IBasketToken(LIVE_BASKET_B).creatorPayout());
+
+        ratios = new uint16[](2);
+        ratios[0] = 0;
+        ratios[1] = 10_000;
+        community.adminAddPool(
+            "RH Live Basket TVL Mining", ratios, address(factory), abi.encode(address(miningNFT), NFT_REWARD_BPS)
+        );
+        pool = BasketTVLMiningPool(community.activedPools(1));
     }
 
     function testFork_ManifestContractsAndProvidedBasketsMatchLiveState() public onlyRhFork {
@@ -288,7 +335,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         uint256 amount = IERC20(LIVE_BASKET_A).balanceOf(holder) / 10;
         assertGt(amount, 0);
 
-        community.adminClosePool(0, new uint16[](0));
+        _closeBasketParent();
 
         vm.expectRevert(BasketTVLMiningPool.PoolIsInactive.selector);
         pool.createBasketStake(LIVE_BASKET_B, NFT_B);
@@ -549,7 +596,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         _deposit(child, LIVE_BASKET_B, holder, IERC20(LIVE_BASKET_B).balanceOf(holder) / 2);
         _injectRewardsAndWarpOneHour();
 
-        community.adminClosePool(0, new uint16[](0));
+        _closeBasketParent();
         vm.prank(holder);
         (uint256 finalReward,) = child.claimRewards();
 
@@ -630,6 +677,12 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         rewardToken.approve(address(calculator), REWARD_INJECTION);
         calculator.inject(address(community), REWARD_INJECTION);
         vm.warp(block.timestamp + 1 hours);
+    }
+
+    function _closeBasketParent() internal {
+        uint16[] memory remainingRatios = new uint16[](1);
+        remainingRatios[0] = 10_000;
+        community.adminClosePool(1, remainingRatios);
     }
 
     function _stakerShare(uint256 amount) internal pure returns (uint256) {

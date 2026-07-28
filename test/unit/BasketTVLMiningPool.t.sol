@@ -29,12 +29,43 @@ contract BasketTVLTestERC20 is ERC20 {
 
 contract BasketTVLTestNFT is ERC721 {
     uint256 private _nextId;
+    address private immutable _factory;
+    address private immutable _community;
 
-    constructor() ERC721("Mining Access", "ACCESS") {}
+    constructor(address factory_, address community_) ERC721("Mining Access", "ACCESS") {
+        _factory = factory_;
+        _community = community_;
+    }
+
+    function getCommunity() external view returns (address) {
+        return _community;
+    }
+
+    function getFactory() external view returns (address) {
+        return _factory;
+    }
+
+    function getUserStakedAmount(address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function getTotalStakedAmount() external pure returns (uint256) {
+        return 0;
+    }
 
     function mint(address to) external returns (uint256 tokenId) {
         tokenId = ++_nextId;
         _mint(to, tokenId);
+    }
+}
+
+contract BasketTVLTestNFTFactory {
+    mapping(address community => address pool) public poolOfCommunity;
+
+    function createPool(address community, string calldata, bytes calldata) external returns (address pool) {
+        require(msg.sender == community, "ONLY_COMMUNITY");
+        pool = address(new BasketTVLTestNFT(address(this), community));
+        poolOfCommunity[community] = pool;
     }
 }
 
@@ -257,6 +288,7 @@ contract BasketTVLMiningPoolTest is Test {
     BasketTVLTestERC20 internal assetA;
     BasketTVLTestERC20 internal assetB;
     BasketTVLTestNFT internal miningNFT;
+    BasketTVLTestNFTFactory internal nftPoolFactory;
     BasketTVLTestRegistry internal registry;
     BasketTVLTestExecutor internal executor;
     BasketTVLTestBasket internal basketA;
@@ -314,7 +346,7 @@ contract BasketTVLMiningPoolTest is Test {
         weth = new BasketTVLTestERC20("Wrapped Ether", "WETH");
         assetA = new BasketTVLTestERC20("Asset A", "A");
         assetB = new BasketTVLTestERC20("Asset B", "B");
-        miningNFT = new BasketTVLTestNFT();
+        nftPoolFactory = new BasketTVLTestNFTFactory();
         registry = new BasketTVLTestRegistry();
         executor = new BasketTVLTestExecutor();
 
@@ -329,13 +361,11 @@ contract BasketTVLMiningPoolTest is Test {
         );
         registry.setBasket(address(basketA), true);
         registry.setBasket(address(basketB), true);
-        nftA = miningNFT.mint(ownerA);
-        nftB = miningNFT.mint(ownerB);
-
         factory = new BasketTVLMiningPoolFactory(
-            address(communityFactory), address(registry), address(miningNFT), LOCK_DURATION
+            address(communityFactory), address(registry), address(nftPoolFactory), LOCK_DURATION
         );
         committee.adminAddContract(address(calculator));
+        committee.adminAddContract(address(nftPoolFactory));
         committee.adminAddContract(address(factory));
 
         address communityAddress = communityFactory.createCommunity(
@@ -345,8 +375,18 @@ contract BasketTVLMiningPoolTest is Test {
 
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10_000;
-        community.adminAddPool("Basket TVL Mining", ratios, address(factory), abi.encode(NFT_REWARD_BPS));
-        pool = BasketTVLMiningPool(community.activedPools(0));
+        community.adminAddPool("NFT Mining", ratios, address(nftPoolFactory), bytes(""));
+        miningNFT = BasketTVLTestNFT(community.activedPools(0));
+        nftA = miningNFT.mint(ownerA);
+        nftB = miningNFT.mint(ownerB);
+
+        ratios = new uint16[](2);
+        ratios[0] = 0;
+        ratios[1] = 10_000;
+        community.adminAddPool(
+            "Basket TVL Mining", ratios, address(factory), abi.encode(address(miningNFT), NFT_REWARD_BPS)
+        );
+        pool = BasketTVLMiningPool(community.activedPools(1));
 
         rewardToken.mint(address(this), 10_000_000 ether);
         rewardToken.approve(address(calculator), type(uint256).max);
@@ -361,6 +401,7 @@ contract BasketTVLMiningPoolTest is Test {
 
     function test_FactoryAndParentInitialization() public view {
         assertEq(factory.poolOfCommunity(address(community)), address(pool));
+        assertEq(factory.nftMiningPoolFactory(), address(nftPoolFactory));
         assertEq(pool.getFactory(), address(factory));
         assertEq(pool.getCommunity(), address(community));
         assertEq(pool.basketRegistry(), address(registry));
@@ -375,20 +416,20 @@ contract BasketTVLMiningPoolTest is Test {
     function test_RevertFactoryCreatePoolWhenCallerIsNotCommunity() public {
         vm.expectRevert(bytes("Permission denied: caller is not community"));
         vm.prank(keeper);
-        factory.createPool(address(community), "Unauthorized", abi.encode(NFT_REWARD_BPS));
+        factory.createPool(address(community), "Unauthorized", abi.encode(address(miningNFT), NFT_REWARD_BPS));
     }
 
     function test_RevertFactoryCreatePoolForUnknownCommunity() public {
         address unknownCommunity = makeAddr("unknownCommunity");
         vm.expectRevert(bytes("Invalid community"));
         vm.prank(unknownCommunity);
-        factory.createPool(unknownCommunity, "Unknown", abi.encode(NFT_REWARD_BPS));
+        factory.createPool(unknownCommunity, "Unknown", abi.encode(address(miningNFT), NFT_REWARD_BPS));
     }
 
     function test_RevertFactoryCreatePoolTwiceForSameCommunity() public {
         vm.expectRevert(BasketTVLMiningPoolFactory.PoolAlreadyExists.selector);
         vm.prank(address(community));
-        factory.createPool(address(community), "Duplicate", abi.encode(NFT_REWARD_BPS));
+        factory.createPool(address(community), "Duplicate", abi.encode(address(miningNFT), NFT_REWARD_BPS));
     }
 
     function test_ImplementationTemplatesCannotBeInitialized() public {
@@ -526,7 +567,7 @@ contract BasketTVLMiningPoolTest is Test {
     }
 
     function test_RevertCreateBasketStakeWhenParentPoolIsClosed() public {
-        community.adminClosePool(0, new uint16[](0));
+        _closeBasketParent();
 
         vm.expectRevert(BasketTVLMiningPool.PoolIsInactive.selector);
         pool.createBasketStake(address(basketA), nftA);
@@ -746,11 +787,41 @@ contract BasketTVLMiningPoolTest is Test {
 
     function test_RevertPoolCreationWhenNftRewardBpsExceedsOneHundredPercent() public {
         Community isolatedCommunity = _createCommunity();
+        BasketTVLTestNFT isolatedNft = _addNftPool(isolatedCommunity, nftPoolFactory);
+        uint16[] memory ratios = new uint16[](2);
+        ratios[0] = 0;
+        ratios[1] = 10_000;
+
+        vm.expectRevert(BasketTVLMiningPoolFactory.InvalidNftRewardBps.selector);
+        isolatedCommunity.adminAddPool(
+            "Invalid NFT reward", ratios, address(factory), abi.encode(address(isolatedNft), uint16(10_001))
+        );
+    }
+
+    function test_RevertPoolCreationWithNftPoolFromAnotherCommunity() public {
+        Community isolatedCommunity = _createCommunity();
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10_000;
 
-        vm.expectRevert(BasketTVLMiningPoolFactory.InvalidNftRewardBps.selector);
-        isolatedCommunity.adminAddPool("Invalid NFT reward", ratios, address(factory), abi.encode(uint16(10_001)));
+        vm.expectRevert(BasketTVLMiningPoolFactory.NftMiningPoolIsNotActive.selector);
+        isolatedCommunity.adminAddPool(
+            "Foreign NFT pool", ratios, address(factory), abi.encode(address(miningNFT), NFT_REWARD_BPS)
+        );
+    }
+
+    function test_RevertPoolCreationWhenActiveNftPoolUsesUntrustedFactory() public {
+        Community isolatedCommunity = _createCommunity();
+        BasketTVLTestNFTFactory untrustedFactory = new BasketTVLTestNFTFactory();
+        committee.adminAddContract(address(untrustedFactory));
+        BasketTVLTestNFT untrustedNft = _addNftPool(isolatedCommunity, untrustedFactory);
+        uint16[] memory ratios = new uint16[](2);
+        ratios[0] = 0;
+        ratios[1] = 10_000;
+
+        vm.expectRevert(BasketTVLMiningPoolFactory.InvalidNftMiningPoolFactory.selector);
+        isolatedCommunity.adminAddPool(
+            "Untrusted NFT pool", ratios, address(factory), abi.encode(address(untrustedNft), NFT_REWARD_BPS)
+        );
     }
 
     function test_UnclaimedNftRewardsFollowTokenToItsCurrentOwner() public {
@@ -1167,7 +1238,7 @@ contract BasketTVLMiningPoolTest is Test {
         vm.prank(alice);
         basketA.approve(address(child), type(uint256).max);
 
-        community.adminClosePool(0, new uint16[](0));
+        _closeBasketParent();
         vm.expectRevert(BasketStakePool.PoolIsInactive.selector);
         vm.prank(alice);
         child.deposit(100 ether);
@@ -1178,7 +1249,7 @@ contract BasketTVLMiningPoolTest is Test {
         _mintAndDeposit(basketA, child, alice, 100 ether);
         _injectRewardsAndWarp(1 hours);
 
-        community.adminClosePool(0, new uint16[](0));
+        _closeBasketParent();
         uint256 operationFee = 0.01 ether;
         committee.adminSetPoolOperationFee(operationFee);
 
@@ -1201,7 +1272,7 @@ contract BasketTVLMiningPoolTest is Test {
     function test_ClosedParentWithoutHistoricalRewardsIsFinalizedWithoutFee() public {
         BasketStakePool child = _createStake(basketA);
         _mintAndDeposit(basketA, child, alice, 100 ether);
-        community.adminClosePool(0, new uint16[](0));
+        _closeBasketParent();
         committee.adminSetPoolOperationFee(1 ether);
 
         vm.prank(alice);
@@ -1331,10 +1402,31 @@ contract BasketTVLMiningPoolTest is Test {
         returns (Community isolatedCommunity, BasketTVLMiningPool isolatedPool)
     {
         isolatedCommunity = _createCommunity();
+        BasketTVLTestNFT isolatedNft = _addNftPool(isolatedCommunity, nftPoolFactory);
+        isolatedNft.mint(ownerA);
+        uint16[] memory ratios = new uint16[](2);
+        ratios[0] = 0;
+        ratios[1] = 10_000;
+        isolatedCommunity.adminAddPool(
+            "Isolated Basket TVL Mining", ratios, address(factory), abi.encode(address(isolatedNft), bps)
+        );
+        isolatedPool = BasketTVLMiningPool(isolatedCommunity.activedPools(1));
+    }
+
+    function _addNftPool(Community targetCommunity, BasketTVLTestNFTFactory selectedFactory)
+        internal
+        returns (BasketTVLTestNFT nft)
+    {
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10_000;
-        isolatedCommunity.adminAddPool("Isolated Basket TVL Mining", ratios, address(factory), abi.encode(bps));
-        isolatedPool = BasketTVLMiningPool(isolatedCommunity.activedPools(0));
+        targetCommunity.adminAddPool("NFT Mining", ratios, address(selectedFactory), bytes(""));
+        nft = BasketTVLTestNFT(targetCommunity.activedPools(0));
+    }
+
+    function _closeBasketParent() internal {
+        uint16[] memory remainingRatios = new uint16[](1);
+        remainingRatios[0] = 10_000;
+        community.adminClosePool(1, remainingRatios);
     }
 
     function _createCommunity() internal returns (Community isolatedCommunity) {

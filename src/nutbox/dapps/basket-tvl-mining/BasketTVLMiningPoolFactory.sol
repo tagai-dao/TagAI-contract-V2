@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../../CommunityFactory.sol";
+import "../../../interfaces/ICommunity.sol";
+import "../../../interfaces/IPool.sol";
 import "../../interfaces/IPoolFactory.sol";
 import "./BasketStakePool.sol";
 import "./BasketTVLMiningPool.sol";
@@ -11,13 +13,15 @@ import "./BasketTVLMiningPool.sol";
 /**
  * @title BasketTVLMiningPoolFactory
  * @notice Creates one shared Basket TVL mining pool for each verified Nutbox community.
+ * @dev `meta` is `abi.encode(nftMiningPool, nftRewardBps)`. The NFT pool must
+ * be active in the Community and originate from the configured NFT pool factory.
  */
 contract BasketTVLMiningPoolFactory is IPoolFactory {
     uint16 public constant BPS_DENOMINATOR = 10_000;
 
     address public immutable communityFactory;
     address public immutable basketRegistry;
-    address public immutable nftMiningPool;
+    address public immutable nftMiningPoolFactory;
     address public immutable poolTemplate;
     address public immutable childPoolTemplate;
     uint256 public immutable lockDuration;
@@ -34,20 +38,27 @@ contract BasketTVLMiningPoolFactory is IPoolFactory {
     );
 
     error InvalidAddress();
+    error NftMiningPoolIsNotActive();
+    error InvalidNftMiningPoolFactory();
     error InvalidNftRewardBps();
     error PoolAlreadyExists();
 
-    constructor(address communityFactory_, address basketRegistry_, address nftMiningPool_, uint256 lockDuration_) {
+    constructor(
+        address communityFactory_,
+        address basketRegistry_,
+        address nftMiningPoolFactory_,
+        uint256 lockDuration_
+    ) {
         if (
-            communityFactory_ == address(0) || basketRegistry_.code.length == 0 || nftMiningPool_.code.length == 0
-                || lockDuration_ == 0
+            communityFactory_ == address(0) || basketRegistry_.code.length == 0
+                || nftMiningPoolFactory_.code.length == 0 || lockDuration_ == 0
         ) {
             revert InvalidAddress();
         }
 
         communityFactory = communityFactory_;
         basketRegistry = basketRegistry_;
-        nftMiningPool = nftMiningPool_;
+        nftMiningPoolFactory = nftMiningPoolFactory_;
         lockDuration = lockDuration_;
         poolTemplate = address(new BasketTVLMiningPool());
         childPoolTemplate = address(new BasketStakePool());
@@ -62,7 +73,13 @@ contract BasketTVLMiningPoolFactory is IPoolFactory {
         require(CommunityFactory(payable(communityFactory)).createdCommunity(community), "Invalid community");
         if (poolOfCommunity[community] != address(0)) revert PoolAlreadyExists();
 
-        uint16 nftRewardBps = abi.decode(meta, (uint16));
+        (address nftMiningPool, uint16 nftRewardBps) = abi.decode(meta, (address, uint16));
+        if (!ICommunity(community).poolActived(nftMiningPool)) revert NftMiningPoolIsNotActive();
+        try IPool(nftMiningPool).getFactory() returns (address nftFactory) {
+            if (nftFactory != nftMiningPoolFactory) revert InvalidNftMiningPoolFactory();
+        } catch {
+            revert InvalidNftMiningPoolFactory();
+        }
         if (nftRewardBps > BPS_DENOMINATOR) revert InvalidNftRewardBps();
 
         address clone = Clones.clone(poolTemplate);
