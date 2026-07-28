@@ -15,7 +15,7 @@ interface IBasketTVLMiningPool is IPool {
 
     function createBasketStake(address basket, uint256 nftTokenId) external returns (address childPool);
 
-    function updateBasketStake(address basket) external;
+    function updateBasketStake(address basket) external payable;
 
     function getBasketStake(address basket) external view returns (BasketStake memory);
 

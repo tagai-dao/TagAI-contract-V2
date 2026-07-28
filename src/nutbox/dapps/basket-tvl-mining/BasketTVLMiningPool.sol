@@ -11,6 +11,7 @@ import "../../../interfaces/IBasketRebalanceExecutor.sol";
 import "../../../interfaces/IBasketRegistry.sol";
 import "../../../interfaces/IBasketTVLMiningPool.sol";
 import "../../../interfaces/IBasketToken.sol";
+import "../../interfaces/ICommittee.sol";
 import "../../interfaces/ICommunity.sol";
 import "./BasketStakePool.sol";
 
@@ -71,6 +72,8 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
     error OwnerDoesNotOwnMiningNFT();
     error NftBasketPoolLimitReached();
     error PoolIsInactive();
+    error InsufficientOperationFee();
+    error NativeTransferFailed();
 
     constructor() {
         _disableInitializers();
@@ -163,9 +166,11 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
      * @notice Refreshes a registered Basket's mining amount from its current WETH NAV.
      * @dev Permissionless. The caller cannot supply or influence the recorded amount directly.
      */
-    function updateBasketStake(address basket) external override nonReentrant {
+    function updateBasketStake(address basket) external payable override nonReentrant {
         BasketStake storage stake = _basketStakes[basket];
         if (!stake.exists) revert BasketStakeNotFound();
+
+        _chargeTier3Fee();
 
         uint256 newMiningAmount = _basketNavWeth(basket);
         uint256 previousMiningAmount = stake.miningAmount;
@@ -188,6 +193,25 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         );
 
         emit BasketStakeUpdated(basket, basketCreator, previousMiningAmount, newMiningAmount, block.timestamp);
+    }
+
+    function _chargeTier3Fee() private {
+        address committee = ICommunity(community).getCommittee();
+        uint256 requiredFee =
+            ICommittee(committee).getFeeFree(msg.sender) ? 0 : ICommittee(committee).getPoolOperationFee();
+        if (msg.value < requiredFee) revert InsufficientOperationFee();
+
+        if (requiredFee != 0) {
+            address payable recipient = ICommittee(committee).getFeeRecipient();
+            (bool feeSent,) = recipient.call{value: requiredFee}("");
+            if (!feeSent) revert NativeTransferFailed();
+        }
+
+        uint256 refund = msg.value - requiredFee;
+        if (refund != 0) {
+            (bool refunded,) = msg.sender.call{value: refund}("");
+            if (!refunded) revert NativeTransferFailed();
+        }
     }
 
     function getFactory() external view override returns (address) {

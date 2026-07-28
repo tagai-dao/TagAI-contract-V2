@@ -651,6 +651,52 @@ contract BasketTVLMiningPoolTest is Test {
         assertEq(pool.getTotalStakedAmount(), 25 ether);
     }
 
+    function test_UpdateBasketStakeChargesTier3Fee() public {
+        BasketStakePool child = _createStake(basketA);
+        uint256 operationFee = 0.01 ether;
+        committee.adminSetPoolOperationFee(operationFee);
+        basketA.setActiveReserve(25 ether);
+
+        vm.expectRevert(BasketTVLMiningPool.InsufficientOperationFee.selector);
+        vm.prank(keeper);
+        pool.updateBasketStake(address(basketA));
+
+        uint256 recipientBefore = feeRecipient.balance;
+        vm.prank(keeper);
+        pool.updateBasketStake{value: operationFee}(address(basketA));
+
+        assertEq(feeRecipient.balance - recipientBefore, operationFee);
+        assertEq(pool.getUserStakedAmount(address(child)), 25 ether);
+    }
+
+    function test_UpdateBasketStakeRefundsExcessTier3Fee() public {
+        _createStake(basketA);
+        uint256 operationFee = 0.01 ether;
+        uint256 supplied = 0.04 ether;
+        committee.adminSetPoolOperationFee(operationFee);
+
+        uint256 keeperBefore = keeper.balance;
+        uint256 recipientBefore = feeRecipient.balance;
+        vm.prank(keeper);
+        pool.updateBasketStake{value: supplied}(address(basketA));
+
+        assertEq(keeperBefore - keeper.balance, operationFee);
+        assertEq(feeRecipient.balance - recipientBefore, operationFee);
+        assertEq(address(pool).balance, 0);
+    }
+
+    function test_UpdateBasketStakeSkipsTier3FeeForFeeFreeCaller() public {
+        _createStake(basketA);
+        committee.adminSetPoolOperationFee(0.01 ether);
+        committee.adminAddFeeFreeAddress(keeper);
+
+        uint256 recipientBefore = feeRecipient.balance;
+        vm.prank(keeper);
+        pool.updateBasketStake(address(basketA));
+
+        assertEq(feeRecipient.balance, recipientBefore);
+    }
+
     function test_MultiAssetNavSumsNonOneToOneQuotes() public {
         executor.setQuoteBps(address(assetA), 5_000);
         executor.setQuoteBps(address(assetB), 20_000);
