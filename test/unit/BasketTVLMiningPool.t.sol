@@ -1264,6 +1264,25 @@ contract BasketTVLMiningPoolTest is Test {
         assertEq(feeRecipient.balance - recipientBefore, operationFee);
     }
 
+    function test_ChildFeeFreeStatusDoesNotBypassCommunityOperationFee() public {
+        BasketStakePool child = _createStake(basketA);
+        _mintAndDeposit(basketA, child, alice, 100 ether);
+        uint256 operationFee = 0.01 ether;
+        committee.adminSetPoolOperationFee(operationFee);
+        committee.adminAddFeeFreeAddress(address(child));
+        committee.adminAddFeeFreeAddress(alice);
+        _injectRewardsAndWarp(1 hours);
+
+        vm.expectRevert(BasketStakePool.InvalidAmount.selector);
+        vm.prank(alice);
+        child.claimRewards();
+
+        uint256 recipientBefore = feeRecipient.balance;
+        vm.prank(alice);
+        child.claimRewards{value: operationFee}();
+        assertEq(feeRecipient.balance - recipientBefore, operationFee);
+    }
+
     function test_ExcessNativeOperationFeeIsRefundedExactly() public {
         BasketStakePool child = _createStake(basketA);
         _mintAndDeposit(basketA, child, alice, 100 ether);

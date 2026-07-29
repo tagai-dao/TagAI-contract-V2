@@ -370,7 +370,6 @@ contract BasketStakePool is IBasketStakePool, Initializable, ReentrancyGuard {
 
     function _requiredOperationFee() internal view returns (uint256) {
         address committee = ICommunity(community).getCommittee();
-        if (ICommittee(committee).getFeeFree(address(this))) return 0;
         return ICommittee(committee).getPoolOperationFee();
     }
 
