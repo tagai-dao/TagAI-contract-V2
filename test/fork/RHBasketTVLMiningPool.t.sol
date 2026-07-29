@@ -107,15 +107,17 @@ contract RHForkMiningNFTFactory {
  * ../robinhood-basket-contract/deployments/4663/addresses.json
  *
  * Run with:
- * RH_RPC_URL=https://rpc.mainnet.chain.robinhood.com \
- *   FOUNDRY_PROFILE=rh_fork forge test \
+ * FOUNDRY_PROFILE=rh_fork RH_RPC_URL=<rpc-url> FOUNDRY_ETH_RPC_URL= \
+ *   forge test \
  *   --match-path test/fork/RHBasketTVLMiningPool.t.sol -vvv
+ *
+ * The latest block is used by default. Set RH_FORK_BLOCK only when reproducing
+ * an issue from a specific historical block.
  */
 contract RHBasketTVLMiningPoolForkTest is Test {
     using Math for uint256;
 
     uint256 internal constant RH_CHAIN_ID = 4663;
-    uint256 internal constant VERIFIED_FORK_BLOCK = 20_676_768;
     uint256 internal constant LOCK_DURATION = 7 days;
     uint256 internal constant REWARD_INJECTION = 168_000 ether;
     uint256 internal constant ONE_HOUR_REWARD = 1_000 ether;
@@ -154,11 +156,14 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         string memory rpc = vm.envOr("RH_RPC_URL", string(""));
         if (bytes(rpc).length == 0) return;
 
-        // Pin the known-good live snapshot by default so holder balances and TWAP
-        // observations cannot make CI nondeterministic. Override to validate newer state.
-        uint256 forkBlock = vm.envOr("RH_FORK_BLOCK", VERIFIED_FORK_BLOCK);
-        vm.createSelectFork(rpc, forkBlock);
-        if (block.chainid != RH_CHAIN_ID || RH_BASKET_REGISTRY.code.length == 0) return;
+        uint256 forkBlock = vm.envOr("RH_FORK_BLOCK", uint256(0));
+        if (forkBlock == 0) {
+            vm.createSelectFork(rpc);
+        } else {
+            vm.createSelectFork(rpc, forkBlock);
+        }
+        assertEq(block.chainid, RH_CHAIN_ID, "RH fork chain id mismatch");
+        assertGt(RH_BASKET_REGISTRY.code.length, 0, "RH BasketRegistry is not deployed");
         forkReady = true;
 
         keeper = makeAddr("rhForkKeeper");

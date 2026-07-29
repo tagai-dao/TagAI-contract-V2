@@ -3,6 +3,7 @@
 
 .PHONY: deploy-rh-testnet deploy-rh-mainnet simulate-rh-testnet simulate-rh-mainnet \
 	deploy-nft-mining-factory-mainnet simulate-nft-mining-factory-mainnet \
+	deploy-basket-tvl-mining-mainnet simulate-basket-tvl-mining-mainnet \
 	verify-nft-mining-factory-mainnet test-rh-import-wrapper
 
 # Shared forge script flags for RH L2 gas estimation quirks
@@ -23,6 +24,13 @@ simulate-nft-mining-factory-mainnet:
 
 deploy-nft-mining-factory-mainnet:
 	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployNFTMiningFactory.s.sol:DeployNFTMiningFactoryScript $(RH_SCRIPT_FLAGS)
+
+# Additive: Basket TVL mining factory + parent/child templates (no Committee whitelist)
+simulate-basket-tvl-mining-mainnet:
+	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployBasketTVLMiningFactory.s.sol:DeployBasketTVLMiningFactoryScript $(RH_SIM_FLAGS)
+
+deploy-basket-tvl-mining-mainnet:
+	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployBasketTVLMiningFactory.s.sol:DeployBasketTVLMiningFactoryScript $(RH_SCRIPT_FLAGS)
 
 # Usage: make verify-nft-mining-factory-mainnet FACTORY=0x... TEMPLATE=0x... RENDERER=0x...
 verify-nft-mining-factory-mainnet:

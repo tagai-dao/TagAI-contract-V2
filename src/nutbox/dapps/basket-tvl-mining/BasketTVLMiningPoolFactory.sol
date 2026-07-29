@@ -77,6 +77,7 @@ contract BasketTVLMiningPoolFactory is IPoolFactory {
             revert InvalidNftMiningPoolFactory();
         }
         if (nftRewardBps > BPS_DENOMINATOR) revert InvalidNftRewardBps();
+        if (lockDuration == 0) revert InvalidLockDuration();
 
         address clone = Clones.clone(poolTemplate);
         BasketTVLMiningPool(clone)
