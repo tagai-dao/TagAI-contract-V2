@@ -174,9 +174,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         rewardToken = new RHForkRewardToken();
         miningNFT = new RHForkMiningNFT();
         nftPoolFactory = new RHForkMiningNFTFactory(address(miningNFT));
-        factory = new BasketTVLMiningPoolFactory(
-            address(communityFactory), RH_BASKET_REGISTRY, address(nftPoolFactory), LOCK_DURATION
-        );
+        factory = new BasketTVLMiningPoolFactory(address(communityFactory), RH_BASKET_REGISTRY, address(nftPoolFactory));
         committee.adminAddContract(address(calculator));
         committee.adminAddContract(address(nftPoolFactory));
         committee.adminAddContract(address(factory));
@@ -201,7 +199,10 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         ratios[0] = 0;
         ratios[1] = 10_000;
         community.adminAddPool(
-            "RH Live Basket TVL Mining", ratios, address(factory), abi.encode(address(miningNFT), NFT_REWARD_BPS)
+            "RH Live Basket TVL Mining",
+            ratios,
+            address(factory),
+            abi.encode(address(miningNFT), NFT_REWARD_BPS, LOCK_DURATION)
         );
         pool = BasketTVLMiningPool(community.activedPools(1));
     }
