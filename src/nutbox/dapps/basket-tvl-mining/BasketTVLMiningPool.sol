@@ -4,10 +4,10 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "../../../interfaces/IBasketRebalanceExecutor.sol";
 import "../../../interfaces/IBasketRegistry.sol";
 import "../../../interfaces/IBasketTVLMiningPool.sol";
 import "../../../interfaces/IBasketToken.sol";
@@ -17,11 +17,11 @@ import "./BasketStakePool.sol";
 
 /**
  * @title BasketTVLMiningPool
- * @notice A shared Nutbox pool where registered Basket tokens mine according to their WETH-denominated NAV.
+ * @notice A shared Nutbox pool where registered Basket tokens mine according to the amount of
+ * the Community token actually held by each Basket.
  *
- * Basket assets are not transferred into this contract. Each Basket's mining amount is derived from its
- * on-chain active reserves and recorded for its child staking pool. Anyone may register an eligible Basket
- * or refresh an existing Basket's mining amount.
+ * Basket assets are not transferred into this contract. An eligible Basket must include the Community token
+ * as one of its constituent legs. Its mining amount is the Community token's ERC20 balance at the Basket address.
  */
 contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyGuard {
     uint256 public constant ACC_PRECISION = 1e12;
@@ -32,6 +32,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
     address public basketRegistry;
     address public nftMiningPool;
     address public childPoolTemplate;
+    address public communityToken;
     uint256 public lockDuration;
     uint16 public nftRewardBps;
     string public name;
@@ -66,6 +67,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
 
     error InvalidAddress();
     error InvalidBasket();
+    error CommunityTokenNotInBasket();
     error BasketStakeAlreadyExists();
     error BasketStakeNotFound();
     error OnlyBasketCreator();
@@ -101,12 +103,14 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         basketRegistry = basketRegistry_;
         nftMiningPool = nftMiningPool_;
         childPoolTemplate = childPoolTemplate_;
+        communityToken = ICommunity(community_).getCommunityToken();
+        if (communityToken.code.length == 0) revert InvalidAddress();
         lockDuration = lockDuration_;
         nftRewardBps = nftRewardBps_;
     }
 
     /**
-     * @notice Registers a Basket, creates its child pool, and attributes WETH NAV to that child pool.
+     * @notice Registers a Basket and attributes its actual Community-token balance to the child pool.
      * @dev Only the Basket's creator payout address may register it, and that address
      * must own the selected NFT when the child pool is created.
      */
@@ -131,12 +135,12 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         if (nftBasketPoolCount[nftTokenId] >= MAX_BASKET_POOLS_PER_NFT) {
             revert NftBasketPoolLimitReached();
         }
+        uint256 miningAmount = _basketCommunityTokenBalance(basket);
 
         childPool = Clones.clone(childPoolTemplate);
         BasketStakePool(childPool)
             .initialize(address(this), community, basket, nftMiningPool, nftTokenId, nftRewardBps, lockDuration);
 
-        uint256 miningAmount = _basketNavWeth(basket);
         ICommunity communityContract = ICommunity(community);
         communityContract.updatePools();
         uint256 shareAcc = communityContract.getShareAcc(address(this));
@@ -163,7 +167,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
     }
 
     /**
-     * @notice Refreshes a registered Basket's mining amount from its current WETH NAV.
+     * @notice Refreshes a registered Basket's mining amount from its current Community-token balance.
      * @dev Permissionless. The caller cannot supply or influence the recorded amount directly.
      */
     function updateBasketStake(address basket) external payable override nonReentrant {
@@ -172,7 +176,7 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
 
         _chargeTier3Fee();
 
-        uint256 newMiningAmount = _basketNavWeth(basket);
+        uint256 newMiningAmount = _basketCommunityTokenBalance(basket);
         uint256 previousMiningAmount = stake.miningAmount;
         address basketCreator = stake.basketCreator;
         address childPool = stake.childPool;
@@ -234,20 +238,21 @@ contract BasketTVLMiningPool is IBasketTVLMiningPool, Initializable, ReentrancyG
         return _basketStakes[basket];
     }
 
-    function basketNavWeth(address basket) external view override returns (uint256) {
+    function basketCommunityTokenBalance(address basket) external view override returns (uint256) {
         if (!IBasketRegistry(basketRegistry).isBasket(basket)) revert InvalidBasket();
-        return _basketNavWeth(basket);
+        return _basketCommunityTokenBalance(basket);
     }
 
-    function _basketNavWeth(address basket) internal view returns (uint256 navWeth) {
+    function _basketCommunityTokenBalance(address basket) internal view returns (uint256) {
         IBasketToken token = IBasketToken(basket);
-        IBasketRebalanceExecutor executor = IBasketRebalanceExecutor(token.rebalanceExecutor());
         uint256 count = token.assetCount();
 
         for (uint256 i; i < count; ++i) {
-            (address asset,, uint256 activeReserve) = token.assetAt(i);
-            navWeth += executor.quoteAssetToWeth(token.assetRouteAt(i), asset, activeReserve);
+            (address asset,,) = token.assetAt(i);
+            if (asset == communityToken) return IERC20(communityToken).balanceOf(basket);
         }
+
+        revert CommunityTokenNotInBasket();
     }
 
     function _settleUser(ICommunity communityContract, address user, uint256 shareAcc) internal {

@@ -8,9 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "../../src/interfaces/IBasketRebalanceExecutor.sol";
 import "../../src/interfaces/IBasketTVLMiningPool.sol";
-import "../../src/interfaces/IBasketToken.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/Community.sol";
 import "../../src/nutbox/CommunityFactory.sol";
@@ -77,31 +75,13 @@ contract BasketTVLTestRegistry {
     }
 }
 
-contract BasketTVLTestExecutor is IBasketRebalanceExecutor {
-    mapping(address asset => uint256 bps) public quoteBps;
-
-    function setQuoteBps(address asset, uint256 bps) external {
-        quoteBps[asset] = bps;
-    }
-
-    function quoteAssetToWeth(IBasketToken.LegRoute calldata, address asset, uint256 amount)
-        external
-        view
-        returns (uint256)
-    {
-        return Math.mulDiv(amount, quoteBps[asset], 10_000);
-    }
-}
-
 contract BasketTVLTestBasket is ERC20 {
     uint256 private constant ACC_PRECISION = 1e24;
 
     address public immutable creatorPayout;
-    address public immutable rebalanceExecutor;
     address public immutable weth;
     address public immutable constituent;
 
-    uint256 public activeReserve;
     uint256 public accHolderFeePerShare;
     mapping(address holder => uint256 checkpoint) private _holderCheckpoint;
     mapping(address holder => uint256 amount) private _accruedHolderFees;
@@ -110,28 +90,16 @@ contract BasketTVLTestBasket is ERC20 {
     bytes public reentryData;
     bool public lastReentrySucceeded;
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        address creator_,
-        address executor_,
-        address weth_,
-        address constituent_,
-        uint256 reserve_
-    ) ERC20(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_, address creator_, address weth_, address constituent_)
+        ERC20(name_, symbol_)
+    {
         creatorPayout = creator_;
-        rebalanceExecutor = executor_;
         weth = weth_;
         constituent = constituent_;
-        activeReserve = reserve_;
     }
 
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
-    }
-
-    function setActiveReserve(uint256 reserve) external {
-        activeReserve = reserve;
     }
 
     function setRevertHolderFeeClaim(bool shouldRevert) external {
@@ -148,14 +116,9 @@ contract BasketTVLTestBasket is ERC20 {
         return 1;
     }
 
-    function assetAt(uint256 index) external view returns (address asset, uint16 targetWeightBps, uint256 reserve) {
+    function assetAt(uint256 index) external view returns (address asset, uint16 targetWeightBps, uint256 balance) {
         require(index == 0, "OOB");
-        return (constituent, 10_000, activeReserve);
-    }
-
-    function assetRouteAt(uint256 index) external pure returns (IBasketToken.LegRoute memory route) {
-        require(index == 0, "OOB");
-        route.venue = IBasketToken.Venue.WETH;
+        return (constituent, 10_000, 0);
     }
 
     function injectHolderFees(uint256 amount) external {
@@ -205,25 +168,14 @@ contract BasketTVLTestBasket is ERC20 {
 
 contract BasketTVLTestMultiAssetBasket is ERC20 {
     address public immutable creatorPayout;
-    address public immutable rebalanceExecutor;
     address public immutable weth;
 
     address[] private _assets;
-    uint256[] private _reserves;
 
-    constructor(
-        address creator_,
-        address executor_,
-        address weth_,
-        address[] memory assets_,
-        uint256[] memory reserves_
-    ) ERC20("Multi Asset Basket", "MAB") {
-        require(assets_.length == reserves_.length, "LENGTH");
+    constructor(address creator_, address weth_, address[] memory assets_) ERC20("Multi Asset Basket", "MAB") {
         creatorPayout = creator_;
-        rebalanceExecutor = executor_;
         weth = weth_;
         _assets = assets_;
-        _reserves = reserves_;
     }
 
     function assetCount() external view returns (uint256) {
@@ -231,16 +183,7 @@ contract BasketTVLTestMultiAssetBasket is ERC20 {
     }
 
     function assetAt(uint256 index) external view returns (address, uint16, uint256) {
-        return (_assets[index], uint16(10_000 / _assets.length), _reserves[index]);
-    }
-
-    function assetRouteAt(uint256 index) external view returns (IBasketToken.LegRoute memory route) {
-        _assets[index];
-        route.venue = IBasketToken.Venue.WETH;
-    }
-
-    function setReserve(uint256 index, uint256 reserve) external {
-        _reserves[index] = reserve;
+        return (_assets[index], uint16(10_000 / _assets.length), 0);
     }
 
     function claimableHolderFees(address) external pure returns (uint256) {
@@ -290,7 +233,6 @@ contract BasketTVLMiningPoolTest is Test {
     BasketTVLTestNFT internal miningNFT;
     BasketTVLTestNFTFactory internal nftPoolFactory;
     BasketTVLTestRegistry internal registry;
-    BasketTVLTestExecutor internal executor;
     BasketTVLTestBasket internal basketA;
     BasketTVLTestBasket internal basketB;
     uint256 internal nftA;
@@ -348,17 +290,8 @@ contract BasketTVLMiningPoolTest is Test {
         assetB = new BasketTVLTestERC20("Asset B", "B");
         nftPoolFactory = new BasketTVLTestNFTFactory();
         registry = new BasketTVLTestRegistry();
-        executor = new BasketTVLTestExecutor();
-
-        executor.setQuoteBps(address(assetA), 10_000);
-        executor.setQuoteBps(address(assetB), 10_000);
-
-        basketA = new BasketTVLTestBasket(
-            "Basket A", "BA", ownerA, address(executor), address(weth), address(assetA), 10 ether
-        );
-        basketB = new BasketTVLTestBasket(
-            "Basket B", "BB", ownerB, address(executor), address(weth), address(assetB), 30 ether
-        );
+        basketA = new BasketTVLTestBasket("Basket A", "BA", ownerA, address(weth), address(rewardToken));
+        basketB = new BasketTVLTestBasket("Basket B", "BB", ownerB, address(weth), address(rewardToken));
         registry.setBasket(address(basketA), true);
         registry.setBasket(address(basketB), true);
         factory = new BasketTVLMiningPoolFactory(address(communityFactory), address(registry), address(nftPoolFactory));
@@ -387,6 +320,8 @@ contract BasketTVLMiningPoolTest is Test {
         pool = BasketTVLMiningPool(community.activedPools(1));
 
         rewardToken.mint(address(this), 10_000_000 ether);
+        rewardToken.mint(address(basketA), 10 ether);
+        rewardToken.mint(address(basketB), 30 ether);
         rewardToken.approve(address(calculator), type(uint256).max);
         weth.mint(address(this), 10_000_000 ether);
         weth.approve(address(basketA), type(uint256).max);
@@ -404,6 +339,7 @@ contract BasketTVLMiningPoolTest is Test {
         assertEq(pool.getCommunity(), address(community));
         assertEq(pool.basketRegistry(), address(registry));
         assertEq(pool.nftMiningPool(), address(miningNFT));
+        assertEq(pool.communityToken(), address(rewardToken));
         assertEq(pool.childPoolTemplate(), factory.childPoolTemplate());
         assertEq(pool.lockDuration(), LOCK_DURATION);
         assertEq(pool.nftRewardBps(), NFT_REWARD_BPS);
@@ -562,7 +498,7 @@ contract BasketTVLMiningPoolTest is Test {
         vm.prank(ownerA);
         pool.createBasketStake(address(basketA), nftA);
 
-        basketA.setActiveReserve(25 ether);
+        _setCommunityTokenBalance(address(basketA), 25 ether);
         vm.expectEmit(true, true, false, true, address(pool));
         emit BasketStakeUpdated(address(basketA), ownerA, 10 ether, 25 ether, block.timestamp);
         pool.updateBasketStake(address(basketA));
@@ -575,7 +511,7 @@ contract BasketTVLMiningPoolTest is Test {
         pool.createBasketStake(address(basketA), nftA);
     }
 
-    function test_CreateTwoBasketsAggregatesTvlByChildAddress() public {
+    function test_CreateTwoBasketsAggregatesCommunityTokenBalancesByChildAddress() public {
         BasketStakePool childA = _createStake(basketA);
         BasketStakePool childB = _createStake(basketB);
 
@@ -641,9 +577,9 @@ contract BasketTVLMiningPoolTest is Test {
         pool.updateBasketStake(address(basketA));
     }
 
-    function test_UpdateBasketStakeRefreshesNavPermissionlessly() public {
+    function test_UpdateBasketStakeRefreshesCommunityTokenBalancePermissionlessly() public {
         BasketStakePool child = _createStake(basketA);
-        basketA.setActiveReserve(25 ether);
+        _setCommunityTokenBalance(address(basketA), 25 ether);
 
         vm.prank(keeper);
         pool.updateBasketStake(address(basketA));
@@ -657,7 +593,7 @@ contract BasketTVLMiningPoolTest is Test {
         BasketStakePool child = _createStake(basketA);
         uint256 operationFee = 0.01 ether;
         committee.adminSetPoolOperationFee(operationFee);
-        basketA.setActiveReserve(25 ether);
+        _setCommunityTokenBalance(address(basketA), 25 ether);
 
         vm.expectRevert(BasketTVLMiningPool.InsufficientOperationFee.selector);
         vm.prank(keeper);
@@ -699,46 +635,52 @@ contract BasketTVLMiningPoolTest is Test {
         assertEq(feeRecipient.balance, recipientBefore);
     }
 
-    function test_MultiAssetNavSumsNonOneToOneQuotes() public {
-        executor.setQuoteBps(address(assetA), 5_000);
-        executor.setQuoteBps(address(assetB), 20_000);
-        address[] memory assets = new address[](2);
+    function test_MultiAssetBasketUsesOnlyActualCommunityTokenBalance() public {
+        address[] memory assets = new address[](3);
         assets[0] = address(assetA);
-        assets[1] = address(assetB);
-        uint256[] memory reserves = new uint256[](2);
-        reserves[0] = 10 ether;
-        reserves[1] = 20 ether;
-        BasketTVLTestMultiAssetBasket basket =
-            new BasketTVLTestMultiAssetBasket(ownerA, address(executor), address(weth), assets, reserves);
+        assets[1] = address(rewardToken);
+        assets[2] = address(assetB);
+        BasketTVLTestMultiAssetBasket basket = new BasketTVLTestMultiAssetBasket(ownerA, address(weth), assets);
         registry.setBasket(address(basket), true);
+        rewardToken.mint(address(basket), 45 ether);
 
         vm.prank(ownerA);
         BasketStakePool child = BasketStakePool(pool.createBasketStake(address(basket), nftA));
 
-        assertEq(pool.basketNavWeth(address(basket)), 45 ether);
+        assertEq(pool.basketCommunityTokenBalance(address(basket)), 45 ether);
         assertEq(pool.getBasketStake(address(basket)).miningAmount, 45 ether);
         assertEq(pool.getUserStakedAmount(address(child)), 45 ether);
         assertEq(pool.getTotalStakedAmount(), 45 ether);
     }
 
-    function test_ZeroNavBasketCanRegisterAndLaterUpdateAboveZero() public {
-        basketA.setActiveReserve(0);
+    function test_RevertCreateWhenBasketDoesNotContainCommunityTokenLeg() public {
+        BasketTVLTestBasket basketWithoutCommunityToken =
+            new BasketTVLTestBasket("Wrong Basket", "WRONG", ownerA, address(weth), address(assetA));
+        registry.setBasket(address(basketWithoutCommunityToken), true);
+
+        vm.expectRevert(BasketTVLMiningPool.CommunityTokenNotInBasket.selector);
+        vm.prank(ownerA);
+        pool.createBasketStake(address(basketWithoutCommunityToken), nftA);
+    }
+
+    function test_ZeroCommunityTokenBalanceCanRegisterAndLaterUpdateAboveZero() public {
+        _setCommunityTokenBalance(address(basketA), 0);
         BasketStakePool child = _createStake(basketA);
 
         assertEq(pool.getBasketStake(address(basketA)).miningAmount, 0);
         assertEq(pool.getUserStakedAmount(address(child)), 0);
         assertEq(pool.getTotalStakedAmount(), 0);
 
-        basketA.setActiveReserve(7 ether);
+        _setCommunityTokenBalance(address(basketA), 7 ether);
         pool.updateBasketStake(address(basketA));
         assertEq(pool.getUserStakedAmount(address(child)), 7 ether);
         assertEq(pool.getTotalStakedAmount(), 7 ether);
     }
 
-    function test_UpdateBasketNavToZeroRemovesItsMiningWeight() public {
+    function test_UpdateBasketCommunityTokenBalanceToZeroRemovesItsMiningWeight() public {
         BasketStakePool childA = _createStake(basketA);
         BasketStakePool childB = _createStake(basketB);
-        basketA.setActiveReserve(0);
+        _setCommunityTokenBalance(address(basketA), 0);
 
         pool.updateBasketStake(address(basketA));
 
@@ -748,7 +690,7 @@ contract BasketTVLMiningPoolTest is Test {
         assertEq(pool.getTotalStakedAmount(), 30 ether);
     }
 
-    function test_CommunitySplitsRewardsAcrossChildrenByBasketTvl() public {
+    function test_CommunitySplitsRewardsAcrossChildrenByCommunityTokenBalance() public {
         BasketStakePool childA = _createStake(basketA);
         BasketStakePool childB = _createStake(basketB);
         _mintAndDeposit(basketA, childA, alice, 100 ether);
@@ -763,14 +705,14 @@ contract BasketTVLMiningPoolTest is Test {
         assertApproxEqAbs(rewardA + rewardB, 950 ether, 1e8);
     }
 
-    function test_TvlUpdateSettlesOldRatioBeforeUsingNewRatio() public {
+    function test_CommunityTokenBalanceUpdateSettlesOldRatioBeforeUsingNewRatio() public {
         BasketStakePool childA = _createStake(basketA);
         BasketStakePool childB = _createStake(basketB);
         _mintAndDeposit(basketA, childA, alice, 100 ether);
         _mintAndDeposit(basketB, childB, bob, 100 ether);
 
         _injectRewardsAndWarp(1 hours);
-        basketA.setActiveReserve(30 ether);
+        _setCommunityTokenBalance(address(basketA), 30 ether);
         pool.updateBasketStake(address(basketA));
         vm.warp(block.timestamp + 1 hours);
 
@@ -1525,9 +1467,18 @@ contract BasketTVLMiningPoolTest is Test {
     }
 
     function _newBasket(address owner, uint256 reserve) internal returns (BasketTVLTestBasket basket) {
-        basket = new BasketTVLTestBasket(
-            "Extra Basket", "XB", owner, address(executor), address(weth), address(assetA), reserve
-        );
+        basket = new BasketTVLTestBasket("Extra Basket", "XB", owner, address(weth), address(rewardToken));
+        rewardToken.mint(address(basket), reserve);
+    }
+
+    function _setCommunityTokenBalance(address basket, uint256 targetBalance) internal {
+        uint256 currentBalance = rewardToken.balanceOf(basket);
+        if (targetBalance > currentBalance) {
+            rewardToken.mint(basket, targetBalance - currentBalance);
+        } else if (targetBalance < currentBalance) {
+            vm.prank(basket);
+            rewardToken.transfer(address(0xdead), currentBalance - targetBalance);
+        }
     }
 
     function _createPoolWithBps(uint16 bps)

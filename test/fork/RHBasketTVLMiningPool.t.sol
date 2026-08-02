@@ -3,12 +3,11 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "../../src/interfaces/IBasketRebalanceExecutor.sol";
 import "../../src/interfaces/IBasketTVLMiningPool.sol";
 import "../../src/interfaces/IBasketToken.sol";
 import "../../src/nutbox/Committee.sol";
@@ -39,14 +38,6 @@ interface IRHLiveBasketToken is IBasketToken {
         uint256 feeWeth,
         address frontend
     ) external returns (uint256 sharesOut);
-}
-
-contract RHForkRewardToken is ERC20 {
-    constructor() ERC20("Fork Community Reward", "FORK-RWD") {}
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
 }
 
 contract RHForkMiningNFT is ERC721 {
@@ -116,6 +107,7 @@ contract RHForkMiningNFTFactory {
  */
 contract RHBasketTVLMiningPoolForkTest is Test {
     using Math for uint256;
+    using SafeERC20 for IERC20;
 
     uint256 internal constant RH_CHAIN_ID = 4663;
     uint256 internal constant LOCK_DURATION = 7 days;
@@ -126,7 +118,6 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     uint256 internal constant NFT_B = 2;
 
     address internal constant RH_BASKET_REGISTRY = 0x1f997dEb6C8Ac7Bb4134Bc7c6bF23F623Cda25C6;
-    address internal constant RH_REBALANCE_EXECUTOR = 0x773c71be8b5E3c0c49d9576211d06E2f316AaF4a;
     address internal constant RH_WETH = 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73;
 
     address internal constant LIVE_BASKET_A = 0x9b5d2707bdFf85d6b721802F50D6A82581201E03;
@@ -134,7 +125,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
 
     bool internal forkReady;
 
-    RHForkRewardToken internal rewardToken;
+    IERC20 internal rewardToken;
     RHForkMiningNFT internal miningNFT;
     RHForkMiningNFTFactory internal nftPoolFactory;
     Committee internal committee;
@@ -176,7 +167,8 @@ contract RHBasketTVLMiningPoolForkTest is Test {
 
         communityFactory = new CommunityFactory(address(committee));
         calculator = new HourlyTickCalculator(address(communityFactory));
-        rewardToken = new RHForkRewardToken();
+        (address communityToken,,) = IBasketToken(LIVE_BASKET_A).assetAt(0);
+        rewardToken = IERC20(communityToken);
         miningNFT = new RHForkMiningNFT();
         nftPoolFactory = new RHForkMiningNFTFactory(address(miningNFT));
         factory = new BasketTVLMiningPoolFactory(address(communityFactory), RH_BASKET_REGISTRY, address(nftPoolFactory));
@@ -196,7 +188,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         community.adminAddPool("Fork NFT Mining", ratios, address(nftPoolFactory), bytes(""));
 
         // The eligibility NFT is local because the NFT mining contract is independent
-        // from Basket. The Basket, Registry, Executor, routes, reserves and WETH are live.
+        // from Basket. The Basket, Registry, constituent balances and WETH are live.
         miningNFT.mint(IBasketToken(LIVE_BASKET_A).creatorPayout());
         miningNFT.mint(IBasketToken(LIVE_BASKET_B).creatorPayout());
 
@@ -217,7 +209,6 @@ contract RHBasketTVLMiningPoolForkTest is Test {
 
         assertEq(block.chainid, RH_CHAIN_ID);
         assertGt(RH_BASKET_REGISTRY.code.length, 0);
-        assertGt(RH_REBALANCE_EXECUTOR.code.length, 0);
         assertGt(RH_WETH.code.length, 0);
         assertGe(registry.basketCount(), 2);
 
@@ -225,54 +216,52 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         _assertLiveBasketConfiguration(registry, LIVE_BASKET_B);
     }
 
-    function testFork_ParentNavMatchesRealExecutorForEveryConstituent() public onlyRhFork {
-        uint256 navA = _assertNavMatchesManualLiveQuote(LIVE_BASKET_A);
-        uint256 navB = _assertNavMatchesManualLiveQuote(LIVE_BASKET_B);
-
-        assertGt(navA, 0, "live Basket A must have non-zero NAV");
-        assertGt(navB, 0, "live Basket B must have non-zero NAV");
+    function testFork_ParentUsesActualCommunityTokenBalance() public onlyRhFork {
+        assertTrue(_containsCommunityToken(LIVE_BASKET_A));
+        assertEq(pool.basketCommunityTokenBalance(LIVE_BASKET_A), rewardToken.balanceOf(LIVE_BASKET_A));
     }
 
-    function testFork_CreateBothStakesUsesLiveNavAndConfiguresChildren() public onlyRhFork {
-        uint256 expectedNavA = pool.basketNavWeth(LIVE_BASKET_A);
-        uint256 expectedNavB = pool.basketNavWeth(LIVE_BASKET_B);
+    function testFork_CreateBothStakesUsesCommunityTokenBalancesAndConfiguresChildren() public onlyRhFork {
+        if (!_containsCommunityToken(LIVE_BASKET_B)) vm.skip(true);
+        uint256 expectedAmountA = rewardToken.balanceOf(LIVE_BASKET_A);
+        uint256 expectedAmountB = rewardToken.balanceOf(LIVE_BASKET_B);
 
         BasketStakePool childA = _createLiveStake(LIVE_BASKET_A);
         BasketStakePool childB = _createLiveStake(LIVE_BASKET_B);
 
-        _assertCreatedStake(LIVE_BASKET_A, childA, expectedNavA);
-        _assertCreatedStake(LIVE_BASKET_B, childB, expectedNavB);
-        assertEq(pool.getTotalStakedAmount(), expectedNavA + expectedNavB);
+        _assertCreatedStake(LIVE_BASKET_A, childA, expectedAmountA);
+        _assertCreatedStake(LIVE_BASKET_B, childB, expectedAmountB);
+        assertEq(pool.getTotalStakedAmount(), expectedAmountA + expectedAmountB);
     }
 
-    function testFork_PermissionlessUpdateRequotesAllLiveAssets() public onlyRhFork {
+    function testFork_PermissionlessUpdateReadsActualCommunityTokenBalance() public onlyRhFork {
         BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
 
         vm.prank(keeper);
         pool.updateBasketStake(LIVE_BASKET_A);
 
-        uint256 currentLiveNav = _manualLiveNav(LIVE_BASKET_A);
+        uint256 currentBalance = rewardToken.balanceOf(LIVE_BASKET_A);
         IBasketTVLMiningPool.BasketStake memory stake = pool.getBasketStake(LIVE_BASKET_A);
-        assertEq(stake.miningAmount, currentLiveNav);
-        assertEq(pool.getUserStakedAmount(address(child)), currentLiveNav);
-        assertEq(pool.getTotalStakedAmount(), currentLiveNav);
+        assertEq(stake.miningAmount, currentBalance);
+        assertEq(pool.getUserStakedAmount(address(child)), currentBalance);
+        assertEq(pool.getTotalStakedAmount(), currentBalance);
     }
 
     function testFork_RealBasketHolderCanDepositWithdrawAndRedeem() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address liveHolder = IBasketToken(LIVE_BASKET_B).creatorPayout();
-        uint256 liveBalance = IERC20(LIVE_BASKET_B).balanceOf(liveHolder);
-        assertGt(liveBalance, 1, "configured live creator no longer holds Basket B");
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address liveHolder = IBasketToken(LIVE_BASKET_A).creatorPayout();
+        uint256 liveBalance = IERC20(LIVE_BASKET_A).balanceOf(liveHolder);
+        assertGt(liveBalance, 1, "configured live creator no longer holds Basket A");
 
         uint256 depositAmount = liveBalance / 2;
         vm.startPrank(liveHolder);
-        IERC20(LIVE_BASKET_B).approve(address(child), depositAmount);
+        IERC20(LIVE_BASKET_A).approve(address(child), depositAmount);
         child.deposit(depositAmount);
         vm.stopPrank();
 
         assertEq(child.getUserStakedAmount(liveHolder), depositAmount);
         assertEq(child.getTotalStakedAmount(), depositAmount);
-        assertEq(IERC20(LIVE_BASKET_B).balanceOf(address(child)), depositAmount);
+        assertEq(IERC20(LIVE_BASKET_A).balanceOf(address(child)), depositAmount);
 
         uint256 withdrawAmount = depositAmount / 2;
         vm.prank(liveHolder);
@@ -283,13 +272,13 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         assertEq(child.claimableAmount(liveHolder), 0);
 
         vm.warp(block.timestamp + LOCK_DURATION);
-        uint256 beforeRedeem = IERC20(LIVE_BASKET_B).balanceOf(liveHolder);
+        uint256 beforeRedeem = IERC20(LIVE_BASKET_A).balanceOf(liveHolder);
         vm.prank(liveHolder);
         child.redeem();
 
-        assertEq(IERC20(LIVE_BASKET_B).balanceOf(liveHolder), beforeRedeem + withdrawAmount);
+        assertEq(IERC20(LIVE_BASKET_A).balanceOf(liveHolder), beforeRedeem + withdrawAmount);
         assertEq(child.redeemRequestCount(liveHolder), 0);
-        assertEq(IERC20(LIVE_BASKET_B).balanceOf(address(child)), depositAmount - withdrawAmount);
+        assertEq(IERC20(LIVE_BASKET_A).balanceOf(address(child)), depositAmount - withdrawAmount);
     }
 
     function testFork_RejectsInvalidAndDuplicateLiveBasketRegistration() public onlyRhFork {
@@ -312,6 +301,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     }
 
     function testFork_CurrentDesignAllowsOneNftToBindTwoLiveBaskets() public onlyRhFork {
+        if (!_containsCommunityToken(LIVE_BASKET_B)) vm.skip(true);
         BasketStakePool childA = _createLiveStake(LIVE_BASKET_A);
         address creatorA = IBasketToken(LIVE_BASKET_A).creatorPayout();
         address creatorB = IBasketToken(LIVE_BASKET_B).creatorPayout();
@@ -352,21 +342,21 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     }
 
     function testFork_TwoRealBasketHoldersSplitCommunityRewardsByStake() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address sourceHolder = IBasketToken(LIVE_BASKET_B).creatorPayout();
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address sourceHolder = IBasketToken(LIVE_BASKET_A).creatorPayout();
         address alice = makeAddr("rhForkAlice");
         address bob = makeAddr("rhForkBob");
-        uint256 sourceBalance = IERC20(LIVE_BASKET_B).balanceOf(sourceHolder);
+        uint256 sourceBalance = IERC20(LIVE_BASKET_A).balanceOf(sourceHolder);
         uint256 aliceAmount = sourceBalance / 5;
         uint256 bobAmount = sourceBalance * 2 / 5;
         assertGt(aliceAmount, 0);
 
         vm.startPrank(sourceHolder);
-        IERC20(LIVE_BASKET_B).transfer(alice, aliceAmount);
-        IERC20(LIVE_BASKET_B).transfer(bob, bobAmount);
+        IERC20(LIVE_BASKET_A).transfer(alice, aliceAmount);
+        IERC20(LIVE_BASKET_A).transfer(bob, bobAmount);
         vm.stopPrank();
-        _deposit(child, LIVE_BASKET_B, alice, aliceAmount);
-        _deposit(child, LIVE_BASKET_B, bob, bobAmount);
+        _deposit(child, LIVE_BASKET_A, alice, aliceAmount);
+        _deposit(child, LIVE_BASKET_A, bob, bobAmount);
 
         _injectRewardsAndWarpOneHour();
 
@@ -385,7 +375,8 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         assertEq(bobHolderFee, 0);
     }
 
-    function testFork_CommunityRewardsSplitAcrossBothLiveBasketNavs() public onlyRhFork {
+    function testFork_CommunityRewardsSplitAcrossBothLiveBasketTokenBalances() public onlyRhFork {
+        if (!_containsCommunityToken(LIVE_BASKET_B)) vm.skip(true);
         BasketStakePool childA = _createLiveStake(LIVE_BASKET_A);
         BasketStakePool childB = _createLiveStake(LIVE_BASKET_B);
         address holderA = IBasketToken(LIVE_BASKET_A).creatorPayout();
@@ -400,9 +391,9 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         vm.prank(holderB);
         (uint256 rewardB,) = childB.claimRewards();
 
-        uint256 navA = pool.getBasketStake(LIVE_BASKET_A).miningAmount;
-        uint256 navB = pool.getBasketStake(LIVE_BASKET_B).miningAmount;
-        uint256 parentRewardA = Math.mulDiv(ONE_HOUR_REWARD, navA, navA + navB);
+        uint256 amountA = pool.getBasketStake(LIVE_BASKET_A).miningAmount;
+        uint256 amountB = pool.getBasketStake(LIVE_BASKET_B).miningAmount;
+        uint256 parentRewardA = Math.mulDiv(ONE_HOUR_REWARD, amountA, amountA + amountB);
         uint256 parentRewardB = ONE_HOUR_REWARD - parentRewardA;
         uint256 expectedA = _stakerShare(parentRewardA);
         uint256 expectedB = _stakerShare(parentRewardB);
@@ -412,10 +403,10 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     }
 
     function testFork_RealBasketSupportsMultipleLinearFifoRedeems() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address holder = IBasketToken(LIVE_BASKET_B).creatorPayout();
-        uint256 depositAmount = IERC20(LIVE_BASKET_B).balanceOf(holder) / 2;
-        _deposit(child, LIVE_BASKET_B, holder, depositAmount);
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address holder = IBasketToken(LIVE_BASKET_A).creatorPayout();
+        uint256 depositAmount = IERC20(LIVE_BASKET_A).balanceOf(holder) / 2;
+        _deposit(child, LIVE_BASKET_A, holder, depositAmount);
 
         uint256 first = depositAmount * 2 / 5;
         uint256 second = depositAmount - first;
@@ -433,43 +424,43 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         assertEq(child.redeemRequestCount(holder), 2);
 
         vm.warp(block.timestamp + LOCK_DURATION / 2);
-        uint256 beforeSecondRedeem = IERC20(LIVE_BASKET_B).balanceOf(holder);
+        uint256 beforeSecondRedeem = IERC20(LIVE_BASKET_A).balanceOf(holder);
         uint256 secondClaimable = child.claimableAmount(holder);
         vm.prank(holder);
         child.redeem();
 
-        assertEq(IERC20(LIVE_BASKET_B).balanceOf(holder), beforeSecondRedeem + secondClaimable);
+        assertEq(IERC20(LIVE_BASKET_A).balanceOf(holder), beforeSecondRedeem + secondClaimable);
         assertEq(child.redeemRequestCount(holder), 1);
 
         vm.warp(block.timestamp + LOCK_DURATION / 4);
-        uint256 beforeFinalRedeem = IERC20(LIVE_BASKET_B).balanceOf(holder);
+        uint256 beforeFinalRedeem = IERC20(LIVE_BASKET_A).balanceOf(holder);
         uint256 finalClaimable = child.claimableAmount(holder);
         vm.prank(holder);
         child.redeem();
 
-        assertEq(IERC20(LIVE_BASKET_B).balanceOf(holder), beforeFinalRedeem + finalClaimable);
+        assertEq(IERC20(LIVE_BASKET_A).balanceOf(holder), beforeFinalRedeem + finalClaimable);
         assertEq(child.redeemRequestCount(holder), 0);
         assertEq(child.getTotalStakedAmount(), 0);
-        assertEq(IERC20(LIVE_BASKET_B).balanceOf(address(child)), 0);
+        assertEq(IERC20(LIVE_BASKET_A).balanceOf(address(child)), 0);
     }
 
-    function testFork_RealBasketFeeAccrualExternalClaimAndNavRefresh() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address holder = IBasketToken(LIVE_BASKET_B).creatorPayout();
-        uint256 depositAmount = IERC20(LIVE_BASKET_B).balanceOf(holder) / 2;
-        _deposit(child, LIVE_BASKET_B, holder, depositAmount);
-        uint256 oldNav = pool.getBasketStake(LIVE_BASKET_B).miningAmount;
+    function testFork_RealBasketFeeAccrualExternalClaimAndBalanceRefresh() public onlyRhFork {
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address holder = IBasketToken(LIVE_BASKET_A).creatorPayout();
+        uint256 depositAmount = IERC20(LIVE_BASKET_A).balanceOf(holder) / 2;
+        _deposit(child, LIVE_BASKET_A, holder, depositAmount);
+        uint256 oldMiningAmount = pool.getBasketStake(LIVE_BASKET_A).miningAmount;
         _injectRewardsAndWarpOneHour();
 
-        _mintThroughRealBasketEngine(LIVE_BASKET_B, 0.1 ether, 0.05 ether);
+        _mintThroughRealBasketEngine(LIVE_BASKET_A, 0.1 ether, 0.05 ether);
 
-        uint256 basketClaimable = IBasketToken(LIVE_BASKET_B).claimableHolderFees(address(child));
+        uint256 basketClaimable = IBasketToken(LIVE_BASKET_A).claimableHolderFees(address(child));
         assertGt(basketClaimable, 0, "real Basket did not accrue holder fees");
         uint256 childWethBefore = IERC20(RH_WETH).balanceOf(address(child));
 
         // Reproduce the production case where an arbitrary third party claims for the pool.
         vm.prank(keeper);
-        uint256 externallyClaimed = IBasketToken(LIVE_BASKET_B).claimHolderFeesFor(address(child));
+        uint256 externallyClaimed = IBasketToken(LIVE_BASKET_A).claimHolderFeesFor(address(child));
         assertEq(externallyClaimed, basketClaimable);
         assertEq(IERC20(RH_WETH).balanceOf(address(child)) - childWethBefore, basketClaimable);
 
@@ -480,31 +471,31 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         assertEq(IERC20(RH_WETH).balanceOf(holder), holderFee);
 
         vm.prank(keeper);
-        pool.updateBasketStake(LIVE_BASKET_B);
-        uint256 refreshedNav = pool.getBasketStake(LIVE_BASKET_B).miningAmount;
-        assertEq(refreshedNav, _manualLiveNav(LIVE_BASKET_B));
-        assertGt(refreshedNav, oldNav, "proportional mint should increase live reserves and NAV");
-        assertEq(pool.getTotalStakedAmount(), refreshedNav);
+        pool.updateBasketStake(LIVE_BASKET_A);
+        uint256 refreshedAmount = pool.getBasketStake(LIVE_BASKET_A).miningAmount;
+        assertEq(refreshedAmount, rewardToken.balanceOf(LIVE_BASKET_A));
+        assertGt(refreshedAmount, oldMiningAmount, "proportional mint should increase Community-token balance");
+        assertEq(pool.getTotalStakedAmount(), refreshedAmount);
     }
 
     function testFork_RealBasketHolderFeesSplitAcrossTwoStakers() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address sourceHolder = IBasketToken(LIVE_BASKET_B).creatorPayout();
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address sourceHolder = IBasketToken(LIVE_BASKET_A).creatorPayout();
         address alice = makeAddr("rhForkFeeAlice");
         address bob = makeAddr("rhForkFeeBob");
-        uint256 sourceBalance = IERC20(LIVE_BASKET_B).balanceOf(sourceHolder);
+        uint256 sourceBalance = IERC20(LIVE_BASKET_A).balanceOf(sourceHolder);
         uint256 aliceAmount = sourceBalance / 5;
         uint256 bobAmount = sourceBalance * 2 / 5;
 
         vm.startPrank(sourceHolder);
-        IERC20(LIVE_BASKET_B).transfer(alice, aliceAmount);
-        IERC20(LIVE_BASKET_B).transfer(bob, bobAmount);
+        IERC20(LIVE_BASKET_A).transfer(alice, aliceAmount);
+        IERC20(LIVE_BASKET_A).transfer(bob, bobAmount);
         vm.stopPrank();
-        _deposit(child, LIVE_BASKET_B, alice, aliceAmount);
-        _deposit(child, LIVE_BASKET_B, bob, bobAmount);
+        _deposit(child, LIVE_BASKET_A, alice, aliceAmount);
+        _deposit(child, LIVE_BASKET_A, bob, bobAmount);
 
-        _mintThroughRealBasketEngine(LIVE_BASKET_B, 0.1 ether, 0.05 ether);
-        uint256 totalChildFee = IBasketToken(LIVE_BASKET_B).claimableHolderFees(address(child));
+        _mintThroughRealBasketEngine(LIVE_BASKET_A, 0.1 ether, 0.05 ether);
+        uint256 totalChildFee = IBasketToken(LIVE_BASKET_A).claimableHolderFees(address(child));
         assertGt(totalChildFee, 0);
 
         vm.prank(alice);
@@ -522,9 +513,9 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     }
 
     function testFork_OperationFeeUnderpaymentAndExcessRefundWithRealBasket() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address holder = IBasketToken(LIVE_BASKET_B).creatorPayout();
-        _deposit(child, LIVE_BASKET_B, holder, IERC20(LIVE_BASKET_B).balanceOf(holder) / 2);
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address holder = IBasketToken(LIVE_BASKET_A).creatorPayout();
+        _deposit(child, LIVE_BASKET_A, holder, IERC20(LIVE_BASKET_A).balanceOf(holder) / 2);
         _injectRewardsAndWarpOneHour();
 
         uint256 operationFee = 0.01 ether;
@@ -548,31 +539,34 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     }
 
     function testFork_NftRewardsFollowTransferredTokenAndCannotBeRedirected() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address holder = IBasketToken(LIVE_BASKET_B).creatorPayout();
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address holder = IBasketToken(LIVE_BASKET_A).creatorPayout();
         address trigger = makeAddr("rhForkNftClaimTrigger");
-        _deposit(child, LIVE_BASKET_B, holder, IERC20(LIVE_BASKET_B).balanceOf(holder) / 2);
+        _deposit(child, LIVE_BASKET_A, holder, IERC20(LIVE_BASKET_A).balanceOf(holder) / 2);
         _injectRewardsAndWarpOneHour();
 
+        uint256 holderBefore = rewardToken.balanceOf(holder);
         vm.prank(holder);
         child.claimRewards();
         uint256 accrued = child.accruedNftRewards();
         assertApproxEqAbs(accrued, ONE_HOUR_REWARD - _stakerShare(ONE_HOUR_REWARD), 1e8);
 
         vm.prank(holder);
-        miningNFT.transferFrom(holder, keeper, NFT_B);
+        miningNFT.transferFrom(holder, keeper, NFT_A);
+        uint256 keeperBefore = rewardToken.balanceOf(keeper);
+        uint256 triggerBefore = rewardToken.balanceOf(trigger);
         vm.prank(trigger);
         uint256 claimed = child.claimNftRewards();
 
         assertEq(claimed, accrued);
-        assertApproxEqAbs(rewardToken.balanceOf(holder), _stakerShare(ONE_HOUR_REWARD), 1e8);
-        assertEq(rewardToken.balanceOf(keeper), claimed);
-        assertEq(rewardToken.balanceOf(trigger), 0);
+        assertApproxEqAbs(rewardToken.balanceOf(holder) - holderBefore, _stakerShare(ONE_HOUR_REWARD), 1e8);
+        assertEq(rewardToken.balanceOf(keeper) - keeperBefore, claimed);
+        assertEq(rewardToken.balanceOf(trigger), triggerBefore);
     }
 
     function testFork_NftClaimChargesOneOperationFeeAndRefundsExcess() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address nftOwner = IBasketToken(LIVE_BASKET_B).creatorPayout();
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address nftOwner = IBasketToken(LIVE_BASKET_A).creatorPayout();
         _injectRewardsAndWarpOneHour();
 
         uint256 operationFee = 0.01 ether;
@@ -586,22 +580,24 @@ contract RHBasketTVLMiningPoolForkTest is Test {
 
         uint256 keeperBefore = keeper.balance;
         uint256 recipientBefore = feeRecipient.balance;
+        uint256 ownerRewardBefore = rewardToken.balanceOf(nftOwner);
         vm.prank(keeper);
         uint256 claimed = child.claimNftRewards{value: supplied}();
 
         assertApproxEqAbs(claimed, ONE_HOUR_REWARD - _stakerShare(ONE_HOUR_REWARD), 1e8);
-        assertEq(rewardToken.balanceOf(nftOwner), claimed);
+        assertEq(rewardToken.balanceOf(nftOwner) - ownerRewardBefore, claimed);
         assertEq(keeperBefore - keeper.balance, operationFee);
         assertEq(feeRecipient.balance - recipientBefore, operationFee);
         assertEq(address(child).balance, 0);
     }
 
     function testFork_ClosedParentAllowsExactlyOneFinalRealBasketHarvest() public onlyRhFork {
-        BasketStakePool child = _createLiveStake(LIVE_BASKET_B);
-        address holder = IBasketToken(LIVE_BASKET_B).creatorPayout();
-        _deposit(child, LIVE_BASKET_B, holder, IERC20(LIVE_BASKET_B).balanceOf(holder) / 2);
+        BasketStakePool child = _createLiveStake(LIVE_BASKET_A);
+        address holder = IBasketToken(LIVE_BASKET_A).creatorPayout();
+        _deposit(child, LIVE_BASKET_A, holder, IERC20(LIVE_BASKET_A).balanceOf(holder) / 2);
         _injectRewardsAndWarpOneHour();
 
+        uint256 holderBefore = rewardToken.balanceOf(holder);
         _closeBasketParent();
         vm.prank(holder);
         (uint256 finalReward,) = child.claimRewards();
@@ -612,7 +608,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
 
         uint256 nftReward = child.claimNftRewards();
         assertApproxEqAbs(nftReward, ONE_HOUR_REWARD - _stakerShare(ONE_HOUR_REWARD), 1e8);
-        assertEq(rewardToken.balanceOf(holder), finalReward + nftReward);
+        assertEq(rewardToken.balanceOf(holder) - holderBefore, finalReward + nftReward);
 
         vm.expectRevert(BasketStakePool.NothingToClaim.selector);
         vm.prank(holder);
@@ -622,36 +618,30 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     function _assertLiveBasketConfiguration(IRHLiveBasketRegistry registry, address basket) internal view {
         assertTrue(registry.isBasket(basket), "provided address is not a registered Basket");
         assertGt(basket.code.length, 0);
-        assertEq(IBasketToken(basket).rebalanceExecutor(), RH_REBALANCE_EXECUTOR);
         assertEq(IBasketToken(basket).weth(), RH_WETH);
         assertNotEq(IBasketToken(basket).creatorPayout(), address(0));
         assertGt(IBasketToken(basket).assetCount(), 0);
         assertGt(IERC20(basket).totalSupply(), 0);
     }
 
-    function _assertNavMatchesManualLiveQuote(address basket) internal view returns (uint256 nav) {
-        nav = _manualLiveNav(basket);
-        assertEq(pool.basketNavWeth(basket), nav);
-    }
-
-    function _manualLiveNav(address basket) internal view returns (uint256 nav) {
+    function _containsCommunityToken(address basket) internal view returns (bool) {
         IBasketToken token = IBasketToken(basket);
-        IBasketRebalanceExecutor executor = IBasketRebalanceExecutor(token.rebalanceExecutor());
         uint256 count = token.assetCount();
 
         for (uint256 i; i < count; ++i) {
-            (address asset,, uint256 activeReserve) = token.assetAt(i);
-            nav += executor.quoteAssetToWeth(token.assetRouteAt(i), asset, activeReserve);
+            (address asset,,) = token.assetAt(i);
+            if (asset == address(rewardToken)) return true;
         }
+        return false;
     }
 
-    function _assertCreatedStake(address basket, BasketStakePool child, uint256 expectedNav) internal view {
+    function _assertCreatedStake(address basket, BasketStakePool child, uint256 expectedMiningAmount) internal view {
         IBasketTVLMiningPool.BasketStake memory stake = pool.getBasketStake(basket);
         assertTrue(stake.exists);
         assertEq(stake.basketCreator, IBasketToken(basket).creatorPayout());
         assertEq(stake.childPool, address(child));
         assertEq(stake.nftTokenId, basket == LIVE_BASKET_A ? NFT_A : NFT_B);
-        assertEq(stake.miningAmount, expectedNav);
+        assertEq(stake.miningAmount, expectedMiningAmount);
         assertEq(child.parentMiningPool(), address(pool));
         assertEq(child.community(), address(community));
         assertEq(child.stakeToken(), basket);
@@ -661,7 +651,7 @@ contract RHBasketTVLMiningPoolForkTest is Test {
         assertEq(child.nftTokenId(), stake.nftTokenId);
         assertEq(child.nftRewardBps(), NFT_REWARD_BPS);
         assertEq(child.lockDuration(), LOCK_DURATION);
-        assertEq(pool.getUserStakedAmount(address(child)), expectedNav);
+        assertEq(pool.getUserStakedAmount(address(child)), expectedMiningAmount);
     }
 
     function _deposit(BasketStakePool child, address basket, address holder, uint256 amount) internal {
@@ -679,8 +669,8 @@ contract RHBasketTVLMiningPoolForkTest is Test {
     }
 
     function _injectRewardsAndWarpOneHour() internal {
-        rewardToken.mint(address(this), REWARD_INJECTION);
-        rewardToken.approve(address(calculator), REWARD_INJECTION);
+        deal(address(rewardToken), address(this), rewardToken.balanceOf(address(this)) + REWARD_INJECTION, false);
+        rewardToken.forceApprove(address(calculator), REWARD_INJECTION);
         calculator.inject(address(community), REWARD_INJECTION);
         vm.warp(block.timestamp + 1 hours);
     }

@@ -21,5 +21,5 @@ interface IBasketTVLMiningPool is IPool {
 
     function nftBasketPoolCount(uint256 nftTokenId) external view returns (uint256);
 
-    function basketNavWeth(address basket) external view returns (uint256);
+    function basketCommunityTokenBalance(address basket) external view returns (uint256);
 }
