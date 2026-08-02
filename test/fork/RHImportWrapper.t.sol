@@ -12,6 +12,7 @@ import {CommunityFactory} from "../../src/nutbox/CommunityFactory.sol";
 import {HourlyTickCalculator} from "../../src/nutbox/calculators/HourlyTickCalculator.sol";
 import {SocialCurationFactory} from "../../src/nutbox/dapps/social-curation/SocialCurationFactory.sol";
 import {SocialCuration} from "../../src/nutbox/dapps/social-curation/SocialCuration.sol";
+import {AIChannelPoolFactory} from "../../src/nutbox/dapps/ai-channel/AIChannelPoolFactory.sol";
 import {IPShare} from "../../src/pump/IPShare.sol";
 import {ICommunity} from "../../src/interfaces/ICommunity.sol";
 import {IIPShare} from "../../src/interfaces/IIPShare.sol";
@@ -38,12 +39,10 @@ interface IUniswapV3FactoryMinimal {
 
 /// @dev Minimal NPM surface for create-pool + full-range mint on RH.
 interface INonfungiblePositionManager {
-    function createAndInitializePoolIfNecessary(
-        address token0,
-        address token1,
-        uint24 fee,
-        uint160 sqrtPriceX96
-    ) external payable returns (address pool);
+    function createAndInitializePoolIfNecessary(address token0, address token1, uint24 fee, uint160 sqrtPriceX96)
+        external
+        payable
+        returns (address pool);
 
     struct MintParams {
         address token0;
@@ -101,14 +100,14 @@ contract RHImportWrapper is Test {
     uint24 internal constant V4_FEE = 12345;
     int24 internal constant V4_TICK_SPACING = 60;
 
-    bytes32 internal constant CLAIM_TYPEHASH = keccak256(
-        "Claim(uint256 chainId,address pool,uint256 orderId,uint256 amount,address to,uint256 deadline)"
-    );
+    bytes32 internal constant CLAIM_TYPEHASH =
+        keccak256("Claim(uint256 chainId,address pool,uint256 orderId,uint256 amount,address to,uint256 deadline)");
 
     Committee internal committee;
     CommunityFactory internal communityFactory;
     HourlyTickCalculator internal calculator;
     SocialCurationFactory internal scf;
+    AIChannelPoolFactory internal aiChannelFactory;
     IPShare internal ipshare;
     ImportHelper internal importHelper;
     TagAISwapWrapper internal wrapper;
@@ -159,8 +158,9 @@ contract RHImportWrapper is Test {
 
         string memory rpc = vm.envOr("RH_RPC_URL", string("https://rpc.mainnet.chain.robinhood.com"));
         try this._createForkExternal(rpc) {
-            // ok
-        } catch {
+        // ok
+        }
+        catch {
             return false;
         }
 
@@ -172,9 +172,8 @@ contract RHImportWrapper is Test {
     }
 
     function _infraPresent() internal view returns (bool) {
-        return V4_PM.code.length > 0 && TOKEN.code.length > 0 && V2_PAIR.code.length > 0
-            && V2_ROUTER.code.length > 0 && V3_NPM.code.length > 0 && V3_SWAP_ROUTER02.code.length > 0
-            && WETH.code.length > 0;
+        return V4_PM.code.length > 0 && TOKEN.code.length > 0 && V2_PAIR.code.length > 0 && V2_ROUTER.code.length > 0
+            && V3_NPM.code.length > 0 && V3_SWAP_ROUTER02.code.length > 0 && WETH.code.length > 0;
     }
 
     function _deployNutboxAndHelpers() internal {
@@ -186,15 +185,17 @@ contract RHImportWrapper is Test {
         communityFactory = new CommunityFactory(address(committee));
         calculator = new HourlyTickCalculator(address(communityFactory));
         scf = new SocialCurationFactory(address(communityFactory), claimSigner);
+        aiChannelFactory = new AIChannelPoolFactory(address(communityFactory), claimSigner);
 
         committee.adminAddContract(address(calculator));
         committee.adminAddContract(address(scf));
+        committee.adminAddContract(address(aiChannelFactory));
 
         ipshare = new IPShare(feeRecipient);
         ipshare.adminStartTrade();
 
         importHelper = new ImportHelper(
-            address(communityFactory), address(scf), address(committee), address(ipshare)
+            address(communityFactory), address(scf), address(aiChannelFactory), address(committee), address(ipshare)
         );
         wrapper = new TagAISwapWrapper(address(importHelper), address(ipshare), WETH, feeRecipient);
 
@@ -257,9 +258,7 @@ contract RHImportWrapper is Test {
         uint256 tokenBefore = IERC20(TOKEN).balanceOf(tester);
 
         vm.prank(tester);
-        wrapper.buyToken{value: ethIn}(
-            address(0), 0, buyPath, tester, block.timestamp + 1 hours, V2_ROUTER
-        );
+        wrapper.buyToken{value: ethIn}(address(0), 0, buyPath, tester, block.timestamp + 1 hours, V2_ROUTER);
 
         uint256 tokensBought = IERC20(TOKEN).balanceOf(tester) - tokenBefore;
         assertGt(tokensBought, 0, "v2 buy tokens");
@@ -311,9 +310,7 @@ contract RHImportWrapper is Test {
 
         vm.startPrank(tester);
         IERC20(TOKEN).approve(address(wrapper), sellAmt);
-        wrapper.sellTokenV3(
-            sellAmt, 0, TOKEN, tester, block.timestamp + 1 hours, address(0), V3_SWAP_ROUTER02, V3_FEE
-        );
+        wrapper.sellTokenV3(sellAmt, 0, TOKEN, tester, block.timestamp + 1 hours, address(0), V3_SWAP_ROUTER02, V3_FEE);
         vm.stopPrank();
 
         assertGt(tester.balance, ethBefore, "v3 sell eth");
@@ -345,13 +342,7 @@ contract RHImportWrapper is Test {
 
         vm.prank(tester);
         wrapper.buyTokenV3{value: ethIn}(
-            address(0),
-            0,
-            LIVE_V3_TOKEN,
-            tester,
-            block.timestamp + 1 hours,
-            V3_SWAP_ROUTER02,
-            LIVE_V3_FEE
+            address(0), 0, LIVE_V3_TOKEN, tester, block.timestamp + 1 hours, V3_SWAP_ROUTER02, LIVE_V3_FEE
         );
 
         uint256 tokensBought = IERC20(LIVE_V3_TOKEN).balanceOf(tester) - tokenBefore;
@@ -368,14 +359,7 @@ contract RHImportWrapper is Test {
         vm.startPrank(tester);
         IERC20(LIVE_V3_TOKEN).approve(address(wrapper), sellAmt);
         wrapper.sellTokenV3(
-            sellAmt,
-            0,
-            LIVE_V3_TOKEN,
-            tester,
-            block.timestamp + 1 hours,
-            address(0),
-            V3_SWAP_ROUTER02,
-            LIVE_V3_FEE
+            sellAmt, 0, LIVE_V3_TOKEN, tester, block.timestamp + 1 hours, address(0), V3_SWAP_ROUTER02, LIVE_V3_FEE
         );
         vm.stopPrank();
 
@@ -395,9 +379,7 @@ contract RHImportWrapper is Test {
         uint256 feeBefore = feeRecipient.balance;
 
         vm.prank(tester);
-        wrapper.buyTokenV4{value: ethIn}(
-            address(0), 0, poolKey, tester, IPoolManager(V4_PM), 0
-        );
+        wrapper.buyTokenV4{value: ethIn}(address(0), 0, poolKey, tester, IPoolManager(V4_PM), 0);
 
         uint256 tokensBought = IERC20(TOKEN).balanceOf(tester) - tokenBefore;
         assertGt(tokensBought, 0, "v4 buy tokens");
@@ -420,7 +402,7 @@ contract RHImportWrapper is Test {
 
     function _importFees(address who) internal returns (uint256) {
         uint256 ipFee = ipshare.ipshareCreated(who) ? 0 : ipshare.createFee();
-        return ipFee + committee.getCreateCommunityFee() + committee.getCommunitySettingsFee();
+        return ipFee + committee.getCreateCommunityFee() + (committee.getCommunitySettingsFee() * 2);
     }
 
     function _ensureImported(address who) internal {
@@ -437,9 +419,7 @@ contract RHImportWrapper is Test {
         view
         returns (bytes memory)
     {
-        bytes32 structHash = keccak256(
-            abi.encode(CLAIM_TYPEHASH, block.chainid, pool, orderId, amount, to, deadline)
-        );
+        bytes32 structHash = keccak256(abi.encode(CLAIM_TYPEHASH, block.chainid, pool, orderId, amount, to, deadline));
         bytes32 domainSeparator = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
@@ -462,9 +442,7 @@ contract RHImportWrapper is Test {
         uint160 sqrtPriceX96 = TickMath.getSqrtPriceAtTick(0);
 
         vm.startPrank(lp);
-        INonfungiblePositionManager(V3_NPM).createAndInitializePoolIfNecessary(
-            token0, token1, V3_FEE, sqrtPriceX96
-        );
+        INonfungiblePositionManager(V3_NPM).createAndInitializePoolIfNecessary(token0, token1, V3_FEE, sqrtPriceX96);
 
         uint256 ethLiq = 5 ether;
         uint256 tokenLiq = 5_000 * tokenUnit;
@@ -478,8 +456,9 @@ contract RHImportWrapper is Test {
         uint256 amount0 = token0 == WETH ? ethLiq : tokenLiq;
         uint256 amount1 = token1 == WETH ? ethLiq : tokenLiq;
 
-        INonfungiblePositionManager(V3_NPM).mint(
-            INonfungiblePositionManager.MintParams({
+        INonfungiblePositionManager(V3_NPM)
+            .mint(
+                INonfungiblePositionManager.MintParams({
                 token0: token0,
                 token1: token1,
                 fee: V3_FEE,
@@ -492,7 +471,7 @@ contract RHImportWrapper is Test {
                 recipient: lp,
                 deadline: block.timestamp + 1 hours
             })
-        );
+            );
         vm.stopPrank();
     }
 
@@ -521,10 +500,7 @@ contract RHImportWrapper is Test {
         v4LiquidityRouter.modifyLiquidity{value: 10 ether}(
             poolKey,
             IPoolManager.ModifyLiquidityParams({
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                liquidityDelta: int256(uint256(liquidity)),
-                salt: bytes32(0)
+                tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: int256(uint256(liquidity)), salt: bytes32(0)
             }),
             bytes("")
         );

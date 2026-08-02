@@ -16,6 +16,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract ImportHelper is IImportHelper {
     address private immutable communityFactory;
     address private immutable socialCurationFactory;
+    address private immutable aiChannelPoolFactory;
     address private immutable nutboxCommittee;
     address public immutable ipshare;
 
@@ -28,26 +29,26 @@ contract ImportHelper is IImportHelper {
     constructor(
         address communityFactory_,
         address socialCurationFactory_,
+        address aiChannelPoolFactory_,
         address nutboxCommittee_,
         address ipshare_
     ) {
         require(communityFactory_ != address(0), "zero communityFactory");
         require(socialCurationFactory_ != address(0), "zero socialCurationFactory");
+        require(aiChannelPoolFactory_ != address(0), "zero aiChannelPoolFactory");
         require(nutboxCommittee_ != address(0), "zero nutboxCommittee");
         require(ipshare_ != address(0), "zero ipshare");
         communityFactory = communityFactory_;
         socialCurationFactory = socialCurationFactory_;
+        aiChannelPoolFactory = aiChannelPoolFactory_;
         nutboxCommittee = nutboxCommittee_;
         ipshare = ipshare_;
     }
 
     event CommunityCreated(
-        address indexed token,
-        address indexed community,
-        address indexed pool,
-        address creator,
-        address calculator
+        address indexed token, address indexed community, address indexed pool, address creator, address calculator
     );
+    event AIChannelLinked(address indexed token, address indexed community, address indexed aiChannelPool);
 
     /// @notice Create a Nutbox Community and SocialCuration pool for an external token.
     /// @param token The ERC20 token address to import.
@@ -55,11 +56,11 @@ contract ImportHelper is IImportHelper {
     /// @param distributionPolicy The distribution policy data passed to the calculator.
     /// @return community The newly created Nutbox Community address.
     /// @return pool The newly created SocialCuration pool address.
-    function createCommunityAndPool(
-        address token,
-        address calculator,
-        bytes calldata distributionPolicy
-    ) external payable returns (address community, address pool) {
+    function createCommunityAndPool(address token, address calculator, bytes calldata distributionPolicy)
+        external
+        payable
+        returns (address community, address pool)
+    {
         address creator = msg.sender;
 
         if (importerOf[token] != address(0)) {
@@ -75,7 +76,7 @@ contract ImportHelper is IImportHelper {
 
         uint256 createFee = ICommittee(nutboxCommittee).getCreateCommunityFee();
         uint256 settingsFee = ICommittee(nutboxCommittee).getCommunitySettingsFee();
-        uint256 totalFixedFee = ipshareCreateFee + createFee + settingsFee;
+        uint256 totalFixedFee = ipshareCreateFee + createFee + (settingsFee * 2);
 
         if (msg.value < totalFixedFee) {
             revert InsufficientFee();
@@ -87,27 +88,38 @@ contract ImportHelper is IImportHelper {
 
         // 1. Create Nutbox Community (ImportHelper becomes owner)
         community = ICommunityFactory(communityFactory).createCommunity{value: createFee}(
-            false,              // isMintable = false (external token, not mintable)
-            token,              // communityToken = the imported token
-            address(0),         // communityTokenFactory = not needed
-            bytes(""),          // tokenMeta
-            calculator,         // rewardCalculator
-            distributionPolicy  // distributionPolicy
+            false, // isMintable = false (external token, not mintable)
+            token, // communityToken = the imported token
+            address(0), // communityTokenFactory = not needed
+            bytes(""), // tokenMeta
+            calculator, // rewardCalculator
+            distributionPolicy // distributionPolicy
         );
 
         // 2. Set devFund to user address (requires Community concrete call)
         Community(community).adminSetDev(creator);
 
-        // 3. Create SocialCuration pool (100% reward allocation)
+        // 3. Create SocialCuration first, then split rewards 50/50 with AI Channel.
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10000;
         ICommunity(community).adminAddPool{value: settingsFee}(
-            "Social Curation",
-            ratios,
-            socialCurationFactory,
-            bytes("")
+            "Social Curation", ratios, socialCurationFactory, bytes("")
         );
         pool = ICommunity(community).activedPools(0);
+
+        ratios = new uint16[](2);
+        ratios[0] = 5000;
+        ratios[1] = 5000;
+        ICommunity(community).adminAddPool{value: settingsFee}(
+            "TagAgent AI Channel",
+            ratios,
+            aiChannelPoolFactory,
+            abi.encode(
+                keccak256(abi.encode(block.chainid, community, "TAGAI_AI_CHANNEL_V1")),
+                keccak256("TAGAI_AI_CHANNEL_POB_V1_REPLY_3VP_WINDOW_3D")
+            )
+        );
+        emit AIChannelLinked(token, community, ICommunity(community).activedPools(1));
 
         // 4. Transfer ownership to user
         Ownable(community).transferOwnership(creator);

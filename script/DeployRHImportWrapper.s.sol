@@ -43,6 +43,7 @@ contract DeployRHImportWrapperScript is Script {
 
         address communityFactory = vm.envOr("RH_COMMUNITY_FACTORY", TN_COMMUNITY_FACTORY);
         address scf = vm.envOr("RH_SCF", TN_SCF);
+        address aiChannelFactory = vm.envAddress("RH_AI_CHANNEL_FACTORY");
         address committee = vm.envOr("RH_COMMITTEE", TN_COMMITTEE);
         address ipshare = vm.envOr("RH_IPSHARE", TN_IPSHARE);
         address weth = vm.envOr("RH_WETH", _defaultWeth());
@@ -53,6 +54,7 @@ contract DeployRHImportWrapperScript is Script {
         console.log("Deployer:", deployer);
         console.log("CommunityFactory:", communityFactory);
         console.log("SCF:", scf);
+        console.log("AIChannelPoolFactory:", aiChannelFactory);
         console.log("Committee:", committee);
         console.log("IPShare:", ipshare);
         console.log("WETH:", weth);
@@ -60,13 +62,14 @@ contract DeployRHImportWrapperScript is Script {
 
         require(communityFactory.code.length > 0, "CommunityFactory missing");
         require(scf.code.length > 0, "SCF missing");
+        require(aiChannelFactory.code.length > 0, "AIChannelPoolFactory missing");
         require(committee.code.length > 0, "Committee missing");
         require(ipshare.code.length > 0, "IPShare missing");
         require(weth.code.length > 0, "WETH missing");
 
         vm.startBroadcast(pk);
 
-        ImportHelper importHelper = new ImportHelper(communityFactory, scf, committee, ipshare);
+        ImportHelper importHelper = new ImportHelper(communityFactory, scf, aiChannelFactory, committee, ipshare);
         console.log("ImportHelper:", address(importHelper));
 
         TagAISwapWrapper wrapper = new TagAISwapWrapper(address(importHelper), ipshare, weth, feeAddress);
@@ -94,19 +97,33 @@ contract DeployRHImportWrapperScript is Script {
                 "{\n",
                 '  "chainId": 46630,\n',
                 '  "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",\n',
-                '  "Committee": "', vm.toString(TN_COMMITTEE), '",\n',
-                '  "CommunityFactory": "', vm.toString(TN_COMMUNITY_FACTORY), '",\n',
+                '  "Committee": "',
+                vm.toString(TN_COMMITTEE),
+                '",\n',
+                '  "CommunityFactory": "',
+                vm.toString(TN_COMMUNITY_FACTORY),
+                '",\n',
                 '  "HourlyTickCalculator": "0xf5D8d9402A4603bD67400500E62880eee91cF12C",\n',
-                '  "SocialCurationFactory": "', vm.toString(TN_SCF), '",\n',
+                '  "SocialCurationFactory": "',
+                vm.toString(TN_SCF),
+                '",\n',
                 '  "DFXStarScoreStakingFactory": "0xddbAba530728b5B8939d7fdDC334432490916e90",\n',
-                '  "IPShare": "', vm.toString(TN_IPSHARE), '",\n',
+                '  "IPShare": "',
+                vm.toString(TN_IPSHARE),
+                '",\n',
                 '  "PoolManager": "0x552815eF68E6eb418A3d65D0AA1043d93204F612",\n',
                 '  "Pump": "0x8c701E56A178A9cEd02D731e057Af6E709A66A9e",\n',
                 '  "TokenImplementation": "0x5Aa71794E2Fe52a0c554f5da7249Cc55B39B2b93",\n',
                 '  "TagAISwapHook": "0x644dD54B13Bdf38AFF947cA2a46EE4b9144E60cC",\n',
-                '  "WETH": "', vm.toString(weth), '",\n',
-                '  "ImportHelper": "', vm.toString(importHelper), '",\n',
-                '  "TagAISwapWrapper": "', vm.toString(wrapper), '"\n',
+                '  "WETH": "',
+                vm.toString(weth),
+                '",\n',
+                '  "ImportHelper": "',
+                vm.toString(importHelper),
+                '",\n',
+                '  "TagAISwapWrapper": "',
+                vm.toString(wrapper),
+                '"\n',
                 "}\n"
             );
             vm.writeFile(path, json);

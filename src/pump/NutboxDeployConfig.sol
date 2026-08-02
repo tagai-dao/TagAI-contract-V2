@@ -6,12 +6,13 @@ struct NutboxDeployConfig {
     address communityFactory;
     address calculator;
     address socialCurationFactory;
+    address aiChannelPoolFactory;
     address committee;
     address poolManager;
 }
 
 library NutboxDeployConfigLib {
     function empty() internal pure returns (NutboxDeployConfig memory) {
-        return NutboxDeployConfig(address(0), address(0), address(0), address(0), address(0));
+        return NutboxDeployConfig(address(0), address(0), address(0), address(0), address(0), address(0));
     }
 }

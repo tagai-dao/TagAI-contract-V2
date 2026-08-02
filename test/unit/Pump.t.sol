@@ -180,7 +180,7 @@ contract ContractCaller {
 contract PumpWithFeesTest is V4PumpTestBase {
     uint256 constant CREATE_COMMUNITY_FEE = 0.01 ether;
     uint256 constant SETTINGS_FEE = 0.005 ether;
-    uint256 constant NUTBOX_FEES = CREATE_COMMUNITY_FEE + SETTINGS_FEE;
+    uint256 constant NUTBOX_FEES = CREATE_COMMUNITY_FEE + (SETTINGS_FEE * 2);
     uint256 constant PUMP_CREATE_FEE = 0.005 ether;
 
     function _nutboxCreateCommunityFee() internal pure override returns (uint256) {

@@ -20,6 +20,7 @@ interface IPump {
 
     event NewToken(string tick, address indexed token, address indexed creator);
     event NutboxLinked(address indexed token, address indexed community, address indexed socialPool);
+    event AIChannelLinked(address indexed token, address indexed community, address indexed aiChannelPool);
     event NutboxAllocationParked(address indexed token, address indexed hook, uint256 amount);
     event IPShareChanged(address indexed oldIPShare, address indexed newIPShare);
     event CreateFeeChanged(uint256 indexed oldFee, uint256 indexed newFee);

@@ -10,6 +10,7 @@ import {MintableERC20Factory} from "../src/nutbox/community-token/MintableERC20F
 import {ERC20StakingFactory} from "../src/nutbox/dapps/erc20-staking/ERC20StakingFactory.sol";
 import {ERC20LockingFactory} from "../src/nutbox/dapps/erc20-locking/ERC20LockingFactory.sol";
 import {NFTMiningPoolFactory} from "../src/nutbox/dapps/nft-mining/NFTMiningPoolFactory.sol";
+import {AIChannelPoolFactory} from "../src/nutbox/dapps/ai-channel/AIChannelPoolFactory.sol";
 import {IPShare} from "../src/pump/IPShare.sol";
 import {Pump} from "../src/pump/Pump.sol";
 import {NutboxDeployConfig} from "../src/pump/NutboxDeployConfig.sol";
@@ -39,8 +40,7 @@ interface ICommunityFactoryTemplate {
  * Optional: RH_POOL_MANAGER, RH_WETH (testnet default known WETH9)
  */
 contract DeployRHScript is Script {
-    uint160 internal constant HOOK_FLAGS =
-        uint160((1 << 13) | (1 << 7) | (1 << 6) | (1 << 3) | (1 << 2));
+    uint160 internal constant HOOK_FLAGS = uint160((1 << 13) | (1 << 7) | (1 << 6) | (1 << 3) | (1 << 2));
 
     uint256 internal constant RH_MAINNET_CHAIN_ID = 4663;
     uint256 internal constant RH_TESTNET_CHAIN_ID = 46630;
@@ -61,6 +61,8 @@ contract DeployRHScript is Script {
         address mintableFactory;
         address scf;
         address socialCurationTemplate;
+        address aiChannelFactory;
+        address aiChannelTemplate;
         address stakingFactory;
         address stakingTemplate;
         address lockingFactory;
@@ -126,6 +128,9 @@ contract DeployRHScript is Script {
         a.scf = _deploySocialCurationFactory(a.communityFactory, deployer);
         console.log("    SocialCurationFactory:", a.scf);
 
+        a.aiChannelFactory = address(new AIChannelPoolFactory(a.communityFactory, deployer));
+        console.log("    AIChannelPoolFactory:", a.aiChannelFactory);
+
         a.stakingFactory = address(new ERC20StakingFactory(a.communityFactory));
         console.log("    ERC20StakingFactory:", a.stakingFactory);
 
@@ -138,11 +143,13 @@ contract DeployRHScript is Script {
         // 读取工厂构造时部署的 EIP-1167 模板地址
         a.communityTemplate = ICommunityFactoryTemplate(a.communityFactory).communityTemplate();
         a.socialCurationTemplate = IPoolTemplate(a.scf).poolTemplate();
+        a.aiChannelTemplate = IPoolTemplate(a.aiChannelFactory).poolTemplate();
         a.stakingTemplate = IPoolTemplate(a.stakingFactory).poolTemplate();
         a.lockingTemplate = IPoolTemplate(a.lockingFactory).poolTemplate();
         a.nftMiningTemplate = IPoolTemplate(a.nftMiningFactory).poolTemplate();
         console.log("    CommunityTemplate:", a.communityTemplate);
         console.log("    SocialCurationTemplate:", a.socialCurationTemplate);
+        console.log("    AIChannelPoolTemplate:", a.aiChannelTemplate);
         console.log("    ERC20StakingTemplate:", a.stakingTemplate);
         console.log("    ERC20LockingTemplate:", a.lockingTemplate);
         console.log("    NFTMiningPoolTemplate:", a.nftMiningTemplate);
@@ -151,6 +158,7 @@ contract DeployRHScript is Script {
         committee.adminAddContract(a.linearTime);
         committee.adminAddContract(a.mintableFactory);
         committee.adminAddContract(a.scf);
+        committee.adminAddContract(a.aiChannelFactory);
         committee.adminAddContract(a.stakingFactory);
         committee.adminAddContract(a.lockingFactory);
         committee.adminAddContract(a.nftMiningFactory);
@@ -168,6 +176,7 @@ contract DeployRHScript is Script {
             communityFactory: a.communityFactory,
             calculator: a.hourlyTick,
             socialCurationFactory: a.scf,
+            aiChannelPoolFactory: a.aiChannelFactory,
             committee: a.committee,
             poolManager: a.poolManager
         });
@@ -183,7 +192,8 @@ contract DeployRHScript is Script {
         pump.adminSetHookAddress(a.hook);
         console.log("(5) Pump.hookAddress set");
 
-        a.importHelper = address(new ImportHelper(a.communityFactory, a.scf, a.committee, a.ipshare));
+        a.importHelper =
+            address(new ImportHelper(a.communityFactory, a.scf, a.aiChannelFactory, a.committee, a.ipshare));
         console.log("(6) ImportHelper:", a.importHelper);
 
         a.wrapper = address(new TagAISwapWrapper(a.importHelper, a.ipshare, a.weth, deployer));
@@ -195,6 +205,7 @@ contract DeployRHScript is Script {
         _assertWhitelisted(a.committee, a.linearTime, "LinearTime");
         _assertWhitelisted(a.committee, a.mintableFactory, "MintableERC20Factory");
         _assertWhitelisted(a.committee, a.scf, "SocialCurationFactory");
+        _assertWhitelisted(a.committee, a.aiChannelFactory, "AIChannelPoolFactory");
         _assertWhitelisted(a.committee, a.stakingFactory, "ERC20StakingFactory");
         _assertWhitelisted(a.committee, a.lockingFactory, "ERC20LockingFactory");
         _assertWhitelisted(a.committee, a.nftMiningFactory, "NFTMiningPoolFactory");
@@ -222,27 +233,18 @@ contract DeployRHScript is Script {
         revert("unsupported chain: use FOUNDRY_PROFILE=rh_mainnet|rh_testnet");
     }
 
-    function _deployHook(IPoolManager poolManager, address pumpAddr)
-        internal
-        returns (TagAISwapHook deployed)
-    {
+    function _deployHook(IPoolManager poolManager, address pumpAddr) internal returns (TagAISwapHook deployed) {
         bytes memory constructorArgs = abi.encode(poolManager, pumpAddr);
-        (address predicted, bytes32 salt) = HookMiner.find(
-            CREATE2_DEPLOYER,
-            HOOK_FLAGS,
-            type(TagAISwapHook).creationCode,
-            constructorArgs
-        );
+        (address predicted, bytes32 salt) =
+            HookMiner.find(CREATE2_DEPLOYER, HOOK_FLAGS, type(TagAISwapHook).creationCode, constructorArgs);
         deployed = new TagAISwapHook{salt: salt}(poolManager, pumpAddr);
         require(address(deployed) == predicted, "CREATE2 hook address mismatch");
         require(uint160(address(deployed)) & ((1 << 14) - 1) == HOOK_FLAGS, "invalid hook flags");
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address deployed;
         assembly {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
@@ -251,13 +253,9 @@ contract DeployRHScript is Script {
         return deployed;
     }
 
-    function _deploySocialCurationFactory(address _communityFactory, address _claimSigner)
-        internal
-        returns (address)
-    {
+    function _deploySocialCurationFactory(address _communityFactory, address _claimSigner) internal returns (address) {
         bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_communityFactory, _claimSigner)
+            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_communityFactory, _claimSigner)
         );
         address deployed;
         assembly {
@@ -282,6 +280,8 @@ contract DeployRHScript is Script {
         json = string.concat(json, '  "MintableERC20Factory": "', vm.toString(a.mintableFactory), '",\n');
         json = string.concat(json, '  "SocialCurationFactory": "', vm.toString(a.scf), '",\n');
         json = string.concat(json, '  "SocialCurationTemplate": "', vm.toString(a.socialCurationTemplate), '",\n');
+        json = string.concat(json, '  "AIChannelPoolFactory": "', vm.toString(a.aiChannelFactory), '",\n');
+        json = string.concat(json, '  "AIChannelPoolTemplate": "', vm.toString(a.aiChannelTemplate), '",\n');
         json = string.concat(json, '  "ERC20StakingFactory": "', vm.toString(a.stakingFactory), '",\n');
         json = string.concat(json, '  "ERC20StakingTemplate": "', vm.toString(a.stakingTemplate), '",\n');
         json = string.concat(json, '  "ERC20LockingFactory": "', vm.toString(a.lockingFactory), '",\n');

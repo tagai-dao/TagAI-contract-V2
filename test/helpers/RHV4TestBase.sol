@@ -13,6 +13,7 @@ import {Committee} from "../../src/nutbox/Committee.sol";
 import {ICommittee} from "../../src/interfaces/ICommittee.sol";
 import {IIPShare} from "../../src/interfaces/IIPShare.sol";
 import {IPShare} from "../../src/pump/IPShare.sol";
+import {AIChannelPoolFactory} from "../../src/nutbox/dapps/ai-channel/AIChannelPoolFactory.sol";
 import {HookMiner} from "../../src/utils/HookMiner.sol";
 
 import {PoolManager} from "v4-core/src/PoolManager.sol";
@@ -33,8 +34,7 @@ abstract contract RHV4TestBase is Test {
     using StateLibrary for IPoolManager;
 
     // TagAISwapHook permissions: beforeInitialize, before/afterSwap, swap return deltas
-    uint160 internal constant HOOK_FLAGS =
-        uint160((1 << 13) | (1 << 7) | (1 << 6) | (1 << 3) | (1 << 2));
+    uint160 internal constant HOOK_FLAGS = uint160((1 << 13) | (1 << 7) | (1 << 6) | (1 << 3) | (1 << 2));
 
     uint256 internal constant NUTBOX_ALLOCATION = 150_000_000 ether;
     uint256 internal constant BONDING_CURVE_TOTAL = 650_000_000 ether;
@@ -55,6 +55,7 @@ abstract contract RHV4TestBase is Test {
     Committee internal committee;
     address internal communityFactory;
     address internal scf;
+    address internal aiChannelFactory;
     IPShare internal ipshare;
 
     address internal creator;
@@ -103,9 +104,11 @@ abstract contract RHV4TestBase is Test {
         communityFactory = _deployCommunityFactory(address(committee));
         calculator = new HourlyTickCalculator(communityFactory);
         scf = _deploySocialCurationFactory(communityFactory, makeAddr("claimSigner"));
+        aiChannelFactory = address(new AIChannelPoolFactory(communityFactory, makeAddr("aiClaimSigner")));
 
         committee.adminAddContract(address(calculator));
         committee.adminAddContract(scf);
+        committee.adminAddContract(aiChannelFactory);
     }
 
     function _nutboxCreateCommunityFee() internal pure virtual returns (uint256) {
@@ -125,6 +128,7 @@ abstract contract RHV4TestBase is Test {
                 communityFactory: communityFactory,
                 calculator: address(calculator),
                 socialCurationFactory: scf,
+                aiChannelPoolFactory: aiChannelFactory,
                 committee: address(committee),
                 poolManager: address(manager)
             })
@@ -135,17 +139,13 @@ abstract contract RHV4TestBase is Test {
 
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        pump.adminSetNutbox(communityFactory, address(calculator), scf, aiChannelFactory, address(committee));
     }
 
     function _deployHookWithValidFlags() internal returns (TagAISwapHook deployed) {
         bytes memory constructorArgs = abi.encode(manager, address(pump));
-        (address predicted, bytes32 salt) = HookMiner.find(
-            address(this),
-            HOOK_FLAGS,
-            type(TagAISwapHook).creationCode,
-            constructorArgs
-        );
+        (address predicted, bytes32 salt) =
+            HookMiner.find(address(this), HOOK_FLAGS, type(TagAISwapHook).creationCode, constructorArgs);
 
         deployed = new TagAISwapHook{salt: salt}(manager, address(pump));
         assertEq(address(deployed), predicted, "CREATE2 hook address mismatch");
@@ -153,10 +153,8 @@ abstract contract RHV4TestBase is Test {
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address deployed;
         assembly {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
@@ -165,13 +163,9 @@ abstract contract RHV4TestBase is Test {
         return deployed;
     }
 
-    function _deploySocialCurationFactory(address _communityFactory, address _claimSigner)
-        internal
-        returns (address)
-    {
+    function _deploySocialCurationFactory(address _communityFactory, address _claimSigner) internal returns (address) {
         bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_communityFactory, _claimSigner)
+            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_communityFactory, _claimSigner)
         );
         address deployed;
         assembly {
@@ -211,8 +205,10 @@ abstract contract RHV4TestBase is Test {
             if (i % 5 == 0) ethIn = 50 ether;
             if (actor.balance < ethIn + 1 ether) vm.deal(actor, ethIn + 10_000 ether);
 
-            try token.buyToken{value: ethIn}(0, creator, 8000) {} catch {
-                try token.buyToken{value: ethIn * 2}(0, creator, 9000) {} catch {
+            try token.buyToken{value: ethIn}(0, creator, 8000) {}
+            catch {
+                try token.buyToken{value: ethIn * 2}(0, creator, 9000) {}
+                catch {
                     break;
                 }
             }

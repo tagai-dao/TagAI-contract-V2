@@ -29,6 +29,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     address public nutboxCommunityFactory = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
     address public hourlyTickCalculator; // HourlyTickCalculator (replaces linearTimeCalculator)
     address public socialCurationFactory = 0xc4674D3fBbD201Ea401a8B7e7285F956178593D8;
+    address public aiChannelPoolFactory;
     address public nutboxCommittee = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
 
     // Uniswap v4 PoolManager (Robinhood testnet PM552; override before deploy)
@@ -58,6 +59,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         if (cfg.communityFactory != address(0)) nutboxCommunityFactory = cfg.communityFactory;
         if (cfg.calculator != address(0)) hourlyTickCalculator = cfg.calculator;
         if (cfg.socialCurationFactory != address(0)) socialCurationFactory = cfg.socialCurationFactory;
+        if (cfg.aiChannelPoolFactory != address(0)) aiChannelPoolFactory = cfg.aiChannelPoolFactory;
         if (cfg.committee != address(0)) nutboxCommittee = cfg.committee;
         if (cfg.poolManager != address(0)) poolManager = cfg.poolManager;
     }
@@ -74,16 +76,18 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         hookAddress = _hookAddress;
     }
 
-    /// @notice Wire Nutbox stack (CommunityFactory, HourlyTickCalculator, SocialCurationFactory, Committee).
+    /// @notice Wire Nutbox stack and the two social reward pool factories.
     function adminSetNutbox(
         address communityFactory_,
         address calculator_,
         address socialCurationFactory_,
+        address aiChannelPoolFactory_,
         address committee_
     ) external onlyOwner {
         nutboxCommunityFactory = communityFactory_;
         hourlyTickCalculator = calculator_;
         socialCurationFactory = socialCurationFactory_;
+        aiChannelPoolFactory = aiChannelPoolFactory_;
         nutboxCommittee = committee_;
     }
 
@@ -155,6 +159,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         if (
             nutboxCommunityFactory == address(0) || hourlyTickCalculator == address(0)
                 || socialCurationFactory == address(0) || nutboxCommittee == address(0)
+                || aiChannelPoolFactory == address(0)
         ) {
             revert NutboxNotConfigured();
         }
@@ -162,7 +167,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         if (createdTicks[tick]) {
             revert TickHasBeenCreated();
         }
-        
+
         // Predict the token address and check if it already exists
         // If the same user uses the same salt, they would get the same token address
         bytes32 cloneSalt = keccak256(abi.encode(msg.sender, salt));
@@ -170,7 +175,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         if (createdTokens[predictedAddress]) {
             revert SaltNotAvailable();
         }
-        
+
         createdTicks[tick] = true;
 
         address creator = msg.sender;
@@ -181,7 +186,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         }
 
         uint256 nutboxFees = ICommittee(nutboxCommittee).getCreateCommunityFee()
-            + ICommittee(nutboxCommittee).getCommunitySettingsFee();
+            + (ICommittee(nutboxCommittee).getCommunitySettingsFee() * 2);
         uint256 totalFixedFee = createFee + ipshareCreateFee + nutboxFees;
 
         if (msg.value < totalFixedFee) {
@@ -233,12 +238,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         uint256 settingsFee = ICommittee(nutboxCommittee).getCommunitySettingsFee();
 
         address community = ICommunityFactory(nutboxCommunityFactory).createCommunity{value: createCommFee}(
-            false,
-            instance,
-            address(0),
-            bytes(""),
-            hourlyTickCalculator,
-            policy
+            false, instance, address(0), bytes(""), hourlyTickCalculator, policy
         );
 
         // v2: DO NOT transfer NUTBOX_ALLOCATION to Community.
@@ -249,9 +249,17 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         );
 
         address pool = ICommunity(community).activedPools(0);
+        ICommunity(community).adminAddPool{value: settingsFee}(
+            "TagAgent AI Channel",
+            _dualPoolRatios(),
+            aiChannelPoolFactory,
+            abi.encode(_aiChannelKey(community), _aiChannelPolicyHash())
+        );
+        address aiChannelPool = ICommunity(community).activedPools(1);
         Token(payable(instance)).setNutboxAddresses(community, pool);
 
         emit NutboxLinked(instance, community, pool);
+        emit AIChannelLinked(instance, community, aiChannelPool);
 
         // Transfer community ownership to creator (uses Ownable.transferOwnership)
         (bool txOk,) = community.call(abi.encodeWithSignature("transferOwnership(address)", creator));
@@ -265,6 +273,20 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     function _singlePoolRatios() private pure returns (uint16[] memory ratios) {
         ratios = new uint16[](1);
         ratios[0] = 10_000;
+    }
+
+    function _dualPoolRatios() private pure returns (uint16[] memory ratios) {
+        ratios = new uint16[](2);
+        ratios[0] = 5_000;
+        ratios[1] = 5_000;
+    }
+
+    function _aiChannelKey(address community) private view returns (bytes32) {
+        return keccak256(abi.encode(block.chainid, community, "TAGAI_AI_CHANNEL_V1"));
+    }
+
+    function _aiChannelPolicyHash() private pure returns (bytes32) {
+        return keccak256("TAGAI_AI_CHANNEL_POB_V1_REPLY_3VP_WINDOW_3D");
     }
 
     /**
