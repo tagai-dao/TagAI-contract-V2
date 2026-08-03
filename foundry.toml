@@ -11,12 +11,18 @@ eth_rpc_url = "http://localhost:8545"
 # Chain id (31337 for local anvil; change to 56 for BSC mainnet deployment)
 chain_id = 31337
 
-# Allow Deploy script to write deployments/<chainid>/addresses.json
-fs_permissions = [{ access = "read-write", path = "./deployments" }]
+# Allow deployment and preview scripts to write generated artifacts.
+fs_permissions = [
+    { access = "read-write", path = "./deployments" },
+    { access = "read-write", path = "./previews" },
+]
 
 # BSC mainnet fork tests:
 #   FOUNDRY_PROFILE=fork forge test --match-contract BSCForkTest --fork-url $BSC_RPC_URL -vvv
 [profile.fork]
+chain_id = 56
+
+[profile.bsc_mainnet]
 chain_id = 56
 
 [rpc_endpoints]
