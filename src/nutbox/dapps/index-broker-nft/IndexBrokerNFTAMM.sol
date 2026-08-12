@@ -16,6 +16,41 @@ interface IIndexBrokerNFTPlatformFee {
     function platformFeeReceiver() external view returns (address);
 }
 
+interface IIndexBrokerBasketRegistry {
+    function isBasket(address candidate) external view returns (bool);
+}
+
+interface IIndexBrokerBasketSwapRouter {
+    function settlementToken() external view returns (address);
+    function buyExactSettlement(
+        address basket,
+        uint256 settlementTokenIn,
+        uint256 minBasketOut,
+        bytes calldata hookData,
+        address recipient
+    ) external returns (uint256 basketOut);
+}
+
+interface IIndexBrokerPancakeV3Factory {
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool);
+}
+
+interface IIndexBrokerPancakeV3Router {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    function factory() external view returns (address);
+    function WETH9() external view returns (address);
+    function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+}
+
 /**
  * @title IndexBrokerNFTAMM
  * @notice Fixed-price inventory vault paired one-to-one with an NFT mining pool.
@@ -32,6 +67,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint16 public constant PLATFORM_FEE_BPS = 50;
+    uint16 public constant INDEX_PURCHASE_CALLER_BPS = 30;
 
     address public factory;
     address public collection;
@@ -42,6 +78,13 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     address public priceOracle;
     IIndexBrokerNFTPriceOracle.SourceType public priceSourceType;
     bytes public priceSourceData;
+    address public basketRegistry;
+    IIndexBrokerBasketSwapRouter public basketSwapRouter;
+    IIndexBrokerPancakeV3Router public indexV3Router;
+    address public indexWrappedNative;
+    address public indexSettlementToken;
+    uint24 public indexV3Fee;
+    address public indexToken;
 
     uint256 public inventoryCount;
     uint256 public oldestTokenId;
@@ -68,6 +111,14 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     event NativeFeeReceived(address indexed payer, uint256 amount);
     event NativeFeeRefunded(address indexed payer, uint256 amount);
     event PlatformFeePaid(address indexed payer, address indexed receiver, uint256 amount);
+    event IndexTokenPurchased(
+        address indexed caller,
+        address indexed indexToken,
+        uint256 nativeAmount,
+        uint256 callerReward,
+        uint256 settlementAmount,
+        uint256 indexAmount
+    );
 
     error InvalidAddress();
     error InvalidConfig();
@@ -77,6 +128,8 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     error EmptyInventory();
     error InsufficientReserve();
     error InvalidCommunityTokenPayment();
+    error NoNativeReserve();
+    error InvalidIndexPurchase();
 
     constructor() {
         _disableInitializers();
@@ -90,9 +143,18 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         uint16 specificFeeBps_,
         address priceOracle_,
         IIndexBrokerNFTPriceOracle.SourceType priceSourceType_,
-        bytes calldata priceSourceData_
+        bytes calldata priceSourceData_,
+        address basketRegistry_,
+        address basketSwapRouter_,
+        address indexV3Router_,
+        uint24 indexV3Fee_,
+        address indexToken_
     ) external initializer {
-        if (collection_.code.length == 0 || communityToken_.code.length == 0 || priceOracle_.code.length == 0) {
+        if (
+            collection_.code.length == 0 || communityToken_.code.length == 0 || priceOracle_.code.length == 0
+                || basketRegistry_.code.length == 0 || basketSwapRouter_.code.length == 0
+                || indexV3Router_.code.length == 0 || indexToken_.code.length == 0
+        ) {
             revert InvalidAddress();
         }
         if (tokensPerNFT_ == 0 || normalFeeBps_ > BPS_DENOMINATOR || specificFeeBps_ > BPS_DENOMINATOR) {
@@ -108,10 +170,30 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         priceOracle = priceOracle_;
         priceSourceType = priceSourceType_;
         priceSourceData = priceSourceData_;
+        basketRegistry = basketRegistry_;
+        indexToken = indexToken_;
 
         IIndexBrokerNFTPriceOracle oracle = IIndexBrokerNFTPriceOracle(priceOracle_);
         oracle.validateSource(communityToken_, priceSourceType_, priceSourceData_);
         oracle.quoteNative(communityToken_, tokensPerNFT_, priceSourceType_, priceSourceData_);
+        if (!IIndexBrokerBasketRegistry(basketRegistry_).isBasket(indexToken_)) revert InvalidConfig();
+
+        IIndexBrokerBasketSwapRouter router = IIndexBrokerBasketSwapRouter(basketSwapRouter_);
+        address settlement = router.settlementToken();
+        IIndexBrokerPancakeV3Router v3Router = IIndexBrokerPancakeV3Router(indexV3Router_);
+        address wrappedNative = v3Router.WETH9();
+        address v3Factory = v3Router.factory();
+        if (
+            settlement.code.length == 0 || wrappedNative.code.length == 0 || v3Factory.code.length == 0
+                || IIndexBrokerPancakeV3Factory(v3Factory).getPool(wrappedNative, settlement, indexV3Fee_).code.length
+                    == 0
+        ) revert InvalidConfig();
+
+        basketSwapRouter = router;
+        indexV3Router = v3Router;
+        indexWrappedNative = wrappedNative;
+        indexSettlementToken = settlement;
+        indexV3Fee = indexV3Fee_;
     }
 
     receive() external payable {
@@ -149,6 +231,50 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
 
     function platformFeeReceiver() public view returns (address) {
         return IIndexBrokerNFTPlatformFee(collection).platformFeeReceiver();
+    }
+
+    /**
+     * @notice Permissionlessly invests all accumulated native trading fees into the fixed index token.
+     * @dev The caller receives 0.3% of the native reserve as execution compensation. The purchased
+     *      index tokens remain in this AMM. Slippage and Basket hook data are supplied by the caller.
+     */
+    function buyIndexWithNativeReserve(uint256 minSettlementOut, uint256 minIndexOut, bytes calldata hookData)
+        external
+        nonReentrant
+        returns (uint256 callerReward, uint256 settlementOut, uint256 indexOut)
+    {
+        uint256 nativeReserve = address(this).balance;
+        if (nativeReserve == 0) revert NoNativeReserve();
+
+        callerReward = Math.mulDiv(nativeReserve, INDEX_PURCHASE_CALLER_BPS, BPS_DENOMINATOR);
+        uint256 nativeToInvest = nativeReserve - callerReward;
+        uint256 indexBalanceBefore = IERC20(indexToken).balanceOf(address(this));
+
+        IERC20 settlementToken = IERC20(indexSettlementToken);
+        uint256 settlementBalanceBefore = settlementToken.balanceOf(address(this));
+        settlementOut = indexV3Router.exactInputSingle{value: nativeToInvest}(
+            IIndexBrokerPancakeV3Router.ExactInputSingleParams({
+                tokenIn: indexWrappedNative,
+                tokenOut: indexSettlementToken,
+                fee: indexV3Fee,
+                recipient: address(this),
+                amountIn: nativeToInvest,
+                amountOutMinimum: minSettlementOut,
+                sqrtPriceLimitX96: 0
+            })
+        );
+        if (settlementOut == 0 || settlementToken.balanceOf(address(this)) - settlementBalanceBefore != settlementOut) {
+            revert InvalidIndexPurchase();
+        }
+        settlementToken.forceApprove(address(basketSwapRouter), settlementOut);
+        indexOut = basketSwapRouter.buyExactSettlement(indexToken, settlementOut, minIndexOut, hookData, address(this));
+        settlementToken.forceApprove(address(basketSwapRouter), 0);
+        if (indexOut == 0 || IERC20(indexToken).balanceOf(address(this)) - indexBalanceBefore != indexOut) {
+            revert InvalidIndexPurchase();
+        }
+        if (callerReward != 0) Address.sendValue(payable(msg.sender), callerReward);
+
+        emit IndexTokenPurchased(msg.sender, indexToken, nativeToInvest, callerReward, settlementOut, indexOut);
     }
 
     function sellNFT(uint256 tokenId) external payable nonReentrant {

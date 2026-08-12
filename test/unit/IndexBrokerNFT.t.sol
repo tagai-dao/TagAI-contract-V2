@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/Community.sol";
@@ -17,6 +18,76 @@ import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTRenderer.sol";
 contract IndexBrokerCommunityToken is ERC20 {
     constructor() ERC20("Community", "COM") {
         _mint(msg.sender, 10_000_000 ether);
+    }
+}
+
+contract IndexBrokerIndexTokenMock is ERC20 {
+    constructor(string memory symbol_) ERC20("Index Token", symbol_) {}
+
+    function mint(address recipient, uint256 amount) external {
+        _mint(recipient, amount);
+    }
+}
+
+contract IndexBrokerBasketRegistryMock {
+    mapping(address => bool) public isBasket;
+
+    function setIndexToken(address token, bool valid) external {
+        isBasket[token] = valid;
+    }
+}
+
+contract IndexBrokerIndexV3FactoryMock {
+    mapping(bytes32 => address) private pools;
+
+    function setPool(address tokenA, address tokenB, uint24 fee, address pool) external {
+        pools[keccak256(abi.encode(tokenA < tokenB ? tokenA : tokenB, tokenA < tokenB ? tokenB : tokenA, fee))] = pool;
+    }
+
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address) {
+        return pools[keccak256(abi.encode(tokenA < tokenB ? tokenA : tokenB, tokenA < tokenB ? tokenB : tokenA, fee))];
+    }
+}
+
+contract IndexBrokerIndexV3RouterMock {
+    address public immutable factory;
+    address public immutable WETH9;
+
+    constructor(address factory_, address wrappedNative_) {
+        factory = factory_;
+        WETH9 = wrappedNative_;
+    }
+
+    function exactInputSingle(IIndexBrokerPancakeV3Router.ExactInputSingleParams calldata params)
+        external
+        payable
+        returns (uint256 amountOut)
+    {
+        require(params.tokenIn == WETH9 && params.amountIn == msg.value, "unexpected input");
+        amountOut = msg.value * 2;
+        require(amountOut >= params.amountOutMinimum, "V3 slippage");
+        assert(IERC20(params.tokenOut).transfer(params.recipient, amountOut));
+    }
+}
+
+contract IndexBrokerBasketSwapRouterMock {
+    address public immutable settlementToken;
+
+    constructor(address settlementToken_) {
+        settlementToken = settlementToken_;
+    }
+
+    function buyExactSettlement(
+        address basket,
+        uint256 settlementTokenIn,
+        uint256 minBasketOut,
+        bytes calldata,
+        address recipient
+    ) external returns (uint256 basketOut) {
+        assert(IERC20(settlementToken).transferFrom(msg.sender, address(this), settlementTokenIn));
+        basketOut = settlementTokenIn * 3;
+        require(basketOut >= minBasketOut, "slippage");
+        IndexBrokerIndexTokenMock(basket).mint(recipient, basketOut);
     }
 }
 
@@ -64,6 +135,12 @@ contract IndexBrokerNFTTest is Test {
     IndexBrokerV2FactoryMock internal v2Factory;
     IndexBrokerV2PairMock internal v2Pair;
     IndexBrokerNFTPriceOracle internal priceOracle;
+    IndexBrokerBasketRegistryMock internal basketRegistry;
+    IndexBrokerIndexV3FactoryMock internal indexV3Factory;
+    IndexBrokerIndexV3RouterMock internal indexV3Router;
+    IndexBrokerBasketSwapRouterMock internal basketSwapRouter;
+    IndexBrokerCommunityToken internal indexSettlementToken;
+    IndexBrokerIndexTokenMock internal defaultIndexToken;
     uint256 internal activePoolCount;
 
     address internal fundsReceiver = makeAddr("fundsReceiver");
@@ -80,6 +157,7 @@ contract IndexBrokerNFTTest is Test {
     uint16 internal constant AMM_NORMAL_FEE_BPS = 1_000;
     uint16 internal constant AMM_SPECIFIC_FEE_BPS = 1_500;
     uint16 internal constant AMM_PLATFORM_FEE_BPS = 50;
+    uint24 internal constant INDEX_V3_FEE = 100;
     uint256 internal constant BASE_WEIGHT = 10_000;
     uint256 internal constant NFT_NATIVE_VALUE = 0.1 ether;
 
@@ -105,11 +183,25 @@ contract IndexBrokerNFTTest is Test {
         priceOracle = new IndexBrokerNFTPriceOracle(
             address(wrappedNative), v2Factories, new address[](0), new address[](0), new address[](0)
         );
+        basketRegistry = new IndexBrokerBasketRegistryMock();
+        indexSettlementToken = new IndexBrokerCommunityToken();
+        indexV3Factory = new IndexBrokerIndexV3FactoryMock();
+        indexV3Router = new IndexBrokerIndexV3RouterMock(address(indexV3Factory), address(wrappedNative));
+        indexV3Factory.setPool(address(wrappedNative), address(indexSettlementToken), INDEX_V3_FEE, address(v2Pair));
+        basketSwapRouter = new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken));
+        defaultIndexToken = new IndexBrokerIndexTokenMock("DEFAULT-INDEX");
+        basketRegistry.setIndexToken(address(defaultIndexToken), true);
+        assertTrue(indexSettlementToken.transfer(address(indexV3Router), 1_000_000 ether));
         poolFactory = new IndexBrokerNFTFactory(
             address(communityFactory),
             address(new IndexBrokerNFTRenderer()),
             address(new IndexBrokerNFTAMM()),
-            address(priceOracle)
+            address(priceOracle),
+            address(basketRegistry),
+            address(basketSwapRouter),
+            address(indexV3Router),
+            INDEX_V3_FEE,
+            address(defaultIndexToken)
         );
 
         committee.adminAddContract(address(calculator));
@@ -155,6 +247,13 @@ contract IndexBrokerNFTTest is Test {
         assertEq(amm.normalFeeBps(), AMM_NORMAL_FEE_BPS);
         assertEq(amm.specificFeeBps(), AMM_SPECIFIC_FEE_BPS);
         assertEq(amm.priceOracle(), address(priceOracle));
+        assertEq(amm.basketRegistry(), address(basketRegistry));
+        assertEq(address(amm.basketSwapRouter()), address(basketSwapRouter));
+        assertEq(address(amm.indexV3Router()), address(indexV3Router));
+        assertEq(amm.indexWrappedNative(), address(wrappedNative));
+        assertEq(amm.indexSettlementToken(), address(indexSettlementToken));
+        assertEq(amm.indexV3Fee(), INDEX_V3_FEE);
+        assertEq(amm.indexToken(), address(defaultIndexToken));
         assertEq(amm.platformFeeReceiver(), platformTreasury);
         assertEq(uint8(amm.priceSourceType()), uint8(IIndexBrokerNFTPriceOracle.SourceType.V2_PAIR));
         assertEq(amm.quoteNativeValue(), NFT_NATIVE_VALUE);
@@ -510,6 +609,77 @@ contract IndexBrokerNFTTest is Test {
         assertEq(platformTreasury.balance, oldTreasuryBefore);
     }
 
+    function test_AMMPublicCallerInvestsNativeReserveAndReceivesPointThreePercent() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        vm.prank(whitelistUser1);
+        pool.approve(address(amm), 1);
+        uint256 totalFee = amm.quoteNormalNativeFee();
+        vm.prank(whitelistUser1);
+        amm.sellNFT{value: totalFee}(1);
+
+        uint256 reserve = address(amm).balance;
+        uint256 expectedReward = reserve * amm.INDEX_PURCHASE_CALLER_BPS() / 10_000;
+        uint256 expectedInvestment = reserve - expectedReward;
+        address executor = makeAddr("indexExecutor");
+        uint256 executorBefore = executor.balance;
+
+        vm.prank(executor);
+        (uint256 callerReward, uint256 settlementOut, uint256 indexOut) =
+            amm.buyIndexWithNativeReserve(expectedInvestment * 2, expectedInvestment * 6, bytes("hook data"));
+
+        assertEq(callerReward, expectedReward);
+        assertEq(settlementOut, expectedInvestment * 2);
+        assertEq(indexOut, expectedInvestment * 6);
+        assertEq(executor.balance - executorBefore, expectedReward);
+        assertEq(defaultIndexToken.balanceOf(address(amm)), indexOut);
+        assertEq(address(amm).balance, 0);
+        assertEq(address(indexV3Router).balance, expectedInvestment);
+    }
+
+    function test_AMMIndexPurchaseSlippageRevertsCallerRewardAndReserveMovement() public {
+        uint256 reserve = 1 ether;
+        vm.deal(address(amm), reserve);
+        address executor = makeAddr("slippageExecutor");
+        uint256 executorBefore = executor.balance;
+        uint256 investment = reserve - (reserve * amm.INDEX_PURCHASE_CALLER_BPS() / 10_000);
+
+        vm.expectRevert(bytes("V3 slippage"));
+        vm.prank(executor);
+        amm.buyIndexWithNativeReserve(investment * 2 + 1, 0, bytes(""));
+
+        assertEq(executor.balance, executorBefore);
+        assertEq(address(amm).balance, reserve);
+        assertEq(defaultIndexToken.balanceOf(address(amm)), 0);
+    }
+
+    function test_AMMIndexTokenIsFixedWhileFactoryDefaultCanChange() public {
+        IndexBrokerIndexTokenMock newDefault = new IndexBrokerIndexTokenMock("NEW-DEFAULT");
+        basketRegistry.setIndexToken(address(newDefault), true);
+        poolFactory.setDefaultIndexToken(address(newDefault));
+
+        assertEq(amm.indexToken(), address(defaultIndexToken));
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        IndexBrokerNFT newDefaultPool = _addPool(NATIVE_PRICE, 3, 0, false, accounts, allowances);
+        assertEq(IndexBrokerNFTAMM(payable(newDefaultPool.ammVault())).indexToken(), address(newDefault));
+
+        IndexBrokerNFT customPool =
+            _addPoolWithIndex(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(defaultIndexToken));
+        assertEq(IndexBrokerNFTAMM(payable(customPool.ammVault())).indexToken(), address(defaultIndexToken));
+    }
+
+    function test_FactoryRejectsUnregisteredCustomIndexToken() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        IndexBrokerIndexTokenMock fakeIndex = new IndexBrokerIndexTokenMock("FAKE");
+        vm.expectRevert(bytes("Invalid index token"));
+        this.addPoolWithIndexForRevertTest(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(fakeIndex));
+    }
+
     function _addPool(
         uint256 nativePrice,
         uint256 supply,
@@ -517,6 +687,18 @@ contract IndexBrokerNFTTest is Test {
         bool lockSlots,
         address[] memory accounts,
         uint256[] memory allowances
+    ) internal returns (IndexBrokerNFT createdPool) {
+        return _addPoolWithIndex(nativePrice, supply, referralRate, lockSlots, accounts, allowances, address(0));
+    }
+
+    function _addPoolWithIndex(
+        uint256 nativePrice,
+        uint256 supply,
+        uint16 referralRate,
+        bool lockSlots,
+        address[] memory accounts,
+        uint256[] memory allowances,
+        address indexToken
     ) internal returns (IndexBrokerNFT createdPool) {
         uint256[] memory thresholds = new uint256[](3);
         thresholds[0] = 0;
@@ -531,7 +713,8 @@ contract IndexBrokerNFTTest is Test {
             normalFeeBps: AMM_NORMAL_FEE_BPS,
             specificFeeBps: AMM_SPECIFIC_FEE_BPS,
             priceSourceType: IIndexBrokerNFTPriceOracle.SourceType.V2_PAIR,
-            priceSourceData: abi.encode(address(v2Factory), address(v2Pair))
+            priceSourceData: abi.encode(address(v2Factory), address(v2Pair)),
+            indexToken: indexToken
         });
 
         IndexBrokerNFTFactory.PoolConfig memory config = IndexBrokerNFTFactory.PoolConfig({
@@ -575,6 +758,19 @@ contract IndexBrokerNFTTest is Test {
     ) external returns (IndexBrokerNFT) {
         require(msg.sender == address(this), "test only");
         return _addPool(nativePrice, supply, referralRate, lockSlots, accounts, allowances);
+    }
+
+    function addPoolWithIndexForRevertTest(
+        uint256 nativePrice,
+        uint256 supply,
+        uint16 referralRate,
+        bool lockSlots,
+        address[] memory accounts,
+        uint256[] memory allowances,
+        address indexToken
+    ) external returns (IndexBrokerNFT) {
+        require(msg.sender == address(this), "test only");
+        return _addPoolWithIndex(nativePrice, supply, referralRate, lockSlots, accounts, allowances, indexToken);
     }
 
     function _fundAndApprove(address user, IndexBrokerNFT targetPool) internal {

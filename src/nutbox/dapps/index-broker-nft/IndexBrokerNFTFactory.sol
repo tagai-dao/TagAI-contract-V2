@@ -14,6 +14,10 @@ interface IOwnableCommunity {
     function owner() external view returns (address);
 }
 
+interface IIndexBrokerFactoryBasketRegistry {
+    function isBasket(address candidate) external view returns (bool);
+}
+
 /**
  * @title IndexBrokerNFTFactory
  * @notice Creates fixed-supply, community-token-funded NFT mining pools.
@@ -44,6 +48,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint16 specificFeeBps;
         IIndexBrokerNFTPriceOracle.SourceType priceSourceType;
         bytes priceSourceData;
+        address indexToken;
     }
 
     address public immutable communityFactory;
@@ -51,16 +56,23 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     address public immutable poolTemplate;
     address public immutable ammTemplate;
     address public immutable priceOracle;
+    address public immutable basketRegistry;
+    address public immutable basketSwapRouter;
+    address public immutable indexV3Router;
+    uint24 public immutable indexV3Fee;
+    address public defaultIndexToken;
     uint16 public platformFeeBps = DEFAULT_PLATFORM_FEE_BPS;
 
     event PlatformFeeBpsChanged(uint16 previousBps, uint16 newBps);
+    event DefaultIndexTokenChanged(address indexed previousToken, address indexed newToken);
     event IndexBrokerNFTAMMCreated(
         address indexed pool,
         address indexed ammVault,
         address priceOracle,
         IIndexBrokerNFTPriceOracle.SourceType priceSourceType,
         uint16 normalFeeBps,
-        uint16 specificFeeBps
+        uint16 specificFeeBps,
+        address indexToken
     );
     event IndexBrokerNFTCreated(
         address indexed pool,
@@ -79,17 +91,34 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint256 totalWhitelistAllocation
     );
 
-    constructor(address communityFactory_, address defaultRenderer_, address ammTemplate_, address priceOracle_) {
+    constructor(
+        address communityFactory_,
+        address defaultRenderer_,
+        address ammTemplate_,
+        address priceOracle_,
+        address basketRegistry_,
+        address basketSwapRouter_,
+        address indexV3Router_,
+        uint24 indexV3Fee_,
+        address defaultIndexToken_
+    ) {
         require(
             communityFactory_ != address(0) && defaultRenderer_.code.length > 0 && ammTemplate_.code.length > 0
-                && priceOracle_.code.length > 0,
+                && priceOracle_.code.length > 0 && basketRegistry_.code.length > 0 && basketSwapRouter_.code.length > 0
+                && indexV3Router_.code.length > 0,
             "Invalid address"
         );
+        require(IIndexBrokerFactoryBasketRegistry(basketRegistry_).isBasket(defaultIndexToken_), "Invalid index token");
         communityFactory = communityFactory_;
         defaultRenderer = defaultRenderer_;
         poolTemplate = address(new IndexBrokerNFT());
         ammTemplate = ammTemplate_;
         priceOracle = priceOracle_;
+        basketRegistry = basketRegistry_;
+        basketSwapRouter = basketSwapRouter_;
+        indexV3Router = indexV3Router_;
+        indexV3Fee = indexV3Fee_;
+        defaultIndexToken = defaultIndexToken_;
     }
 
     function setPlatformFeeBps(uint16 newBps) external onlyOwner {
@@ -97,6 +126,13 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint16 previousBps = platformFeeBps;
         platformFeeBps = newBps;
         emit PlatformFeeBpsChanged(previousBps, newBps);
+    }
+
+    function setDefaultIndexToken(address newToken) external onlyOwner {
+        require(IIndexBrokerFactoryBasketRegistry(basketRegistry).isBasket(newToken), "Invalid index token");
+        address previousToken = defaultIndexToken;
+        defaultIndexToken = newToken;
+        emit DefaultIndexTokenChanged(previousToken, newToken);
     }
 
     function createPool(address community, string memory name, bytes calldata meta)
@@ -109,6 +145,8 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
 
         PoolConfig memory config = abi.decode(meta, (PoolConfig));
         AMMConfig memory ammConfig = abi.decode(config.ammConfig, (AMMConfig));
+        address selectedIndexToken = ammConfig.indexToken == address(0) ? defaultIndexToken : ammConfig.indexToken;
+        require(IIndexBrokerFactoryBasketRegistry(basketRegistry).isBasket(selectedIndexToken), "Invalid index token");
         address admin = IOwnableCommunity(community).owner();
         address selectedRenderer = config.renderer == address(0) ? defaultRenderer : config.renderer;
 
@@ -116,10 +154,16 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address ammClone = Clones.clone(ammTemplate);
         IndexBrokerNFT pool = IndexBrokerNFT(payable(clone));
         _initializeNFT(pool, community, admin, selectedRenderer, ammClone, name, config);
-        _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, ammConfig);
+        _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, selectedIndexToken, ammConfig);
         _emitNFTCreated(pool, clone, community, admin, selectedRenderer, name, config);
         emit IndexBrokerNFTAMMCreated(
-            clone, ammClone, priceOracle, ammConfig.priceSourceType, ammConfig.normalFeeBps, ammConfig.specificFeeBps
+            clone,
+            ammClone,
+            priceOracle,
+            ammConfig.priceSourceType,
+            ammConfig.normalFeeBps,
+            ammConfig.specificFeeBps,
+            selectedIndexToken
         );
         return clone;
     }
@@ -158,6 +202,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address clone,
         address ammClone,
         uint256 communityTokenPrice,
+        address selectedIndexToken,
         AMMConfig memory config
     ) internal {
         IndexBrokerNFTAMM(payable(ammClone))
@@ -169,7 +214,12 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
                 config.specificFeeBps,
                 priceOracle,
                 config.priceSourceType,
-                config.priceSourceData
+                config.priceSourceData,
+                basketRegistry,
+                basketSwapRouter,
+                indexV3Router,
+                indexV3Fee,
+                selectedIndexToken
             );
     }
 
