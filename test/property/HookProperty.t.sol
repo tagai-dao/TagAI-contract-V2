@@ -23,8 +23,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /**
  * @title HookProperty
  * @notice Property-based tests for TagAISwapHook (P4, P6, P7).
- * P4 - Allocation Cap: cumulative inject + remaining == NUTBOX_ALLOCATION
- * P6 - Injection Condition: inject only when buy + remaining > 0 + inject output >= MIN
+ * P4 - Inventory Cap: inject never exceeds Hook ERC20 balance (listing + top-ups)
+ * P6 - Injection Condition: inject only when buy settle output >= MIN (capped by balance)
  * P7 - Asset Custody: Hook token balance only decreases via inject path
  */
 contract HookPropertyTest is Test {
@@ -189,27 +189,24 @@ contract HookPropertyTest is Test {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // P4 - Allocation Cap
+    // P4 - Inventory Cap (Hook balance)
     // ═══════════════════════════════════════════════════════════════════
 
-    /// Feature: tagai-v2-nutbox-integration, Property 4: Allocation Cap
-    /// Cumulative inject + remaining == NUTBOX_ALLOCATION at all times
+    /// Feature: tagai-v2-nutbox-integration, Property 4: Inventory Cap
+    /// Cumulative inject cannot exceed starting Hook balance without top-ups
     function testFuzz_P4_allocationCap_invariant(uint256 boughtAmount) public {
         boughtAmount = bound(boughtAmount, 0, 100_000_000_000 ether);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
+        uint256 balBefore = IERC20(address(token)).balanceOf(address(hook));
         _simulateBuy(boughtAmount);
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
+        uint256 balAfter = IERC20(address(token)).balanceOf(address(hook));
 
-        // Total injected so far + remaining must equal NUTBOX_ALLOCATION
-        uint256 totalInjected = NUTBOX_ALLOCATION - uint256(remainingAfter);
-        assertEq(totalInjected + uint256(remainingAfter), NUTBOX_ALLOCATION);
-
-        // remainingAfter <= remainingBefore (monotonic non-increasing on buys)
-        assertLe(uint256(remainingAfter), uint256(remainingBefore));
+        // Without external top-ups, balance is non-increasing and never exceeds start inventory.
+        assertLe(balAfter, balBefore);
+        assertLe(balAfter, NUTBOX_ALLOCATION);
     }
 
-    /// Multiple buys: cumulative injection should never exceed NUTBOX_ALLOCATION
+    /// Multiple buys: cumulative injection should never exceed Hook's starting inventory
     function testFuzz_P4_multipleBuys_neverExceedsCap(
         uint256 amount1,
         uint256 amount2,
@@ -219,15 +216,17 @@ contract HookPropertyTest is Test {
         amount2 = bound(amount2, 1, 50_000_000_000 ether);
         amount3 = bound(amount3, 1, 50_000_000_000 ether);
 
+        uint256 startBal = IERC20(address(token)).balanceOf(address(hook));
+
         _simulateBuy(amount1);
         _warpNextPeriod();
         _simulateBuy(amount2);
         _warpNextPeriod();
         _simulateBuy(amount3);
 
-        (, uint96 remaining,) = hook.tokenInfo(address(token));
-        uint256 totalInjected = NUTBOX_ALLOCATION - uint256(remaining);
-        assertLe(totalInjected, NUTBOX_ALLOCATION);
+        uint256 endBal = IERC20(address(token)).balanceOf(address(hook));
+        uint256 totalInjected = startBal - endBal;
+        assertLe(totalInjected, startBal);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -240,11 +239,11 @@ contract HookPropertyTest is Test {
         boughtAmount = bound(boughtAmount, 1, 1_000_000_000 ether);
 
         _simulateBuy(boughtAmount);
-        (, uint96 remainingAfterAccum,) = hook.tokenInfo(address(token));
+        uint256 balAfterAccum = IERC20(address(token)).balanceOf(address(hook));
 
         _warpNextPeriod();
 
-        (, uint96 remainingBeforeSettle,) = hook.tokenInfo(address(token));
+        uint256 balBeforeSettle = IERC20(address(token)).balanceOf(address(hook));
         uint256 expectedSettle = _expectedSettleInject(boughtAmount > MAX_PERIOD_BUY_VOLUME ? MAX_PERIOD_BUY_VOLUME : boughtAmount);
 
         if (isBuy) {
@@ -253,16 +252,16 @@ contract HookPropertyTest is Test {
             _simulateSell(1 ether);
         }
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
+        uint256 balAfter = IERC20(address(token)).balanceOf(address(hook));
 
-        if (isBuy && expectedSettle > 0 && remainingBeforeSettle > 0) {
-            assertEq(uint256(remainingAfterAccum), uint256(remainingBeforeSettle), "accum period unchanged");
+        if (isBuy && expectedSettle > 0 && balBeforeSettle > 0) {
+            assertEq(balAfterAccum, balBeforeSettle, "accum period unchanged");
             assertEq(
-                uint256(remainingBeforeSettle) - uint256(remainingAfter),
-                expectedSettle > uint256(remainingBeforeSettle) ? uint256(remainingBeforeSettle) : expectedSettle
+                balBeforeSettle - balAfter,
+                expectedSettle > balBeforeSettle ? balBeforeSettle : expectedSettle
             );
         } else {
-            assertEq(uint256(remainingAfter), uint256(remainingBeforeSettle));
+            assertEq(balAfter, balBeforeSettle);
         }
     }
 
@@ -270,11 +269,11 @@ contract HookPropertyTest is Test {
     function testFuzz_P6_sellNeverInjects(uint256 soldAmount) public {
         soldAmount = bound(soldAmount, 1, 1_000_000_000 ether);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
+        uint256 balBefore = IERC20(address(token)).balanceOf(address(hook));
         _simulateSell(soldAmount);
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
+        uint256 balAfter = IERC20(address(token)).balanceOf(address(hook));
 
-        assertEq(uint256(remainingAfter), uint256(remainingBefore));
+        assertEq(balAfter, balBefore);
     }
 
     /// Below-minimum period settlement never injects
@@ -283,13 +282,13 @@ contract HookPropertyTest is Test {
         if (maxVolume <= 1) return;
         periodVolume = bound(periodVolume, 1, maxVolume - 1);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
+        uint256 balBefore = IERC20(address(token)).balanceOf(address(hook));
         _simulateBuy(periodVolume);
         _warpNextPeriod();
         _simulateBuy(1 ether);
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
+        uint256 balAfter = IERC20(address(token)).balanceOf(address(hook));
 
-        assertEq(uint256(remainingAfter), uint256(remainingBefore));
+        assertEq(balAfter, balBefore);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -304,17 +303,15 @@ contract HookPropertyTest is Test {
         _simulateBuy(boughtAmount);
 
         uint256 hookBalBefore = IERC20(address(token)).balanceOf(address(hook));
-        (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
 
         _warpNextPeriod();
         _simulateBuy(1 ether);
 
         uint256 hookBalAfter = IERC20(address(token)).balanceOf(address(hook));
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
+        uint256 expected = _expectedSettleInject(boughtAmount > MAX_PERIOD_BUY_VOLUME ? MAX_PERIOD_BUY_VOLUME : boughtAmount);
+        uint256 expectedInject = expected > hookBalBefore ? hookBalBefore : expected;
 
-        uint256 balanceDecrease = hookBalBefore - hookBalAfter;
-        uint256 remainingDecrease = uint256(remainingBefore) - uint256(remainingAfter);
-        assertEq(balanceDecrease, remainingDecrease, "Balance decrease must match remaining decrease");
+        assertEq(hookBalBefore - hookBalAfter, expectedInject, "Balance decrease must match settle inject");
     }
 
     /// Sell does not change Hook's token balance

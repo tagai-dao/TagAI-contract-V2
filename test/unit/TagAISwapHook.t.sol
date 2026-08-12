@@ -186,14 +186,18 @@ contract TagAISwapHookTest is Test {
 
     function test_registerPool_succeededDuringListing() public {
         // The token was listed in setUp(), so registerPool was called
-        (address community, uint96 remaining, address calc) = hook.tokenInfo(address(token));
+        (address community, address calc) = hook.tokenInfo(address(token));
         assertEq(community, token.nutboxCommunity(), "Community should match");
-        assertEq(uint256(remaining), NUTBOX_ALLOCATION, "Remaining should be NUTBOX_ALLOCATION");
         assertEq(calc, address(calculator), "Calculator should match");
+        assertEq(IERC20(address(token)).balanceOf(address(hook)), NUTBOX_ALLOCATION, "Hook holds listing allocation");
     }
 
     function _warpNextPeriod() internal {
         vm.warp(block.timestamp + PERIOD_LENGTH);
+    }
+
+    function _hookBal() internal view returns (uint256) {
+        return IERC20(address(token)).balanceOf(address(hook));
     }
 
     function _expectedSettleInject(uint256 periodVolume) internal view returns (uint256) {
@@ -210,13 +214,12 @@ contract TagAISwapHookTest is Test {
     // ─── Injection logic via afterSwap ───
 
     function test_injection_samePeriod_noInjectUntilNextPeriodFirstBuy() public {
-        (, uint96 initialRemaining,) = hook.tokenInfo(address(token));
+        uint256 initialBal = _hookBal();
 
         _simulateBuy(20_000 ether);
         _simulateBuy(30_000 ether);
 
-        (, uint96 remainingSamePeriod,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remainingSamePeriod), uint256(initialRemaining), "same period should not inject");
+        assertEq(_hookBal(), initialBal, "same period should not inject");
 
         (uint32 periodIndex, uint256 periodBuy) = hook.periodState(address(token));
         assertEq(periodBuy, 50_000 ether);
@@ -225,38 +228,35 @@ contract TagAISwapHookTest is Test {
         _warpNextPeriod();
         _simulateBuy(1 ether);
 
-        (, uint96 remainingAfterSettle,) = hook.tokenInfo(address(token));
         uint256 expected = _expectedSettleInject(50_000 ether);
-        assertEq(uint256(initialRemaining) - uint256(remainingAfterSettle), expected);
+        assertEq(initialBal - _hookBal(), expected);
     }
 
     function test_injection_settleUsesDirectPeriodVolumeForTier() public {
         // 50K in period → T1 (< 93.2K) → ratio 5.3035%
         _simulateBuy(50_000 ether);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
+        uint256 balBefore = _hookBal();
         _warpNextPeriod();
         _simulateBuy(10_000 ether);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
         uint256 expected = 50_000 ether * TIER1_RATIO_PPM / RATIO_SCALE;
-        assertEq(uint256(remainingBefore) - uint256(remainingAfter), expected);
+        assertEq(balBefore - _hookBal(), expected);
     }
 
     function test_injection_settleSkipsWhenTotalInjectBelowMinimum() public {
-        (, uint96 initialRemaining,) = hook.tokenInfo(address(token));
+        uint256 initialBal = _hookBal();
 
         // 50 tokens × ~10.6% ≈ 5.3 < 16.8 minimum
         _simulateBuy(50 ether);
         _warpNextPeriod();
         _simulateBuy(1 ether);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remainingAfter), uint256(initialRemaining), "below-min period settlement skipped");
+        assertEq(_hookBal(), initialBal, "below-min period settlement skipped");
     }
 
     function test_injection_doesNotTriggerOnSell() public {
-        (, uint96 initialRemaining,) = hook.tokenInfo(address(token));
+        uint256 initialBal = _hookBal();
 
         PoolKey memory poolKey = _buildPoolKey();
         // zeroForOne=false means Token→ETH (sell)
@@ -270,19 +270,17 @@ contract TagAISwapHookTest is Test {
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, sellParams, delta, bytes(""));
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remainingAfter), uint256(initialRemaining), "Sell should not inject");
+        assertEq(_hookBal(), initialBal, "Sell should not inject");
     }
 
     function test_injection_periodBuyVolumeCapAt420M() public {
-        (, uint96 remainingStart,) = hook.tokenInfo(address(token));
+        uint256 balStart = _hookBal();
 
         _simulateBuy(419_000_000 ether);
         (, uint256 periodBuy) = hook.periodState(address(token));
         assertEq(periodBuy, 419_000_000 ether);
 
-        (, uint96 remainingMid,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remainingMid), uint256(remainingStart), "same period cap accumulation does not inject");
+        assertEq(_hookBal(), balStart, "same period cap accumulation does not inject");
 
         _simulateBuy(2_000_000 ether);
         (, periodBuy) = hook.periodState(address(token));
@@ -291,13 +289,12 @@ contract TagAISwapHookTest is Test {
         _warpNextPeriod();
         _simulateBuy(1 ether);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
         uint256 expected = _expectedSettleInject(MAX_PERIOD_BUY_VOLUME);
-        assertEq(uint256(remainingStart) - uint256(remainingAfter), expected);
+        assertEq(balStart - _hookBal(), expected);
     }
 
     function test_injection_hugeBuyLimitedByPeriodCap() public {
-        (, uint96 remainingBefore,) = hook.tokenInfo(address(token));
+        uint256 balBefore = _hookBal();
 
         PoolKey memory poolKey = _buildPoolKey();
         ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
@@ -313,16 +310,55 @@ contract TagAISwapHookTest is Test {
         (, uint256 periodBuy) = hook.periodState(address(token));
         assertEq(periodBuy, MAX_PERIOD_BUY_VOLUME);
 
-        (, uint96 remainingSamePeriod,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remainingSamePeriod), uint256(remainingBefore), "cap period does not inject until settle");
+        assertEq(_hookBal(), balBefore, "cap period does not inject until settle");
 
         _warpNextPeriod();
         _simulateBuy(1 ether);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(token));
         uint256 expectedInject = _expectedSettleInject(MAX_PERIOD_BUY_VOLUME);
-        assertEq(uint256(remainingBefore) - uint256(remainingAfter), expectedInject);
-        assertGt(uint256(remainingAfter), 0, "period cap prevents single swap from draining allocation");
+        assertEq(balBefore - _hookBal(), expectedInject);
+        assertGt(_hookBal(), 0, "period cap prevents single settle from draining full inventory");
+    }
+
+    /// @dev External top-ups increase Hook balance and continue to fund period settlements.
+    function test_injection_externalTopUp_continuesDistribution() public {
+        // Drain some inventory via a large qualifying period settle.
+        _simulateBuy(MAX_PERIOD_BUY_VOLUME);
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
+
+        uint256 balAfterFirst = _hookBal();
+        assertTrue(balAfterFirst < NUTBOX_ALLOCATION, "first settle consumed some inventory");
+
+        // Clear the leftover 1-ether accumulator from the settle-trigger buy (below MIN → no inject).
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
+        _warpNextPeriod();
+
+        // Top up from an external source (simulate continued funding).
+        uint256 topUp = 1_000_000 ether;
+        deal(address(token), address(hook), _hookBal() + topUp);
+
+        _simulateBuy(50_000 ether);
+        _warpNextPeriod();
+        uint256 balBeforeSecond = _hookBal();
+        _simulateBuy(1 ether);
+
+        uint256 expected = _expectedSettleInject(50_000 ether);
+        assertEq(balBeforeSecond - _hookBal(), expected, "top-up balance is distributable");
+    }
+
+    /// @dev Balance below MIN_INJECT_OUTPUT is not injected even when period settle would otherwise qualify.
+    function test_injection_skipsWhenBalanceBelowMinimum() public {
+        // Leave only dust on the Hook (< 16.8 tokens).
+        deal(address(token), address(hook), 10 ether);
+        assertEq(_hookBal(), 10 ether);
+
+        _simulateBuy(50_000 ether); // calculated inject >> 16.8, but balance is only 10
+        _warpNextPeriod();
+        _simulateBuy(1 ether);
+
+        assertEq(_hookBal(), 10 ether, "dust below MIN must stay on Hook");
     }
 
     function test_previewPeriodSettle_matchesSettlement() public view {

@@ -25,8 +25,8 @@ contract BSCForkTest is BSCForkBase {
         assertTrue(tick != 0 || sqrtPrice > 0, "pool should have state");
 
         assertEq(hook.poolToken(poolId), address(token), "hook pool mapping");
-        (, uint96 remaining,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remaining), NUTBOX_ALLOCATION, "hook nutbox remaining");
+        (address community,) = hook.tokenInfo(address(token));
+        assertTrue(community != address(0), "hook community registered");
         assertEq(IERC20(address(token)).balanceOf(address(hook)), NUTBOX_ALLOCATION, "hook holds nutbox allocation");
 
         assertTrue(ICommittee(COMMITTEE).verifyContract(address(calculator)), "calculator whitelisted");
@@ -37,7 +37,7 @@ contract BSCForkTest is BSCForkBase {
         address tokenAddr = address(token);
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
+        uint256 balBefore = IERC20(tokenAddr).balanceOf(address(hook));
         uint256 feeReceiverBalBefore = FEE_RECEIVER.balance;
         uint256 buyerTokenBefore = IERC20(tokenAddr).balanceOf(buyer);
 
@@ -61,8 +61,7 @@ contract BSCForkTest is BSCForkBase {
         assertTrue(FEE_RECEIVER.balance > feeReceiverBalBefore, "platform fee collected on buy");
 
         // Same 10-minute period: accumulate only, no inject yet.
-        (, uint96 remainingAfterFirstBuy,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfterFirstBuy), uint256(remainingBefore), "same period: no inject");
+        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), balBefore, "same period: no inject");
 
         _warpToNextPeriod();
         vm.deal(buyer2, 20 ether);
@@ -78,24 +77,17 @@ contract BSCForkTest is BSCForkBase {
             bytes("")
         );
 
-        uint256 expectedInject = _capInjectAmount(
-            _expectedPeriodSettleInject(tokensReceived),
-            uint256(remainingBefore)
-        );
+        uint256 expectedInject = _capInjectAmount(_expectedPeriodSettleInject(tokensReceived), balBefore);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
+        uint256 balAfter = IERC20(tokenAddr).balanceOf(address(hook));
         if (expectedInject > 0) {
-            assertEq(
-                uint256(remainingBefore) - uint256(remainingAfter),
-                expectedInject,
-                "period settlement inject"
-            );
+            assertEq(balBefore - balAfter, expectedInject, "period settlement inject");
             assertTrue(
                 calculator.totalInjected(token.nutboxCommunity()) > 0,
                 "calculator received inject"
             );
         } else {
-            assertEq(uint256(remainingAfter), uint256(remainingBefore), "no inject below 16.8 output");
+            assertEq(balAfter, balBefore, "no inject below 16.8 output");
         }
     }
 
@@ -121,7 +113,7 @@ contract BSCForkTest is BSCForkBase {
         uint256 tokenBal = IERC20(tokenAddr).balanceOf(buyer);
         assertTrue(tokenBal > 0, "buyer should hold tokens");
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
+        uint256 balBefore = IERC20(tokenAddr).balanceOf(address(hook));
 
         uint256 sellAmount = tokenBal / 2;
         vm.prank(buyer);
@@ -139,8 +131,7 @@ contract BSCForkTest is BSCForkBase {
             bytes("")
         );
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(remainingBefore), "sell should not inject nutbox tokens");
+        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), balBefore, "sell should not inject nutbox tokens");
     }
 
     function test_fork_fullLifecycle_listAndSwapBothDirections() public onlyBscFork {

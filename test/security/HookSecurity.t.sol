@@ -240,7 +240,7 @@ contract HookSecurityTest is Test {
         // tokenInfo. But Hook does not enforce one-time registration. The protection is that
         // ONLY the legitimate token contract can call. We verified this in
         // test_registerPool_revertsIfNotTokenCaller. This test just documents the assumption.
-        (address community,,) = hook.tokenInfo(address(token));
+        (address community,) = hook.tokenInfo(address(token));
         assertTrue(community != address(0), "Token should have been registered during listing");
     }
 

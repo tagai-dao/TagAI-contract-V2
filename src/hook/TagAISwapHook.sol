@@ -27,6 +27,7 @@ import "../interfaces/IHourlyTickCalculator.sol";
 /// On buy swaps, bought token volume is accumulated per 10-minute period (no per-swap inject).
 /// On the first buy of the next period, the previous period is settled once into HourlyTickCalculator.
 /// Settlement ratio uses 10-minute periodVolume directly against the extract-ratio tier table (T0–T12).
+/// Inject amount is capped by the Hook's live ERC20 balance (listing allocation + any external top-ups).
 contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     using PoolIdLibrary for PoolKey;
     using SafeCast for uint256;
@@ -41,7 +42,8 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     // ================================ Events ================================
     event PoolRegistered(PoolId indexed poolId, address indexed token);
     event SwapFeeCollected(PoolId indexed poolId, address indexed token, uint256 platformFee, uint256 deployerFee);
-    event NutboxInjected(address indexed token, address indexed community, uint256 injectAmount, uint96 remaining);
+    /// @param balanceAfter Hook's ERC20 balance after a successful inject (supports continuous top-ups).
+    event NutboxInjected(address indexed token, address indexed community, uint256 injectAmount, uint256 balanceAfter);
     event NutboxInjectionFailed(address indexed token, address indexed community, uint256 injectAmount, bytes reason);
     /// @param lookupVolume Same as periodVolume (kept for observability / off-chain indexing).
     event PeriodSettled(
@@ -78,12 +80,10 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     uint256 private constant T11 = 355_000_000 ether;
 
     // ================================ Data Structures ================================
-    /// @notice Packed struct for per-token Nutbox info.
-    /// Slot 1: community (160 bits) + remaining (96 bits) = 256 bits
-    /// Slot 2: calculator (160 bits)
+    /// @notice Per-token Nutbox routing info.
+    /// @dev Injection budget is the Hook's live ERC20 balance (initial listing transfer + any later top-ups).
     struct HookTokenInfo {
         address community; // Nutbox community for this token
-        uint96 remaining; // Remaining NUTBOX_ALLOCATION (max ~79B tokens, 150M fits in uint96)
         address calculator; // HourlyTickCalculator address
     }
 
@@ -147,11 +147,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         address community = IToken(token).nutboxCommunity();
         address calculator = IPump(address(pump)).getCalculator();
 
-        tokenInfo[token] = HookTokenInfo({
-            community: community,
-            calculator: calculator,
-            remaining: uint96(150_000_000 ether) // NUTBOX_ALLOCATION
-        });
+        tokenInfo[token] = HookTokenInfo({community: community, calculator: calculator});
 
         // Approve calculator to pull tokens (for inject's transferFrom)
         IERC20(token).approve(calculator, type(uint256).max);
@@ -335,30 +331,32 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     }
 
     /// @notice Settle one completed period: inject periodVolume × ratio(periodVolume) once.
+    /// @dev Caps by Hook ERC20 balance so external top-ups can keep funding injections.
+    ///      Final inject must still meet MIN_INJECT_OUTPUT (skip dust leftovers below the floor).
     function _settlePeriod(address token, uint256 periodVolume, uint32 settledPeriodIndex) internal {
         HookTokenInfo storage info = tokenInfo[token];
-        if (info.remaining == 0) return;
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        if (balance == 0) return;
 
         uint256 lookupVolume = periodVolume;
         uint32 ratioPpm = _resolveRatioPpm(periodVolume);
         uint256 injectAmount = (periodVolume * ratioPpm) / RATIO_SCALE;
 
+        // inject = min(calculated, balance); skip if that result is below the floor
+        if (injectAmount > balance) {
+            injectAmount = balance;
+        }
         if (injectAmount < MIN_INJECT_OUTPUT) {
             emit PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, 0);
             return;
         }
 
-        if (injectAmount > uint256(info.remaining)) {
-            injectAmount = uint256(info.remaining);
-        }
-
-        info.remaining -= uint96(injectAmount);
-
         try IHourlyTickCalculator(info.calculator).inject(info.community, injectAmount) {
-            emit NutboxInjected(token, info.community, injectAmount, info.remaining);
+            uint256 balanceAfter = IERC20(token).balanceOf(address(this));
+            emit NutboxInjected(token, info.community, injectAmount, balanceAfter);
             emit PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, injectAmount);
         } catch (bytes memory reason) {
-            info.remaining += uint96(injectAmount);
+            // transferFrom reverts with the call — no local budget to roll back
             emit NutboxInjectionFailed(token, info.community, injectAmount, reason);
             emit PeriodSettled(token, settledPeriodIndex, periodVolume, lookupVolume, ratioPpm, 0);
         }
@@ -367,11 +365,10 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     // ================================ Internal: Nutbox Injection ================================
 
     /// @notice Track buy volume per 10-minute period; prior period is settled on the next period's first buy.
+    /// @dev Always accumulate buys so a later top-up can fund settlement of prior period volume.
     /// @param token The token address
     /// @param tokenDelta The token delta from the swap (negative = tokens leaving pool to buyer)
     function _tryInject(address token, int128 tokenDelta) internal {
-        if (tokenInfo[token].remaining == 0) return;
-
         uint256 boughtAmount = _boughtAmountFromDelta(tokenDelta);
         if (boughtAmount == 0) return;
 

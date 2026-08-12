@@ -411,8 +411,8 @@ abstract contract BSCForkBase is Test {
         return amount;
     }
 
-    function _capInjectAmount(uint256 injectAmount, uint256 remaining) internal pure returns (uint256) {
-        return injectAmount > remaining ? remaining : injectAmount;
+    function _capInjectAmount(uint256 injectAmount, uint256 availableBalance) internal pure returns (uint256) {
+        return injectAmount > availableBalance ? availableBalance : injectAmount;
     }
 
     function _readPeriodState(address tokenAddr)
