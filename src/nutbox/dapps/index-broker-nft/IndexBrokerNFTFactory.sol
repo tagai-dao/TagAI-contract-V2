@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../../CommunityFactory.sol";
 import "../../interfaces/IPoolFactory.sol";
+import "./IIndexBrokerNFTPriceOracle.sol";
 import "./IndexBrokerNFTAMM.sol";
 import "./IndexBrokerNFT.sol";
 
@@ -32,22 +33,34 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint256 nativePrice;
         uint256 maxSupply;
         uint16 referralBps;
-        uint16 ammNormalFeeBps;
-        uint16 ammSpecificFeeBps;
+        bytes ammConfig;
         bool lockWhitelistSlots;
         address[] whitelistAccounts;
         uint256[] whitelistAllowances;
+    }
+
+    struct AMMConfig {
+        uint16 normalFeeBps;
+        uint16 specificFeeBps;
+        IIndexBrokerNFTPriceOracle.SourceType priceSourceType;
+        bytes priceSourceData;
     }
 
     address public immutable communityFactory;
     address public immutable defaultRenderer;
     address public immutable poolTemplate;
     address public immutable ammTemplate;
+    address public immutable priceOracle;
     uint16 public platformFeeBps = DEFAULT_PLATFORM_FEE_BPS;
 
     event PlatformFeeBpsChanged(uint16 previousBps, uint16 newBps);
     event IndexBrokerNFTAMMCreated(
-        address indexed pool, address indexed ammVault, uint16 normalFeeBps, uint16 specificFeeBps
+        address indexed pool,
+        address indexed ammVault,
+        address priceOracle,
+        IIndexBrokerNFTPriceOracle.SourceType priceSourceType,
+        uint16 normalFeeBps,
+        uint16 specificFeeBps
     );
     event IndexBrokerNFTCreated(
         address indexed pool,
@@ -66,15 +79,17 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint256 totalWhitelistAllocation
     );
 
-    constructor(address communityFactory_, address defaultRenderer_, address ammTemplate_) {
+    constructor(address communityFactory_, address defaultRenderer_, address ammTemplate_, address priceOracle_) {
         require(
-            communityFactory_ != address(0) && defaultRenderer_.code.length > 0 && ammTemplate_.code.length > 0,
+            communityFactory_ != address(0) && defaultRenderer_.code.length > 0 && ammTemplate_.code.length > 0
+                && priceOracle_.code.length > 0,
             "Invalid address"
         );
         communityFactory = communityFactory_;
         defaultRenderer = defaultRenderer_;
         poolTemplate = address(new IndexBrokerNFT());
         ammTemplate = ammTemplate_;
+        priceOracle = priceOracle_;
     }
 
     function setPlatformFeeBps(uint16 newBps) external onlyOwner {
@@ -93,12 +108,31 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         require(CommunityFactory(payable(communityFactory)).createdCommunity(community), "Invalid community");
 
         PoolConfig memory config = abi.decode(meta, (PoolConfig));
+        AMMConfig memory ammConfig = abi.decode(config.ammConfig, (AMMConfig));
         address admin = IOwnableCommunity(community).owner();
         address selectedRenderer = config.renderer == address(0) ? defaultRenderer : config.renderer;
 
         address clone = Clones.clone(poolTemplate);
         address ammClone = Clones.clone(ammTemplate);
         IndexBrokerNFT pool = IndexBrokerNFT(payable(clone));
+        _initializeNFT(pool, community, admin, selectedRenderer, ammClone, name, config);
+        _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, ammConfig);
+        _emitNFTCreated(pool, clone, community, admin, selectedRenderer, name, config);
+        emit IndexBrokerNFTAMMCreated(
+            clone, ammClone, priceOracle, ammConfig.priceSourceType, ammConfig.normalFeeBps, ammConfig.specificFeeBps
+        );
+        return clone;
+    }
+
+    function _initializeNFT(
+        IndexBrokerNFT pool,
+        address community,
+        address admin,
+        address selectedRenderer,
+        address ammClone,
+        string memory name,
+        PoolConfig memory config
+    ) internal {
         pool.initialize(
             community,
             admin,
@@ -117,15 +151,37 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             config.whitelistAccounts,
             config.whitelistAllowances
         );
+    }
+
+    function _initializeAMM(
+        IndexBrokerNFT pool,
+        address clone,
+        address ammClone,
+        uint256 communityTokenPrice,
+        AMMConfig memory config
+    ) internal {
         IndexBrokerNFTAMM(payable(ammClone))
             .initialize(
                 clone,
                 pool.communityToken(),
-                config.communityTokenPrice,
-                config.ammNormalFeeBps,
-                config.ammSpecificFeeBps
+                communityTokenPrice,
+                config.normalFeeBps,
+                config.specificFeeBps,
+                priceOracle,
+                config.priceSourceType,
+                config.priceSourceData
             );
+    }
 
+    function _emitNFTCreated(
+        IndexBrokerNFT pool,
+        address clone,
+        address community,
+        address admin,
+        address selectedRenderer,
+        string memory name,
+        PoolConfig memory config
+    ) internal {
         emit IndexBrokerNFTCreated(
             clone,
             community,
@@ -142,7 +198,5 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             pool.lockWhitelistSlots(),
             pool.totalWhitelistAllocation()
         );
-        emit IndexBrokerNFTAMMCreated(clone, ammClone, config.ammNormalFeeBps, config.ammSpecificFeeBps);
-        return clone;
     }
 }

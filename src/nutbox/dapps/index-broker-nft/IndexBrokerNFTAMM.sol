@@ -7,22 +7,31 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+
+import "./IIndexBrokerNFTPriceOracle.sol";
+
+interface IIndexBrokerNFTPlatformFee {
+    function platformFeeReceiver() external view returns (address);
+}
 
 /**
  * @title IndexBrokerNFTAMM
  * @notice Fixed-price inventory vault paired one-to-one with an NFT mining pool.
  *
  * Community tokens paid during mint are deposited here as the reserve used to buy
- * NFTs back at `tokensPerNFT`. Native-coin trading fees stay in this contract and
- * intentionally have no withdrawal path yet.
+ * NFTs back at `tokensPerNFT`. Configured native-coin trading fees stay in this
+ * contract and intentionally have no withdrawal path yet. An additional fixed
+ * 0.5% of the NFT's native-coin value is sent to the platform on every trade.
  *
- * Native fee ratios are immutable after initialization. Trading remains disabled
- * until the native-coin notional/oracle used by those ratios is defined.
+ * Native fee ratios and the DEX spot-price source are immutable after initialization.
  */
 contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     using SafeERC20 for IERC20;
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
+    uint16 public constant PLATFORM_FEE_BPS = 50;
 
     address public factory;
     address public collection;
@@ -30,7 +39,9 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     uint256 public tokensPerNFT;
     uint16 public normalFeeBps;
     uint16 public specificFeeBps;
-    bool public nativeFeeConfigured;
+    address public priceOracle;
+    IIndexBrokerNFTPriceOracle.SourceType public priceSourceType;
+    bytes public priceSourceData;
 
     uint256 public inventoryCount;
     uint256 public oldestTokenId;
@@ -43,21 +54,28 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     address private _expectedSeller;
     uint256 private _expectedTokenId;
 
-    event NFTSold(address indexed seller, uint256 indexed tokenId, uint256 tokenAmount, uint256 nativeFee);
+    event NFTSold(
+        address indexed seller, uint256 indexed tokenId, uint256 tokenAmount, uint256 tradingFee, uint256 platformFee
+    );
     event NFTBought(
-        address indexed buyer, uint256 indexed tokenId, uint256 tokenAmount, uint256 nativeFee, bool specific
+        address indexed buyer,
+        uint256 indexed tokenId,
+        uint256 tokenAmount,
+        uint256 tradingFee,
+        uint256 platformFee,
+        bool specific
     );
     event NativeFeeReceived(address indexed payer, uint256 amount);
+    event NativeFeeRefunded(address indexed payer, uint256 amount);
+    event PlatformFeePaid(address indexed payer, address indexed receiver, uint256 amount);
 
     error InvalidAddress();
     error InvalidConfig();
-    error InvalidPayment();
-    error InvalidTokenAmount();
+    error InsufficientNativeFee();
     error InvalidNFTTransfer();
     error NFTNotInInventory();
     error EmptyInventory();
     error InsufficientReserve();
-    error NativeFeeNotConfigured();
     error InvalidCommunityTokenPayment();
 
     constructor() {
@@ -69,9 +87,12 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         address communityToken_,
         uint256 tokensPerNFT_,
         uint16 normalFeeBps_,
-        uint16 specificFeeBps_
+        uint16 specificFeeBps_,
+        address priceOracle_,
+        IIndexBrokerNFTPriceOracle.SourceType priceSourceType_,
+        bytes calldata priceSourceData_
     ) external initializer {
-        if (collection_.code.length == 0 || communityToken_.code.length == 0) {
+        if (collection_.code.length == 0 || communityToken_.code.length == 0 || priceOracle_.code.length == 0) {
             revert InvalidAddress();
         }
         if (tokensPerNFT_ == 0 || normalFeeBps_ > BPS_DENOMINATOR || specificFeeBps_ > BPS_DENOMINATOR) {
@@ -84,6 +105,13 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         tokensPerNFT = tokensPerNFT_;
         normalFeeBps = normalFeeBps_;
         specificFeeBps = specificFeeBps_;
+        priceOracle = priceOracle_;
+        priceSourceType = priceSourceType_;
+        priceSourceData = priceSourceData_;
+
+        IIndexBrokerNFTPriceOracle oracle = IIndexBrokerNFTPriceOracle(priceOracle_);
+        oracle.validateSource(communityToken_, priceSourceType_, priceSourceData_);
+        oracle.quoteNative(communityToken_, tokensPerNFT_, priceSourceType_, priceSourceData_);
     }
 
     receive() external payable {
@@ -91,17 +119,41 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     }
 
     function quoteNormalNativeFee() external view returns (uint256) {
-        return _quoteNativeFee(normalFeeBps);
+        (,, uint256 totalFee) = _quoteNativeFees(normalFeeBps);
+        return totalFee;
     }
 
     function quoteSpecificNativeFee() external view returns (uint256) {
-        return _quoteNativeFee(specificFeeBps);
+        (,, uint256 totalFee) = _quoteNativeFees(specificFeeBps);
+        return totalFee;
     }
 
-    function sellNFT(uint256 tokenId, uint256 minTokenPayout) external payable nonReentrant {
-        uint256 nativeFee = _quoteNativeFee(normalFeeBps);
-        if (msg.value != nativeFee) revert InvalidPayment();
-        if (tokensPerNFT < minTokenPayout) revert InvalidTokenAmount();
+    function quoteNormalTradingNativeFee() external view returns (uint256) {
+        (uint256 tradingFee,,) = _quoteNativeFees(normalFeeBps);
+        return tradingFee;
+    }
+
+    function quoteSpecificTradingNativeFee() external view returns (uint256) {
+        (uint256 tradingFee,,) = _quoteNativeFees(specificFeeBps);
+        return tradingFee;
+    }
+
+    function quotePlatformNativeFee() external view returns (uint256) {
+        (, uint256 platformFee,) = _quoteNativeFees(0);
+        return platformFee;
+    }
+
+    function quoteNativeValue() external view returns (uint256) {
+        return _quoteNativeValue();
+    }
+
+    function platformFeeReceiver() public view returns (address) {
+        return IIndexBrokerNFTPlatformFee(collection).platformFeeReceiver();
+    }
+
+    function sellNFT(uint256 tokenId) external payable nonReentrant {
+        (uint256 tradingFee, uint256 platformFee, uint256 totalFee) = _quoteNativeFees(normalFeeBps);
+        if (msg.value < totalFee) revert InsufficientNativeFee();
 
         IERC20 paymentToken = IERC20(communityToken);
         if (paymentToken.balanceOf(address(this)) < tokensPerNFT) revert InsufficientReserve();
@@ -118,18 +170,19 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
             revert InvalidCommunityTokenPayment();
         }
 
-        emit NFTSold(msg.sender, tokenId, tokensPerNFT, nativeFee);
+        _settleNativeFees(platformFee, totalFee);
+        emit NFTSold(msg.sender, tokenId, tokensPerNFT, tradingFee, platformFee);
     }
 
-    function buyNextNFT(uint256 maxTokenCost) external payable nonReentrant returns (uint256 tokenId) {
+    function buyNextNFT() external payable nonReentrant returns (uint256 tokenId) {
         tokenId = oldestTokenId;
         if (tokenId == 0) revert EmptyInventory();
-        _buyNFT(tokenId, maxTokenCost, normalFeeBps, false);
+        _buyNFT(tokenId, normalFeeBps, false);
     }
 
-    function buySpecificNFT(uint256 tokenId, uint256 maxTokenCost) external payable nonReentrant {
+    function buySpecificNFT(uint256 tokenId) external payable nonReentrant {
         if (!inInventory[tokenId]) revert NFTNotInInventory();
-        _buyNFT(tokenId, maxTokenCost, specificFeeBps, true);
+        _buyNFT(tokenId, specificFeeBps, true);
     }
 
     function nextInventoryToken(uint256 tokenId) external view returns (uint256) {
@@ -160,10 +213,9 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function _buyNFT(uint256 tokenId, uint256 maxTokenCost, uint16 feeBps, bool specific) internal {
-        uint256 nativeFee = _quoteNativeFee(feeBps);
-        if (msg.value != nativeFee) revert InvalidPayment();
-        if (tokensPerNFT > maxTokenCost) revert InvalidTokenAmount();
+    function _buyNFT(uint256 tokenId, uint16 feeBps, bool specific) internal {
+        (uint256 tradingFee, uint256 platformFee, uint256 totalFee) = _quoteNativeFees(feeBps);
+        if (msg.value < totalFee) revert InsufficientNativeFee();
 
         IERC20 paymentToken = IERC20(communityToken);
         uint256 reserveBefore = paymentToken.balanceOf(address(this));
@@ -174,7 +226,8 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
 
         _removeFromInventory(tokenId);
         IERC721(collection).safeTransferFrom(address(this), msg.sender, tokenId);
-        emit NFTBought(msg.sender, tokenId, tokensPerNFT, nativeFee, specific);
+        _settleNativeFees(platformFee, totalFee);
+        emit NFTBought(msg.sender, tokenId, tokensPerNFT, tradingFee, platformFee, specific);
     }
 
     function _addToInventory(uint256 tokenId) internal {
@@ -206,8 +259,31 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         --inventoryCount;
     }
 
-    function _quoteNativeFee(uint16) internal view returns (uint256) {
-        if (!nativeFeeConfigured) revert NativeFeeNotConfigured();
-        return 0;
+    function _quoteNativeFees(uint16 tradingFeeBps)
+        internal
+        view
+        returns (uint256 tradingFee, uint256 platformFee, uint256 totalFee)
+    {
+        uint256 nativeValue = _quoteNativeValue();
+        tradingFee = Math.mulDiv(nativeValue, tradingFeeBps, BPS_DENOMINATOR, Math.Rounding.Up);
+        platformFee = Math.mulDiv(nativeValue, PLATFORM_FEE_BPS, BPS_DENOMINATOR, Math.Rounding.Up);
+        totalFee = tradingFee + platformFee;
+    }
+
+    function _quoteNativeValue() internal view returns (uint256) {
+        return IIndexBrokerNFTPriceOracle(priceOracle)
+            .quoteNative(communityToken, tokensPerNFT, priceSourceType, priceSourceData);
+    }
+
+    function _settleNativeFees(uint256 platformFee, uint256 totalFee) internal {
+        address feeReceiver = platformFeeReceiver();
+        Address.sendValue(payable(feeReceiver), platformFee);
+        emit PlatformFeePaid(msg.sender, feeReceiver, platformFee);
+
+        uint256 refund = msg.value - totalFee;
+        if (refund != 0) {
+            Address.sendValue(payable(msg.sender), refund);
+            emit NativeFeeRefunded(msg.sender, refund);
+        }
     }
 }
