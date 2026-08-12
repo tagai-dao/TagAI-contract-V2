@@ -351,7 +351,7 @@ contract IndexBrokerNFTTest is Test {
 
         vm.prank(whitelistUser1);
         pool.transferFrom(whitelistUser1, whitelistUser2, 1);
-        assertEq(pool.indexMiningWeightOf(1), 50 ether);
+        assertEq(pool.indexMiningWeightOf(1), 60 ether);
         assertEq(pool.activeIndexMiningWeightOf(1), 0);
         assertEq(pool.totalActiveIndexMiningWeight(), 0);
 
@@ -363,21 +363,25 @@ contract IndexBrokerNFTTest is Test {
         pool.activateIndexMining(1);
         vm.prank(whitelistUser2);
         pool.upgradeIndexMining(1, 20 ether);
-        assertEq(pool.indexMiningWeightOf(1), 70 ether);
-        assertEq(pool.totalActiveIndexMiningWeight(), 70 ether);
+        assertEq(pool.indexMiningWeightOf(1), 80 ether);
+        assertEq(pool.totalActiveIndexMiningWeight(), 80 ether);
     }
 
-    function test_EachTransferHalvesWeightAndDropsBelowOneTokenToZero() public {
+    function test_EachTransferRetainsSixtyPercentAndDropsBelowOneTokenToZero() public {
         _mintWhitelist(whitelistUser1, 0, 0);
         vm.prank(whitelistUser1);
         pool.upgradeIndexMining(1, 3 ether);
 
         vm.prank(whitelistUser1);
         pool.transferFrom(whitelistUser1, whitelistUser2, 1);
-        assertEq(pool.indexMiningWeightOf(1), 1.5 ether);
+        assertEq(pool.indexMiningWeightOf(1), 1.8 ether);
 
         vm.prank(whitelistUser2);
         pool.transferFrom(whitelistUser2, paidUser, 1);
+        assertEq(pool.indexMiningWeightOf(1), 1.08 ether);
+
+        vm.prank(paidUser);
+        pool.transferFrom(paidUser, whitelistUser1, 1);
         assertEq(pool.indexMiningWeightOf(1), 0);
         assertFalse(pool.indexMiningActiveOf(1));
     }
@@ -407,7 +411,7 @@ contract IndexBrokerNFTTest is Test {
 
         vm.prank(whitelistUser2);
         pool.transferFrom(whitelistUser2, paidUser, 2);
-        assertEq(pool.indexMiningWeightOf(2), 150 ether);
+        assertEq(pool.indexMiningWeightOf(2), 180 ether);
         assertFalse(pool.indexMiningActiveOf(2));
         assertEq(pool.pendingIndexRewardsOf(2), 300 ether);
 
@@ -704,7 +708,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(amm.oldestTokenId(), 1);
         assertEq(pool.activeMiningWeightOf(1), 0);
         assertFalse(pool.indexMiningActiveOf(1));
-        assertEq(pool.indexMiningWeightOf(1), 50 ether);
+        assertEq(pool.indexMiningWeightOf(1), 60 ether);
 
         uint256 buyerNativeBefore = paidUser.balance;
         uint256 buyerTokenBefore = communityToken.balanceOf(paidUser);
@@ -720,7 +724,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(pool.ownerOf(1), paidUser);
         assertEq(pool.activeMiningWeightOf(1), BASE_WEIGHT);
         assertFalse(pool.indexMiningActiveOf(1));
-        assertEq(pool.indexMiningWeightOf(1), 25 ether);
+        assertEq(pool.indexMiningWeightOf(1), 36 ether);
         assertEq(pool.getTotalStakedAmount(), BASE_WEIGHT);
     }
 

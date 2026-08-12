@@ -43,6 +43,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     using SafeERC20 for IERC20;
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
+    uint256 public constant INDEX_WEIGHT_RETENTION_BPS = 6_000;
     uint256 public constant ACC_PRECISION = 1e12;
     uint256 public constant INDEX_REWARD_PRECISION = 1e24;
     uint256 public constant MAX_LEVELS = 16;
@@ -624,7 +625,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             if (indexRecord.indexMiningActive && previousIndexWeight != 0) {
                 totalActiveIndexMiningWeight -= previousIndexWeight;
             }
-            uint256 newIndexWeight = previousIndexWeight / 2;
+            uint256 newIndexWeight = Math.mulDiv(previousIndexWeight, INDEX_WEIGHT_RETENTION_BPS, BPS_DENOMINATOR);
             if (newIndexWeight < minimumIndexMiningWeight) newIndexWeight = 0;
             indexRecord.indexMiningActive = false;
             indexRecord.indexMiningWeight = newIndexWeight;
