@@ -233,6 +233,9 @@ contract IndexBrokerNFTTest is Test {
         assertEq(pool.communityToken(), address(communityToken));
         assertEq(pool.communityTokenPrice(), COMMUNITY_TOKEN_PRICE);
         assertEq(pool.indexMiningActivationTokenAmount(), INDEX_MINING_ACTIVATION_TOKEN_AMOUNT);
+        assertEq(pool.indexToken(), address(defaultIndexToken));
+        assertEq(pool.minimumIndexMiningWeight(), 1 ether);
+        assertEq(pool.totalActiveIndexMiningWeight(), 0);
         assertEq(pool.nativePrice(), NATIVE_PRICE);
         assertEq(pool.maxSupply(), MAX_SUPPLY);
         assertEq(pool.referralBps(), REFERRAL_BPS);
@@ -287,6 +290,17 @@ contract IndexBrokerNFTTest is Test {
         pool.activateIndexMining(1);
     }
 
+    function test_RendererProvidesTokenAndCollectionMetadataAfterIndexUpgrade() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        vm.prank(whitelistUser1);
+        pool.upgradeIndexMining(1, 5 ether);
+
+        assertGt(bytes(pool.tokenURI(1)).length, 0);
+        assertGt(bytes(pool.tokenSVG(1)).length, 0);
+        assertGt(bytes(pool.contractURI()).length, 0);
+        assertEq(pool.getNFTInfo(1).indexMiningWeight, 5 ether);
+    }
+
     function test_EveryTransferClearsOnlyIndexMiningActivation() public {
         _mintWhitelist(whitelistUser1, 0, 0);
 
@@ -316,6 +330,106 @@ contract IndexBrokerNFTTest is Test {
         assertTrue(pool.miningActiveOf(1));
         assertEq(pool.getUserStakedAmount(whitelistUser2), BASE_WEIGHT);
         assertEq(pool.getTotalStakedAmount(), BASE_WEIGHT);
+    }
+
+    function test_IndexMiningUpgradeRequiresActiveNFTAndBurnsCommunityTokens() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        uint256 burnBalanceBefore = communityToken.balanceOf(pool.INDEX_MINING_BURN_ADDRESS());
+
+        vm.expectRevert(IndexBrokerNFT.InvalidIndexMiningWeight.selector);
+        vm.prank(whitelistUser1);
+        pool.upgradeIndexMining(1, 1 ether - 1);
+
+        vm.prank(whitelistUser1);
+        pool.upgradeIndexMining(1, 100 ether);
+
+        assertEq(pool.indexMiningWeightOf(1), 100 ether);
+        assertEq(pool.activeIndexMiningWeightOf(1), 100 ether);
+        assertEq(pool.totalActiveIndexMiningWeight(), 100 ether);
+        assertEq(communityToken.balanceOf(pool.INDEX_MINING_BURN_ADDRESS()) - burnBalanceBefore, 100 ether);
+        assertEq(pool.getUserStakedAmount(whitelistUser1), BASE_WEIGHT);
+
+        vm.prank(whitelistUser1);
+        pool.transferFrom(whitelistUser1, whitelistUser2, 1);
+        assertEq(pool.indexMiningWeightOf(1), 50 ether);
+        assertEq(pool.activeIndexMiningWeightOf(1), 0);
+        assertEq(pool.totalActiveIndexMiningWeight(), 0);
+
+        vm.expectRevert(IndexBrokerNFT.IndexMiningNotActive.selector);
+        vm.prank(whitelistUser2);
+        pool.upgradeIndexMining(1, 10 ether);
+
+        vm.prank(whitelistUser2);
+        pool.activateIndexMining(1);
+        vm.prank(whitelistUser2);
+        pool.upgradeIndexMining(1, 20 ether);
+        assertEq(pool.indexMiningWeightOf(1), 70 ether);
+        assertEq(pool.totalActiveIndexMiningWeight(), 70 ether);
+    }
+
+    function test_EachTransferHalvesWeightAndDropsBelowOneTokenToZero() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        vm.prank(whitelistUser1);
+        pool.upgradeIndexMining(1, 3 ether);
+
+        vm.prank(whitelistUser1);
+        pool.transferFrom(whitelistUser1, whitelistUser2, 1);
+        assertEq(pool.indexMiningWeightOf(1), 1.5 ether);
+
+        vm.prank(whitelistUser2);
+        pool.transferFrom(whitelistUser2, paidUser, 1);
+        assertEq(pool.indexMiningWeightOf(1), 0);
+        assertFalse(pool.indexMiningActiveOf(1));
+    }
+
+    function test_PublicInjectionDistributesByActiveNFTWeightAndRewardsFollowNFT() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        _mintWhitelist(whitelistUser2, 0, 0);
+        vm.prank(whitelistUser1);
+        pool.upgradeIndexMining(1, 100 ether);
+        vm.prank(whitelistUser2);
+        pool.upgradeIndexMining(2, 300 ether);
+
+        address injector = makeAddr("indexRewardInjector");
+        defaultIndexToken.mint(injector, 400 ether);
+        vm.prank(injector);
+        defaultIndexToken.approve(address(pool), 400 ether);
+        vm.prank(injector);
+        pool.injectIndexRewards(400 ether);
+
+        assertEq(pool.pendingIndexRewardsOf(1), 100 ether);
+        assertEq(pool.pendingIndexRewardsOf(2), 300 ether);
+        assertEq(pool.queuedIndexRewards(), 0);
+
+        vm.prank(whitelistUser1);
+        assertEq(pool.claimIndexRewards(1), 100 ether);
+        assertEq(defaultIndexToken.balanceOf(whitelistUser1), 100 ether);
+
+        vm.prank(whitelistUser2);
+        pool.transferFrom(whitelistUser2, paidUser, 2);
+        assertEq(pool.indexMiningWeightOf(2), 150 ether);
+        assertFalse(pool.indexMiningActiveOf(2));
+        assertEq(pool.pendingIndexRewardsOf(2), 300 ether);
+
+        vm.prank(paidUser);
+        assertEq(pool.claimIndexRewards(2), 300 ether);
+        assertEq(defaultIndexToken.balanceOf(paidUser), 300 ether);
+        assertEq(pool.totalIndexRewardsClaimed(), 400 ether);
+    }
+
+    function test_IndexRewardsQueueUntilAnActiveNFTGetsWeight() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        defaultIndexToken.mint(address(this), 90 ether);
+        defaultIndexToken.approve(address(pool), 90 ether);
+        pool.injectIndexRewards(90 ether);
+
+        assertEq(pool.queuedIndexRewards(), 90 ether);
+        assertEq(pool.pendingIndexRewardsOf(1), 0);
+
+        vm.prank(whitelistUser1);
+        pool.upgradeIndexMining(1, 10 ether);
+        assertEq(pool.queuedIndexRewards(), 0);
+        assertEq(pool.pendingIndexRewardsOf(1), 90 ether);
     }
 
     function test_WhitelistMintTakesPriorityRefundsNativeAndIgnoresReferral() public {
@@ -569,6 +683,8 @@ contract IndexBrokerNFTTest is Test {
     function test_AMMSellAndBuyUseSpotNativeFeeAndRefundExcess() public {
         _mintWhitelist(whitelistUser1, 0, 0);
         vm.prank(whitelistUser1);
+        pool.upgradeIndexMining(1, 100 ether);
+        vm.prank(whitelistUser1);
         pool.approve(address(amm), 1);
 
         uint256 tradingFee = NFT_NATIVE_VALUE * AMM_NORMAL_FEE_BPS / 10_000;
@@ -588,6 +704,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(amm.oldestTokenId(), 1);
         assertEq(pool.activeMiningWeightOf(1), 0);
         assertFalse(pool.indexMiningActiveOf(1));
+        assertEq(pool.indexMiningWeightOf(1), 50 ether);
 
         uint256 buyerNativeBefore = paidUser.balance;
         uint256 buyerTokenBefore = communityToken.balanceOf(paidUser);
@@ -603,6 +720,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(pool.ownerOf(1), paidUser);
         assertEq(pool.activeMiningWeightOf(1), BASE_WEIGHT);
         assertFalse(pool.indexMiningActiveOf(1));
+        assertEq(pool.indexMiningWeightOf(1), 25 ether);
         assertEq(pool.getTotalStakedAmount(), BASE_WEIGHT);
     }
 
@@ -698,9 +816,36 @@ contract IndexBrokerNFTTest is Test {
         assertEq(settlementOut, expectedInvestment * 2);
         assertEq(indexOut, expectedInvestment * 6);
         assertEq(executor.balance - executorBefore, expectedReward);
-        assertEq(defaultIndexToken.balanceOf(address(amm)), indexOut);
+        assertEq(defaultIndexToken.balanceOf(address(amm)), 0);
+        assertEq(defaultIndexToken.balanceOf(address(pool)), indexOut);
+        assertEq(pool.queuedIndexRewards(), indexOut);
         assertEq(address(amm).balance, 0);
         assertEq(address(indexV3Router).balance, expectedInvestment);
+    }
+
+    function test_AMMBuybackAutomaticallyInjectsRewardsIntoActiveWeightedNFTs() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        _mintWhitelist(whitelistUser1, 0, 0);
+        vm.prank(whitelistUser1);
+        pool.upgradeIndexMining(2, 10 ether);
+
+        vm.prank(whitelistUser1);
+        pool.approve(address(amm), 1);
+        uint256 sellFee = amm.quoteNormalNativeFee();
+        vm.prank(whitelistUser1);
+        amm.sellNFT{value: sellFee}(1);
+
+        uint256 reserve = address(amm).balance;
+        uint256 callerReward = reserve * amm.INDEX_PURCHASE_CALLER_BPS() / 10_000;
+        uint256 investment = reserve - callerReward;
+        vm.prank(makeAddr("buybackExecutor"));
+        (,, uint256 indexOut) = amm.buyIndexWithNativeReserve(investment * 2, investment * 6, bytes(""));
+
+        assertEq(indexOut, investment * 6);
+        assertEq(defaultIndexToken.balanceOf(address(amm)), 0);
+        assertEq(defaultIndexToken.balanceOf(address(pool)), indexOut);
+        assertEq(pool.pendingIndexRewardsOf(2), indexOut);
+        assertEq(pool.queuedIndexRewards(), 0);
     }
 
     function test_AMMIndexPurchaseSlippageRevertsCallerRewardAndReserveMovement() public {

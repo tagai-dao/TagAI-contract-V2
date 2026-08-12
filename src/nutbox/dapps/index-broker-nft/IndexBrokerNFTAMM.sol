@@ -14,6 +14,7 @@ import "./IIndexBrokerNFTPriceOracle.sol";
 
 interface IIndexBrokerNFTPlatformFee {
     function platformFeeReceiver() external view returns (address);
+    function injectIndexRewards(uint256 amount) external;
 }
 
 interface IIndexBrokerBasketRegistry {
@@ -235,8 +236,9 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
 
     /**
      * @notice Permissionlessly invests all accumulated native trading fees into the fixed index token.
-     * @dev The caller receives 0.3% of the native reserve as execution compensation. The purchased
-     *      index tokens remain in this AMM. Slippage and Basket hook data are supplied by the caller.
+     * @dev The caller receives 0.3% of the native reserve as execution compensation. Purchased
+     *      index tokens are injected into the paired NFT's index-mining rewards. Slippage and
+     *      Basket hook data are supplied by the caller.
      */
     function buyIndexWithNativeReserve(uint256 minSettlementOut, uint256 minIndexOut, bytes calldata hookData)
         external
@@ -272,6 +274,9 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         if (indexOut == 0 || IERC20(indexToken).balanceOf(address(this)) - indexBalanceBefore != indexOut) {
             revert InvalidIndexPurchase();
         }
+        IERC20(indexToken).forceApprove(collection, indexOut);
+        IIndexBrokerNFTPlatformFee(collection).injectIndexRewards(indexOut);
+        IERC20(indexToken).forceApprove(collection, 0);
         if (callerReward != 0) Address.sendValue(payable(msg.sender), callerReward);
 
         emit IndexTokenPurchased(msg.sender, indexToken, nativeToInvest, callerReward, settlementOut, indexOut);

@@ -155,7 +155,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address clone = Clones.clone(poolTemplate);
         address ammClone = Clones.clone(ammTemplate);
         IndexBrokerNFT pool = IndexBrokerNFT(payable(clone));
-        _initializeNFT(pool, community, admin, selectedRenderer, ammClone, name, config);
+        _initializeNFT(pool, community, admin, selectedRenderer, ammClone, selectedIndexToken, name, config);
         _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, selectedIndexToken, ammConfig);
         _emitNFTCreated(pool, clone, community, admin, selectedRenderer, name, config);
         emit IndexBrokerNFTAMMCreated(
@@ -176,6 +176,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address admin,
         address selectedRenderer,
         address ammClone,
+        address selectedIndexToken,
         string memory name,
         PoolConfig memory config
     ) internal {
@@ -184,6 +185,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             admin,
             selectedRenderer,
             ammClone,
+            selectedIndexToken,
             name,
             config.symbol,
             config.fundsReceiver,

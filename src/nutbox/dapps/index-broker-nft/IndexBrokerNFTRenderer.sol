@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/utils/Base64.sol";
 import "./IIndexBrokerNFTRenderer.sol";
 
 /**
@@ -30,6 +31,66 @@ contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
     }
 
     function renderSVG(RenderParams calldata params) external pure override returns (string memory) {
+        return _renderSVG(params);
+    }
+
+    function renderTokenURI(RenderParams calldata params) external pure override returns (string memory) {
+        string memory image = string.concat("data:image/svg+xml;base64,", Base64.encode(bytes(_renderSVG(params))));
+        uint256 level = uint256(params.level);
+        string memory json = string.concat(
+            '{"name":"',
+            params.collectionName,
+            " #",
+            params.tokenId.toString(),
+            '","description":"A fixed-supply community-token mining NFT with independent index mining.",',
+            '"image":"',
+            image,
+            '","attributes":[',
+            '{"trait_type":"Level","value":',
+            level.toString(),
+            '},{"trait_type":"Generation","value":',
+            (level > 6 ? (level - 1) / 6 : 0).toString(),
+            '},{"trait_type":"Phase","value":',
+            (level > 6 ? ((level - 1) % 6) + 1 : level).toString(),
+            '},{"trait_type":"Referral Count","value":',
+            params.referralCount.toString(),
+            '},{"trait_type":"Referrer NFT","value":',
+            params.referrerTokenId.toString(),
+            '},{"trait_type":"Mining Weight","value":',
+            params.miningWeight.toString(),
+            '},{"trait_type":"Mining Active","value":',
+            params.miningActive ? "true" : "false",
+            '},{"trait_type":"Index Mining Weight","value":',
+            params.indexMiningWeight.toString(),
+            '},{"trait_type":"Index Mining Active","value":',
+            params.indexMiningActive ? "true" : "false",
+            "]}"
+        );
+        return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
+    }
+
+    function renderContractURI(string calldata collectionName) external pure override returns (string memory) {
+        string memory collectionSvg = string.concat(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">',
+            '<rect width="512" height="512" rx="40" fill="#0B0E11"/>',
+            '<circle cx="256" cy="220" r="112" fill="none" stroke="#F0B90B" stroke-width="8"/>',
+            '<text x="256" y="225" text-anchor="middle" fill="white" font-family="sans-serif" font-size="34">INDEX</text>',
+            '<text x="256" y="370" text-anchor="middle" fill="#F0B90B" font-family="sans-serif" font-size="28">',
+            collectionName,
+            "</text></svg>"
+        );
+        string memory json = string.concat(
+            '{"name":"',
+            collectionName,
+            '","description":"A fixed-supply community-token NFT mining pool.",',
+            '"image":"data:image/svg+xml;base64,',
+            Base64.encode(bytes(collectionSvg)),
+            '"}'
+        );
+        return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
+    }
+
+    function _renderSVG(RenderParams calldata params) private pure returns (string memory) {
         Theme memory theme = _theme(params.paletteId);
         Layout memory layout = _layout(params);
         return string.concat(
