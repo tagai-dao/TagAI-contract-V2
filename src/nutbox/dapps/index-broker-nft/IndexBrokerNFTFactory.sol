@@ -34,6 +34,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint256[] levelThresholds;
         uint256[] levelWeights;
         uint256 communityTokenPrice;
+        uint256 indexMiningActivationTokenAmount;
         uint256 nativePrice;
         uint256 maxSupply;
         uint16 referralBps;
@@ -84,6 +85,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         string symbol,
         address fundsReceiver,
         uint256 communityTokenPrice,
+        uint256 indexMiningActivationTokenAmount,
         uint256 nativePrice,
         uint256 maxSupply,
         uint16 referralBps,
@@ -188,6 +190,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             config.levelThresholds,
             config.levelWeights,
             config.communityTokenPrice,
+            config.indexMiningActivationTokenAmount,
             config.nativePrice,
             config.maxSupply,
             config.referralBps,
@@ -242,6 +245,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             config.symbol,
             config.fundsReceiver,
             config.communityTokenPrice,
+            config.indexMiningActivationTokenAmount,
             config.nativePrice,
             config.maxSupply,
             config.referralBps,

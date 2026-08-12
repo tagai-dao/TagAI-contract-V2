@@ -36,7 +36,9 @@ interface IIndexBrokerNFTAMM {
  *
  * Every mint deposits a fixed amount of the community token into its paired AMM vault.
  * Whitelisted accounts waive the native-coin price. Other accounts pay the immutable
- * native price and may use an NFT referrer. NFT ownership remains the Nutbox staking ledger.
+ * native price and may use an NFT referrer. Newly minted NFTs start with index mining active.
+ * Any later ERC721 transfer clears that activation, and the new owner must permanently burn
+ * the configured community-token amount to reactivate it. Existing community mining is unchanged.
  */
 contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -48,6 +50,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     uint256 public constant MAX_PALETTES = 6;
     uint256 public constant MAX_NAME_LENGTH = 64;
     uint256 public constant MAX_SYMBOL_LENGTH = 16;
+    address public constant INDEX_MINING_BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     bytes4 private constant _INTERFACE_ID_ERC4906 = 0x49064906;
 
@@ -65,6 +68,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         uint256 referralCount;
         uint256 miningWeight;
         bool miningActive;
+        bool indexMiningActive;
         uint256 seed;
     }
 
@@ -79,6 +83,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     string private _collectionSymbol;
 
     uint256 public communityTokenPrice;
+    uint256 public indexMiningActivationTokenAmount;
     uint256 public nativePrice;
     uint256 public maxSupply;
     uint16 public referralBps;
@@ -95,6 +100,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     mapping(address => uint256) public whitelistAllowance;
     mapping(address => uint256) public whitelistMintedBy;
     mapping(uint256 => NFTRecord) private _nftRecords;
+    mapping(uint256 => bool) private _indexMiningActivated;
     mapping(address => uint256) private _userMiningWeight;
     uint256 private _totalMiningWeight;
 
@@ -126,6 +132,8 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         uint256 previousWeight,
         uint256 newWeight
     );
+    event IndexMiningActivated(address indexed owner, uint256 indexed tokenId, uint256 tokenAmount);
+    event IndexMiningDeactivated(address indexed owner, uint256 indexed tokenId);
     event MiningWeightMoved(uint256 indexed tokenId, address indexed from, address indexed to, uint256 weight);
     event MetadataUpdate(uint256 _tokenId);
     event ContractURIUpdated();
@@ -143,6 +151,8 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     error InvalidCommunityTokenPayment();
     error InvalidAMMTransfer();
     error ReferrerInAMM();
+    error NotTokenOwner();
+    error IndexMiningAlreadyActive();
 
     constructor() ERC721("", "") {
         _disableInitializers();
@@ -159,6 +169,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         uint256[] calldata thresholds_,
         uint256[] calldata weights_,
         uint256 communityTokenPrice_,
+        uint256 indexMiningActivationTokenAmount_,
         uint256 nativePrice_,
         uint256 maxSupply_,
         uint16 referralBps_,
@@ -175,8 +186,8 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         _validateText(symbol_, MAX_SYMBOL_LENGTH);
         _validateLevelConfig(thresholds_, weights_);
         if (
-            communityTokenPrice_ == 0 || maxSupply_ == 0 || referralBps_ > BPS_DENOMINATOR
-                || (nativePrice_ == 0 && referralBps_ != 0)
+            communityTokenPrice_ == 0 || indexMiningActivationTokenAmount_ == 0 || maxSupply_ == 0
+                || referralBps_ > BPS_DENOMINATOR || (nativePrice_ == 0 && referralBps_ != 0)
         ) revert InvalidMintConfig();
         if (whitelistAccounts_.length == 0 || whitelistAccounts_.length != whitelistAllowances_.length) {
             revert InvalidWhitelistConfig();
@@ -194,6 +205,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         _collectionName = name_;
         _collectionSymbol = symbol_;
         communityTokenPrice = communityTokenPrice_;
+        indexMiningActivationTokenAmount = indexMiningActivationTokenAmount_;
         nativePrice = nativePrice_;
         maxSupply = maxSupply_;
         referralBps = referralBps_;
@@ -378,6 +390,19 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         );
     }
 
+    // ────────────────────────── Index mining activation ───────────────────────
+
+    function activateIndexMining(uint256 tokenId) external nonReentrant {
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        if (_indexMiningActivated[tokenId]) revert IndexMiningAlreadyActive();
+
+        IERC20(communityToken).safeTransferFrom(msg.sender, INDEX_MINING_BURN_ADDRESS, indexMiningActivationTokenAmount);
+
+        _indexMiningActivated[tokenId] = true;
+        emit IndexMiningActivated(msg.sender, tokenId, indexMiningActivationTokenAmount);
+        emit MetadataUpdate(tokenId);
+    }
+
     // ─────────────────────────────── Nutbox IPool ──────────────────────────────
 
     function getFactory() external view override returns (address) {
@@ -406,6 +431,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             referralCount: record.referralCount,
             miningWeight: _weightForLevel(record.level),
             miningActive: tokenOwner != ammVault,
+            indexMiningActive: _indexMiningActivated[tokenId],
             seed: record.seed
         });
     }
@@ -459,6 +485,11 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     function miningActiveOf(uint256 tokenId) public view returns (bool) {
         require(_exists(tokenId), "ERC721: invalid token ID");
         return ownerOf(tokenId) != ammVault;
+    }
+
+    function indexMiningActiveOf(uint256 tokenId) public view returns (bool) {
+        require(_exists(tokenId), "ERC721: invalid token ID");
+        return _indexMiningActivated[tokenId];
     }
 
     // ───────────────────────────────── Internals ───────────────────────────────
@@ -522,6 +553,15 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         if (to == address(this)) revert InvalidAddress();
         if (to == ammVault && !IIndexBrokerNFTAMM(ammVault).isAcceptingNFT(from, firstTokenId)) {
             revert InvalidAMMTransfer();
+        }
+
+        if (from == address(0)) {
+            _indexMiningActivated[firstTokenId] = true;
+            emit IndexMiningActivated(to, firstTokenId, 0);
+        } else if (_indexMiningActivated[firstTokenId]) {
+            _indexMiningActivated[firstTokenId] = false;
+            emit IndexMiningDeactivated(from, firstTokenId);
+            emit MetadataUpdate(firstTokenId);
         }
 
         address miningFrom = from == ammVault ? address(0) : from;
@@ -614,6 +654,8 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             miningWeightOf(tokenId).toString(),
             '},{"trait_type":"Mining Active","value":',
             miningActiveOf(tokenId) ? "true" : "false",
+            '},{"trait_type":"Index Mining Active","value":',
+            indexMiningActiveOf(tokenId) ? "true" : "false",
             "}"
         );
     }
