@@ -19,15 +19,18 @@ import "../interfaces/IToken.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
 
 /// @title TagAISwapHook
-/// @notice PancakeSwap V4 (Infinity) CL Hook that collects trading fees on every swap
-///   and injects a portion of bought tokens into the Nutbox community reward pool.
-///   - feeRatio[0] → platform feeReceiver
-///   - feeRatio[1] → IPShare.valueCapture() for user-specified subject (or token creator as fallback)
-/// Fees are always collected from the ETH side for immediate distribution.
-/// On buy swaps, bought token volume is accumulated per 10-minute period (no per-swap inject).
-/// On the first buy of the next period, the previous period is settled once into HourlyTickCalculator.
-/// Settlement ratio uses 10-minute periodVolume directly against the extract-ratio tier table (T0–T12).
-/// Inject amount is capped by the Hook's live ERC20 balance (listing allocation + any external top-ups).
+/// @notice PancakeSwap V4 (Infinity) CL Hook for post-list fee routing + Nutbox injection.
+/// @dev Post-list fees are HARDCODED (never reads Pump.feeRatio — that is inner-market only):
+///   - IPShare 0.3% (`IPSHARE_FEE_BPS`) from the BNB side on both buy and sell
+///     → `IPShare.valueCapture(subject)` via `_resolveSubject` / hookData
+///   - Directional 0.3% (`DIRECTIONAL_FEE_BPS`):
+///       BUY  (`zeroForOne`): 0.3% of gross token output → left on Hook (Nutbox budget)
+///       SELL: 0.3% of gross BNB → platform `feeReceiver`
+///   - Sell BNB leg: IPShare 30 + platform directional 30 = 60 BPS on the SAME gross BNB base (not nested)
+///   - Buy BNB leg: only IPShare 30 BPS (no platform cut from BNB)
+/// `SwapFeeCollected.platformFee` = platform BNB portion; `deployerFee` = IPShare BNB portion.
+/// On buys, 10-minute period volume accumulates; prior period settles into HourlyTickCalculator on next period's first buy.
+/// Inject amount is capped by the Hook's live ERC20 balance (listing allocation + directional token fees + top-ups).
 contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     using PoolIdLibrary for PoolKey;
     using SafeCast for uint256;
@@ -41,6 +44,8 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
 
     // ================================ Events ================================
     event PoolRegistered(PoolId indexed poolId, address indexed token);
+    /// @param platformFee Platform BNB portion (sell-side directional only; 0 on buy BNB leg)
+    /// @param deployerFee IPShare BNB portion
     event SwapFeeCollected(PoolId indexed poolId, address indexed token, uint256 platformFee, uint256 deployerFee);
     /// @param balanceAfter Hook's ERC20 balance after a successful inject (supports continuous top-ups).
     event NutboxInjected(address indexed token, address indexed community, uint256 injectAmount, uint256 balanceAfter);
@@ -57,6 +62,10 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
 
     // ================================ Constants ================================
     uint256 private constant DIVISOR = 10000;
+    /// @dev Hardcoded post-list IPShare fee: 0.3% of gross BNB (both buy and sell).
+    uint256 private constant IPSHARE_FEE_BPS = 30;
+    /// @dev Hardcoded directional fee: 0.3% — buy takes token output; sell takes BNB to platform.
+    uint256 private constant DIRECTIONAL_FEE_BPS = 30;
     /// @dev Ratio scale: injectAmount = boughtAmount * ratioPpm / RATIO_SCALE (ratioPpm = percent * 1e7).
     uint256 private constant RATIO_SCALE = 1e9;
     /// @dev Minimum inject output (16.8 whole tokens); below this the period settlement is skipped.
@@ -167,58 +176,67 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         return ICLHooks.beforeInitialize.selector;
     }
 
-    /// @notice Collect fees from the specified token if it is ETH (beforeSwap path).
+    /// @notice Collect fees when the fee currency is the swap's specified currency.
+    /// @dev ETH specified → BNB IPShare (+ sell directional). Token specified on buy → directional token fee.
     function beforeSwap(
         address,
         PoolKey calldata key,
         ICLPoolManager.SwapParams calldata params,
         bytes calldata hookData
     ) external virtual override onlyPoolManager returns (bytes4, BeforeSwapDelta, uint24) {
-        if (poolToken[key.toId()] == address(0))
+        if (poolToken[key.toId()] == address(0)) {
             return (ICLHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+        }
 
-        // We only take fee in beforeSwap if ETH is the specified token
-        if (!(params.amountSpecified < 0 == params.zeroForOne))
-            return (ICLHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+        // Specified currency is ETH/BNB iff (exactIn == zeroForOne)
+        bool ethSpecified = (params.amountSpecified < 0 == params.zeroForOne);
 
-        int128 fee = _collectBeforeSwapFee(key, params, hookData);
+        if (ethSpecified) {
+            int128 fee = _collectBeforeSwapBnbFee(key, params, hookData);
+            return (ICLHooks.beforeSwap.selector, toBeforeSwapDelta(fee, 0), 0);
+        }
 
-        return (ICLHooks.beforeSwap.selector, toBeforeSwapDelta(fee, 0), 0);
+        // Token specified + buy = exact-out buy: take directional token fee from specified output.
+        // (afterSwap can only report unspecified=BNB delta, so token fee must be accounted here.)
+        if (params.zeroForOne) {
+            int128 tokenFee = _collectBeforeSwapBuyTokenFee(key, params);
+            return (ICLHooks.beforeSwap.selector, toBeforeSwapDelta(tokenFee, 0), 0);
+        }
+
+        // Sell exact-in: BNB fee collected in afterSwap
+        return (ICLHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
-    /// @dev Internal helper to collect fees in beforeSwap when ETH is specified.
-    ///      Returns the fee amount as int128 for the hook delta.
-    function _collectBeforeSwapFee(
+    /// @dev BNB-side fees when ETH is the specified currency (exact-in buy or exact-out sell).
+    function _collectBeforeSwapBnbFee(
         PoolKey calldata key,
         ICLPoolManager.SwapParams calldata params,
         bytes calldata hookData
     ) internal returns (int128) {
-        uint256[2] memory feeRatio = pump.getFeeRatio();
-        uint256 totalFeeRatio = feeRatio[0] + feeRatio[1];
-        if (totalFeeRatio == 0) return 0;
-
         uint256 specifiedAmount = params.amountSpecified < 0
             ? uint256(-params.amountSpecified)
             : uint256(params.amountSpecified);
 
-        uint256 totalFee = (specifiedAmount * totalFeeRatio) / DIVISOR;
-        if (totalFee == 0) return 0;
-
-        // In PCS V4, take() is on the Vault
-        vault.take(key.currency0, address(this), totalFee);
-
-        uint256 platformFee = (specifiedAmount * feeRatio[0]) / DIVISOR;
-        uint256 deployerFee = totalFee - platformFee;
-        address token = poolToken[key.toId()];
-
-        _distributeFees(token, platformFee, deployerFee, hookData);
-        emit SwapFeeCollected(key.toId(), token, platformFee, deployerFee);
-
-        return totalFee.toInt128();
+        return _takeAndDistributeBnbFees(key, specifiedAmount, params.zeroForOne, hookData);
     }
 
-    /// @notice Collect fees from the unspecified token if it is ETH (afterSwap path),
-    ///         and trigger Nutbox injection on buy swaps.
+    /// @dev Buy exact-out: directional token fee from specified token amount (PCS specified delta).
+    function _collectBeforeSwapBuyTokenFee(
+        PoolKey calldata key,
+        ICLPoolManager.SwapParams calldata params
+    ) internal returns (int128) {
+        // exact-out → amountSpecified > 0
+        uint256 specifiedAmount = uint256(params.amountSpecified);
+        uint256 tokenFee = (specifiedAmount * DIRECTIONAL_FEE_BPS) / DIVISOR;
+        if (tokenFee == 0) return 0;
+
+        vault.take(key.currency1, address(this), tokenFee);
+        return tokenFee.toInt128();
+    }
+
+    /// @notice Collect unspecified-currency fees + buy-side directional token fee; trigger Nutbox period tracking.
+    /// @dev CRITICAL: when ETH was already fee'd in beforeSwap (exact-in buy), still take directional TOKEN
+    ///      fee here and return it as afterSwapReturnsDelta (unspecified = token) so vault accounting balances.
     function afterSwap(
         address,
         PoolKey calldata key,
@@ -229,60 +247,79 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         address token = poolToken[key.toId()];
         if (token == address(0)) return (ICLHooks.afterSwap.selector, 0);
 
-        // If ETH is specified (exactInput ETH or exactOutput ETH), fee was taken in beforeSwap
-        if (params.amountSpecified < 0 == params.zeroForOne) {
-            // ETH was specified → fee already collected in beforeSwap
-            // But still check for injection on buy (zeroForOne = true means ETH→Token = buy)
+        bool ethSpecified = (params.amountSpecified < 0 == params.zeroForOne);
+        int128 hookUnspecifiedDelta = 0;
+
+        if (ethSpecified) {
+            // BNB fee already collected in beforeSwap.
+            // Exact-in buy: unspecified currency is the token — collect directional fee + report delta.
             if (params.zeroForOne) {
+                hookUnspecifiedDelta = _collectBuyDirectionalTokenFee(key, delta);
                 _tryInject(token, delta.amount1());
             }
-            return (ICLHooks.afterSwap.selector, 0);
+            return (ICLHooks.afterSwap.selector, hookUnspecifiedDelta);
         }
 
-        int128 afterSwapFee = _collectAfterSwapFee(key, params, delta, hookData, token);
+        // ETH is unspecified: collect BNB fees here (exact-out buy or exact-in sell).
+        hookUnspecifiedDelta = _collectAfterSwapBnbFee(key, params, delta, hookData, token);
 
-        // Try inject on buy (zeroForOne = true means ETH→Token)
+        // Exact-out buy: directional token fee already taken in beforeSwap (specified delta).
         if (params.zeroForOne) {
             _tryInject(token, delta.amount1());
         }
 
-        return (ICLHooks.afterSwap.selector, afterSwapFee);
+        return (ICLHooks.afterSwap.selector, hookUnspecifiedDelta);
     }
 
-    /// @dev Internal helper to collect fees in afterSwap when ETH is unspecified.
-    ///      Returns the fee amount as int128 for the hook delta.
-    function _collectAfterSwapFee(
+    /// @dev BNB-side fees when ETH is unspecified (exact-out buy or exact-in sell).
+    function _collectAfterSwapBnbFee(
         PoolKey calldata key,
         ICLPoolManager.SwapParams calldata params,
         BalanceDelta delta,
         bytes calldata hookData,
-        address token
+        address /* token */
     ) internal returns (int128) {
-        uint256[2] memory feeRatio = pump.getFeeRatio();
-        uint256 totalFeeRatio = feeRatio[0] + feeRatio[1];
-        if (totalFeeRatio == 0) return 0;
-
         uint256 unspecifiedAmount;
         {
             int128 ethDelta = delta.amount0();
             unspecifiedAmount = ethDelta < 0 ? uint256(uint128(-ethDelta)) : uint256(uint128(ethDelta));
         }
-
         if (unspecifiedAmount == 0) return 0;
 
-        uint256 totalFee = (unspecifiedAmount * totalFeeRatio) / DIVISOR;
+        return _takeAndDistributeBnbFees(key, unspecifiedAmount, params.zeroForOne, hookData);
+    }
+
+    /// @dev Shared BNB fee take + split. Buy: IPShare only. Sell: IPShare + platform on same gross base.
+    function _takeAndDistributeBnbFees(
+        PoolKey calldata key,
+        uint256 bnbAmount,
+        bool isBuy,
+        bytes calldata hookData
+    ) internal returns (int128) {
+        uint256 ipshareFee = (bnbAmount * IPSHARE_FEE_BPS) / DIVISOR;
+        // Sell: platform directional on the SAME gross BNB (not nested after IPShare).
+        uint256 platformFee = isBuy ? 0 : (bnbAmount * DIRECTIONAL_FEE_BPS) / DIVISOR;
+        uint256 totalFee = ipshareFee + platformFee;
         if (totalFee == 0) return 0;
 
-        // In PCS V4, take() is on the Vault
         vault.take(key.currency0, address(this), totalFee);
 
-        uint256 platformFee = (unspecifiedAmount * feeRatio[0]) / DIVISOR;
-        uint256 deployerFee = totalFee - platformFee;
-
-        _distributeFees(token, platformFee, deployerFee, hookData);
-        emit SwapFeeCollected(key.toId(), token, platformFee, deployerFee);
+        address token = poolToken[key.toId()];
+        _distributeFees(token, platformFee, ipshareFee, hookData);
+        emit SwapFeeCollected(key.toId(), token, platformFee, ipshareFee);
 
         return totalFee.toInt128();
+    }
+
+    /// @dev Buy-side directional: take 0.3% of gross token output; leave on Hook for Nutbox budget.
+    /// @return Fee amount as int128 for afterSwapReturnsDelta (unspecified = token when ETH was specified).
+    function _collectBuyDirectionalTokenFee(PoolKey calldata key, BalanceDelta delta) internal returns (int128) {
+        uint256 bought = _boughtAmountFromDelta(delta.amount1());
+        uint256 tokenFee = (bought * DIRECTIONAL_FEE_BPS) / DIVISOR;
+        if (tokenFee == 0) return 0;
+
+        vault.take(key.currency1, address(this), tokenFee);
+        return tokenFee.toInt128();
     }
 
     // ================================ Internal: Period ratio ================================
@@ -406,6 +443,9 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         return candidate;
     }
 
+    /// @notice Route BNB fees: platform → feeReceiver; IPShare → valueCapture(subject).
+    /// @param platformFee Platform BNB (sell directional); 0 on buy BNB leg
+    /// @param deployerFee IPShare BNB portion
     function _distributeFees(
         address token,
         uint256 platformFee,

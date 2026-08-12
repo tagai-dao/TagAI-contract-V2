@@ -22,6 +22,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     uint256 public createFee = 0.005 ether;
     uint256 private divisor = 10000;
     address private feeReceiver = 0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048;
+    /// @dev Inner-market (bonding curve) fee split only — post-list PCS V4 fees are hardcoded in TagAISwapHook.
     uint256[2] private feeRatio = [30, 30]; // 0: to tiptag; 1: to salesman
 
     // BSC Nutbox stack

@@ -18,6 +18,7 @@ import {PoolKey} from "infinity-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "infinity-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "infinity-core/src/types/Currency.sol";
 import {BalanceDelta, toBalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
+import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "infinity-core/src/types/BeforeSwapDelta.sol";
 import {CLPoolParametersHelper} from "infinity-core/src/pool-cl/libraries/CLPoolParametersHelper.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -52,6 +53,9 @@ contract TagAISwapHookTest is Test {
     uint256 constant PERIOD_LENGTH = 600;
     uint256 constant TIER0_RATIO_PPM = 106_069_772; // 10-min volume < 26.7k (T0)
     uint256 constant TIER1_RATIO_PPM = 53_034_886; // 10-min volume < 93.2k (T1)
+    uint256 constant DIVISOR = 10000;
+    uint256 constant IPSHARE_FEE_BPS = 30;
+    uint256 constant DIRECTIONAL_FEE_BPS = 30;
 
     function setUp() public {
         creator = makeAddr("creator");
@@ -161,7 +165,7 @@ contract TagAISwapHookTest is Test {
             currency1: Currency.wrap(address(token)),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 0,
+            fee: 3000,
             parameters: parameters
         });
     }
@@ -219,17 +223,21 @@ contract TagAISwapHookTest is Test {
         _simulateBuy(20_000 ether);
         _simulateBuy(30_000 ether);
 
-        assertEq(_hookBal(), initialBal, "same period should not inject");
+        // Same period: no inject, but buy directional token fees accrue on Hook
+        uint256 feesAccrued = _directionalTokenFee(20_000 ether) + _directionalTokenFee(30_000 ether);
+        assertEq(_hookBal(), initialBal + feesAccrued, "same period: fees only, no inject");
 
         (uint32 periodIndex, uint256 periodBuy) = hook.periodState(address(token));
         assertEq(periodBuy, 50_000 ether);
         assertEq(periodIndex, uint32(block.timestamp / PERIOD_LENGTH));
 
         _warpNextPeriod();
+        uint256 balBeforeSettle = _hookBal();
         _simulateBuy(1 ether);
 
         uint256 expected = _expectedSettleInject(50_000 ether);
-        assertEq(initialBal - _hookBal(), expected);
+        uint256 triggerFee = _directionalTokenFee(1 ether);
+        assertEq(balBeforeSettle + triggerFee - _hookBal(), expected);
     }
 
     function test_injection_settleUsesDirectPeriodVolumeForTier() public {
@@ -241,7 +249,8 @@ contract TagAISwapHookTest is Test {
         _simulateBuy(10_000 ether);
 
         uint256 expected = 50_000 ether * TIER1_RATIO_PPM / RATIO_SCALE;
-        assertEq(balBefore - _hookBal(), expected);
+        uint256 triggerFee = _directionalTokenFee(10_000 ether);
+        assertEq(balBefore + triggerFee - _hookBal(), expected);
     }
 
     function test_injection_settleSkipsWhenTotalInjectBelowMinimum() public {
@@ -252,7 +261,8 @@ contract TagAISwapHookTest is Test {
         _warpNextPeriod();
         _simulateBuy(1 ether);
 
-        assertEq(_hookBal(), initialBal, "below-min period settlement skipped");
+        uint256 feesAccrued = _directionalTokenFee(50 ether) + _directionalTokenFee(1 ether);
+        assertEq(_hookBal(), initialBal + feesAccrued, "below-min period settlement skipped; fees remain");
     }
 
     function test_injection_doesNotTriggerOnSell() public {
@@ -280,21 +290,28 @@ contract TagAISwapHookTest is Test {
         (, uint256 periodBuy) = hook.periodState(address(token));
         assertEq(periodBuy, 419_000_000 ether);
 
-        assertEq(_hookBal(), balStart, "same period cap accumulation does not inject");
+        uint256 fee1 = _directionalTokenFee(419_000_000 ether);
+        assertEq(_hookBal(), balStart + fee1, "same period cap accumulation does not inject");
 
         _simulateBuy(2_000_000 ether);
         (, periodBuy) = hook.periodState(address(token));
         assertEq(periodBuy, MAX_PERIOD_BUY_VOLUME);
 
+        uint256 fee2 = _directionalTokenFee(2_000_000 ether);
         _warpNextPeriod();
+        uint256 balBeforeSettle = _hookBal();
         _simulateBuy(1 ether);
 
         uint256 expected = _expectedSettleInject(MAX_PERIOD_BUY_VOLUME);
-        assertEq(balStart - _hookBal(), expected);
+        uint256 triggerFee = _directionalTokenFee(1 ether);
+        assertEq(balBeforeSettle + triggerFee - _hookBal(), expected);
+        // sanity: fees from capped period remain on hook until settle
+        assertEq(balBeforeSettle, balStart + fee1 + fee2);
     }
 
     function test_injection_hugeBuyLimitedByPeriodCap() public {
         uint256 balBefore = _hookBal();
+        uint256 hugeBuy = 200_000_000_000 ether;
 
         PoolKey memory poolKey = _buildPoolKey();
         ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
@@ -302,21 +319,25 @@ contract TagAISwapHookTest is Test {
             amountSpecified: -1 ether,
             sqrtPriceLimitX96: 0
         });
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(200_000_000_000 ether)));
+        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(hugeBuy)));
 
+        _fundVaultForBuyFee(hugeBuy);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
         (, uint256 periodBuy) = hook.periodState(address(token));
         assertEq(periodBuy, MAX_PERIOD_BUY_VOLUME);
 
-        assertEq(_hookBal(), balBefore, "cap period does not inject until settle");
+        uint256 feeHuge = _directionalTokenFee(hugeBuy);
+        assertEq(_hookBal(), balBefore + feeHuge, "cap period does not inject until settle");
 
         _warpNextPeriod();
+        uint256 balBeforeSettle = _hookBal();
         _simulateBuy(1 ether);
 
         uint256 expectedInject = _expectedSettleInject(MAX_PERIOD_BUY_VOLUME);
-        assertEq(balBefore - _hookBal(), expectedInject);
+        uint256 triggerFee = _directionalTokenFee(1 ether);
+        assertEq(balBeforeSettle + triggerFee - _hookBal(), expectedInject);
         assertGt(_hookBal(), 0, "period cap prevents single settle from draining full inventory");
     }
 
@@ -328,7 +349,8 @@ contract TagAISwapHookTest is Test {
         _simulateBuy(1 ether);
 
         uint256 balAfterFirst = _hookBal();
-        assertTrue(balAfterFirst < NUTBOX_ALLOCATION, "first settle consumed some inventory");
+        // Inventory shrinks vs listing allocation + fees from the two buys, after settle.
+        assertTrue(balAfterFirst < NUTBOX_ALLOCATION + _directionalTokenFee(MAX_PERIOD_BUY_VOLUME), "first settle consumed inventory");
 
         // Clear the leftover 1-ether accumulator from the settle-trigger buy (below MIN → no inject).
         _warpNextPeriod();
@@ -345,20 +367,22 @@ contract TagAISwapHookTest is Test {
         _simulateBuy(1 ether);
 
         uint256 expected = _expectedSettleInject(50_000 ether);
-        assertEq(balBeforeSecond - _hookBal(), expected, "top-up balance is distributable");
+        uint256 triggerFee = _directionalTokenFee(1 ether);
+        assertEq(balBeforeSecond + triggerFee - _hookBal(), expected, "top-up balance is distributable");
     }
 
     /// @dev Balance below MIN_INJECT_OUTPUT is not injected even when period settle would otherwise qualify.
     function test_injection_skipsWhenBalanceBelowMinimum() public {
-        // Leave only dust on the Hook (< 16.8 tokens).
+        // Accumulate volume, then leave only dust on Hook before settle trigger.
+        _simulateBuy(50_000 ether);
         deal(address(token), address(hook), 10 ether);
         assertEq(_hookBal(), 10 ether);
 
-        _simulateBuy(50_000 ether); // calculated inject >> 16.8, but balance is only 10
         _warpNextPeriod();
+        // Trigger buy adds tiny directional fee; settle inject capped to dust+fee still < MIN → skip
+        uint256 balBefore = _hookBal();
         _simulateBuy(1 ether);
-
-        assertEq(_hookBal(), 10 ether, "dust below MIN must stay on Hook");
+        assertEq(_hookBal(), balBefore + _directionalTokenFee(1 ether), "dust below MIN must stay on Hook");
     }
 
     function test_previewPeriodSettle_matchesSettlement() public view {
@@ -366,6 +390,16 @@ contract TagAISwapHookTest is Test {
         assertEq(lookup, 50_000 ether);
         assertEq(ratio, uint32(TIER1_RATIO_PPM));
         assertEq(injectAmount, 50_000 ether * TIER1_RATIO_PPM / RATIO_SCALE);
+    }
+
+    function _directionalTokenFee(uint256 boughtAmount) internal pure returns (uint256) {
+        return (boughtAmount * DIRECTIONAL_FEE_BPS) / DIVISOR;
+    }
+
+    function _fundVaultForBuyFee(uint256 boughtAmount) internal {
+        uint256 fee = _directionalTokenFee(boughtAmount);
+        if (fee == 0) return;
+        deal(address(token), address(mockVault), IERC20(address(token)).balanceOf(address(mockVault)) + fee);
     }
 
     function _simulateBuy(uint256 boughtAmount) internal {
@@ -376,8 +410,99 @@ contract TagAISwapHookTest is Test {
             sqrtPriceLimitX96: 0
         });
         BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(boughtAmount)));
+        _fundVaultForBuyFee(boughtAmount);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
+    }
+
+    // ─── Post-list hardcoded fees ───
+
+    function test_buy_takesDirectionalTokenFeeIntoHook() public {
+        uint256 bought = 100_000 ether;
+        uint256 expectedFee = _directionalTokenFee(bought);
+        uint256 hookBefore = _hookBal();
+
+        PoolKey memory poolKey = _buildPoolKey();
+        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: -1 ether, // exact-in ETH → ethSpecified; fee collected in afterSwap
+            sqrtPriceLimitX96: 0
+        });
+        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(bought)));
+
+        _fundVaultForBuyFee(bought);
+        vm.prank(address(mockPoolManager));
+        (, int128 afterDelta) = hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
+
+        assertEq(uint256(uint128(afterDelta)), expectedFee, "afterSwap must return token fee delta");
+        assertEq(_hookBal(), hookBefore + expectedFee, "directional token fee stays on Hook");
+    }
+
+    function test_buy_bnbSideOnlyChargesIpshare_noPlatformFromFeeRatio() public {
+        uint256 ethIn = 10 ether;
+        uint256 expectedIpshare = (ethIn * IPSHARE_FEE_BPS) / DIVISOR;
+
+        PoolKey memory poolKey = _buildPoolKey();
+        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: -int256(ethIn),
+            sqrtPriceLimitX96: 0
+        });
+
+        // feeRecipient is also IPShare treasury in this suite — assert via event, not balance.
+        vm.expectEmit(true, true, false, true, address(hook));
+        emit TagAISwapHook.SwapFeeCollected(poolKey.toId(), address(token), 0, expectedIpshare);
+
+        vm.prank(address(mockPoolManager));
+        (, BeforeSwapDelta bsd,) = hook.beforeSwap(address(0), poolKey, buyParams, bytes(""));
+
+        int128 specifiedFee = BeforeSwapDeltaLibrary.getSpecifiedDelta(bsd);
+        assertEq(uint256(uint128(specifiedFee)), expectedIpshare, "buy BNB leg = IPShare 30 BPS only");
+    }
+
+    function test_sell_splitsPlatformAndIpshareOnSameGrossBnb() public {
+        uint256 bnbOut = 10 ether;
+        uint256 expectedIpshare = (bnbOut * IPSHARE_FEE_BPS) / DIVISOR;
+        uint256 expectedPlatform = (bnbOut * DIRECTIONAL_FEE_BPS) / DIVISOR;
+        uint256 expectedTotal = expectedIpshare + expectedPlatform; // 60 BPS, same base
+
+        PoolKey memory poolKey = _buildPoolKey();
+        // Exact-in sell: token specified, ETH unspecified -> afterSwap collects BNB fees
+        ICLPoolManager.SwapParams memory sellParams = ICLPoolManager.SwapParams({
+            zeroForOne: false,
+            amountSpecified: -int256(100_000 ether),
+            sqrtPriceLimitX96: 0
+        });
+        BalanceDelta delta = toBalanceDelta(int128(int256(bnbOut)), int128(int256(100_000 ether)));
+
+        vm.expectEmit(true, true, false, true, address(hook));
+        emit TagAISwapHook.SwapFeeCollected(poolKey.toId(), address(token), expectedPlatform, expectedIpshare);
+
+        vm.prank(address(mockPoolManager));
+        (, int128 afterDelta) = hook.afterSwap(address(0), poolKey, sellParams, delta, bytes(""));
+
+        assertEq(uint256(uint128(afterDelta)), expectedTotal, "sell afterSwap delta = 60 BPS");
+    }
+
+    function test_hook_doesNotUsePumpFeeRatio() public {
+        // Change pump feeRatio; Hook must ignore it and keep hardcoded 30/30.
+        uint256[2] memory newRatio = [uint256(100), uint256(100)];
+        pump.adminChangeFeeRatio(newRatio);
+
+        uint256 ethIn = 5 ether;
+        uint256 expectedIpshare = (ethIn * IPSHARE_FEE_BPS) / DIVISOR; // still 30, not 100
+
+        PoolKey memory poolKey = _buildPoolKey();
+        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: -int256(ethIn),
+            sqrtPriceLimitX96: 0
+        });
+
+        vm.prank(address(mockPoolManager));
+        (, BeforeSwapDelta bsd,) = hook.beforeSwap(address(0), poolKey, buyParams, bytes(""));
+        int128 specifiedFee = BeforeSwapDeltaLibrary.getSpecifiedDelta(bsd);
+        assertEq(uint256(uint128(specifiedFee)), expectedIpshare, "Hook ignores pump feeRatio");
     }
 
     // ─── getHooksRegistrationBitmap ───

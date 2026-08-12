@@ -1,1 +1,5 @@
-{}
+{
+  "lib/infinity-core": {
+    "rev": "7c04695faeab8b06570cf6c277d9a9717136fb26"
+  }
+}

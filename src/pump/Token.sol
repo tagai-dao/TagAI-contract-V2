@@ -67,8 +67,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     IVault public vault;
     PoolId public v4PoolId;
     // In V4, tickSpacing and fee are fully decoupled.
-    // fee=0 means zero native pool fee; all fees are collected by TipTagSwapHook.
-    // tickSpacing=60 controls price-tick granularity only (no 0.3% DEX fee implied).
+    // fee=3000 sets native LP fee to 0.3%; TipTagSwapHook collects additional swap fees on top.
+    // tickSpacing=60 controls price-tick granularity only (independent of fee tier).
+    uint24 public constant LISTING_LP_FEE = 3000;
     int24 public constant TICK_SPACING = 60;
     // Listing LP: 200M token 全进池 + 配对 BNB（~19.174，来自内盘收入）；tickLower=MIN；
     // tickUpper 校准使 800M 外部卖压抽干池内 BNB。
@@ -80,8 +81,20 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     // 离线标定（ListingParamsCalc.test_computeTokenFirstListingConstants）：200M token-first 单次 add
     uint128 private constant LISTING_LIQUIDITY_DELTA = 69094226120069552406389;
 
+    /// @dev vault.lock callback op codes — seed listing LP vs collect fees only.
+    uint8 private constant LOCK_OP_SEED = 0;
+    uint8 private constant LOCK_OP_COLLECT = 1;
+
+    /// @dev Populated by collect callback; read and cleared by collectFees().
+    uint256 private _collectBnbAmount;
+    uint256 private _collectTokenAmount;
+
     receive() external payable nonReentrant {
-        if (listed) revert TokenListed();
+        if (listed) {
+            // Post-listing: only Vault may send ETH (LP fee collect via take).
+            if (msg.sender != address(vault)) revert TokenListed();
+            return;
+        }
         _buyTokenDirect();
     }
 
@@ -365,6 +378,27 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     }
 
     /********************************** to dex (PancakeSwap V4 Infinity) ********************************/
+
+    /// @notice Permissionless: collect listing LP fees and route BNB→platform, Token→Hook.
+    function collectFees() external nonReentrant returns (uint256 bnbAmount, uint256 tokenAmount) {
+        if (!listed) revert TokenNotListed();
+
+        bytes memory callbackData = abi.encode(
+            LOCK_OP_COLLECT,
+            _listingPoolKey(),
+            LISTING_TICK_LOWER,
+            LISTING_TICK_UPPER
+        );
+        vault.lock(callbackData);
+
+        bnbAmount = _collectBnbAmount;
+        tokenAmount = _collectTokenAmount;
+        _collectBnbAmount = 0;
+        _collectTokenAmount = 0;
+
+        emit ListingFeesCollected(msg.sender, bnbAmount, tokenAmount);
+    }
+
     function _makeLiquidityPool() private {
         require(address(this).balance >= LISTING_ETH_BUDGET, "Insufficient ETH for listing");
         require(balanceOf(address(this)) >= LISTING_TOKEN_AMOUNT + NUTBOX_ALLOCATION, "Insufficient token for listing");
@@ -374,20 +408,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         require(hookAddr != address(0), "Hook not set");
         _transfer(address(this), hookAddr, NUTBOX_ALLOCATION);
 
-        // 1. Build the PoolKey (PCS V4 format)
-        //    currency0 = Native ETH (address(0)), currency1 = Token
-        //    tickSpacing is encoded in bytes32 parameters (bits [16-39])
-        uint16 hookBitmap = IHooks(hookAddr).getHooksRegistrationBitmap();
-        bytes32 parameters = CLPoolParametersHelper.setTickSpacing(bytes32(uint256(hookBitmap)), TICK_SPACING);
-
-        PoolKey memory poolKey = PoolKey({
-            currency0: CurrencyLibrary.NATIVE, // Native ETH
-            currency1: Currency.wrap(address(this)), // Token
-            hooks: IHooks(hookAddr),
-            poolManager: IPoolManager(address(clPoolManager)),
-            fee: 0, // No native LP fee, all fees via Hook
-            parameters: parameters
-        });
+        PoolKey memory poolKey = _listingPoolKey();
 
         // 2. Use fixed initial price to avoid runtime price drift and overflow edge-cases.
         uint160 sqrtPriceX96 = INITIAL_SQRT_PRICE_X96;
@@ -405,7 +426,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         ITipTagSwapHook(hookAddr).registerPool(poolId, address(this));
 
         // 6. Add bounded-range liquidity via vault.lock() callback.
-        bytes memory callbackData = abi.encode(poolKey, tickLower, tickUpper);
+        bytes memory callbackData = abi.encode(LOCK_OP_SEED, poolKey, tickLower, tickUpper);
         vault.lock(callbackData);
 
         // 7. After LP is settled, send all remaining ETH to platform. Remaining token stays in this contract.
@@ -420,15 +441,72 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         emit TokenListedToDex(address(this), PoolId.unwrap(poolId), sqrtPriceX96);
     }
 
-    /// @notice ILockCallback — 单次 token-first LP：200M token 全进池，配对 ~19.174 BNB。
+    /// @notice ILockCallback — seed listing LP or collect accrued LP fees (liquidityDelta=0).
     function lockAcquired(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(vault), "Only Vault");
 
-        (PoolKey memory poolKey, int24 tickLower, int24 tickUpper) = abi.decode(data, (PoolKey, int24, int24));
+        (uint8 op, PoolKey memory poolKey, int24 tickLower, int24 tickUpper) =
+            abi.decode(data, (uint8, PoolKey, int24, int24));
 
-        _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+        if (op == LOCK_OP_SEED) {
+            _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+        } else if (op == LOCK_OP_COLLECT) {
+            _collectListingFees(poolKey, tickLower, tickUpper);
+        } else {
+            revert("Invalid lock op");
+        }
 
         return "";
+    }
+
+    /// @dev Rebuild PoolKey identical to listing (fee=3000, same hook/tickSpacing).
+    function _listingPoolKey() private view returns (PoolKey memory) {
+        address hookAddr = IPump(manager).getHookAddress();
+        uint16 hookBitmap = IHooks(hookAddr).getHooksRegistrationBitmap();
+        bytes32 parameters = CLPoolParametersHelper.setTickSpacing(bytes32(uint256(hookBitmap)), TICK_SPACING);
+
+        return PoolKey({
+            currency0: CurrencyLibrary.NATIVE,
+            currency1: Currency.wrap(address(this)),
+            hooks: IHooks(hookAddr),
+            poolManager: IPoolManager(address(clPoolManager)),
+            fee: LISTING_LP_FEE,
+            parameters: parameters
+        });
+    }
+
+    /// @dev Collect listing LP fees via modifyLiquidity(0); route only this feeDelta batch.
+    function _collectListingFees(PoolKey memory poolKey, int24 tickLower, int24 tickUpper) private {
+        ICLPoolManager.ModifyLiquidityParams memory params = ICLPoolManager.ModifyLiquidityParams({
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            liquidityDelta: 0,
+            salt: bytes32(0)
+        });
+
+        (, BalanceDelta feeDelta) = clPoolManager.modifyLiquidity(poolKey, params, "");
+
+        int128 ethFee = feeDelta.amount0();
+        int128 tokenFee = feeDelta.amount1();
+
+        uint256 bnbAmount;
+        uint256 tokenAmount;
+
+        if (ethFee > 0) {
+            bnbAmount = uint256(uint128(ethFee));
+            address feeReceiver = IPump(manager).getFeeReceiver();
+            // Take BNB directly to platform — avoids reentrancy via receive() during vault.lock.
+            vault.take(poolKey.currency0, feeReceiver, bnbAmount);
+        }
+
+        if (tokenFee > 0) {
+            tokenAmount = uint256(uint128(tokenFee));
+            address hookAddr = IPump(manager).getHookAddress();
+            vault.take(poolKey.currency1, hookAddr, tokenAmount);
+        }
+
+        _collectBnbAmount = bnbAmount;
+        _collectTokenAmount = tokenAmount;
     }
 
     /// @dev Shared modifyLiquidity + vault settle/take for listing LP adds.

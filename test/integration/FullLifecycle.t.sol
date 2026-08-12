@@ -177,12 +177,13 @@ contract FullLifecycleTest is Test {
         uint256 initialBal = IERC20(tokenAddr).balanceOf(address(hook));
         assertEq(initialBal, NUTBOX_ALLOCATION, "Initial hook balance should be NUTBOX_ALLOCATION");
 
+        uint256 bought = 10_000 ether;
+        uint256 directionalFee = (bought * 30) / 10000;
+
         // Simulate a buy swap via MockPoolManager
         // Buy: zeroForOne = true (ETH → Token)
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        // Call afterSwap directly from pool manager
-        vm.prank(address(mockPoolManager));
         ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
             zeroForOne: true,
             amountSpecified: -1 ether, // exactInput 1 ETH
@@ -190,23 +191,27 @@ contract FullLifecycleTest is Test {
         });
 
         // Mock returns delta with tokenOut = 10_000 ether (accumulated in period 1)
-        BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
+        BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(bought)));
+        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
+        vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
 
-        // Same period: no inject yet.
-        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), initialBal, "Same period: no inject");
+        // Same period: no inject yet — directional fee accrues on Hook
+        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), initialBal + directionalFee, "Same period: fee only, no inject");
 
         // Next period first buy settles prior period.
         vm.warp(block.timestamp + 600);
+        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
+        uint256 balBeforeSettle = IERC20(tokenAddr).balanceOf(address(hook));
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
 
         uint256 balAfterBuy = IERC20(tokenAddr).balanceOf(address(hook));
 
-        (,, uint256 injectAmount) = hook.previewPeriodSettle(10_000 ether);
+        (,, uint256 injectAmount) = hook.previewPeriodSettle(bought);
         if (injectAmount >= 168 ether / 10) {
-            assertTrue(balAfterBuy < initialBal, "Hook balance should decrease after period settle");
-            assertEq(initialBal - balAfterBuy, injectAmount, "Should inject period settlement amount");
+            assertTrue(balAfterBuy < balBeforeSettle + directionalFee, "Hook balance should decrease after period settle");
+            assertEq(balBeforeSettle + directionalFee - balAfterBuy, injectAmount, "Should inject period settlement amount");
         }
     }
 
@@ -249,23 +254,25 @@ contract FullLifecycleTest is Test {
 
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
+        uint256 bought = 10_000 ether;
+        uint256 directionalFee = (bought * 30) / 10000;
         uint256 prevBal = IERC20(tokenAddr).balanceOf(address(hook));
 
-        // Simulate 5 buy swaps
+        // Simulate 5 buy swaps in the same period — balance non-decreasing via directional fees (no inject yet)
         for (uint256 i = 0; i < 5; i++) {
+            deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
             vm.prank(address(mockPoolManager));
             ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
                 zeroForOne: true,
                 amountSpecified: -1 ether,
                 sqrtPriceLimitX96: 0
             });
-            // Large enough bought amount to trigger inject
-            BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
+            BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(bought)));
             hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
 
             uint256 currentBal = IERC20(tokenAddr).balanceOf(address(hook));
-            // Balance should be <= previous (monotonically non-increasing)
-            assertTrue(currentBal <= prevBal, "Hook balance should be monotonically non-increasing");
+            assertTrue(currentBal >= prevBal, "Same-period buys accrue directional fees (non-decreasing)");
+            assertEq(currentBal, prevBal + directionalFee);
             prevBal = currentBal;
         }
     }
@@ -277,20 +284,27 @@ contract FullLifecycleTest is Test {
         address tokenAddr = address(token);
 
         uint256 initialBal = IERC20(tokenAddr).balanceOf(address(hook));
+        uint256 bought = 100 ether;
+        uint256 directionalFee = (bought * 30) / 10000;
 
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
         // Small buy: 100 ether tokens (below MIN_INJECT_AMOUNT of 8400 ether)
+        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
         ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
             zeroForOne: true,
             amountSpecified: -0.01 ether,
             sqrtPriceLimitX96: 0
         });
-        BalanceDelta smallDelta = toBalanceDelta(-0.01 ether, -int128(int256(100 ether)));
+        BalanceDelta smallDelta = toBalanceDelta(-0.01 ether, -int128(int256(bought)));
         hook.afterSwap(address(0), poolKey, buyParams, smallDelta, bytes(""));
 
-        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), initialBal, "Small buy should not trigger inject");
+        assertEq(
+            IERC20(tokenAddr).balanceOf(address(hook)),
+            initialBal + directionalFee,
+            "Small buy: directional fee only, no inject"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -366,7 +380,7 @@ contract FullLifecycleTest is Test {
             currency1: Currency.wrap(tokenAddr),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 0,
+            fee: 3000,
             parameters: parameters
         });
     }

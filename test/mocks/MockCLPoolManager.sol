@@ -33,6 +33,10 @@ contract MockCLPoolManager {
     uint256 public initializeCount;
     uint256 public swapCount;
 
+    /// @dev Configurable fee accrual for collectFees tests (liquidityDelta == 0).
+    uint256 public mockEthFees;
+    uint256 public mockTokenFees;
+
     event PoolInitialized(PoolId indexed id, uint160 sqrtPriceX96);
     event SwapExecuted(PoolId indexed id, bool zeroForOne, int256 amountSpecified);
 
@@ -62,6 +66,11 @@ contract MockCLPoolManager {
         return 0;
     }
 
+    function setMockFees(uint256 ethFees, uint256 tokenFees) external {
+        mockEthFees = ethFees;
+        mockTokenFees = tokenFees;
+    }
+
     function modifyLiquidity(
         PoolKey memory /* key */,
         ICLPoolManager.ModifyLiquidityParams memory params,
@@ -74,10 +83,16 @@ contract MockCLPoolManager {
 
         if (params.liquidityDelta > 0) {
             delta = toBalanceDelta(ethNeeded, tokenNeeded);
-        } else {
+            feeDelta = toBalanceDelta(int128(0), int128(0));
+        } else if (params.liquidityDelta == 0) {
+            // Fee collection path — never decrease liquidity
             delta = toBalanceDelta(int128(0), int128(0));
+            feeDelta = toBalanceDelta(int128(int256(mockEthFees)), int128(int256(mockTokenFees)));
+            mockEthFees = 0;
+            mockTokenFees = 0;
+        } else {
+            revert("MockCLPoolManager: liquidityDelta must be >= 0");
         }
-        feeDelta = toBalanceDelta(int128(0), int128(0));
     }
 
     /// @notice Simulate a swap and call hook callbacks

@@ -144,7 +144,7 @@ contract GasBenchmarkTest is Test {
             currency1: Currency.wrap(address(token)),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 0,
+            fee: 3000,
             parameters: parameters
         });
     }

@@ -169,6 +169,7 @@ abstract contract BSCForkBase is Test {
 
         _fillBondingCurve(token, buyer);
         assertTrue(token.listed(), "listing failed on real PCS V4");
+        _assertListingLpFee(token);
     }
 
     /// @dev 无预挖 + 单账号买满曲线 + Hook 150M 归集，确定性 800M。
@@ -198,6 +199,12 @@ abstract contract BSCForkBase is Test {
         assertEq(IERC20(tokenAddr).balanceOf(whale), EXTERNAL_SELLABLE, "whale holds exactly 800M");
         assertEq(IERC20(tokenAddr).balanceOf(address(hook)), 0, "hook emptied");
         assertLe(IERC20(tokenAddr).balanceOf(tokenAddr), MAX_LISTING_DUST, "listing dust <= 1 token");
+        _assertListingLpFee(token);
+    }
+
+    function _assertListingLpFee(Token token) internal view {
+        (,,, uint24 lpFee) = ICLPoolManager(CL_POOL_MANAGER).getSlot0(token.v4PoolId());
+        assertEq(lpFee, 3000, "listing pool native LP fee");
     }
 
     function _ensureCreatorIPShare() internal {
@@ -448,7 +455,7 @@ abstract contract BSCForkBase is Test {
             currency1: Currency.wrap(tokenAddr),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(CL_POOL_MANAGER),
-            fee: 0,
+            fee: 3000,
             parameters: parameters
         });
     }

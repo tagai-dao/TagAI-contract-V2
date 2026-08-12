@@ -46,6 +46,9 @@ interface IToken {
         address indexed newSubject
     );
 
+    /// @notice Emitted when listing LP fees are collected and routed.
+    event ListingFeesCollected(address indexed caller, uint256 bnbAmount, uint256 tokenAmount);
+
     // ─── View Functions ──────────────────────────────────────────────────────────
 
     function nutboxCommunity() external view returns (address);
@@ -59,4 +62,7 @@ interface IToken {
     function getIPShare() external view returns (address);
 
     function ipshareSubject() external view returns (address);
+
+    /// @notice Collect accrued native LP fees from the locked listing position and route proceeds.
+    function collectFees() external returns (uint256 bnbAmount, uint256 tokenAmount);
 }
