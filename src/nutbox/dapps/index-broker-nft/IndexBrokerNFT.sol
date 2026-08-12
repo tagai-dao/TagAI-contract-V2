@@ -16,7 +16,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../../interfaces/ICommunity.sol";
 import "../../interfaces/ICommittee.sol";
 import "../../interfaces/IPool.sol";
-import "../../../interfaces/INFTMiningRenderer.sol";
+import "./IIndexBrokerNFTRenderer.sol";
 
 interface ICommunityCommittee {
     function committee() external view returns (address);
@@ -26,16 +26,19 @@ interface INFTMiningPlatformFee {
     function platformFeeBps() external view returns (uint16);
 }
 
+interface IIndexBrokerNFTAMM {
+    function isAcceptingNFT(address from, uint256 tokenId) external view returns (bool);
+}
+
 /**
- * @title NFTMiningPool
+ * @title IndexBrokerNFT
  * @notice Fixed-supply NFT mining pool paid in its community token.
  *
- * Every mint deposits a fixed amount of the community token into this contract. Those
- * tokens intentionally have no withdrawal path and are reserved for future AMM features.
+ * Every mint deposits a fixed amount of the community token into its paired AMM vault.
  * Whitelisted accounts waive the native-coin price. Other accounts pay the immutable
  * native price and may use an NFT referrer. NFT ownership remains the Nutbox staking ledger.
  */
-contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, ReentrancyGuard {
+contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Strings for uint256;
 
@@ -61,6 +64,7 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
         uint256 referrerTokenId;
         uint256 referralCount;
         uint256 miningWeight;
+        bool miningActive;
         uint256 seed;
     }
 
@@ -69,6 +73,7 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
     address public communityToken;
     address public fundsReceiver;
     address public renderer;
+    address public ammVault;
 
     string private _collectionName;
     string private _collectionSymbol;
@@ -136,6 +141,8 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
     error WhitelistOnly();
     error InvalidPayment();
     error InvalidCommunityTokenPayment();
+    error InvalidAMMTransfer();
+    error ReferrerInAMM();
 
     constructor() ERC721("", "") {
         _disableInitializers();
@@ -145,6 +152,7 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
         address community_,
         address admin_,
         address renderer_,
+        address ammVault_,
         string calldata name_,
         string calldata symbol_,
         address fundsReceiver_,
@@ -159,7 +167,7 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
         uint256[] calldata whitelistAllowances_
     ) external initializer {
         if (
-            community_ == address(0) || admin_ == address(0) || renderer_.code.length == 0
+            community_ == address(0) || admin_ == address(0) || renderer_.code.length == 0 || ammVault_.code.length == 0
                 || fundsReceiver_ == address(0) || fundsReceiver_ == address(this)
         ) revert InvalidAddress();
 
@@ -182,6 +190,7 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
         communityToken = communityToken_;
         fundsReceiver = fundsReceiver_;
         renderer = renderer_;
+        ammVault = ammVault_;
         _collectionName = name_;
         _collectionSymbol = symbol_;
         communityTokenPrice = communityTokenPrice_;
@@ -257,8 +266,7 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
             '{"trait_type":"Referrer NFT","value":',
             record.referrerTokenId.toString(),
             "},",
-            '{"trait_type":"Mining Weight","value":',
-            _weightForLevel(record.level).toString(),
+            _miningAttributes(tokenId),
             "}]}"
         );
         return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
@@ -320,7 +328,10 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
             if (msg.value != nativePrice) revert InvalidPayment();
             ++paidMinted;
             effectiveReferrerTokenId = referrerTokenId;
-            if (effectiveReferrerTokenId != 0) commissionReceiver = ownerOf(effectiveReferrerTokenId);
+            if (effectiveReferrerTokenId != 0) {
+                commissionReceiver = ownerOf(effectiveReferrerTokenId);
+                if (commissionReceiver == ammVault) revert ReferrerInAMM();
+            }
         }
 
         tokenId = ++nextTokenId;
@@ -387,12 +398,14 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
 
     function getNFTInfo(uint256 tokenId) external view returns (NFTInfo memory info) {
         NFTRecord storage record = _nftRecords[tokenId];
+        address tokenOwner = ownerOf(tokenId);
         info = NFTInfo({
-            owner: ownerOf(tokenId),
+            owner: tokenOwner,
             level: record.level,
             referrerTokenId: record.referrerTokenId,
             referralCount: record.referralCount,
             miningWeight: _weightForLevel(record.level),
+            miningActive: tokenOwner != ammVault,
             seed: record.seed
         });
     }
@@ -439,13 +452,22 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
         return _weightForLevel(_nftRecords[tokenId].level);
     }
 
+    function activeMiningWeightOf(uint256 tokenId) public view returns (uint256) {
+        return miningActiveOf(tokenId) ? miningWeightOf(tokenId) : 0;
+    }
+
+    function miningActiveOf(uint256 tokenId) public view returns (bool) {
+        require(_exists(tokenId), "ERC721: invalid token ID");
+        return ownerOf(tokenId) != ammVault;
+    }
+
     // ───────────────────────────────── Internals ───────────────────────────────
 
     function _collectCommunityToken() internal {
         IERC20 paymentToken = IERC20(communityToken);
-        uint256 balanceBefore = paymentToken.balanceOf(address(this));
-        paymentToken.safeTransferFrom(msg.sender, address(this), communityTokenPrice);
-        if (paymentToken.balanceOf(address(this)) - balanceBefore != communityTokenPrice) {
+        uint256 balanceBefore = paymentToken.balanceOf(ammVault);
+        paymentToken.safeTransferFrom(msg.sender, ammVault, communityTokenPrice);
+        if (paymentToken.balanceOf(ammVault) - balanceBefore != communityTokenPrice) {
             revert InvalidCommunityTokenPayment();
         }
     }
@@ -498,28 +520,39 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
 
     function _beforeTokenTransfer(address from, address to, uint256 firstTokenId, uint256 batchSize) internal override {
         if (to == address(this)) revert InvalidAddress();
-        if (from != to) {
+        if (to == ammVault && !IIndexBrokerNFTAMM(ammVault).isAcceptingNFT(from, firstTokenId)) {
+            revert InvalidAMMTransfer();
+        }
+
+        address miningFrom = from == ammVault ? address(0) : from;
+        address miningTo = to == ammVault ? address(0) : to;
+        if (miningFrom != miningTo) {
             uint256 weight = _weightForLevel(_nftRecords[firstTokenId].level);
             ICommunity communityContract = ICommunity(community);
             communityContract.updatePools();
             uint256 shareAcc = communityContract.getShareAcc(address(this));
 
-            if (from != address(0)) _settleUser(communityContract, from, shareAcc);
-            if (to != address(0)) _settleUser(communityContract, to, shareAcc);
+            if (miningFrom != address(0)) _settleUser(communityContract, miningFrom, shareAcc);
+            if (miningTo != address(0)) _settleUser(communityContract, miningTo, shareAcc);
 
-            if (from == address(0)) _totalMiningWeight += weight;
-            else _userMiningWeight[from] -= weight;
+            if (miningFrom == address(0)) _totalMiningWeight += weight;
+            else _userMiningWeight[miningFrom] -= weight;
 
-            if (to == address(0)) _totalMiningWeight -= weight;
-            else _userMiningWeight[to] += weight;
+            if (miningTo == address(0)) _totalMiningWeight -= weight;
+            else _userMiningWeight[miningTo] += weight;
 
-            if (from != address(0)) {
-                communityContract.setUserDebt(from, Math.mulDiv(_userMiningWeight[from], shareAcc, ACC_PRECISION));
+            if (miningFrom != address(0)) {
+                communityContract.setUserDebt(
+                    miningFrom, Math.mulDiv(_userMiningWeight[miningFrom], shareAcc, ACC_PRECISION)
+                );
             }
-            if (to != address(0)) {
-                communityContract.setUserDebt(to, Math.mulDiv(_userMiningWeight[to], shareAcc, ACC_PRECISION));
+            if (miningTo != address(0)) {
+                communityContract.setUserDebt(
+                    miningTo, Math.mulDiv(_userMiningWeight[miningTo], shareAcc, ACC_PRECISION)
+                );
             }
             emit MiningWeightMoved(firstTokenId, from, to, weight);
+            if (from == ammVault || to == ammVault) emit MetadataUpdate(firstTokenId);
         }
         super._beforeTokenTransfer(from, to, firstTokenId, batchSize);
     }
@@ -563,17 +596,26 @@ contract NFTMiningPool is ERC721Enumerable, IPool, Initializable, Ownable2Step, 
 
     function _renderSVG(uint256 tokenId, NFTRecord storage record) internal view returns (string memory) {
         uint8 paletteId = uint8(((tokenId - 1) % MAX_PALETTES) + 1);
-        INFTMiningRenderer.RenderParams memory params = INFTMiningRenderer.RenderParams({
+        IIndexBrokerNFTRenderer.RenderParams memory params = IIndexBrokerNFTRenderer.RenderParams({
             collectionName: _collectionName,
             tokenId: tokenId,
             seed: record.seed,
             referralCount: record.referralCount,
             miningWeight: _weightForLevel(record.level),
-            batchId: 0, // Kept only for compatibility with the shared renderer interface.
             level: record.level,
             paletteId: paletteId
         });
-        return INFTMiningRenderer(renderer).renderSVG(params);
+        return IIndexBrokerNFTRenderer(renderer).renderSVG(params);
+    }
+
+    function _miningAttributes(uint256 tokenId) internal view returns (string memory) {
+        return string.concat(
+            '{"trait_type":"Mining Weight","value":',
+            miningWeightOf(tokenId).toString(),
+            '},{"trait_type":"Mining Active","value":',
+            miningActiveOf(tokenId) ? "true" : "false",
+            "}"
+        );
     }
 
     function _generationForLevel(uint32 level) internal pure returns (uint256) {

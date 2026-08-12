@@ -8,8 +8,10 @@ import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/Community.sol";
 import "../../src/nutbox/CommunityFactory.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
-import "../../src/nutbox/dapps/index-broker-nft/NFTMiningPool.sol";
-import "../../src/nutbox/dapps/index-broker-nft/NFTMiningPoolFactory.sol";
+import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol";
+import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTAMM.sol";
+import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTFactory.sol";
+import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTRenderer.sol";
 
 contract IndexBrokerCommunityToken is ERC20 {
     constructor() ERC20("Community", "COM") {
@@ -17,13 +19,14 @@ contract IndexBrokerCommunityToken is ERC20 {
     }
 }
 
-contract IndexBrokerNFTMiningPoolTest is Test {
+contract IndexBrokerNFTTest is Test {
     Committee internal committee;
     CommunityFactory internal communityFactory;
     HourlyTickCalculator internal calculator;
-    NFTMiningPoolFactory internal poolFactory;
+    IndexBrokerNFTFactory internal poolFactory;
     Community internal community;
-    NFTMiningPool internal pool;
+    IndexBrokerNFT internal pool;
+    IndexBrokerNFTAMM internal amm;
     IndexBrokerCommunityToken internal communityToken;
     uint256 internal activePoolCount;
 
@@ -38,6 +41,8 @@ contract IndexBrokerNFTMiningPoolTest is Test {
     uint256 internal constant MAX_SUPPLY = 6;
     uint16 internal constant PLATFORM_FEE_BPS = 30;
     uint16 internal constant REFERRAL_BPS = 1_000;
+    uint16 internal constant AMM_NORMAL_FEE_BPS = 1_000;
+    uint16 internal constant AMM_SPECIFIC_FEE_BPS = 1_500;
     uint256 internal constant BASE_WEIGHT = 10_000;
 
     function setUp() public {
@@ -50,7 +55,9 @@ contract IndexBrokerNFTMiningPoolTest is Test {
 
         communityFactory = new CommunityFactory(address(committee));
         calculator = new HourlyTickCalculator(address(communityFactory));
-        poolFactory = new NFTMiningPoolFactory(address(communityFactory));
+        poolFactory = new IndexBrokerNFTFactory(
+            address(communityFactory), address(new IndexBrokerNFTRenderer()), address(new IndexBrokerNFTAMM())
+        );
         communityToken = new IndexBrokerCommunityToken();
 
         committee.adminAddContract(address(calculator));
@@ -70,6 +77,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         allowances[1] = 1;
 
         pool = _addPool(NATIVE_PRICE, MAX_SUPPLY, REFERRAL_BPS, true, accounts, allowances);
+        amm = IndexBrokerNFTAMM(payable(pool.ammVault()));
 
         _fundAndApprove(whitelistUser1, pool);
         _fundAndApprove(whitelistUser2, pool);
@@ -89,6 +97,12 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         assertTrue(pool.lockWhitelistSlots());
         assertEq(pool.fundsReceiver(), fundsReceiver);
         assertEq(pool.getUserStakedAmount(whitelistUser1), 0);
+        assertEq(amm.collection(), address(pool));
+        assertEq(amm.communityToken(), address(communityToken));
+        assertEq(amm.tokensPerNFT(), COMMUNITY_TOKEN_PRICE);
+        assertEq(amm.normalFeeBps(), AMM_NORMAL_FEE_BPS);
+        assertEq(amm.specificFeeBps(), AMM_SPECIFIC_FEE_BPS);
+        assertFalse(amm.nativeFeeConfigured());
     }
 
     function test_WhitelistMintTakesPriorityRefundsNativeAndIgnoresReferral() public {
@@ -108,14 +122,14 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         assertEq(pool.getNFTInfo(2).referrerTokenId, 0);
         assertEq(pool.whitelistMintedBy(whitelistUser2), 1);
         assertEq(pool.paidMinted(), 0);
-        assertEq(communityToken.balanceOf(address(pool)), COMMUNITY_TOKEN_PRICE * 2);
+        assertEq(communityToken.balanceOf(address(amm)), COMMUNITY_TOKEN_PRICE * 2);
     }
 
     function test_PaidMintDepositsCommunityTokenAndSplitsOnlyNativePayment() public {
         _mintWhitelist(whitelistUser1, 0, 0);
 
         uint256 payerTokenBefore = communityToken.balanceOf(paidUser);
-        uint256 poolTokenBefore = communityToken.balanceOf(address(pool));
+        uint256 poolTokenBefore = communityToken.balanceOf(address(amm));
         uint256 referrerNativeBefore = whitelistUser1.balance;
         uint256 platformBefore = platformTreasury.balance;
         uint256 receiverBefore = fundsReceiver.balance;
@@ -126,7 +140,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         uint256 platformFee = NATIVE_PRICE * PLATFORM_FEE_BPS / 10_000;
         uint256 referralCommission = (NATIVE_PRICE - platformFee) * REFERRAL_BPS / 10_000;
         assertEq(payerTokenBefore - communityToken.balanceOf(paidUser), COMMUNITY_TOKEN_PRICE);
-        assertEq(communityToken.balanceOf(address(pool)) - poolTokenBefore, COMMUNITY_TOKEN_PRICE);
+        assertEq(communityToken.balanceOf(address(amm)) - poolTokenBefore, COMMUNITY_TOKEN_PRICE);
         assertEq(whitelistUser1.balance - referrerNativeBefore, referralCommission);
         assertEq(platformTreasury.balance - platformBefore, platformFee);
         assertEq(fundsReceiver.balance - receiverBefore, NATIVE_PRICE - platformFee - referralCommission);
@@ -140,7 +154,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         _mintPaid(paidUser, 1);
         _mintPaid(paidUser, 1);
 
-        NFTMiningPool.NFTInfo memory referrer = pool.getNFTInfo(1);
+        IndexBrokerNFT.NFTInfo memory referrer = pool.getNFTInfo(1);
         assertEq(referrer.referralCount, 2);
         assertEq(referrer.level, 2);
         assertEq(referrer.miningWeight, 12_000);
@@ -160,7 +174,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         assertEq(pool.paidMinted(), 1);
         assertEq(pool.getNFTInfo(1).referralCount, 1);
         assertEq(pool.getNFTInfo(paidTokenId).referrerTokenId, 1);
-        assertEq(communityToken.balanceOf(address(pool)), COMMUNITY_TOKEN_PRICE * 3);
+        assertEq(communityToken.balanceOf(address(amm)), COMMUNITY_TOKEN_PRICE * 3);
     }
 
     function test_LockedWhitelistSlotsCannotBeConsumedByPaidMints() public {
@@ -168,7 +182,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
             _mintPaid(paidUser, 0);
         }
 
-        vm.expectRevert(NFTMiningPool.PaidSupplyReached.selector);
+        vm.expectRevert(IndexBrokerNFT.PaidSupplyReached.selector);
         vm.prank(paidUser);
         pool.mint{value: NATIVE_PRICE}(0);
 
@@ -179,7 +193,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         assertEq(pool.totalSupply(), MAX_SUPPLY);
         assertEq(pool.paidMinted(), 3);
         assertEq(pool.whitelistMinted(), 3);
-        assertEq(communityToken.balanceOf(address(pool)), COMMUNITY_TOKEN_PRICE * MAX_SUPPLY);
+        assertEq(communityToken.balanceOf(address(amm)), COMMUNITY_TOKEN_PRICE * MAX_SUPPLY);
     }
 
     function test_UnlockedWhitelistSlotsCanBeConsumedByPaidMints() public {
@@ -187,7 +201,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         accounts[0] = whitelistUser1;
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 1;
-        NFTMiningPool unlockedPool = _addPool(NATIVE_PRICE, 3, REFERRAL_BPS, false, accounts, allowances);
+        IndexBrokerNFT unlockedPool = _addPool(NATIVE_PRICE, 3, REFERRAL_BPS, false, accounts, allowances);
         _fundAndApprove(whitelistUser1, unlockedPool);
         _fundAndApprove(paidUser, unlockedPool);
 
@@ -196,7 +210,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
             unlockedPool.mint{value: NATIVE_PRICE}(0);
         }
 
-        vm.expectRevert(NFTMiningPool.MaxSupplyReached.selector);
+        vm.expectRevert(IndexBrokerNFT.MaxSupplyReached.selector);
         vm.prank(whitelistUser1);
         unlockedPool.mint(0);
         assertEq(unlockedPool.paidMinted(), 3);
@@ -209,7 +223,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 2;
 
-        vm.expectRevert(NFTMiningPool.InvalidWhitelistConfig.selector);
+        vm.expectRevert(IndexBrokerNFT.InvalidWhitelistConfig.selector);
         this.addPoolForRevertTest(0, 3, 0, false, accounts, allowances);
     }
 
@@ -220,7 +234,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         uint256[] memory allowances = new uint256[](2);
         allowances[0] = 2;
         allowances[1] = 1;
-        NFTMiningPool whitelistPool = _addPool(0, 3, 0, false, accounts, allowances);
+        IndexBrokerNFT whitelistPool = _addPool(0, 3, 0, false, accounts, allowances);
         _fundAndApprove(whitelistUser1, whitelistPool);
         _fundAndApprove(whitelistUser2, whitelistPool);
 
@@ -237,7 +251,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         assertEq(whitelistPool.getUserStakedAmount(whitelistUser1), BASE_WEIGHT);
         assertEq(whitelistPool.getUserStakedAmount(whitelistUser2), BASE_WEIGHT);
 
-        vm.expectRevert(NFTMiningPool.WhitelistOnly.selector);
+        vm.expectRevert(IndexBrokerNFT.WhitelistOnly.selector);
         vm.prank(paidUser);
         whitelistPool.mint(0);
     }
@@ -245,14 +259,14 @@ contract IndexBrokerNFTMiningPoolTest is Test {
     function test_FundsReceiverCanChangeAndOnlyReceivesNativeProceeds() public {
         address newReceiver = makeAddr("newReceiver");
         pool.setFundsReceiver(newReceiver);
-        uint256 communityBalanceBefore = communityToken.balanceOf(address(pool));
+        uint256 communityBalanceBefore = communityToken.balanceOf(address(amm));
 
         _mintPaid(paidUser, 0);
 
         uint256 platformFee = NATIVE_PRICE * PLATFORM_FEE_BPS / 10_000;
         assertEq(newReceiver.balance, NATIVE_PRICE - platformFee);
         assertEq(fundsReceiver.balance, 0);
-        assertEq(communityToken.balanceOf(address(pool)) - communityBalanceBefore, COMMUNITY_TOKEN_PRICE);
+        assertEq(communityToken.balanceOf(address(amm)) - communityBalanceBefore, COMMUNITY_TOKEN_PRICE);
 
         vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(paidUser);
@@ -260,26 +274,91 @@ contract IndexBrokerNFTMiningPoolTest is Test {
     }
 
     function test_PaidMintRequiresExactNativePayment() public {
-        vm.expectRevert(NFTMiningPool.InvalidPayment.selector);
+        vm.expectRevert(IndexBrokerNFT.InvalidPayment.selector);
         vm.prank(paidUser);
         pool.mint{value: NATIVE_PRICE - 1}(0);
 
-        vm.expectRevert(NFTMiningPool.InvalidPayment.selector);
+        vm.expectRevert(IndexBrokerNFT.InvalidPayment.selector);
         vm.prank(paidUser);
         pool.mint{value: NATIVE_PRICE + 1}(0);
 
         assertEq(pool.totalSupply(), 0);
-        assertEq(communityToken.balanceOf(address(pool)), 0);
+        assertEq(communityToken.balanceOf(address(amm)), 0);
     }
 
-    function test_CommunityTokensRemainInPoolAcrossWhitelistAndPaidMints() public {
+    function test_CommunityTokensRemainInAMMReserveAcrossWhitelistAndPaidMints() public {
         _mintWhitelist(whitelistUser1, 0, 0);
         _mintPaid(paidUser, 1);
 
-        assertEq(communityToken.balanceOf(address(pool)), COMMUNITY_TOKEN_PRICE * 2);
+        assertEq(communityToken.balanceOf(address(pool)), 0);
+        assertEq(communityToken.balanceOf(address(amm)), COMMUNITY_TOKEN_PRICE * 2);
         assertEq(communityToken.balanceOf(fundsReceiver), 0);
         assertEq(communityToken.balanceOf(platformTreasury), 0);
         assertEq(communityToken.balanceOf(whitelistUser1), 100_000 ether - COMMUNITY_TOKEN_PRICE);
+    }
+
+    function test_DirectNFTTransferToAMMIsRejected() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+
+        vm.expectRevert(IndexBrokerNFT.InvalidAMMTransfer.selector);
+        vm.prank(whitelistUser1);
+        pool.transferFrom(whitelistUser1, address(amm), 1);
+
+        assertEq(pool.ownerOf(1), whitelistUser1);
+        assertEq(pool.getTotalStakedAmount(), BASE_WEIGHT);
+    }
+
+    function test_AMMCustodyStopsMiningAndPreventsReferralUntilNFTLeaves() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        bytes memory acceptanceCall = abi.encodeCall(IndexBrokerNFTAMM.isAcceptingNFT, (whitelistUser1, 1));
+        vm.mockCall(address(amm), acceptanceCall, abi.encode(true));
+
+        vm.prank(whitelistUser1);
+        pool.transferFrom(whitelistUser1, address(amm), 1);
+
+        assertEq(pool.ownerOf(1), address(amm));
+        assertEq(pool.miningWeightOf(1), BASE_WEIGHT);
+        assertEq(pool.activeMiningWeightOf(1), 0);
+        assertEq(pool.getNFTInfo(1).miningWeight, BASE_WEIGHT);
+        assertFalse(pool.getNFTInfo(1).miningActive);
+        assertFalse(pool.miningActiveOf(1));
+        assertEq(pool.getUserStakedAmount(whitelistUser1), 0);
+        assertEq(pool.getTotalStakedAmount(), 0);
+
+        vm.expectRevert(IndexBrokerNFT.ReferrerInAMM.selector);
+        vm.prank(paidUser);
+        pool.mint{value: NATIVE_PRICE}(1);
+
+        vm.prank(address(amm));
+        pool.safeTransferFrom(address(amm), whitelistUser2, 1);
+
+        assertEq(pool.ownerOf(1), whitelistUser2);
+        assertEq(pool.miningWeightOf(1), BASE_WEIGHT);
+        assertEq(pool.activeMiningWeightOf(1), BASE_WEIGHT);
+        assertTrue(pool.getNFTInfo(1).miningActive);
+        assertTrue(pool.miningActiveOf(1));
+        assertEq(pool.getUserStakedAmount(whitelistUser2), BASE_WEIGHT);
+        assertEq(pool.getTotalStakedAmount(), BASE_WEIGHT);
+    }
+
+    function test_AMMTradingWaitsForNativeFeePricingAndKeepsNativeBalance() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        vm.prank(whitelistUser1);
+        pool.approve(address(amm), 1);
+
+        vm.expectRevert(IndexBrokerNFTAMM.NativeFeeNotConfigured.selector);
+        vm.prank(whitelistUser1);
+        amm.sellNFT(1, COMMUNITY_TOKEN_PRICE);
+
+        vm.expectRevert(IndexBrokerNFTAMM.NativeFeeNotConfigured.selector);
+        amm.quoteNormalNativeFee();
+        vm.expectRevert(IndexBrokerNFTAMM.NativeFeeNotConfigured.selector);
+        amm.quoteSpecificNativeFee();
+
+        vm.prank(paidUser);
+        (bool success,) = address(amm).call{value: 0.25 ether}("");
+        assertTrue(success);
+        assertEq(address(amm).balance, 0.25 ether);
     }
 
     function _addPool(
@@ -289,7 +368,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         bool lockSlots,
         address[] memory accounts,
         uint256[] memory allowances
-    ) internal returns (NFTMiningPool createdPool) {
+    ) internal returns (IndexBrokerNFT createdPool) {
         uint256[] memory thresholds = new uint256[](3);
         thresholds[0] = 0;
         thresholds[1] = 2;
@@ -299,7 +378,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         weights[1] = 12_000;
         weights[2] = 15_000;
 
-        NFTMiningPoolFactory.PoolConfig memory config = NFTMiningPoolFactory.PoolConfig({
+        IndexBrokerNFTFactory.PoolConfig memory config = IndexBrokerNFTFactory.PoolConfig({
             symbol: "IDXNFT",
             fundsReceiver: fundsReceiver,
             renderer: address(0),
@@ -309,6 +388,8 @@ contract IndexBrokerNFTMiningPoolTest is Test {
             nativePrice: nativePrice,
             maxSupply: supply,
             referralBps: referralRate,
+            ammNormalFeeBps: AMM_NORMAL_FEE_BPS,
+            ammSpecificFeeBps: AMM_SPECIFIC_FEE_BPS,
             lockWhitelistSlots: lockSlots,
             whitelistAccounts: accounts,
             whitelistAllowances: allowances
@@ -325,7 +406,7 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         ratios[existingPools] = uint16(10_000 - assigned);
 
         community.adminAddPool("Index Broker NFT", ratios, address(poolFactory), abi.encode(config));
-        createdPool = NFTMiningPool(payable(community.activedPools(existingPools)));
+        createdPool = IndexBrokerNFT(payable(community.activedPools(existingPools)));
         activePoolCount = existingPools + 1;
     }
 
@@ -336,12 +417,12 @@ contract IndexBrokerNFTMiningPoolTest is Test {
         bool lockSlots,
         address[] memory accounts,
         uint256[] memory allowances
-    ) external returns (NFTMiningPool) {
+    ) external returns (IndexBrokerNFT) {
         require(msg.sender == address(this), "test only");
         return _addPool(nativePrice, supply, referralRate, lockSlots, accounts, allowances);
     }
 
-    function _fundAndApprove(address user, NFTMiningPool targetPool) internal {
+    function _fundAndApprove(address user, IndexBrokerNFT targetPool) internal {
         if (communityToken.balanceOf(user) < 100_000 ether) {
             assertTrue(communityToken.transfer(user, 100_000 ether));
         }

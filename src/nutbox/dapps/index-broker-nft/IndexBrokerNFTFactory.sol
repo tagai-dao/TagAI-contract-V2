@@ -6,19 +6,19 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../../CommunityFactory.sol";
 import "../../interfaces/IPoolFactory.sol";
-import "./NFTMiningPool.sol";
-import "./BSCNFTMiningRenderer.sol";
+import "./IndexBrokerNFTAMM.sol";
+import "./IndexBrokerNFT.sol";
 
 interface IOwnableCommunity {
     function owner() external view returns (address);
 }
 
 /**
- * @title NFTMiningPoolFactory
+ * @title IndexBrokerNFTFactory
  * @notice Creates fixed-supply, community-token-funded NFT mining pools.
  * @dev `meta` is `abi.encode(PoolConfig)`.
  */
-contract NFTMiningPoolFactory is IPoolFactory, Ownable2Step {
+contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     uint16 public constant DEFAULT_PLATFORM_FEE_BPS = 30;
     uint16 public constant BPS_DENOMINATOR = 10_000;
 
@@ -32,6 +32,8 @@ contract NFTMiningPoolFactory is IPoolFactory, Ownable2Step {
         uint256 nativePrice;
         uint256 maxSupply;
         uint16 referralBps;
+        uint16 ammNormalFeeBps;
+        uint16 ammSpecificFeeBps;
         bool lockWhitelistSlots;
         address[] whitelistAccounts;
         uint256[] whitelistAllowances;
@@ -40,10 +42,14 @@ contract NFTMiningPoolFactory is IPoolFactory, Ownable2Step {
     address public immutable communityFactory;
     address public immutable defaultRenderer;
     address public immutable poolTemplate;
+    address public immutable ammTemplate;
     uint16 public platformFeeBps = DEFAULT_PLATFORM_FEE_BPS;
 
     event PlatformFeeBpsChanged(uint16 previousBps, uint16 newBps);
-    event NFTMiningPoolCreated(
+    event IndexBrokerNFTAMMCreated(
+        address indexed pool, address indexed ammVault, uint16 normalFeeBps, uint16 specificFeeBps
+    );
+    event IndexBrokerNFTCreated(
         address indexed pool,
         address indexed community,
         address indexed admin,
@@ -60,11 +66,15 @@ contract NFTMiningPoolFactory is IPoolFactory, Ownable2Step {
         uint256 totalWhitelistAllocation
     );
 
-    constructor(address communityFactory_) {
-        require(communityFactory_ != address(0), "Invalid address");
+    constructor(address communityFactory_, address defaultRenderer_, address ammTemplate_) {
+        require(
+            communityFactory_ != address(0) && defaultRenderer_.code.length > 0 && ammTemplate_.code.length > 0,
+            "Invalid address"
+        );
         communityFactory = communityFactory_;
-        defaultRenderer = address(new BSCNFTMiningRenderer());
-        poolTemplate = address(new NFTMiningPool());
+        defaultRenderer = defaultRenderer_;
+        poolTemplate = address(new IndexBrokerNFT());
+        ammTemplate = ammTemplate_;
     }
 
     function setPlatformFeeBps(uint16 newBps) external onlyOwner {
@@ -87,11 +97,13 @@ contract NFTMiningPoolFactory is IPoolFactory, Ownable2Step {
         address selectedRenderer = config.renderer == address(0) ? defaultRenderer : config.renderer;
 
         address clone = Clones.clone(poolTemplate);
-        NFTMiningPool pool = NFTMiningPool(payable(clone));
+        address ammClone = Clones.clone(ammTemplate);
+        IndexBrokerNFT pool = IndexBrokerNFT(payable(clone));
         pool.initialize(
             community,
             admin,
             selectedRenderer,
+            ammClone,
             name,
             config.symbol,
             config.fundsReceiver,
@@ -105,8 +117,16 @@ contract NFTMiningPoolFactory is IPoolFactory, Ownable2Step {
             config.whitelistAccounts,
             config.whitelistAllowances
         );
+        IndexBrokerNFTAMM(payable(ammClone))
+            .initialize(
+                clone,
+                pool.communityToken(),
+                config.communityTokenPrice,
+                config.ammNormalFeeBps,
+                config.ammSpecificFeeBps
+            );
 
-        emit NFTMiningPoolCreated(
+        emit IndexBrokerNFTCreated(
             clone,
             community,
             admin,
@@ -122,6 +142,7 @@ contract NFTMiningPoolFactory is IPoolFactory, Ownable2Step {
             pool.lockWhitelistSlots(),
             pool.totalWhitelistAllocation()
         );
+        emit IndexBrokerNFTAMMCreated(clone, ammClone, config.ammNormalFeeBps, config.ammSpecificFeeBps);
         return clone;
     }
 }

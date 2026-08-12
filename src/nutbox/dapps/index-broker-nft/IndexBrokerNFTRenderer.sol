@@ -2,15 +2,15 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "../../../interfaces/INFTMiningRenderer.sol";
+import "./IIndexBrokerNFTRenderer.sol";
 
 /**
- * @title BSCNFTMiningRenderer
- * @notice Black-and-gold BSC cyberpunk SVG renderer for NFTMiningPool.
+ * @title IndexBrokerNFTRenderer
+ * @notice Black-and-gold BSC cyberpunk SVG renderer for IndexBrokerNFT.
  * @dev Token IDs rotate through six dark-network textures. The token seed
  * controls signal placement while level, referrals and mining weight evolve the card.
  */
-contract BSCNFTMiningRenderer is INFTMiningRenderer {
+contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
     using Strings for uint256;
 
     struct Theme {
