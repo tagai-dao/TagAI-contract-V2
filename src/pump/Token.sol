@@ -70,6 +70,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     // fee=3000 sets native LP fee to 0.3%; TipTagSwapHook collects additional swap fees on top.
     // tickSpacing=60 controls price-tick granularity only (independent of fee tier).
     uint24 public constant LISTING_LP_FEE = 3000;
+    /// @dev 0.5% of collected BNB LP fees rewards the permissionless caller.
+    uint256 public constant COLLECT_CALLER_REWARD_BPS = 50;
     int24 public constant TICK_SPACING = 60;
     // Listing LP: 200M token 全进池 + 配对 BNB（~19.174，来自内盘收入）；tickLower=MIN；
     // tickUpper 校准使 800M 外部卖压抽干池内 BNB。
@@ -113,7 +115,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         } else {
             bondingCurveSupply += tokenReceived;
             this.transfer(msg.sender, tokenReceived);
-            (bool success, ) = tiptapFeeAddress.call{value: tiptagFee}("");
+            (bool success,) = tiptapFeeAddress.call{value: tiptagFee}("");
             if (!success) revert CostFeeFail();
             address feeRecipient = _getFeeRecipient(sellsman);
             _handleSellsmanFee(sellsmanFee, feeRecipient);
@@ -167,11 +169,12 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     }
 
     /********************************** bonding curve ********************************/
-    function buyToken(
-        uint256 expectAmount,
-        address sellsman,
-        uint16 slippage
-    ) public payable nonReentrant returns (uint256) {
+    function buyToken(uint256 expectAmount, address sellsman, uint16 slippage)
+        public
+        payable
+        nonReentrant
+        returns (uint256)
+    {
         require(msg.sender != address(clPoolManager), "can't buy token from pool");
         sellsman = _checkBondingCurveState(sellsman);
         (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
@@ -183,10 +186,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
             revert DustIssue();
         }
 
-        uint256 tokenReceived = bondingCurve.getBuyAmountByValue(
-            bondingCurveSupply,
-            buyFunds - tiptagFee - sellsmanFee
-        );
+        uint256 tokenReceived = bondingCurve.getBuyAmountByValue(bondingCurveSupply, buyFunds - tiptagFee - sellsmanFee);
 
         address tiptapFeeAddress = IPump(manager).getFeeReceiver();
 
@@ -206,7 +206,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
             bondingCurveSupply += tokenReceived;
             this.transfer(msg.sender, tokenReceived);
 
-            (bool success, ) = tiptapFeeAddress.call{value: tiptagFee}("");
+            (bool success,) = tiptapFeeAddress.call{value: tiptagFee}("");
             if (!success) {
                 revert CostFeeFail();
             }
@@ -218,12 +218,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         }
     }
 
-    function sellToken(
-        uint256 amount,
-        uint256 expectReceive,
-        address sellsman,
-        uint16 slippage
-    ) public nonReentrant {
+    function sellToken(uint256 amount, uint256 expectReceive, address sellsman, uint16 slippage) public nonReentrant {
         sellsman = _checkBondingCurveState(sellsman);
 
         uint256 sellAmount = amount;
@@ -255,8 +250,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         bondingCurveSupply -= sellAmount;
 
         {
-            (bool success1, ) = tiptagFeeAddress.call{value: tiptagFee}("");
-            (bool success2, ) = msg.sender.call{value: receivedEth}("");
+            (bool success1,) = tiptagFeeAddress.call{value: tiptagFee}("");
+            (bool success2,) = msg.sender.call{value: receivedEth}("");
             if (!success1 || !success2) {
                 revert RefundFail();
             }
@@ -288,9 +283,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         }
         uint256 remaining = ANTI_SNIPE_WINDOW - elapsed;
         sellsmanFeePercent =
-            feeRatio[1] +
-            ((ANTI_SNIPE_SELLSMAN_FEE_MAX - feeRatio[1]) * remaining * remaining) /
-            ANTI_SNIPE_DENOM;
+            feeRatio[1] + ((ANTI_SNIPE_SELLSMAN_FEE_MAX - feeRatio[1]) * remaining * remaining) / ANTI_SNIPE_DENOM;
         return (feeRatio[0], sellsmanFeePercent);
     }
 
@@ -338,7 +331,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         uint256 usedEth = (priceBeforeFee * divisor) / (divisor - tiptagFeePercent - sellsmanFeePercent);
         if (usedEth > msg.value) revert InsufficientFund();
         if (usedEth < msg.value) {
-            (bool ok, ) = msg.sender.call{value: msg.value - usedEth}("");
+            (bool ok,) = msg.sender.call{value: msg.value - usedEth}("");
             if (!ok) revert RefundFail();
         }
         uint256 tiptagFee = (usedEth * tiptagFeePercent) / divisor;
@@ -348,7 +341,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         bondingCurveSupply += actualAmount;
         this.transfer(msg.sender, actualAmount);
 
-        (bool success1, ) = tiptapFeeAddress.call{value: tiptagFee}("");
+        (bool success1,) = tiptapFeeAddress.call{value: tiptagFee}("");
         if (!success1) revert CostFeeFail();
         address feeRecipient = _getFeeRecipient(sellsman);
         _handleSellsmanFee(sellsmanFee, feeRecipient);
@@ -379,16 +372,12 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /********************************** to dex (PancakeSwap V4 Infinity) ********************************/
 
-    /// @notice Permissionless: collect listing LP fees and route BNB→platform, Token→Hook.
+    /// @notice Permissionless: collect listing LP fees, reward caller, and route BNB→platform, Token→Hook.
     function collectFees() external nonReentrant returns (uint256 bnbAmount, uint256 tokenAmount) {
         if (!listed) revert TokenNotListed();
 
-        bytes memory callbackData = abi.encode(
-            LOCK_OP_COLLECT,
-            _listingPoolKey(),
-            LISTING_TICK_LOWER,
-            LISTING_TICK_UPPER
-        );
+        bytes memory callbackData =
+            abi.encode(LOCK_OP_COLLECT, _listingPoolKey(), LISTING_TICK_LOWER, LISTING_TICK_UPPER, msg.sender);
         vault.lock(callbackData);
 
         bnbAmount = _collectBnbAmount;
@@ -396,7 +385,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         _collectBnbAmount = 0;
         _collectTokenAmount = 0;
 
-        emit ListingFeesCollected(msg.sender, bnbAmount, tokenAmount);
+        uint256 callerReward = (bnbAmount * COLLECT_CALLER_REWARD_BPS) / divisor;
+        emit ListingFeesCollected(msg.sender, bnbAmount, tokenAmount, callerReward);
     }
 
     function _makeLiquidityPool() private {
@@ -426,14 +416,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         ITipTagSwapHook(hookAddr).registerPool(poolId, address(this));
 
         // 6. Add bounded-range liquidity via vault.lock() callback.
-        bytes memory callbackData = abi.encode(LOCK_OP_SEED, poolKey, tickLower, tickUpper);
+        bytes memory callbackData = abi.encode(LOCK_OP_SEED, poolKey, tickLower, tickUpper, address(0));
         vault.lock(callbackData);
 
         // 7. After LP is settled, send all remaining ETH to platform. Remaining token stays in this contract.
         address tiptagFeeAddress = IPump(manager).getFeeReceiver();
         uint256 remainEth = address(this).balance;
         if (remainEth > 0) {
-            (bool success1, ) = tiptagFeeAddress.call{value: remainEth}("");
+            (bool success1,) = tiptagFeeAddress.call{value: remainEth}("");
             require(success1, "Transfer ETH failed");
         }
 
@@ -445,13 +435,13 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     function lockAcquired(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(vault), "Only Vault");
 
-        (uint8 op, PoolKey memory poolKey, int24 tickLower, int24 tickUpper) =
-            abi.decode(data, (uint8, PoolKey, int24, int24));
+        (uint8 op, PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) =
+            abi.decode(data, (uint8, PoolKey, int24, int24, address));
 
         if (op == LOCK_OP_SEED) {
             _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
         } else if (op == LOCK_OP_COLLECT) {
-            _collectListingFees(poolKey, tickLower, tickUpper);
+            _collectListingFees(poolKey, tickLower, tickUpper, collector);
         } else {
             revert("Invalid lock op");
         }
@@ -476,12 +466,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     }
 
     /// @dev Collect listing LP fees via modifyLiquidity(0); route only this feeDelta batch.
-    function _collectListingFees(PoolKey memory poolKey, int24 tickLower, int24 tickUpper) private {
+    function _collectListingFees(PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) private {
         ICLPoolManager.ModifyLiquidityParams memory params = ICLPoolManager.ModifyLiquidityParams({
-            tickLower: tickLower,
-            tickUpper: tickUpper,
-            liquidityDelta: 0,
-            salt: bytes32(0)
+            tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: 0, salt: bytes32(0)
         });
 
         (, BalanceDelta feeDelta) = clPoolManager.modifyLiquidity(poolKey, params, "");
@@ -494,9 +481,11 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
         if (ethFee > 0) {
             bnbAmount = uint256(uint128(ethFee));
+            uint256 callerReward = (bnbAmount * COLLECT_CALLER_REWARD_BPS) / divisor;
             address feeReceiver = IPump(manager).getFeeReceiver();
-            // Take BNB directly to platform — avoids reentrancy via receive() during vault.lock.
-            vault.take(poolKey.currency0, feeReceiver, bnbAmount);
+            // Route directly from Vault so Token never holds collected BNB.
+            if (callerReward != 0) vault.take(poolKey.currency0, collector, callerReward);
+            vault.take(poolKey.currency0, feeReceiver, bnbAmount - callerReward);
         }
 
         if (tokenFee > 0) {
@@ -510,17 +499,11 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     }
 
     /// @dev Shared modifyLiquidity + vault settle/take for listing LP adds.
-    function _modifyAndSettleLiquidity(
-        PoolKey memory poolKey,
-        int24 tickLower,
-        int24 tickUpper,
-        int256 liquidityDelta
-    ) private {
+    function _modifyAndSettleLiquidity(PoolKey memory poolKey, int24 tickLower, int24 tickUpper, int256 liquidityDelta)
+        private
+    {
         ICLPoolManager.ModifyLiquidityParams memory params = ICLPoolManager.ModifyLiquidityParams({
-            tickLower: tickLower,
-            tickUpper: tickUpper,
-            liquidityDelta: liquidityDelta,
-            salt: bytes32(0)
+            tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: liquidityDelta, salt: bytes32(0)
         });
 
         (BalanceDelta callerDelta,) = clPoolManager.modifyLiquidity(poolKey, params, "");

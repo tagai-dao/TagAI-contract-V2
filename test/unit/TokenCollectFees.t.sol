@@ -66,11 +66,7 @@ contract TokenCollectFeesTest is Test {
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
 
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
@@ -92,10 +88,8 @@ contract TokenCollectFeesTest is Test {
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         require(d != address(0), "CF deploy failed");
@@ -103,10 +97,8 @@ contract TokenCollectFeesTest is Test {
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         require(d != address(0), "SCF deploy failed");
@@ -119,7 +111,8 @@ contract TokenCollectFeesTest is Test {
         vm.warp(block.timestamp + 16);
         for (uint256 i = 0; i < 100 && !token.listed(); i++) {
             if (BONDING_CAP - token.bondingCurveSupply() == 0) break;
-            try token.buyToken{value: 500 ether}(0, creator, 0) {} catch {
+            try token.buyToken{value: 500 ether}(0, creator, 0) {}
+            catch {
                 break;
             }
         }
@@ -136,7 +129,7 @@ contract TokenCollectFeesTest is Test {
         address collector = makeAddr("collector");
 
         vm.expectEmit(true, false, false, true);
-        emit IToken.ListingFeesCollected(collector, 0, 0);
+        emit IToken.ListingFeesCollected(collector, 0, 0, 0);
 
         vm.prank(collector);
         (uint256 bnbAmount, uint256 tokenAmount) = token.collectFees();
@@ -156,6 +149,7 @@ contract TokenCollectFeesTest is Test {
         address hookAddr = pump.getHookAddress();
 
         uint256 platformBefore = feeRecipient.balance;
+        uint256 collectorBefore = collector.balance;
         uint256 hookTokenBefore = IERC20(address(token)).balanceOf(hookAddr);
 
         vm.prank(collector);
@@ -163,7 +157,9 @@ contract TokenCollectFeesTest is Test {
 
         assertEq(bnbAmount, ethFees);
         assertEq(tokenAmount, tokenFees);
-        assertEq(feeRecipient.balance - platformBefore, ethFees);
+        uint256 callerReward = ethFees * token.COLLECT_CALLER_REWARD_BPS() / 10_000;
+        assertEq(collector.balance - collectorBefore, callerReward);
+        assertEq(feeRecipient.balance - platformBefore, ethFees - callerReward);
         assertEq(IERC20(address(token)).balanceOf(hookAddr) - hookTokenBefore, tokenFees);
         assertEq(address(token).balance, 0, "Token should not retain collected BNB");
 
@@ -171,6 +167,22 @@ contract TokenCollectFeesTest is Test {
         (uint256 bnb2, uint256 token2) = token.collectFees();
         assertEq(bnb2, 0);
         assertEq(token2, 0);
+    }
+
+    function test_collectFees_roundsSubRewardDustToPlatform() public {
+        uint256 ethFees = 199;
+        mockPoolManager.setMockFees(ethFees, 0);
+        vm.deal(address(mockVault), ethFees);
+
+        address collector = makeAddr("dustCollector");
+        uint256 platformBefore = feeRecipient.balance;
+
+        vm.prank(collector);
+        token.collectFees();
+
+        assertEq(collector.balance, 0);
+        assertEq(feeRecipient.balance - platformBefore, ethFees);
+        assertEq(address(token).balance, 0);
     }
 
     function _createUnlistedToken() internal returns (Token) {
