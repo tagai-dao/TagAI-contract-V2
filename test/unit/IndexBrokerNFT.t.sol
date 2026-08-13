@@ -233,6 +233,8 @@ contract IndexBrokerNFTTest is Test {
         assertEq(pool.communityToken(), address(communityToken));
         assertEq(pool.communityTokenPrice(), COMMUNITY_TOKEN_PRICE);
         assertEq(pool.indexMiningActivationTokenAmount(), INDEX_MINING_ACTIVATION_TOKEN_AMOUNT);
+        assertTrue(pool.rerollEnabled());
+        assertEq(pool.recommitPrice(), COMMUNITY_TOKEN_PRICE);
         assertEq(pool.indexToken(), address(defaultIndexToken));
         assertEq(pool.minimumIndexMiningWeight(), 1 ether);
         assertEq(pool.totalActiveIndexMiningWeight(), 0);
@@ -288,6 +290,135 @@ contract IndexBrokerNFTTest is Test {
         vm.expectRevert(IndexBrokerNFT.NotTokenOwner.selector);
         vm.prank(whitelistUser2);
         pool.activateIndexMining(1);
+    }
+
+    function test_MintStartsUnrevealedAndOnlyOwnerCanRevealAfterTargetBlock() public {
+        uint256 mintBlock = block.number;
+        _mintWhitelist(whitelistUser1, 0, 0);
+
+        IndexBrokerNFT.NFTInfo memory beforeReveal = pool.getNFTInfo(1);
+        assertEq(beforeReveal.seed, 0);
+        assertEq(beforeReveal.revealBlock, mintBlock + 3);
+        assertEq(beforeReveal.revealRound, 1);
+        assertTrue(beforeReveal.revealPending);
+        assertTrue(_contains(pool.tokenSVG(1), "UNREVEALED"));
+
+        vm.expectRevert(IndexBrokerNFT.RevealNotReady.selector);
+        vm.prank(whitelistUser1);
+        pool.reveal(1);
+
+        vm.roll(beforeReveal.revealBlock + 1);
+        vm.expectRevert(IndexBrokerNFT.NotTokenOwner.selector);
+        vm.prank(makeAddr("nonOwnerRevealer"));
+        pool.reveal(1);
+
+        vm.prank(whitelistUser1);
+        uint256 seed = pool.reveal(1);
+
+        IndexBrokerNFT.NFTInfo memory afterReveal = pool.getNFTInfo(1);
+        assertEq(afterReveal.seed, seed);
+        assertGt(seed, 0);
+        assertFalse(afterReveal.revealPending);
+        assertFalse(_contains(pool.tokenSVG(1), "UNREVEALED"));
+    }
+
+    function test_PaidRecommitBurnsCustomPriceKeepsOldImageAndCanRevealNewSeed() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        uint256 customPrice = 321 ether;
+        IndexBrokerNFT customPool =
+            _addPoolWithRevealConfig(NATIVE_PRICE, 2, 0, false, accounts, allowances, true, customPrice);
+        _fundAndApprove(whitelistUser1, customPool);
+
+        vm.prank(whitelistUser1);
+        customPool.mint(0);
+        IndexBrokerNFT.NFTInfo memory firstCommit = customPool.getNFTInfo(1);
+        vm.roll(firstCommit.revealBlock + 1);
+        vm.prank(whitelistUser1);
+        uint256 firstSeed = customPool.reveal(1);
+
+        uint256 burnBefore = communityToken.balanceOf(customPool.INDEX_MINING_BURN_ADDRESS());
+        vm.prank(whitelistUser1);
+        customPool.commitReveal(1);
+
+        IndexBrokerNFT.NFTInfo memory reroll = customPool.getNFTInfo(1);
+        assertEq(customPool.recommitPrice(), customPrice);
+        assertEq(communityToken.balanceOf(customPool.INDEX_MINING_BURN_ADDRESS()) - burnBefore, customPrice);
+        assertEq(reroll.seed, firstSeed);
+        assertEq(reroll.revealRound, 2);
+        assertTrue(reroll.revealPending);
+        assertFalse(_contains(customPool.tokenSVG(1), "UNREVEALED"));
+
+        vm.roll(reroll.revealBlock + 1);
+        vm.prank(whitelistUser1);
+        uint256 secondSeed = customPool.reveal(1);
+        assertNotEq(secondSeed, firstSeed);
+        assertEq(customPool.getNFTInfo(1).seed, secondSeed);
+    }
+
+    function test_ExpiredCommitMustBePaidAgainAndKeepsCurrentSeed() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        IndexBrokerNFT.NFTInfo memory firstCommit = pool.getNFTInfo(1);
+        vm.roll(firstCommit.revealBlock + 1);
+        vm.prank(whitelistUser1);
+        uint256 oldSeed = pool.reveal(1);
+
+        vm.prank(whitelistUser1);
+        pool.commitReveal(1);
+        IndexBrokerNFT.NFTInfo memory paidCommit = pool.getNFTInfo(1);
+
+        vm.expectRevert(IndexBrokerNFT.RevealStillPending.selector);
+        vm.prank(whitelistUser1);
+        pool.commitReveal(1);
+
+        vm.roll(paidCommit.revealBlock + pool.REVEAL_WINDOW_BLOCKS() + 1);
+        vm.expectRevert(IndexBrokerNFT.RevealExpired.selector);
+        vm.prank(whitelistUser1);
+        pool.reveal(1);
+
+        uint256 burnBefore = communityToken.balanceOf(pool.INDEX_MINING_BURN_ADDRESS());
+        vm.prank(whitelistUser1);
+        pool.commitReveal(1);
+        assertEq(communityToken.balanceOf(pool.INDEX_MINING_BURN_ADDRESS()) - burnBefore, pool.recommitPrice());
+        assertEq(pool.getNFTInfo(1).seed, oldSeed);
+        assertEq(pool.getNFTInfo(1).revealRound, 3);
+    }
+
+    function test_RerollDisabledStillAllowsExpiredInitialCommitButNotPostRevealReroll() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        IndexBrokerNFT fixedPool =
+            _addPoolWithRevealConfig(NATIVE_PRICE, 2, 0, false, accounts, allowances, false, 77 ether);
+        _fundAndApprove(whitelistUser1, fixedPool);
+
+        vm.prank(whitelistUser1);
+        fixedPool.mint(0);
+        IndexBrokerNFT.NFTInfo memory initial = fixedPool.getNFTInfo(1);
+        assertEq(fixedPool.recommitPrice(), 0);
+        vm.roll(initial.revealBlock + fixedPool.REVEAL_WINDOW_BLOCKS() + 1);
+
+        uint256 burnBefore = communityToken.balanceOf(fixedPool.INDEX_MINING_BURN_ADDRESS());
+        vm.prank(whitelistUser1);
+        fixedPool.commitReveal(1);
+        assertEq(communityToken.balanceOf(fixedPool.INDEX_MINING_BURN_ADDRESS()), burnBefore);
+        IndexBrokerNFT.NFTInfo memory retry = fixedPool.getNFTInfo(1);
+
+        vm.roll(retry.revealBlock + fixedPool.REVEAL_WINDOW_BLOCKS() + 1);
+        vm.prank(whitelistUser1);
+        fixedPool.commitReveal(1);
+        assertEq(communityToken.balanceOf(fixedPool.INDEX_MINING_BURN_ADDRESS()), burnBefore);
+        retry = fixedPool.getNFTInfo(1);
+        vm.roll(retry.revealBlock + 1);
+        vm.prank(whitelistUser1);
+        fixedPool.reveal(1);
+
+        vm.expectRevert(IndexBrokerNFT.RerollDisabled.selector);
+        vm.prank(whitelistUser1);
+        fixedPool.commitReveal(1);
     }
 
     function test_RendererProvidesTokenAndCollectionMetadataAfterIndexUpgrade() public {
@@ -916,6 +1047,37 @@ contract IndexBrokerNFTTest is Test {
         uint256[] memory allowances,
         address indexToken
     ) internal returns (IndexBrokerNFT createdPool) {
+        return _addPoolConfigured(
+            nativePrice, supply, referralRate, lockSlots, accounts, allowances, indexToken, true, 0
+        );
+    }
+
+    function _addPoolWithRevealConfig(
+        uint256 nativePrice,
+        uint256 supply,
+        uint16 referralRate,
+        bool lockSlots,
+        address[] memory accounts,
+        uint256[] memory allowances,
+        bool reroll,
+        uint256 rerollPrice
+    ) internal returns (IndexBrokerNFT createdPool) {
+        return _addPoolConfigured(
+            nativePrice, supply, referralRate, lockSlots, accounts, allowances, address(0), reroll, rerollPrice
+        );
+    }
+
+    function _addPoolConfigured(
+        uint256 nativePrice,
+        uint256 supply,
+        uint16 referralRate,
+        bool lockSlots,
+        address[] memory accounts,
+        uint256[] memory allowances,
+        address indexToken,
+        bool reroll,
+        uint256 rerollPrice
+    ) internal returns (IndexBrokerNFT createdPool) {
         uint256[] memory thresholds = new uint256[](3);
         thresholds[0] = 0;
         thresholds[1] = 2;
@@ -941,11 +1103,13 @@ contract IndexBrokerNFTTest is Test {
             levelWeights: weights,
             communityTokenPrice: COMMUNITY_TOKEN_PRICE,
             indexMiningActivationTokenAmount: INDEX_MINING_ACTIVATION_TOKEN_AMOUNT,
+            recommitPrice: rerollPrice,
             nativePrice: nativePrice,
             maxSupply: supply,
             referralBps: referralRate,
             ammConfig: abi.encode(ammConfig),
             lockWhitelistSlots: lockSlots,
+            rerollEnabled: reroll,
             whitelistAccounts: accounts,
             whitelistAllowances: allowances
         });
@@ -1010,6 +1174,23 @@ contract IndexBrokerNFTTest is Test {
     function _mintPaid(address user, uint256 referrerTokenId) internal returns (uint256) {
         vm.prank(user);
         return pool.mint{value: NATIVE_PRICE}(referrerTokenId);
+    }
+
+    function _contains(string memory value, string memory needle) internal pure returns (bool) {
+        bytes memory haystack = bytes(value);
+        bytes memory target = bytes(needle);
+        if (target.length == 0 || target.length > haystack.length) return false;
+        for (uint256 i; i <= haystack.length - target.length; ++i) {
+            bool matches = true;
+            for (uint256 j; j < target.length; ++j) {
+                if (haystack[i + j] != target[j]) {
+                    matches = false;
+                    break;
+                }
+            }
+            if (matches) return true;
+        }
+        return false;
     }
 
     function _setV2Price(uint112 tokenReserve, uint112 nativeReserve) internal {

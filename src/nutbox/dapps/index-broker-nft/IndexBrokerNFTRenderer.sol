@@ -91,6 +91,7 @@ contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
     }
 
     function _renderSVG(RenderParams calldata params) private pure returns (string memory) {
+        if (params.seed == 0) return _unrevealedSVG(params);
         Theme memory theme = _theme(params.paletteId);
         Layout memory layout = _layout(params);
         return string.concat(
@@ -110,6 +111,23 @@ contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
             _movingParticles(params, theme),
             _footer(params, theme),
             "</svg>"
+        );
+    }
+
+    function _unrevealedSVG(RenderParams calldata params) private pure returns (string memory) {
+        return string.concat(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="840" viewBox="0 0 600 840">',
+            '<rect width="600" height="840" rx="48" fill="#0B0E11"/>',
+            '<rect x="34" y="34" width="532" height="772" rx="36" fill="none" stroke="#F0B90B" stroke-width="3" stroke-dasharray="12 16"/>',
+            '<circle cx="300" cy="350" r="128" fill="none" stroke="#2B3139" stroke-width="18"/>',
+            '<path d="M250 350v-48a50 50 0 0 1 100 0v48M234 350h132v116H234z" fill="#181A20" stroke="#F0B90B" stroke-width="8"/>',
+            '<circle cx="300" cy="402" r="13" fill="#F0B90B"/>',
+            '<text x="300" y="560" text-anchor="middle" fill="#F0B90B" font-family="monospace" font-size="27" font-weight="700" letter-spacing="5">UNREVEALED</text>',
+            '<text x="300" y="606" text-anchor="middle" fill="#848E9C" font-family="monospace" font-size="15">',
+            params.collectionName,
+            " #",
+            params.tokenId.toString(),
+            '</text><text x="300" y="752" text-anchor="middle" fill="#5E6673" font-family="monospace" font-size="11" letter-spacing="3">WAITING FOR ONCHAIN REVEAL</text></svg>'
         );
     }
 

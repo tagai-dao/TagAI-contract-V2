@@ -35,11 +35,13 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint256[] levelWeights;
         uint256 communityTokenPrice;
         uint256 indexMiningActivationTokenAmount;
+        uint256 recommitPrice;
         uint256 nativePrice;
         uint256 maxSupply;
         uint16 referralBps;
         bytes ammConfig;
         bool lockWhitelistSlots;
+        bool rerollEnabled;
         address[] whitelistAccounts;
         uint256[] whitelistAllowances;
     }
@@ -86,10 +88,12 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address fundsReceiver,
         uint256 communityTokenPrice,
         uint256 indexMiningActivationTokenAmount,
+        uint256 recommitPrice,
         uint256 nativePrice,
         uint256 maxSupply,
         uint16 referralBps,
         bool lockWhitelistSlots,
+        bool rerollEnabled,
         uint256 totalWhitelistAllocation
     );
 
@@ -193,10 +197,12 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             config.levelWeights,
             config.communityTokenPrice,
             config.indexMiningActivationTokenAmount,
+            config.recommitPrice,
             config.nativePrice,
             config.maxSupply,
             config.referralBps,
             config.lockWhitelistSlots,
+            config.rerollEnabled,
             config.whitelistAccounts,
             config.whitelistAllowances
         );
@@ -248,10 +254,12 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             config.fundsReceiver,
             config.communityTokenPrice,
             config.indexMiningActivationTokenAmount,
+            pool.recommitPrice(),
             config.nativePrice,
             config.maxSupply,
             config.referralBps,
             pool.lockWhitelistSlots(),
+            pool.rerollEnabled(),
             pool.totalWhitelistAllocation()
         );
     }

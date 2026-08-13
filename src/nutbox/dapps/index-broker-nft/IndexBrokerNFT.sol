@@ -50,6 +50,8 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     uint256 public constant MAX_PALETTES = 6;
     uint256 public constant MAX_NAME_LENGTH = 64;
     uint256 public constant MAX_SYMBOL_LENGTH = 16;
+    uint256 public constant REVEAL_DELAY_BLOCKS = 3;
+    uint256 public constant REVEAL_WINDOW_BLOCKS = 256;
     address public constant INDEX_MINING_BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     bytes4 private constant _INTERFACE_ID_ERC4906 = 0x49064906;
@@ -57,6 +59,9 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     struct NFTRecord {
         uint32 level;
         bool indexMiningActive;
+        uint64 revealBlock;
+        uint32 revealRound;
+        bool revealPending;
         uint256 referrerTokenId;
         uint256 referralCount;
         uint256 seed;
@@ -76,6 +81,9 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         uint256 indexMiningWeight;
         uint256 pendingIndexRewards;
         uint256 seed;
+        uint256 revealBlock;
+        uint256 revealRound;
+        bool revealPending;
     }
 
     address public factory;
@@ -91,10 +99,12 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
 
     uint256 public communityTokenPrice;
     uint256 public indexMiningActivationTokenAmount;
+    uint256 public recommitPrice;
     uint256 public nativePrice;
     uint256 public maxSupply;
     uint16 public referralBps;
     bool public lockWhitelistSlots;
+    bool public rerollEnabled;
 
     uint256 public nextTokenId;
     uint256 public totalWhitelistAllocation;
@@ -153,6 +163,10 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     event IndexMiningWeightReduced(uint256 indexed tokenId, uint256 previousWeight, uint256 newWeight);
     event IndexRewardsInjected(address indexed caller, uint256 amount, uint256 distributed, uint256 queued);
     event IndexRewardsClaimed(address indexed owner, uint256 indexed tokenId, uint256 amount);
+    event RevealCommitted(
+        address indexed owner, uint256 indexed tokenId, uint256 indexed revealRound, uint256 revealBlock, uint256 price
+    );
+    event NFTRevealed(uint256 indexed tokenId, uint256 indexed revealRound, uint256 seed);
     event MiningWeightMoved(uint256 indexed tokenId, address indexed from, address indexed to, uint256 weight);
     event MetadataUpdate(uint256 _tokenId);
     event ContractURIUpdated();
@@ -176,6 +190,10 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     error InvalidIndexMiningWeight();
     error InvalidIndexRewardAmount();
     error NoIndexRewards();
+    error RevealNotReady();
+    error RevealExpired();
+    error RevealStillPending();
+    error RerollDisabled();
 
     constructor() ERC721("", "") {
         _disableInitializers();
@@ -194,10 +212,12 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         uint256[] calldata weights_,
         uint256 communityTokenPrice_,
         uint256 indexMiningActivationTokenAmount_,
+        uint256 recommitPrice_,
         uint256 nativePrice_,
         uint256 maxSupply_,
         uint16 referralBps_,
         bool lockWhitelistSlots_,
+        bool rerollEnabled_,
         address[] calldata whitelistAccounts_,
         uint256[] calldata whitelistAllowances_
     ) external initializer {
@@ -231,11 +251,13 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         _collectionSymbol = symbol_;
         communityTokenPrice = communityTokenPrice_;
         indexMiningActivationTokenAmount = indexMiningActivationTokenAmount_;
+        recommitPrice = rerollEnabled_ ? (recommitPrice_ == 0 ? communityTokenPrice_ : recommitPrice_) : 0;
         minimumIndexMiningWeight = 10 ** IERC20Metadata(communityToken_).decimals();
         nativePrice = nativePrice_;
         maxSupply = maxSupply_;
         referralBps = referralBps_;
         lockWhitelistSlots = nativePrice_ == 0 || lockWhitelistSlots_;
+        rerollEnabled = rerollEnabled_;
 
         for (uint256 i; i < thresholds_.length; ++i) {
             levelThresholds.push(thresholds_[i]);
@@ -326,31 +348,22 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         }
 
         tokenId = ++nextTokenId;
-        bytes32 previousBlockHash = block.number == 0 ? bytes32(0) : blockhash(block.number - 1);
-        uint256 seed = uint256(
-            keccak256(
-                abi.encodePacked(
-                    address(this),
-                    block.chainid,
-                    tokenId,
-                    msg.sender,
-                    isWhitelistMint,
-                    block.prevrandao,
-                    previousBlockHash
-                )
-            )
-        );
+        uint64 revealBlock = uint64(block.number + REVEAL_DELAY_BLOCKS);
 
         _nftRecords[tokenId] = NFTRecord({
             level: 1,
             indexMiningActive: true,
+            revealBlock: revealBlock,
+            revealRound: 1,
+            revealPending: true,
             referrerTokenId: effectiveReferrerTokenId,
             referralCount: 0,
-            seed: seed,
+            seed: 0,
             indexMiningWeight: 0,
             indexRewardDebt: 0,
             pendingIndexRewards: 0
         });
+        emit RevealCommitted(msg.sender, tokenId, 1, revealBlock, 0);
 
         _collectCommunityToken();
 
@@ -375,6 +388,47 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             communityTokenPrice,
             isWhitelistMint ? 0 : nativePrice
         );
+    }
+
+    // ───────────────────────────── NFT reveal ─────────────────────────────
+
+    function reveal(uint256 tokenId) external returns (uint256 randomWord) {
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        NFTRecord storage record = _nftRecords[tokenId];
+        if (!record.revealPending || block.number <= record.revealBlock) revert RevealNotReady();
+        if (block.number > uint256(record.revealBlock) + REVEAL_WINDOW_BLOCKS) revert RevealExpired();
+
+        randomWord = uint256(
+            keccak256(
+                abi.encode(address(this), block.chainid, tokenId, record.revealRound, blockhash(record.revealBlock))
+            )
+        );
+        if (randomWord == 0) randomWord = 1;
+        record.seed = randomWord;
+        record.revealPending = false;
+
+        emit NFTRevealed(tokenId, record.revealRound, randomWord);
+        emit MetadataUpdate(tokenId);
+    }
+
+    function commitReveal(uint256 tokenId) external nonReentrant {
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        NFTRecord storage record = _nftRecords[tokenId];
+        if (record.revealPending) {
+            if (block.number <= uint256(record.revealBlock) + REVEAL_WINDOW_BLOCKS) revert RevealStillPending();
+        } else if (!rerollEnabled) {
+            revert RerollDisabled();
+        }
+
+        uint256 price = rerollEnabled ? recommitPrice : 0;
+        if (price != 0) IERC20(communityToken).safeTransferFrom(msg.sender, INDEX_MINING_BURN_ADDRESS, price);
+        uint256 nextRound = uint256(record.revealRound) + 1;
+        uint256 nextRevealBlock = block.number + REVEAL_DELAY_BLOCKS;
+        record.revealRound = uint32(nextRound);
+        record.revealBlock = uint64(nextRevealBlock);
+        record.revealPending = true;
+
+        emit RevealCommitted(msg.sender, tokenId, nextRound, nextRevealBlock, price);
     }
 
     // ────────────────────────── Index mining activation ───────────────────────
@@ -471,7 +525,10 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             indexMiningActive: record.indexMiningActive,
             indexMiningWeight: record.indexMiningWeight,
             pendingIndexRewards: pendingIndexRewardsOf(tokenId),
-            seed: record.seed
+            seed: record.seed,
+            revealBlock: record.revealBlock,
+            revealRound: record.revealRound,
+            revealPending: record.revealPending
         });
     }
 
