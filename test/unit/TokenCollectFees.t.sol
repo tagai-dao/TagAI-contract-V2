@@ -13,6 +13,7 @@ import "../mocks/MockCLPoolManager.sol";
 import "../mocks/MockVault.sol";
 import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
 import {IVault} from "infinity-core/src/interfaces/IVault.sol";
+import {PoolId} from "infinity-core/src/types/PoolId.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
@@ -83,7 +84,7 @@ contract TokenCollectFeesTest is Test {
         token = Token(payable(tokenAddr));
         vm.stopPrank();
 
-        _fillBondingCurve();
+        _fillBondingCurve(token);
         assertTrue(token.listed(), "token must be listed");
     }
 
@@ -105,13 +106,13 @@ contract TokenCollectFeesTest is Test {
         return d;
     }
 
-    function _fillBondingCurve() internal {
+    function _fillBondingCurve(Token target) internal {
         uint256 BONDING_CAP = 650_000_000 ether;
         vm.startPrank(buyer, buyer);
         vm.warp(block.timestamp + 16);
-        for (uint256 i = 0; i < 100 && !token.listed(); i++) {
-            if (BONDING_CAP - token.bondingCurveSupply() == 0) break;
-            try token.buyToken{value: 500 ether}(0, creator, 0) {}
+        for (uint256 i = 0; i < 100 && !target.listed(); i++) {
+            if (BONDING_CAP - target.bondingCurveSupply() == 0) break;
+            try target.buyToken{value: 500 ether}(0, creator, 0) {}
             catch {
                 break;
             }
@@ -183,6 +184,43 @@ contract TokenCollectFeesTest is Test {
         assertEq(collector.balance, 0);
         assertEq(feeRecipient.balance - platformBefore, ethFees);
         assertEq(address(token).balance, 0);
+    }
+
+    function test_collectFees_usesListingHookAfterPumpHookUpgrade() public {
+        address originalHook = address(hook);
+        address replacementHook = makeAddr("replacementHook");
+        uint256 tokenFees = 10_000 ether;
+
+        assertEq(token.listingHook(), originalHook);
+        assertEq(PoolId.unwrap(mockPoolManager.lastInitializedPoolId()), PoolId.unwrap(token.v4PoolId()));
+
+        pump.adminSetHookAddress(replacementHook);
+        mockPoolManager.setMockFees(0, tokenFees);
+        deal(address(token), address(mockVault), tokenFees);
+
+        uint256 originalHookBefore = IERC20(address(token)).balanceOf(originalHook);
+        vm.prank(makeAddr("collectorAfterHookUpgrade"));
+        (, uint256 collectedTokens) = token.collectFees();
+
+        assertEq(collectedTokens, tokenFees);
+        assertEq(IERC20(address(token)).balanceOf(originalHook) - originalHookBefore, tokenFees);
+        assertEq(IERC20(address(token)).balanceOf(replacementHook), 0);
+        assertEq(PoolId.unwrap(mockPoolManager.lastModifiedPoolId()), PoolId.unwrap(token.v4PoolId()));
+    }
+
+    function test_listingBindsHookSelectedAtListingTime() public {
+        Token unlisted = _createUnlistedToken();
+        TagAISwapHook listingHook =
+            new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
+
+        pump.adminSetHookAddress(address(listingHook));
+        _fillBondingCurve(unlisted);
+
+        assertTrue(unlisted.listed());
+        assertEq(unlisted.listingHook(), address(listingHook));
+        assertEq(IERC20(address(unlisted)).balanceOf(address(listingHook)), unlisted.NUTBOX_ALLOCATION());
+        assertEq(IERC20(address(unlisted)).balanceOf(address(hook)), 0);
+        assertEq(PoolId.unwrap(mockPoolManager.lastInitializedPoolId()), PoolId.unwrap(unlisted.v4PoolId()));
     }
 
     function _createUnlistedToken() internal returns (Token) {

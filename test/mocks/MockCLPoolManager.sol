@@ -32,6 +32,8 @@ contract MockCLPoolManager {
     // Track calls
     uint256 public initializeCount;
     uint256 public swapCount;
+    PoolId public lastInitializedPoolId;
+    PoolId public lastModifiedPoolId;
 
     /// @dev Configurable fee accrual for collectFees tests (liquidityDelta == 0).
     uint256 public mockEthFees;
@@ -56,6 +58,7 @@ contract MockCLPoolManager {
         });
 
         initializeCount++;
+        lastInitializedPoolId = id;
         emit PoolInitialized(id, sqrtPriceX96);
 
         // Call afterInitialize on hook
@@ -72,10 +75,11 @@ contract MockCLPoolManager {
     }
 
     function modifyLiquidity(
-        PoolKey memory /* key */,
+        PoolKey memory key,
         ICLPoolManager.ModifyLiquidityParams memory params,
         bytes calldata /* hookData */
     ) external returns (BalanceDelta delta, BalanceDelta feeDelta) {
+        lastModifiedPoolId = key.toId();
         // Simplified: return deltas based on liquidity delta
         // For listing: negative means pool needs tokens from caller
         int128 ethNeeded = -int128(int256(19 ether));

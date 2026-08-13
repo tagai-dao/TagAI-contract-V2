@@ -66,6 +66,10 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     ICLPoolManager public clPoolManager;
     IVault public vault;
     PoolId public v4PoolId;
+    /// @notice Hook permanently bound to this token's listing pool.
+    /// @dev Snapshotted at listing so later Pump hook upgrades cannot change this pool's identity or fee destination.
+    address public listingHook;
+    bytes32 public listingPoolParameters;
     // In V4, tickSpacing and fee are fully decoupled.
     // fee=3000 sets native LP fee to 0.3%; TipTagSwapHook collects additional swap fees on top.
     // tickSpacing=60 controls price-tick granularity only (independent of fee tier).
@@ -398,6 +402,10 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         require(hookAddr != address(0), "Hook not set");
         _transfer(address(this), hookAddr, NUTBOX_ALLOCATION);
 
+        uint16 hookBitmap = IHooks(hookAddr).getHooksRegistrationBitmap();
+        listingHook = hookAddr;
+        listingPoolParameters = CLPoolParametersHelper.setTickSpacing(bytes32(uint256(hookBitmap)), TICK_SPACING);
+
         PoolKey memory poolKey = _listingPoolKey();
 
         // 2. Use fixed initial price to avoid runtime price drift and overflow edge-cases.
@@ -449,19 +457,15 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         return "";
     }
 
-    /// @dev Rebuild PoolKey identical to listing (fee=3000, same hook/tickSpacing).
+    /// @dev Rebuild the immutable listing PoolKey from values snapshotted when this token listed.
     function _listingPoolKey() private view returns (PoolKey memory) {
-        address hookAddr = IPump(manager).getHookAddress();
-        uint16 hookBitmap = IHooks(hookAddr).getHooksRegistrationBitmap();
-        bytes32 parameters = CLPoolParametersHelper.setTickSpacing(bytes32(uint256(hookBitmap)), TICK_SPACING);
-
         return PoolKey({
             currency0: CurrencyLibrary.NATIVE,
             currency1: Currency.wrap(address(this)),
-            hooks: IHooks(hookAddr),
+            hooks: IHooks(listingHook),
             poolManager: IPoolManager(address(clPoolManager)),
             fee: LISTING_LP_FEE,
-            parameters: parameters
+            parameters: listingPoolParameters
         });
     }
 
@@ -490,8 +494,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
         if (tokenFee > 0) {
             tokenAmount = uint256(uint128(tokenFee));
-            address hookAddr = IPump(manager).getHookAddress();
-            vault.take(poolKey.currency1, hookAddr, tokenAmount);
+            vault.take(poolKey.currency1, address(poolKey.hooks), tokenAmount);
         }
 
         _collectBnbAmount = bnbAmount;
