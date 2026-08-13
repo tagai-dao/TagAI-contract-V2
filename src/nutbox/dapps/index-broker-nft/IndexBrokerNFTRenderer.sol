@@ -92,7 +92,7 @@ contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
 
     function _renderSVG(RenderParams calldata params) private pure returns (string memory) {
         if (params.seed == 0) return _unrevealedSVG(params);
-        Theme memory theme = _theme(params.paletteId);
+        Theme memory theme = _theme(_themeId(params.tokenId));
         Layout memory layout = _layout(params);
         return string.concat(
             '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="840" viewBox="0 0 600 840">',
@@ -161,7 +161,7 @@ contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
             '<text x="154" y="113" fill="#848E9C" font-family="monospace" font-size="11" letter-spacing="1.5">',
             theme.label,
             " // PALETTE ",
-            uint256(params.paletteId).toString(),
+            uint256(_themeId(params.tokenId)).toString(),
             '</text><text x="512" y="103" fill="',
             theme.accent,
             '" font-family="monospace" font-size="14" font-weight="700" text-anchor="end">#',
@@ -261,7 +261,7 @@ contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
         pure
         returns (string memory)
     {
-        uint256 entropy = uint256(keccak256(abi.encodePacked(params.seed, params.paletteId, index)));
+        uint256 entropy = uint256(keccak256(abi.encodePacked(params.seed, _themeId(params.tokenId), index)));
         uint256 x = 92 + (entropy % 416);
         uint256 y = 176 + ((entropy >> 24) % 352);
         uint256 radius = 4 + ((entropy >> 48) % 5);
@@ -503,7 +503,7 @@ contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
     }
 
     function _layout(RenderParams calldata params) private pure returns (Layout memory layout) {
-        uint256 entropy = uint256(keccak256(abi.encodePacked(params.seed, params.tokenId, params.paletteId)));
+        uint256 entropy = uint256(keccak256(abi.encodePacked(params.seed, params.tokenId, _themeId(params.tokenId))));
         layout.coreX = 220 + (entropy % 161);
         layout.coreY = 300 + ((entropy >> 24) % 121);
         layout.rotation = (entropy >> 48) % 46;
@@ -583,12 +583,16 @@ contract IndexBrokerNFTRenderer is IIndexBrokerNFTRenderer {
         );
     }
 
-    function _theme(uint8 paletteId) private pure returns (Theme memory theme) {
-        if (paletteId == 1) return Theme("#F0B90B", "#FFE27A", "#181A20", "NEON GRID 01");
-        if (paletteId == 2) return Theme("#FFD166", "#F0B90B", "#15130D", "DARK MESH 02");
-        if (paletteId == 3) return Theme("#E0A800", "#FFF0A8", "#19160B", "QUANTUM LINK 03");
-        if (paletteId == 4) return Theme("#FFB000", "#FFD86B", "#17130A", "DATA VAULT 04");
-        if (paletteId == 5) return Theme("#D6B84C", "#FFF2B2", "#18160F", "HASH CIRCUIT 05");
+    function _theme(uint8 themeId) private pure returns (Theme memory theme) {
+        if (themeId == 1) return Theme("#F0B90B", "#FFE27A", "#181A20", "NEON GRID 01");
+        if (themeId == 2) return Theme("#FFD166", "#F0B90B", "#15130D", "DARK MESH 02");
+        if (themeId == 3) return Theme("#E0A800", "#FFF0A8", "#19160B", "QUANTUM LINK 03");
+        if (themeId == 4) return Theme("#FFB000", "#FFD86B", "#17130A", "DATA VAULT 04");
+        if (themeId == 5) return Theme("#D6B84C", "#FFF2B2", "#18160F", "HASH CIRCUIT 05");
         return Theme("#F7C948", "#FFF8D6", "#121212", "ZERO DARK 06");
+    }
+
+    function _themeId(uint256 tokenId) private pure returns (uint8) {
+        return uint8(((tokenId - 1) % 6) + 1);
     }
 }

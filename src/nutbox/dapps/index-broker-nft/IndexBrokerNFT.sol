@@ -43,11 +43,10 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     using SafeERC20 for IERC20;
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
-    uint256 public constant INDEX_WEIGHT_RETENTION_BPS = 6_000;
+    uint256 public constant INDEX_WEIGHT_RETENTION_BPS = 8_000;
     uint256 public constant ACC_PRECISION = 1e12;
     uint256 public constant INDEX_REWARD_PRECISION = 1e24;
     uint256 public constant MAX_LEVELS = 16;
-    uint256 public constant MAX_PALETTES = 6;
     uint256 public constant MAX_NAME_LENGTH = 64;
     uint256 public constant MAX_SYMBOL_LENGTH = 16;
     uint256 public constant REVEAL_DELAY_BLOCKS = 3;
@@ -794,8 +793,8 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             referrerTokenId: record.referrerTokenId,
             miningWeight: _weightForLevel(record.level),
             indexMiningWeight: record.indexMiningWeight,
+            communityTokenUnit: minimumIndexMiningWeight,
             level: record.level,
-            paletteId: uint8(((tokenId - 1) % MAX_PALETTES) + 1),
             miningActive: ownerOf(tokenId) != ammVault,
             indexMiningActive: record.indexMiningActive
         });

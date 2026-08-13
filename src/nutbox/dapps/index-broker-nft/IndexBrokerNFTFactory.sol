@@ -26,6 +26,7 @@ interface IIndexBrokerFactoryBasketRegistry {
 contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     uint16 public constant DEFAULT_PLATFORM_FEE_BPS = 30;
     uint16 public constant BPS_DENOMINATOR = 10_000;
+    uint256 public constant MAX_RESERVED_NAME_LENGTH = 64;
 
     struct PoolConfig {
         string symbol;
@@ -65,9 +66,12 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     uint24 public immutable indexV3Fee;
     address public defaultIndexToken;
     uint16 public platformFeeBps = DEFAULT_PLATFORM_FEE_BPS;
+    bytes[] private _reservedCollectionNames;
+    mapping(bytes32 => bool) public reservedCollectionNameHash;
 
     event PlatformFeeBpsChanged(uint16 previousBps, uint16 newBps);
     event DefaultIndexTokenChanged(address indexed previousToken, address indexed newToken);
+    event ReservedCollectionNameAdded(string normalizedName);
     event IndexBrokerNFTAMMCreated(
         address indexed pool,
         address indexed ammVault,
@@ -97,6 +101,10 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint256 totalWhitelistAllocation
     );
 
+    error InvalidReservedCollectionName();
+    error ReservedCollectionNameAlreadyAdded();
+    error ReservedCollectionNameUsed();
+
     constructor(
         address communityFactory_,
         address defaultRenderer_,
@@ -125,6 +133,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         indexV3Router = indexV3Router_;
         indexV3Fee = indexV3Fee_;
         defaultIndexToken = defaultIndexToken_;
+        _addReservedCollectionName("stonkbroker");
     }
 
     function setPlatformFeeBps(uint16 newBps) external onlyOwner {
@@ -141,6 +150,21 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         emit DefaultIndexTokenChanged(previousToken, newToken);
     }
 
+    /// @notice Permanently adds normalized name fragments that future NFT collections cannot contain.
+    function addReservedCollectionNames(string[] calldata names) external onlyOwner {
+        for (uint256 i; i < names.length; ++i) {
+            _addReservedCollectionName(names[i]);
+        }
+    }
+
+    function reservedCollectionNameCount() external view returns (uint256) {
+        return _reservedCollectionNames.length;
+    }
+
+    function reservedCollectionNameAt(uint256 index) external view returns (string memory) {
+        return string(_reservedCollectionNames[index]);
+    }
+
     function createPool(address community, string memory name, bytes calldata meta)
         external
         override
@@ -148,6 +172,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     {
         require(community == msg.sender, "Permission denied: caller is not community");
         require(CommunityFactory(payable(communityFactory)).createdCommunity(community), "Invalid community");
+        _validateCollectionName(name);
 
         PoolConfig memory config = abi.decode(meta, (PoolConfig));
         AMMConfig memory ammConfig = abi.decode(config.ammConfig, (AMMConfig));
@@ -172,6 +197,50 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             selectedIndexToken
         );
         return clone;
+    }
+
+    function _addReservedCollectionName(string memory name) internal {
+        bytes memory normalized = _normalizeCollectionName(name);
+        if (normalized.length == 0 || bytes(name).length > MAX_RESERVED_NAME_LENGTH) {
+            revert InvalidReservedCollectionName();
+        }
+        bytes32 nameHash = keccak256(normalized);
+        if (reservedCollectionNameHash[nameHash]) revert ReservedCollectionNameAlreadyAdded();
+        reservedCollectionNameHash[nameHash] = true;
+        _reservedCollectionNames.push(normalized);
+        emit ReservedCollectionNameAdded(string(normalized));
+    }
+
+    function _validateCollectionName(string memory name) internal view {
+        bytes memory normalized = _normalizeCollectionName(name);
+        for (uint256 i; i < _reservedCollectionNames.length; ++i) {
+            bytes storage reserved = _reservedCollectionNames[i];
+            if (reserved.length > normalized.length) continue;
+            for (uint256 offset; offset <= normalized.length - reserved.length; ++offset) {
+                bool matches = true;
+                for (uint256 j; j < reserved.length; ++j) {
+                    if (normalized[offset + j] != reserved[j]) {
+                        matches = false;
+                        break;
+                    }
+                }
+                if (matches) revert ReservedCollectionNameUsed();
+            }
+        }
+    }
+
+    function _normalizeCollectionName(string memory name) internal pure returns (bytes memory normalized) {
+        bytes memory raw = bytes(name);
+        normalized = new bytes(raw.length);
+        uint256 length;
+        for (uint256 i; i < raw.length; ++i) {
+            uint8 c = uint8(raw[i]);
+            if (c >= 0x41 && c <= 0x5a) c += 0x20;
+            if ((c >= 0x61 && c <= 0x7a) || (c >= 0x30 && c <= 0x39)) normalized[length++] = bytes1(c);
+        }
+        assembly ("memory-safe") {
+            mstore(normalized, length)
+        }
     }
 
     function _initializeNFT(
