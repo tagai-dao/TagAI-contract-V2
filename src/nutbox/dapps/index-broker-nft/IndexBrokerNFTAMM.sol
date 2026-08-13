@@ -17,6 +17,19 @@ interface IIndexBrokerNFTPlatformFee {
     function injectIndexRewards(uint256 amount) external;
 }
 
+interface IIndexBrokerPump {
+    function createdTokens(address token) external view returns (bool);
+}
+
+interface IIndexBrokerTagAIToken {
+    function listed() external view returns (bool);
+    function clPoolManager() external view returns (address);
+    function v4PoolId() external view returns (bytes32);
+    function listingHook() external view returns (address);
+    function listingPoolParameters() external view returns (bytes32);
+    function LISTING_LP_FEE() external view returns (uint24);
+}
+
 interface IIndexBrokerBasketRegistry {
     function isBasket(address candidate) external view returns (bool);
 }
@@ -61,7 +74,10 @@ interface IIndexBrokerPancakeV3Router {
  * contract and intentionally have no withdrawal path yet. An additional fixed
  * 0.5% of the NFT's native-coin value is sent to the platform on every trade.
  *
- * Native fee ratios and the DEX spot-price source are immutable after initialization.
+ * Native fee ratios and the DEX spot-price source are immutable once trading is active.
+ * AMMs for unlisted official Pump tokens start inactive so mints can seed their reserve
+ * before listing. Already-listed official tokens and externally imported tokens activate
+ * atomically during initialization.
  */
 contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     using SafeERC20 for IERC20;
@@ -76,9 +92,11 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     uint256 public tokensPerNFT;
     uint16 public normalFeeBps;
     uint16 public specificFeeBps;
+    address public pump;
     address public priceOracle;
     IIndexBrokerNFTPriceOracle.SourceType public priceSourceType;
     bytes public priceSourceData;
+    bool public active;
     address public basketRegistry;
     IIndexBrokerBasketSwapRouter public basketSwapRouter;
     IIndexBrokerPancakeV3Router public indexV3Router;
@@ -120,6 +138,12 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         uint256 settlementAmount,
         uint256 indexAmount
     );
+    event AMMActivated(
+        address indexed activator,
+        IIndexBrokerNFTPriceOracle.SourceType indexed priceSourceType,
+        bytes priceSourceData,
+        bool officialTagAIToken
+    );
 
     error InvalidAddress();
     error InvalidConfig();
@@ -131,6 +155,13 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     error InvalidCommunityTokenPayment();
     error NoNativeReserve();
     error InvalidIndexPurchase();
+    error AMMInactive();
+    error AMMAlreadyActive();
+    error OfficialTokenNotListed();
+    error ExternalPriceSourceRequired();
+    error OfficialPriceSourceMustBeAutomatic();
+    error NotOfficialToken();
+    error InvalidOfficialPool();
 
     constructor() {
         _disableInitializers();
@@ -142,6 +173,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         uint256 tokensPerNFT_,
         uint16 normalFeeBps_,
         uint16 specificFeeBps_,
+        address pump_,
         address priceOracle_,
         IIndexBrokerNFTPriceOracle.SourceType priceSourceType_,
         bytes calldata priceSourceData_,
@@ -152,9 +184,9 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         address indexToken_
     ) external initializer {
         if (
-            collection_.code.length == 0 || communityToken_.code.length == 0 || priceOracle_.code.length == 0
-                || basketRegistry_.code.length == 0 || basketSwapRouter_.code.length == 0
-                || indexV3Router_.code.length == 0 || indexToken_.code.length == 0
+            collection_.code.length == 0 || communityToken_.code.length == 0 || pump_.code.length == 0
+                || priceOracle_.code.length == 0 || basketRegistry_.code.length == 0
+                || basketSwapRouter_.code.length == 0 || indexV3Router_.code.length == 0 || indexToken_.code.length == 0
         ) {
             revert InvalidAddress();
         }
@@ -168,15 +200,11 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         tokensPerNFT = tokensPerNFT_;
         normalFeeBps = normalFeeBps_;
         specificFeeBps = specificFeeBps_;
+        pump = pump_;
         priceOracle = priceOracle_;
-        priceSourceType = priceSourceType_;
-        priceSourceData = priceSourceData_;
         basketRegistry = basketRegistry_;
         indexToken = indexToken_;
 
-        IIndexBrokerNFTPriceOracle oracle = IIndexBrokerNFTPriceOracle(priceOracle_);
-        oracle.validateSource(communityToken_, priceSourceType_, priceSourceData_);
-        oracle.quoteNative(communityToken_, tokensPerNFT_, priceSourceType_, priceSourceData_);
         if (!IIndexBrokerBasketRegistry(basketRegistry_).isBasket(indexToken_)) revert InvalidConfig();
 
         IIndexBrokerBasketSwapRouter router = IIndexBrokerBasketSwapRouter(basketSwapRouter_);
@@ -195,38 +223,89 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         indexWrappedNative = wrappedNative;
         indexSettlementToken = settlement;
         indexV3Fee = indexV3Fee_;
+
+        bool officialTagAIToken = IIndexBrokerPump(pump_).createdTokens(communityToken_);
+        if (officialTagAIToken) {
+            if (priceSourceData_.length != 0) revert OfficialPriceSourceMustBeAutomatic();
+            if (IIndexBrokerTagAIToken(communityToken_).listed()) _activateOfficialToken();
+        } else {
+            if (priceSourceData_.length == 0) revert ExternalPriceSourceRequired();
+            _activate(priceSourceType_, priceSourceData_, false);
+        }
     }
 
     receive() external payable {
+        if (!active) revert AMMInactive();
         emit NativeFeeReceived(msg.sender, msg.value);
     }
 
-    function quoteNormalNativeFee() external view returns (uint256) {
+    modifier whenActive() {
+        if (!active) revert AMMInactive();
+        _;
+    }
+
+    /**
+     * @notice Permissionlessly activates an AMM paired with a listed official TagAI token.
+     * @dev The source cannot be supplied by the caller. It is reconstructed from the
+     *      token's snapshotted Pancake V4 listing PoolKey and checked against v4PoolId.
+     */
+    function activate() external nonReentrant {
+        if (!IIndexBrokerPump(pump).createdTokens(communityToken)) revert NotOfficialToken();
+        if (active) revert AMMAlreadyActive();
+
+        _activateOfficialToken();
+    }
+
+    function _activateOfficialToken() internal {
+        IIndexBrokerTagAIToken token = IIndexBrokerTagAIToken(communityToken);
+        if (!token.listed()) revert OfficialTokenNotListed();
+
+        IIndexBrokerNFTPriceOracle.PancakeV4CLSource memory source = IIndexBrokerNFTPriceOracle.PancakeV4CLSource({
+            currency0: address(0),
+            currency1: communityToken,
+            hooks: token.listingHook(),
+            poolManager: token.clPoolManager(),
+            fee: token.LISTING_LP_FEE(),
+            parameters: token.listingPoolParameters()
+        });
+        bytes32 reconstructedPoolId = keccak256(
+            abi.encode(
+                source.currency0, source.currency1, source.hooks, source.poolManager, source.fee, source.parameters
+            )
+        );
+        if (source.hooks == address(0) || source.poolManager == address(0) || token.v4PoolId() != reconstructedPoolId) {
+            revert InvalidOfficialPool();
+        }
+
+        _activate(IIndexBrokerNFTPriceOracle.SourceType.PANCAKE_V4_CL, abi.encode(source), true);
+    }
+
+    function quoteNormalNativeFee() external view whenActive returns (uint256) {
         (,, uint256 totalFee) = _quoteNativeFees(normalFeeBps);
         return totalFee;
     }
 
-    function quoteSpecificNativeFee() external view returns (uint256) {
+    function quoteSpecificNativeFee() external view whenActive returns (uint256) {
         (,, uint256 totalFee) = _quoteNativeFees(specificFeeBps);
         return totalFee;
     }
 
-    function quoteNormalTradingNativeFee() external view returns (uint256) {
+    function quoteNormalTradingNativeFee() external view whenActive returns (uint256) {
         (uint256 tradingFee,,) = _quoteNativeFees(normalFeeBps);
         return tradingFee;
     }
 
-    function quoteSpecificTradingNativeFee() external view returns (uint256) {
+    function quoteSpecificTradingNativeFee() external view whenActive returns (uint256) {
         (uint256 tradingFee,,) = _quoteNativeFees(specificFeeBps);
         return tradingFee;
     }
 
-    function quotePlatformNativeFee() external view returns (uint256) {
+    function quotePlatformNativeFee() external view whenActive returns (uint256) {
         (, uint256 platformFee,) = _quoteNativeFees(0);
         return platformFee;
     }
 
-    function quoteNativeValue() external view returns (uint256) {
+    function quoteNativeValue() external view whenActive returns (uint256) {
         return _quoteNativeValue();
     }
 
@@ -243,6 +322,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     function buyIndexWithNativeReserve(uint256 minSettlementOut, uint256 minIndexOut, bytes calldata hookData)
         external
         nonReentrant
+        whenActive
         returns (uint256 callerReward, uint256 settlementOut, uint256 indexOut)
     {
         uint256 nativeReserve = address(this).balance;
@@ -282,7 +362,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         emit IndexTokenPurchased(msg.sender, indexToken, nativeToInvest, callerReward, settlementOut, indexOut);
     }
 
-    function sellNFT(uint256 tokenId) external payable nonReentrant {
+    function sellNFT(uint256 tokenId) external payable nonReentrant whenActive {
         (uint256 tradingFee, uint256 platformFee, uint256 totalFee) = _quoteNativeFees(normalFeeBps);
         if (msg.value < totalFee) revert InsufficientNativeFee();
 
@@ -305,13 +385,13 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         emit NFTSold(msg.sender, tokenId, tokensPerNFT, tradingFee, platformFee);
     }
 
-    function buyNextNFT() external payable nonReentrant returns (uint256 tokenId) {
+    function buyNextNFT() external payable nonReentrant whenActive returns (uint256 tokenId) {
         tokenId = oldestTokenId;
         if (tokenId == 0) revert EmptyInventory();
         _buyNFT(tokenId, normalFeeBps, false);
     }
 
-    function buySpecificNFT(uint256 tokenId) external payable nonReentrant {
+    function buySpecificNFT(uint256 tokenId) external payable nonReentrant whenActive {
         if (!inInventory[tokenId]) revert NFTNotInInventory();
         _buyNFT(tokenId, specificFeeBps, true);
     }
@@ -327,12 +407,13 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     }
 
     function isAcceptingNFT(address from, uint256 tokenId) external view returns (bool) {
-        return msg.sender == collection && from == _expectedSeller && tokenId == _expectedTokenId;
+        return active && msg.sender == collection && from == _expectedSeller && tokenId == _expectedTokenId;
     }
 
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
         external
         override
+        whenActive
         returns (bytes4)
     {
         if (
@@ -404,6 +485,23 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     function _quoteNativeValue() internal view returns (uint256) {
         return IIndexBrokerNFTPriceOracle(priceOracle)
             .quoteNative(communityToken, tokensPerNFT, priceSourceType, priceSourceData);
+    }
+
+    function _activate(
+        IIndexBrokerNFTPriceOracle.SourceType priceSourceType_,
+        bytes memory priceSourceData_,
+        bool officialTagAIToken
+    ) internal {
+        if (active) revert AMMAlreadyActive();
+
+        IIndexBrokerNFTPriceOracle oracle = IIndexBrokerNFTPriceOracle(priceOracle);
+        oracle.validateSource(communityToken, priceSourceType_, priceSourceData_);
+        oracle.quoteNative(communityToken, tokensPerNFT, priceSourceType_, priceSourceData_);
+
+        priceSourceType = priceSourceType_;
+        priceSourceData = priceSourceData_;
+        active = true;
+        emit AMMActivated(msg.sender, priceSourceType_, priceSourceData_, officialTagAIToken);
     }
 
     function _settleNativeFees(uint256 platformFee, uint256 totalFee) internal {

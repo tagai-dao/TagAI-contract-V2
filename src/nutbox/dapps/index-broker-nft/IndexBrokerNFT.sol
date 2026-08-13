@@ -186,6 +186,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     error NotTokenOwner();
     error IndexMiningAlreadyActive();
     error IndexMiningNotActive();
+    error IndexMiningStateChanged();
     error InvalidIndexMiningWeight();
     error InvalidIndexRewardAmount();
     error NoIndexRewards();
@@ -436,11 +437,18 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
         NFTRecord storage record = _nftRecords[tokenId];
         if (record.indexMiningActive) revert IndexMiningAlreadyActive();
+        uint256 weight = record.indexMiningWeight;
 
-        IERC20(communityToken).safeTransferFrom(msg.sender, INDEX_MINING_BURN_ADDRESS, indexMiningActivationTokenAmount);
+        _burnCommunityToken(indexMiningActivationTokenAmount);
+
+        // The community token is externally supplied and may execute callbacks from
+        // transferFrom. Do not continue with stale ownership or mining state after it
+        // has had an opportunity to transfer this NFT.
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        if (record.indexMiningActive) revert IndexMiningAlreadyActive();
+        if (record.indexMiningWeight != weight) revert IndexMiningStateChanged();
 
         record.indexMiningActive = true;
-        uint256 weight = record.indexMiningWeight;
         if (weight != 0) {
             totalActiveIndexMiningWeight += weight;
             record.indexRewardDebt = Math.mulDiv(weight, indexRewardPerWeight, INDEX_REWARD_PRECISION);
@@ -457,9 +465,14 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         if (tokenAmount < minimumIndexMiningWeight) revert InvalidIndexMiningWeight();
 
         _settleIndexRewards(record);
-        IERC20(communityToken).safeTransferFrom(msg.sender, INDEX_MINING_BURN_ADDRESS, tokenAmount);
-
         uint256 previousWeight = record.indexMiningWeight;
+        _burnCommunityToken(tokenAmount);
+
+        // Revalidate all state relied upon below after the untrusted ERC20 call.
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        if (!record.indexMiningActive) revert IndexMiningNotActive();
+        if (record.indexMiningWeight != previousWeight) revert IndexMiningStateChanged();
+
         uint256 newWeight = previousWeight + tokenAmount;
         record.indexMiningWeight = newWeight;
         totalActiveIndexMiningWeight += tokenAmount;
@@ -615,6 +628,15 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         uint256 balanceBefore = paymentToken.balanceOf(ammVault);
         paymentToken.safeTransferFrom(msg.sender, ammVault, communityTokenPrice);
         if (paymentToken.balanceOf(ammVault) - balanceBefore != communityTokenPrice) {
+            revert InvalidCommunityTokenPayment();
+        }
+    }
+
+    function _burnCommunityToken(uint256 amount) internal {
+        IERC20 paymentToken = IERC20(communityToken);
+        uint256 balanceBefore = paymentToken.balanceOf(INDEX_MINING_BURN_ADDRESS);
+        paymentToken.safeTransferFrom(msg.sender, INDEX_MINING_BURN_ADDRESS, amount);
+        if (paymentToken.balanceOf(INDEX_MINING_BURN_ADDRESS) != balanceBefore + amount) {
             revert InvalidCommunityTokenPayment();
         }
     }

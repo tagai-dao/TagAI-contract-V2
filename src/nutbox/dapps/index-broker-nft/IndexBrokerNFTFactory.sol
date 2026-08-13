@@ -56,6 +56,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     }
 
     address public immutable communityFactory;
+    address public immutable pump;
     address public immutable defaultRenderer;
     address public immutable poolTemplate;
     address public immutable ammTemplate;
@@ -77,6 +78,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address indexed ammVault,
         address priceOracle,
         IIndexBrokerNFTPriceOracle.SourceType priceSourceType,
+        bool active,
         uint16 normalFeeBps,
         uint16 specificFeeBps,
         address indexToken
@@ -107,6 +109,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
 
     constructor(
         address communityFactory_,
+        address pump_,
         address defaultRenderer_,
         address ammTemplate_,
         address priceOracle_,
@@ -117,13 +120,14 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address defaultIndexToken_
     ) {
         require(
-            communityFactory_ != address(0) && defaultRenderer_.code.length > 0 && ammTemplate_.code.length > 0
-                && priceOracle_.code.length > 0 && basketRegistry_.code.length > 0 && basketSwapRouter_.code.length > 0
-                && indexV3Router_.code.length > 0,
+            communityFactory_ != address(0) && pump_.code.length > 0 && defaultRenderer_.code.length > 0
+                && ammTemplate_.code.length > 0 && priceOracle_.code.length > 0 && basketRegistry_.code.length > 0
+                && basketSwapRouter_.code.length > 0 && indexV3Router_.code.length > 0,
             "Invalid address"
         );
         require(IIndexBrokerFactoryBasketRegistry(basketRegistry_).isBasket(defaultIndexToken_), "Invalid index token");
         communityFactory = communityFactory_;
+        pump = pump_;
         defaultRenderer = defaultRenderer_;
         poolTemplate = address(new IndexBrokerNFT());
         ammTemplate = ammTemplate_;
@@ -187,11 +191,13 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         _initializeNFT(pool, community, admin, selectedRenderer, ammClone, selectedIndexToken, name, config);
         _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, selectedIndexToken, ammConfig);
         _emitNFTCreated(pool, clone, community, admin, selectedRenderer, name, config);
+        IndexBrokerNFTAMM initializedAMM = IndexBrokerNFTAMM(payable(ammClone));
         emit IndexBrokerNFTAMMCreated(
             clone,
             ammClone,
             priceOracle,
-            ammConfig.priceSourceType,
+            initializedAMM.priceSourceType(),
+            initializedAMM.active(),
             ammConfig.normalFeeBps,
             ammConfig.specificFeeBps,
             selectedIndexToken
@@ -292,6 +298,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
                 communityTokenPrice,
                 config.normalFeeBps,
                 config.specificFeeBps,
+                pump,
                 priceOracle,
                 config.priceSourceType,
                 config.priceSourceData,
