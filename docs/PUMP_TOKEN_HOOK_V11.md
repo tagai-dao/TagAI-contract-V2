@@ -32,9 +32,9 @@ Hook 使用 CREATE2 salt `5845`，地址低 16 位为 `0x0cc1`，对应当前启
 Pump 创建 Community 和默认 Social Curation Pool 后，会在仍持有 Community 管理权限时完成两项设置：
 
 1. 调用 `adminSetDev(creator)`，把 Community 的 `devFund` 设置为 Token 创建者；
-2. 调用 `transferOwnership(creator)`，把创建者设置为 Community 的 `pendingOwner`。
+2. 调用 `transferOwnership(creator)`，把 Community owner 直接转移给创建者。
 
-`devFund` 会立即生效；Community 使用 `Ownable2Step`，创建者仍需调用 `acceptOwnership()` 才会成为正式 owner。这样收益接收者和待交接管理员都明确指向创建者，不再遗留为 Pump。
+Community 使用一步式 `Ownable`，所以 `devFund` 和 owner 都会立即生效，不需要创建者再次调用 `acceptOwnership()`。
 
 ## 4. Token 上市与 LP Fee
 
@@ -145,5 +145,25 @@ V11 明确区分 Pump 创建流程中的初始 premine 和公开买入：
 - BNB 和社区 Token 从 Vault 直接分发，Token 合约不暂存本次领取资产；
 - `collectFees()`、Hook 注册和关键交易路径使用重入保护或严格调用者校验；
 - V11 只影响新 Pump 创建的 Token，不会修改旧 Token、旧 Pool 或旧 Hook 的状态。
+
+## 9. 正式地址 Fork 验证
+
+`test/fork/BSCForkV11Deployment.t.sol` 直接绑定 V11 正式部署地址，并在 BSC fork 上验证：
+
+- Pump、Token implementation、Hook、Index Broker Factory、NFT/AMM template、Oracle 和 Renderer 的部署字节码与依赖配置；
+- 真实 PancakeSwap Infinity CL 上市、双向交易、LP 手续费领取和上市流动性不变；
+- Index Broker NFT 创建与 mint、AMM 买卖、指数代币回购注资、持币手续费回收和指数奖励领取。
+
+可使用固定区块重复执行正式地址测试：
+
+```bash
+FOUNDRY_PROFILE=fork forge test \
+  --rpc-url "$BSC_RPC_URL" \
+  --fork-block-number 115874828 \
+  --match-contract BSCForkV11Deployment \
+  -vv
+```
+
+2026-08-14 的发布后验证结果：正式地址测试 2/2 通过，全部 BSC fork 回归测试 17/17 通过，Index Broker NFT 相关单元测试 69/69 通过，Stonk Broker Renderer 单元测试 7/7 通过。
 
 完整部署地址、交易、区块及发布状态见 [`VERSION_HISTORY.md`](../VERSION_HISTORY.md) 和 [`deployments/56/version11.json`](../deployments/56/version11.json)。

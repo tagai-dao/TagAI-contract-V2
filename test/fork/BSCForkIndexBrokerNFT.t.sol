@@ -164,12 +164,12 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
         );
     }
 
-    function _createIndexBrokerPool(Token token) internal returns (IndexBrokerNFT nft, IndexBrokerNFTAMM amm) {
+    function _indexBrokerFactory() internal virtual returns (IndexBrokerNFTFactory factory) {
         address[] memory pancakeManagers = new address[](1);
         pancakeManagers[0] = CL_POOL_MANAGER;
         IndexBrokerNFTPriceOracle oracle =
             new IndexBrokerNFTPriceOracle(WBNB, new address[](0), new address[](0), new address[](0), pancakeManagers);
-        IndexBrokerNFTFactory factory = new IndexBrokerNFTFactory(
+        factory = new IndexBrokerNFTFactory(
             COMMUNITY_FACTORY,
             address(pump),
             address(new IndexBrokerNFTRenderer()),
@@ -185,6 +185,10 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
         address committeeOwner = Ownable(COMMITTEE).owner();
         vm.prank(committeeOwner);
         ICommittee(COMMITTEE).adminAddContract(address(factory));
+    }
+
+    function _createIndexBrokerPool(Token token) internal returns (IndexBrokerNFT nft, IndexBrokerNFTAMM amm) {
+        IndexBrokerNFTFactory factory = _indexBrokerFactory();
 
         address[] memory whitelist = new address[](1);
         whitelist[0] = buyer;
