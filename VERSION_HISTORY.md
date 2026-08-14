@@ -15,25 +15,25 @@
 
 ## 协议版本关系
 
-这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前新发社区代币仍使用 Pump V9；已经存在的外部 ERC20 通过 ImportHelper V10 接入 Nutbox。
+这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前新发社区代币使用 Pump V11；已经存在的外部 ERC20 通过 ImportHelper V10 接入 Nutbox。V9 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。
 
 | 版本 | 状态 | 功能定位 |
 | --- | --- | --- |
 | V1–V7 | 历史版本 | 早期 bonding curve、IPShare 和 PCS Hook 迭代，源码与历史地址位于旧版 [`tagai-contract`](https://github.com/tagai-dao/tagai-contract) 仓库。 |
 | V8 | 已被新发行入口替代 | 面向 Agent 社区，bonding curve 上市前只允许 Agent 交易，并为 Nutbox Community 自动分配 15% 供应量。 |
-| V9 | 当前新发行入口 | 通过 Pump 创建新社区代币，支持开放 bonding curve 交易、反狙击、PCS V4 上市、TagAISwapHook 和 Nutbox 奖励注入。 |
+| V9 | 历史发行入口 | 通过 Pump 创建新社区代币，支持开放 bonding curve 交易、反狙击、PCS V4 上市、TagAISwapHook 和 Nutbox 奖励注入；既有 Token 保持原实现。 |
 | V10 | 当前外部代币导入入口 | 通过 ImportHelper 将已部署 ERC20 接入 Nutbox，创建不可增发 Community 和默认 SocialCuration Pool；不创建 Token、bonding curve、PCS V4 池或 Hook。 |
-| V11 | 主网合约已部署，发布收尾中 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。所有新合约已部署并验证，待最终 Owner 接收、Committee 白名单和主网烟雾测试。 |
+| V11 | 当前新发行入口 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。所有新合约均已部署并完成源码验证。 |
 
 ---
 
-## V11 — BSC 合约已部署，发布收尾中
+## V11 — BSC 正式版本
 
 V11 使用累积部署快照。`version11.json` 从 V10 继承仍然有效的合约地址，并记录本次新部署的 Pump、Token implementation、TagAISwapHook 和 Index Broker NFT 合约组。
 
 | 项目 | 记录 |
 | --- | --- |
-| 状态 | `contracts-deployed`；所有合约已部署并完成 BscScan 源码验证，尚未标记为正式发布完成 |
+| 状态 | 已部署并发布；所有新合约均已完成 BscScan 源码验证 |
 | 网络 | BNB Smart Chain（chain ID `56`） |
 | 来源版本 | V10 |
 | 版本源码提交 | [`a573440387b079252bb936bcfa2ae14d52cacdc6`](https://github.com/tagai-dao/TagAI-contract-V2/commit/a573440387b079252bb936bcfa2ae14d52cacdc6) |
@@ -83,26 +83,15 @@ Hook CREATE2 salt 为 `5845`，权限位图为 `0x0cc1`。三个地址均已完�
 
 以上八个地址均已完成 BscScan 源码验证。Index Broker NFT 的铸造模式、白名单、AMM、DEX 价格源、指数回购、社区/指数双挖、揭图和 Renderer 接口，统一以 [`Index Broker NFT 矿池说明`](src/nutbox/dapps/index-broker-nft/README.md) 为准，版本记录不重复维护同一套参数说明。
 
-### 发布收尾状态
-
-截至当前记录：
-
-- Pump 当前 owner 仍为部署账户，`pendingOwner` 为目标管理地址；
-- IndexBrokerNFTFactory 当前 owner 仍为部署账户，`pendingOwner` 为目标管理地址；
-- Committee 尚未将 IndexBrokerNFTFactory 加入可用 Pool Factory 白名单；
-- 因此 V11 快照保持 `contracts-deployed`，不能标记为 `complete`。
-
-完成两个 `acceptOwnership()`、Committee `adminAddContract(factory)`、主网烟雾测试和前端/API/Subgraph 地址切换后，才可把快照状态更新为 `complete` 并创建发布标签。
-
 ---
 
-## Pump V9 / ImportHelper V10 — 当前 BSC 线上基线
+## Pump V9 / ImportHelper V10 — V11 之前的 BSC 基线
 
 这是合并 Index Broker NFT 以及 Pump、Token、Hook 下一次升级之前，`main` 分支上的完整生产基线。V9 和 V10 是并行入口：V9 用于发行新社区代币，V10 用于导入已有 ERC20。
 
 | 项目 | 记录 |
 | --- | --- |
-| 状态 | BSC 主网当前生产基线 |
+| 状态 | V11 发布前的生产基线；历史地址继续服务既有 Token 和外部代币导入 |
 | 网络 | BNB Smart Chain（chain ID `56`） |
 | 完整基线提交 | [`06933725e6bc684a1e9c59da8a03c787e23e3a75`](https://github.com/tagai-dao/TagAI-contract-V2/commit/06933725e6bc684a1e9c59da8a03c787e23e3a75) |
 | 源码分支 | `main` |

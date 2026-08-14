@@ -162,7 +162,7 @@ Period buy volume *P* (whole tokens, 18 decimals). Ratio applies to the settled 
 
 ## Protocol Versions
 
-TagAI’s on-chain launch stack has evolved through multiple **Pump** factory versions on BSC. **IPShare v1** (`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`) has been reused since early versions and is still shared by V9 / V10.
+TagAI’s on-chain launch stack has evolved through multiple **Pump** factory versions on BSC. **IPShare v1** (`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`) has been reused since early versions and is still shared by V9 / V11.
 
 The source commits and complete BSC deployment inventory for each release are maintained in [`VERSION_HISTORY.md`](VERSION_HISTORY.md).
 
@@ -170,13 +170,13 @@ The source commits and complete BSC deployment inventory for each release are ma
 |---------|------------|--------|---------|
 | **V1–V7** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy | Iterative Hardhat releases: bonding-curve launch, IPShare value capture, PCS hook fee routing. Historical Pump / Hook addresses documented in that repo. |
 | **V8** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy (superseded) | Agent-focused communities: only agents could trade on the bonding curve pre-listing; 15% supply auto-provisioned for Nutbox Community creation with a default SocialCuration pool. |
-| **V9** | **This repo** | **Current (new launches)** | Full Nutbox integration (HourlyTickCalculator, SocialCuration, DFXStar Score Staking), open bonding-curve trading with anti-snipe, PCS V4 listing via `TagAISwapHook`, and Nutbox token injection on DEX swaps. |
+| **V9** | **This repo** | **Legacy launch path** | Full Nutbox integration (HourlyTickCalculator, SocialCuration, DFXStar Score Staking), open bonding-curve trading with anti-snipe, PCS V4 listing via `TagAISwapHook`, and Nutbox token injection on DEX swaps. Existing V9 tokens keep their deployed implementation. |
 | **V10** | **This repo** (`ImportHelper`) | **Current (external import)** | Import an **already-deployed ERC20** into Nutbox without going through Pump: create a non-mintable Community bound to that token, mount a default SocialCuration pool, and hand ownership to the caller. Replaces the old Pump6 import flow. |
-| **V11** | **This repo** | **Contracts deployed; release finalization pending** | Pump/Token/Hook fee-collection refresh plus the Index Broker NFT factory, fixed-price NFT AMM, index-token buybacks, dual mining, and on-chain renderer stack. |
+| **V11** | **This repo** | **Current (new launches)** | Pump/Token/Hook fee-collection refresh plus the Index Broker NFT factory, fixed-price NFT AMM, index-token buybacks, dual mining, and on-chain renderer stack. |
 
 ### What is V10 (`ImportHelper`)
 
-V9 creates **new** community tokens via Pump (bonding curve → PCS V4). **V10** is a parallel path for tokens that **already exist** on-chain and only need Nutbox community incentives wired up.
+Pump creates **new** community tokens through the bonding curve and PCS V4 launch flow. **V10** is a parallel path for tokens that **already exist** on-chain and only need Nutbox community incentives wired up.
 
 Contract: [`src/helper/ImportHelper.sol`](src/helper/ImportHelper.sol)
 
@@ -193,7 +193,7 @@ Contract: [`src/helper/ImportHelper.sol`](src/helper/ImportHelper.sol)
 - Does not list on PCS V4 or inject from DEX fees (those remain V9 Pump-token mechanics)
 - Reward calculator (e.g. `HourlyTickCalculator`) and `distributionPolicy` are supplied by the caller at import time
 
-Existing tokens created under V8 (or earlier) remain bound to their original Pump / Token / Hook contracts. **New launches should use Pump V9**; **importing an external ERC20 into Nutbox should use ImportHelper (V10)**.
+Existing tokens created under V9 (or earlier) remain bound to their original Pump / Token / Hook contracts. **New launches use Pump V11**; **importing an external ERC20 into Nutbox uses ImportHelper V10**.
 
 ### Legacy mainnet addresses (V1–V8)
 
@@ -221,7 +221,7 @@ Chain: **BNB Smart Chain (56)**
 
 V11 deployment snapshot: [`deployments/56/version11.json`](deployments/56/version11.json)
 
-Status: all V11 contracts are deployed and source-verified; final owner acceptance, Committee whitelist, smoke tests, and application address cutover are still pending.
+Status: V11 is deployed and published; all new contracts are source-verified.
 
 | Contract | Address |
 |----------|---------|

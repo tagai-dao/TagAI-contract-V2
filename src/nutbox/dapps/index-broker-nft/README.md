@@ -1051,53 +1051,16 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 11. 揭图依赖有限的未来区块窗口，前端应提醒持有人及时操作。
 12. 不要直接向 NFT Pool、AMM 或销毁地址转账来代替合约函数；直接转账不会产生个人份额或额外权益。
 
-## 21. BSC 主网部署顺序
+## 21. BSC V11 主网部署
 
-部署前先在最新 BSC 状态上运行全部 fork 测试：
+Index Broker NFT 已作为 V11 的一部分部署到 BNB Smart Chain：
 
-```bash
-forge test --rpc-url "$BSC_RPC_URL" --chain 56 \
-  --match-path 'test/fork/BSC*.t.sol' -vv
-```
+| 合约 | 地址 |
+| --- | --- |
+| IndexBrokerNFTFactory | [`0xFa26Bf8d0830EC78ff7B2D959a1724f5E178392E`](https://bscscan.com/address/0xfa26bf8d0830ec78ff7b2d959a1724f5e178392e) |
+| IndexBrokerNFT Pool template | [`0xd4064239369b1A1dd78b1EcC5C1050F7A21c2303`](https://bscscan.com/address/0xd4064239369b1a1dd78b1ecc5c1050f7a21c2303) |
+| IndexBrokerNFTAMM template | [`0x1712C2BEdc1A9F5611D879e31caf9dfd1F665175`](https://bscscan.com/address/0x1712c2bedc1a9f5611d879e31caf9dfd1f665175) |
+| IndexBrokerNFTPriceOracle | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) |
+| StonkBrokerRenderer | [`0xd4B6120f566CDecD88b7Be6f994a6c7493F8a068`](https://bscscan.com/address/0xd4b6120f566cdecd88b7be6f994a6c7493f8a068) |
 
-先模拟部署新版 Pump、Token implementation 和 Hook。模拟不会写入任何地址文件：
-
-```bash
-forge script script/DeployBSCPumpRefresh.s.sol \
-  --rpc-url $BSC_RPC_URL --chain-id 56 -vv
-```
-
-模拟成功后再广播。`PUMP_OWNER` 应填写最终管理地址；只有广播时才设置 `WRITE_DEPLOYMENTS=true`。脚本从 `deployments/56/version11.json` 读取复用依赖，仅替换 Pump、Token implementation、Hook 和部署元数据，然后把状态从 `preparing` 更新为 `pump-deployed`：
-
-```bash
-PUMP_OWNER=$PUMP_OWNER WRITE_DEPLOYMENTS=true \
-forge script script/DeployBSCPumpRefresh.s.sol \
-  --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
-  --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
-```
-
-新版 Pump 写入 V11 后，先模拟部署 Index Broker NFT 合约组。默认直接读取 V11 中的新 Pump，不需要额外传 `BSC_PUMP`：
-
-```bash
-INDEX_BROKER_OWNER=$INDEX_BROKER_OWNER \
-forge script script/DeployBSCIndexBrokerNFT.s.sol \
-  --rpc-url $BSC_RPC_URL --chain-id 56 -vv
-```
-
-模拟成功后再广播。脚本把 Index Broker 合约组追加到同一个 V11 快照，并把状态更新为 `contracts-deployed`：
-
-```bash
-INDEX_BROKER_OWNER=$INDEX_BROKER_OWNER WRITE_DEPLOYMENTS=true \
-forge script script/DeployBSCIndexBrokerNFT.s.sol \
-  --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
-  --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
-```
-
-广播后还必须完成以下确认，才可把 `version11.json` 状态改为 `complete` 并发布版本：
-
-1. `PUMP_OWNER` 和 `INDEX_BROKER_OWNER` 分别执行 `acceptOwnership()`（若与部署者不同）。
-2. Committee 中 `verifyContract(IndexBrokerNFTFactory)` 返回 `true`；若部署者不是 Committee owner，需要由 Committee owner 执行 `adminAddContract(factory)`。
-3. 新 Pump 的 PoolManager、Vault、Hook、Calculator 和 Nutbox 地址与部署记录一致，Hook 地址低 16 位符合 `0x0cc1` 权限位图。
-4. Factory 的默认指数代币为 `0xcF99DeC9439630ccf7Efe392F0fc2aF98EF99a61`，并且 BasketRegistry 仍将其识别为有效 Basket。
-5. 完成一次小额 Token 创建/上市/双向交易/`collectFees()`，以及一次 NFT 创建、铸造、AMM 交易、指数回购、奖励领取的主网烟雾测试。
-6. 确认前端、API 和 Subgraph 使用新 Pump、Hook 和 IndexBrokerNFTFactory 地址后，再推送提交和创建版本标签。
+完整地址、部署交易、区块、源码提交和复用依赖见仓库根目录的 [`VERSION_HISTORY.md`](../../../../VERSION_HISTORY.md) 与 [`deployments/56/version11.json`](../../../../deployments/56/version11.json)。
