@@ -7,6 +7,7 @@ import {TagAISwapHook} from "../src/hook/TagAISwapHook.sol";
 import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
 import {IVault} from "infinity-core/src/interfaces/IVault.sol";
 import {ICommittee} from "../src/interfaces/ICommittee.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title DeployBSCPumpRefresh
@@ -17,12 +18,17 @@ import {ICommittee} from "../src/interfaces/ICommittee.sol";
  *   source .env
  *   forge script script/DeployBSCPumpRefresh.s.sol --rpc-url $BSC_RPC_URL --chain-id 56 -vv
  *
- * Usage (broadcast + verify):
- *   forge script script/DeployBSCPumpRefresh.s.sol \
+ * Usage (broadcast + verify; only write the candidate record after success):
+ *   WRITE_DEPLOYMENTS=true forge script script/DeployBSCPumpRefresh.s.sol \
  *     --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
  *     --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
+ *
+ * Set PUMP_OWNER to initiate Ownable2Step ownership handover. The canonical
+ * deployments/56/addresses.json is intentionally never overwritten here.
  */
 contract DeployBSCPumpRefreshScript is Script {
+    string constant OUTPUT_PATH = "deployments/56/pump-refresh.json";
+
     // ─── Reused BSC infrastructure ───────────────────────────────────────────
     address constant COMMITTEE = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
     address constant COMMUNITY_FACTORY = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
@@ -44,10 +50,11 @@ contract DeployBSCPumpRefreshScript is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY_MAIN");
         address deployer = vm.addr(deployerPrivateKey);
+        address targetOwner = vm.envOr("PUMP_OWNER", deployer);
+        bool writeDeployments = vm.envOr("WRITE_DEPLOYMENTS", false);
 
         require(block.chainid == 56, "BSC mainnet only (chainId 56)");
-        require(CALCULATOR.code.length > 0, "Calculator missing");
-        require(ICommittee(COMMITTEE).verifyContract(CALCULATOR), "Calculator not whitelisted");
+        _validateDependencies();
 
         console.log("=== BSC Pump Refresh Deploy ===");
         console.log("Deployer:", deployer);
@@ -66,25 +73,20 @@ contract DeployBSCPumpRefreshScript is Script {
         vm.stopBroadcast();
 
         bytes memory creationCode = abi.encodePacked(
-            type(TagAISwapHook).creationCode,
-            abi.encode(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump))
+            type(TagAISwapHook).creationCode, abi.encode(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump))
         );
         bytes32 bytecodeHash = keccak256(creationCode);
 
         console.log("Mining Hook salt for Pump:", address(pump));
-        (bytes32 hookSalt, address predictedHook, uint256 iterations) =
-            mineSalt(CREATE2_DEPLOYER, bytecodeHash);
+        (bytes32 hookSalt, address predictedHook, uint256 iterations) = mineSalt(CREATE2_DEPLOYER, bytecodeHash);
         console.log("  iterations:", iterations);
         console.log("  HookSalt:", uint256(hookSalt));
         console.log("  predicted Hook:", predictedHook);
 
         vm.startBroadcast(deployerPrivateKey);
 
-        TagAISwapHook hook = new TagAISwapHook{salt: hookSalt}(
-            ICLPoolManager(CL_POOL_MANAGER),
-            IVault(VAULT),
-            address(pump)
-        );
+        TagAISwapHook hook =
+            new TagAISwapHook{salt: hookSalt}(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump));
         require(address(hook) == predictedHook, "Hook address mismatch");
         require(uint16(uint160(address(hook))) == TARGET_BITMAP, "Hook bitmap mismatch");
         console.log("TagAISwapHook:", address(hook));
@@ -92,53 +94,83 @@ contract DeployBSCPumpRefreshScript is Script {
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(CALCULATOR);
         pump.adminSetNutbox(COMMUNITY_FACTORY, CALCULATOR, SOCIAL_CURATION_FACTORY, COMMITTEE);
+        if (targetOwner != deployer) pump.transferOwnership(targetOwner);
         console.log("Pump configured");
 
         vm.stopBroadcast();
 
-        _writeAddresses(pump, hook, hookSalt, deployer);
+        _validateDeployment(pump, hook, targetOwner);
+
+        if (writeDeployments) {
+            _writeAddresses(pump, hook, hookSalt, deployer, targetOwner);
+            console.log("Candidate deployment record written:", OUTPUT_PATH);
+        } else {
+            console.log("Dry run: deployment record not written");
+        }
 
         console.log("");
         console.log("=== Deploy Complete ===");
-        console.log("Old Pump (deprecated): 0x32b7afeF0Dbf1739c4135784735AbFC2d3b8FA21");
-        console.log("Old Hook (deprecated): 0x5917E8bb289766FddE79314DcaE626a241950cC1");
         console.log("New Pump:", address(pump));
         console.log("New TokenImplementation:", pump.tokenImplementation());
         console.log("New TagAISwapHook:", address(hook));
+        if (targetOwner != deployer) {
+            console.log("ACTION REQUIRED: target owner must accept Pump ownership:", targetOwner);
+        }
         console.log("Update tiptag-ui / tagai-api / subgraph with new Pump + Hook addresses.");
     }
 
-    function _writeAddresses(Pump pump, TagAISwapHook hook, bytes32 hookSalt, address deployer) internal {
-        string memory chainIdStr = vm.toString(block.chainid);
-        string memory dir = string.concat("deployments/", chainIdStr);
-        string memory path = string.concat(dir, "/addresses.json");
+    function _validateDependencies() internal view {
+        require(COMMITTEE.code.length > 0, "Committee missing");
+        require(COMMUNITY_FACTORY.code.length > 0, "CommunityFactory missing");
+        require(SOCIAL_CURATION_FACTORY.code.length > 0, "SocialCurationFactory missing");
+        require(CL_POOL_MANAGER.code.length > 0, "CLPoolManager missing");
+        require(VAULT.code.length > 0, "Vault missing");
+        require(IPSHARE.code.length > 0, "IPShare missing");
+        require(CALCULATOR.code.length > 0, "Calculator missing");
+        require(DFX_FACTORY.code.length > 0, "DFX factory missing");
+        require(DFX_STAKING.code.length > 0, "DFX staking missing");
+        require(ICommittee(COMMITTEE).verifyContract(CALCULATOR), "Calculator not whitelisted");
+        require(Ownable(COMMITTEE).owner() != address(0), "Committee owner missing");
+    }
 
-        string memory json = string.concat(
-            "{\n",
-            '  "chainId": ', chainIdStr, ',\n',
-            '  "deployer": "', vm.toString(deployer), '",\n',
-            '  "Committee": "', vm.toString(COMMITTEE), '",\n',
-            '  "CommunityFactory": "', vm.toString(COMMUNITY_FACTORY), '",\n',
-            '  "HourlyTickCalculator": "', vm.toString(CALCULATOR), '",\n',
-            '  "SocialCurationFactory": "', vm.toString(SOCIAL_CURATION_FACTORY), '",\n',
-            '  "DFXStarScoreStakingFactory": "', vm.toString(DFX_FACTORY), '",\n',
-            '  "DFXStarScoreStaking": "', vm.toString(DFX_STAKING), '",\n',
-            '  "IPShare": "', vm.toString(IPSHARE), '",\n',
-            '  "CLPoolManager": "', vm.toString(CL_POOL_MANAGER), '",\n',
-            '  "Vault": "', vm.toString(VAULT), '",\n',
-            '  "Pump": "', vm.toString(address(pump)), '",\n',
-            '  "TokenImplementation": "', vm.toString(pump.tokenImplementation()), '",\n',
-            '  "TagAISwapHook": "', vm.toString(address(hook)), '",\n',
-            '  "HookSalt": "', vm.toString(uint256(hookSalt)), '",\n',
-            '  "previousPump": "0x32b7afeF0Dbf1739c4135784735AbFC2d3b8FA21",\n',
-            '  "previousHook": "0x5917E8bb289766FddE79314DcaE626a241950cC1",\n',
-            '  "previousTokenImplementation": "0xDfcD039554FC9DE3117a6A367944367F03C6b9Cb"\n',
-            "}\n"
-        );
+    function _validateDeployment(Pump pump, TagAISwapHook hook, address targetOwner) internal view {
+        require(address(pump).code.length > 0, "Pump deployment failed");
+        require(pump.tokenImplementation().code.length > 0, "Token implementation missing");
+        require(address(hook).code.length > 0, "Hook deployment failed");
+        require(uint16(uint160(address(hook))) == TARGET_BITMAP, "Hook bitmap mismatch");
+        require(pump.getIPShare() == IPSHARE, "Pump IPShare mismatch");
+        require(pump.getFeeReceiver() == FEE_RECEIVER, "Pump fee receiver mismatch");
+        require(pump.getPoolManager() == CL_POOL_MANAGER, "Pump pool manager mismatch");
+        require(pump.getVault() == VAULT, "Pump Vault mismatch");
+        require(pump.getHookAddress() == address(hook), "Pump Hook mismatch");
+        require(pump.getCalculator() == CALCULATOR, "Pump Calculator mismatch");
+        require(pump.nutboxCommunityFactory() == COMMUNITY_FACTORY, "Pump CommunityFactory mismatch");
+        require(pump.socialCurationFactory() == SOCIAL_CURATION_FACTORY, "Pump SocialCurationFactory mismatch");
+        require(pump.nutboxCommittee() == COMMITTEE, "Pump Committee mismatch");
+        if (targetOwner != pump.owner()) require(pump.pendingOwner() == targetOwner, "Pump owner handover missing");
+    }
 
-        try vm.createDir(dir, true) {} catch {}
-        vm.writeFile(path, json);
-        console.log("Addresses written to:", path);
+    function _writeAddresses(Pump pump, TagAISwapHook hook, bytes32 hookSalt, address deployer, address targetOwner)
+        internal
+    {
+        string memory objectKey = "pumpRefresh";
+        vm.serializeUint(objectKey, "chainId", block.chainid);
+        vm.serializeAddress(objectKey, "deployer", deployer);
+        vm.serializeAddress(objectKey, "targetOwner", targetOwner);
+        vm.serializeAddress(objectKey, "Committee", COMMITTEE);
+        vm.serializeAddress(objectKey, "CommunityFactory", COMMUNITY_FACTORY);
+        vm.serializeAddress(objectKey, "HourlyTickCalculator", CALCULATOR);
+        vm.serializeAddress(objectKey, "SocialCurationFactory", SOCIAL_CURATION_FACTORY);
+        vm.serializeAddress(objectKey, "DFXStarScoreStakingFactory", DFX_FACTORY);
+        vm.serializeAddress(objectKey, "DFXStarScoreStaking", DFX_STAKING);
+        vm.serializeAddress(objectKey, "IPShare", IPSHARE);
+        vm.serializeAddress(objectKey, "CLPoolManager", CL_POOL_MANAGER);
+        vm.serializeAddress(objectKey, "Vault", VAULT);
+        vm.serializeAddress(objectKey, "Pump", address(pump));
+        vm.serializeAddress(objectKey, "TokenImplementation", pump.tokenImplementation());
+        vm.serializeAddress(objectKey, "TagAISwapHook", address(hook));
+        string memory json = vm.serializeUint(objectKey, "HookSalt", uint256(hookSalt));
+        vm.writeJson(json, OUTPUT_PATH);
     }
 
     function mineSalt(address deployer, bytes32 bytecodeHash)

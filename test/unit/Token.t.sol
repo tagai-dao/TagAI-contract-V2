@@ -38,6 +38,7 @@ contract TokenTest is Test {
     address public claimSigner;
 
     uint256 constant TOTAL_SUPPLY = 1_000_000_000 ether;
+    uint256 constant BONDING_CURVE_SUPPLY = 650_000_000 ether;
 
     function setUp() public {
         creator = makeAddr("creator");
@@ -215,30 +216,116 @@ contract TokenTest is Test {
 
     // ─── Anti-Snipe Window behavior ───
 
-    function test_antiSnipeWindow_dynamicSellsmanFee() public {
-        // Within window — feeRatio dynamic
-        // Use first buy: at supply == 0, anti-snipe is NOT applied (per fee logic)
-        // After first buy, anti-snipe kicks in
-        vm.prank(buyer, buyer);
-        token.buyToken{value: 0.1 ether}(0, creator, 0); // first buy, normal fees
+    function test_publicFirstBuy_usesHighFeeAndCommunityCalculatorAfterPumpRotation() public {
+        HourlyTickCalculator calculator2 = new HourlyTickCalculator(communityFactory);
+        committee.adminAddContract(address(calculator2));
+        pump.adminSetCalculator(address(calculator2));
 
-        // Next buy within window — sellsman fee should be elevated
         (uint256 platformFee, uint256 sellsmanFee) = token.getBuyFeeRatios();
-        assertGt(sellsmanFee, 30, "Sellsman fee should be elevated within anti-snipe window");
-        assertEq(platformFee, 30, "Platform fee should remain 30 BPS");
+        assertEq(platformFee, 30);
+        assertEq(sellsmanFee, 8000);
+
+        uint256 buyAmount = 1 ether;
+        uint256 expectedMainPurchase = pump.getBuyAmountByValue(
+            0,
+            buyAmount - (buyAmount * platformFee) / 10_000 - (buyAmount * sellsmanFee) / 10_000
+        );
+        uint256 expectedInjection =
+            pump.getBuyAmountByValue(expectedMainPurchase, (buyAmount * sellsmanFee) / 10_000);
+
+        vm.prank(buyer, buyer);
+        uint256 received = token.buyToken{value: buyAmount}(0, creator, 0);
+
+        address community = token.nutboxCommunity();
+        assertEq(received, expectedMainPurchase);
+        assertEq(IERC20(address(token)).balanceOf(buyer), expectedMainPurchase);
+        assertEq(token.bondingCurveSupply(), expectedMainPurchase + expectedInjection);
+        assertEq(calculator.totalInjected(community), expectedInjection);
+        assertEq(calculator2.totalInjected(community), 0);
     }
 
     function test_antiSnipeWindow_normalFeesAfter15s() public {
-        // First buy
-        vm.prank(buyer, buyer);
-        token.buyToken{value: 0.1 ether}(0, creator, 0);
-
-        // Skip window
-        vm.warp(block.timestamp + 16);
+        vm.warp(token.createdAt() + 15);
 
         (uint256 platformFee, uint256 sellsmanFee) = token.getBuyFeeRatios();
         assertEq(platformFee, 30);
         assertEq(sellsmanFee, 30);
+    }
+
+    function test_antiSnipe_mainFillToCap_revertsForBuyAndReceive() public {
+        uint256 buyAmount = 110 ether;
+        uint256 mainPurchase = pump.getBuyAmountByValue(
+            0,
+            buyAmount - (buyAmount * 30) / 10_000 - (buyAmount * 8000) / 10_000
+        );
+        assertGe(mainPurchase, BONDING_CURVE_SUPPLY);
+
+        vm.expectRevert(IToken.ListingDisabledDuringAntiSnipe.selector);
+        vm.prank(buyer, buyer);
+        token.buyToken{value: buyAmount}(0, creator, 0);
+
+        vm.prank(buyer, buyer);
+        (bool success, bytes memory revertData) = address(token).call{value: buyAmount}("");
+        assertFalse(success);
+        assertEq(revertData.length, 4);
+        assertEq(bytes4(revertData), IToken.ListingDisabledDuringAntiSnipe.selector);
+
+        assertEq(token.bondingCurveSupply(), 0);
+        assertFalse(token.listed());
+        assertEq(IERC20(address(token)).balanceOf(buyer), 0);
+        assertEq(calculator.totalInjected(token.nutboxCommunity()), 0);
+        assertEq(mockPoolManager.initializeCount(), 0);
+    }
+
+    function test_antiSnipe_injectionReachingCap_revertsAtomically() public {
+        uint256 buyAmount = 21 ether;
+        uint256 platformFee = (buyAmount * 30) / 10_000;
+        uint256 sellsmanFee = (buyAmount * 8000) / 10_000;
+        uint256 mainPurchase = pump.getBuyAmountByValue(0, buyAmount - platformFee - sellsmanFee);
+        uint256 injectedPurchase = pump.getBuyAmountByValue(mainPurchase, sellsmanFee);
+        assertLt(mainPurchase, BONDING_CURVE_SUPPLY);
+        assertGe(mainPurchase + injectedPurchase, BONDING_CURVE_SUPPLY);
+
+        uint256 buyerBalanceBefore = buyer.balance;
+        uint256 feeRecipientBalanceBefore = feeRecipient.balance;
+
+        vm.expectRevert(IToken.ListingDisabledDuringAntiSnipe.selector);
+        vm.prank(buyer, buyer);
+        token.buyToken{value: buyAmount}(0, creator, 0);
+
+        assertEq(buyer.balance, buyerBalanceBefore);
+        assertEq(feeRecipient.balance, feeRecipientBalanceBefore);
+        assertEq(token.bondingCurveSupply(), 0);
+        assertFalse(token.listed());
+        assertEq(IERC20(address(token)).balanceOf(buyer), 0);
+        assertEq(calculator.totalInjected(token.nutboxCommunity()), 0);
+        assertEq(mockPoolManager.initializeCount(), 0);
+    }
+
+    function test_atWindowEnd_canListAndHookUsesCommunityCalculatorAfterPumpRotation() public {
+        HourlyTickCalculator calculator2 = new HourlyTickCalculator(communityFactory);
+        committee.adminAddContract(address(calculator2));
+        pump.adminSetCalculator(address(calculator2));
+
+        vm.warp(token.createdAt() + 15);
+        (uint256 platformFee, uint256 sellsmanFee) = token.getBuyFeeRatios();
+        assertEq(platformFee, 30);
+        assertEq(sellsmanFee, 30);
+
+        vm.prank(buyer, buyer);
+        uint256 received = token.buyToken{value: 25 ether}(0, creator, 0);
+
+        assertEq(received, BONDING_CURVE_SUPPLY);
+        assertEq(token.bondingCurveSupply(), BONDING_CURVE_SUPPLY);
+        assertTrue(token.listed());
+        assertEq(mockPoolManager.initializeCount(), 1);
+        assertEq(IERC20(address(token)).balanceOf(address(hook)), token.NUTBOX_ALLOCATION());
+
+        (address community, address registeredCalculator) = hook.tokenInfo(address(token));
+        assertEq(community, token.nutboxCommunity());
+        assertEq(registeredCalculator, address(calculator));
+        assertEq(IERC20(address(token)).allowance(address(hook), address(calculator)), type(uint256).max);
+        assertEq(IERC20(address(token)).allowance(address(hook), address(calculator2)), 0);
     }
 
     // ─── ipshareSubject ───

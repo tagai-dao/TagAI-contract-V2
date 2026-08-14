@@ -28,7 +28,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * Targets (from Requirement 13):
  * - Hook buy + successful inject: ≤ 60_000 gas (Hook portion only, excl. external calls)
  * - Hook buy + skip inject (below MIN): ≤ 5_000 gas
- * - Hook buy + remaining == 0: ≤ 3_000 gas
+ * - Hook buy + zero inventory: ≤ 3_000 gas
  * - Hook sell: ≤ 2_000 gas
  * - Calculator inject: 40-60k gas
  * - Calculator calculateReward: 20-40k gas
@@ -144,7 +144,7 @@ contract GasBenchmarkTest is Test {
             currency1: Currency.wrap(address(token)),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 0,
+            fee: 3000,
             parameters: parameters
         });
     }

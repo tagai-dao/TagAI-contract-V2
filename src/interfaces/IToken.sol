@@ -18,6 +18,7 @@ interface IToken {
     error RefundFail();
     error CostFeeFail();
     error DustIssue();
+    error ListingDisabledDuringAntiSnipe();
 
     // ─── Events ──────────────────────────────────────────────────────────────────
 
@@ -33,18 +34,13 @@ interface IToken {
 
     event TokenListedToDex(address indexed token, bytes32 indexed poolId, uint160 sqrtPriceX96);
 
-    event AntiSnipeInjected(
-        address indexed token,
-        address indexed community,
-        uint256 ethUsed,
-        uint256 tokensPurchased
-    );
+    event AntiSnipeInjected(address indexed token, address indexed community, uint256 ethUsed, uint256 tokensPurchased);
 
     /// @notice Emitted when the community token fee subject (IPShare owner) is transferred.
-    event IPShareSubjectTransferred(
-        address indexed previousSubject,
-        address indexed newSubject
-    );
+    event IPShareSubjectTransferred(address indexed previousSubject, address indexed newSubject);
+
+    /// @notice Emitted when listing LP fees are collected and routed.
+    event ListingFeesCollected(address indexed caller, uint256 bnbAmount, uint256 tokenAmount, uint256 callerReward);
 
     // ─── View Functions ──────────────────────────────────────────────────────────
 
@@ -59,4 +55,7 @@ interface IToken {
     function getIPShare() external view returns (address);
 
     function ipshareSubject() external view returns (address);
+
+    /// @notice Collect accrued native LP fees from the locked listing position and route proceeds.
+    function collectFees() external returns (uint256 bnbAmount, uint256 tokenAmount);
 }

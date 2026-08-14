@@ -200,6 +200,28 @@ contract PumpTest is Test {
         vm.stopPrank();
     }
 
+    function test_createToken_premineUsesNormalFeesWithoutAntiSnipeInjection() public {
+        vm.startPrank(creator, creator);
+
+        uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
+        ipshare.createShare{value: ipsharePrice}(creator);
+
+        uint256 premineValue = 1 ether;
+        uint256 platformFee = (premineValue * 30) / 10_000;
+        uint256 sellsmanFee = (premineValue * 30) / 10_000;
+        uint256 expectedPremine = pump.getBuyAmountByValue(0, premineValue - platformFee - sellsmanFee);
+
+        address tokenAddr = pump.createToken{value: 0.005 ether + premineValue}("PREMINE", bytes32(uint256(2)));
+        vm.stopPrank();
+
+        Token premineToken = Token(payable(tokenAddr));
+        address community = premineToken.nutboxCommunity();
+
+        assertEq(premineToken.balanceOf(creator), expectedPremine, "creator receives the normal-fee curve amount");
+        assertEq(premineToken.bondingCurveSupply(), expectedPremine, "premine supply matches the curve amount");
+        assertEq(calculator.totalInjected(community), 0, "Pump premine must not trigger anti-snipe injection");
+    }
+
     function test_createToken_revertsIfTickAlreadyExists() public {
         vm.startPrank(creator, creator);
         uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);

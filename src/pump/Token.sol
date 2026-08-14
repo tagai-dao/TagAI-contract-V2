@@ -9,6 +9,7 @@ import "../interfaces/IIPShare.sol";
 import "../interfaces/IPump.sol";
 import "../interfaces/IBondingCurve.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
+import "../interfaces/ICommunity.sol";
 
 // PancakeSwap V4 (Infinity)
 import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
@@ -66,9 +67,16 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     ICLPoolManager public clPoolManager;
     IVault public vault;
     PoolId public v4PoolId;
+    /// @notice Hook permanently bound to this token's listing pool.
+    /// @dev Snapshotted at listing so later Pump hook upgrades cannot change this pool's identity or fee destination.
+    address public listingHook;
+    bytes32 public listingPoolParameters;
     // In V4, tickSpacing and fee are fully decoupled.
-    // fee=0 means zero native pool fee; all fees are collected by TipTagSwapHook.
-    // tickSpacing=60 controls price-tick granularity only (no 0.3% DEX fee implied).
+    // fee=3000 sets native LP fee to 0.3%; TipTagSwapHook collects additional swap fees on top.
+    // tickSpacing=60 controls price-tick granularity only (independent of fee tier).
+    uint24 public constant LISTING_LP_FEE = 3000;
+    /// @dev 0.5% of collected BNB LP fees rewards the permissionless caller.
+    uint256 public constant COLLECT_CALLER_REWARD_BPS = 50;
     int24 public constant TICK_SPACING = 60;
     // Listing LP: 200M token 全进池 + 配对 BNB（~19.174，来自内盘收入）；tickLower=MIN；
     // tickUpper 校准使 800M 外部卖压抽干池内 BNB。
@@ -80,14 +88,26 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     // 离线标定（ListingParamsCalc.test_computeTokenFirstListingConstants）：200M token-first 单次 add
     uint128 private constant LISTING_LIQUIDITY_DELTA = 69094226120069552406389;
 
+    /// @dev vault.lock callback op codes — seed listing LP vs collect fees only.
+    uint8 private constant LOCK_OP_SEED = 0;
+    uint8 private constant LOCK_OP_COLLECT = 1;
+
+    /// @dev Populated by collect callback; read and cleared by collectFees().
+    uint256 private _collectBnbAmount;
+    uint256 private _collectTokenAmount;
+
     receive() external payable nonReentrant {
-        if (listed) revert TokenListed();
+        if (listed) {
+            // Post-listing: only Vault may send ETH (LP fee collect via take).
+            if (msg.sender != address(vault)) revert TokenListed();
+            return;
+        }
         _buyTokenDirect();
     }
 
     function _buyTokenDirect() private {
         address sellsman = _checkBondingCurveState(address(0));
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (buyFunds * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (buyFunds * sellsmanFeePercent) / divisor;
@@ -100,7 +120,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         } else {
             bondingCurveSupply += tokenReceived;
             this.transfer(msg.sender, tokenReceived);
-            (bool success, ) = tiptapFeeAddress.call{value: tiptagFee}("");
+            (bool success,) = tiptapFeeAddress.call{value: tiptagFee}("");
             if (!success) revert CostFeeFail();
             address feeRecipient = _getFeeRecipient(sellsman);
             _handleSellsmanFee(sellsmanFee, feeRecipient);
@@ -154,14 +174,15 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     }
 
     /********************************** bonding curve ********************************/
-    function buyToken(
-        uint256 expectAmount,
-        address sellsman,
-        uint16 slippage
-    ) public payable nonReentrant returns (uint256) {
+    function buyToken(uint256 expectAmount, address sellsman, uint16 slippage)
+        public
+        payable
+        nonReentrant
+        returns (uint256)
+    {
         require(msg.sender != address(clPoolManager), "can't buy token from pool");
         sellsman = _checkBondingCurveState(sellsman);
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (msg.value * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (msg.value * sellsmanFeePercent) / divisor;
@@ -170,10 +191,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
             revert DustIssue();
         }
 
-        uint256 tokenReceived = bondingCurve.getBuyAmountByValue(
-            bondingCurveSupply,
-            buyFunds - tiptagFee - sellsmanFee
-        );
+        uint256 tokenReceived = bondingCurve.getBuyAmountByValue(bondingCurveSupply, buyFunds - tiptagFee - sellsmanFee);
 
         address tiptapFeeAddress = IPump(manager).getFeeReceiver();
 
@@ -193,7 +211,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
             bondingCurveSupply += tokenReceived;
             this.transfer(msg.sender, tokenReceived);
 
-            (bool success, ) = tiptapFeeAddress.call{value: tiptagFee}("");
+            (bool success,) = tiptapFeeAddress.call{value: tiptagFee}("");
             if (!success) {
                 revert CostFeeFail();
             }
@@ -205,12 +223,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         }
     }
 
-    function sellToken(
-        uint256 amount,
-        uint256 expectReceive,
-        address sellsman,
-        uint16 slippage
-    ) public nonReentrant {
+    function sellToken(uint256 amount, uint256 expectReceive, address sellsman, uint16 slippage) public nonReentrant {
         sellsman = _checkBondingCurveState(sellsman);
 
         uint256 sellAmount = amount;
@@ -242,8 +255,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         bondingCurveSupply -= sellAmount;
 
         {
-            (bool success1, ) = tiptagFeeAddress.call{value: tiptagFee}("");
-            (bool success2, ) = msg.sender.call{value: receivedEth}("");
+            (bool success1,) = tiptagFeeAddress.call{value: tiptagFee}("");
+            (bool success2,) = msg.sender.call{value: receivedEth}("");
             if (!success1 || !success2) {
                 revert RefundFail();
             }
@@ -256,17 +269,21 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /**
      * Get current buy fee ratios (basis points, e.g. 100 = 1%).
-     * 1. First buy (bondingCurveSupply == 0): uses Pump's feeRatio as-is.
-     * 2. Within 15s after creation: tiptag = feeRatio[0]; sellsman decays quadratically from 80% to feeRatio[1].
+     * 1. A Pump premine before the Community is linked uses Pump's feeRatio as-is.
+     * 2. Public buys within 15s use the anti-snipe fee, including the first buy.
      * 3. After 15s: uses Pump's configured feeRatio.
      */
     function getBuyFeeRatios() external view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        return _getBuyFeeRatiosView();
+        return _getBuyFeeRatiosView(false);
     }
 
-    function _getBuyFeeRatiosView() private view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
+    function _getBuyFeeRatiosView(bool pumpPremine)
+        private
+        view
+        returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent)
+    {
         uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
-        if (bondingCurveSupply == 0) {
+        if (pumpPremine) {
             return (feeRatio[0], feeRatio[1]);
         }
         uint256 elapsed = block.timestamp - createdAt;
@@ -275,15 +292,13 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         }
         uint256 remaining = ANTI_SNIPE_WINDOW - elapsed;
         sellsmanFeePercent =
-            feeRatio[1] +
-            ((ANTI_SNIPE_SELLSMAN_FEE_MAX - feeRatio[1]) * remaining * remaining) /
-            ANTI_SNIPE_DENOM;
+            feeRatio[1] + ((ANTI_SNIPE_SELLSMAN_FEE_MAX - feeRatio[1]) * remaining * remaining) / ANTI_SNIPE_DENOM;
         return (feeRatio[0], sellsmanFeePercent);
     }
 
     /// @notice Handles sellsman fee: during anti-snipe window, injects into Calculator; otherwise sends to IPShare.
     function _handleSellsmanFee(uint256 sellsmanFee, address feeRecipient) private {
-        if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
+        if (_inAntiSnipeWindow()) {
             _antiSnipeInject(sellsmanFee);
         } else {
             IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanFee}(feeRecipient);
@@ -292,16 +307,27 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /// @notice During anti-snipe window, use sellsman ETH to buy tokens on bonding curve and inject into Calculator.
     function _antiSnipeInject(uint256 sellsmanEth) private {
+        // Pump premine runs before its Community exists. At that point there is
+        // no canonical Community calculator, so route the fee to IPShare.
+        if (nutboxCommunity == address(0)) {
+            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            return;
+        }
+
         // Use sellsman ETH to buy tokens on the bonding curve
         uint256 tokensPurchased = bondingCurve.getBuyAmountByValue(bondingCurveSupply, sellsmanEth);
         uint256 remaining = bondingCurveTotalAmount - bondingCurveSupply;
-        if (tokensPurchased > remaining) {
-            tokensPurchased = remaining;
+        if (tokensPurchased >= remaining) {
+            revert ListingDisabledDuringAntiSnipe();
+        }
+        if (tokensPurchased == 0) {
+            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            return;
         }
         bondingCurveSupply += tokensPurchased;
 
-        // Get calculator address and inject
-        address calculator = IPump(manager).getCalculator();
+        // The Community's calculator is canonical for its entire lifetime.
+        address calculator = ICommunity(nutboxCommunity).rewardCalculator();
 
         // Approve calculator to pull tokens (inject does transferFrom(msg.sender=Token, community, amount))
         _approve(address(this), calculator, tokensPurchased);
@@ -309,7 +335,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         try IHourlyTickCalculator(calculator).inject(nutboxCommunity, tokensPurchased) {
             emit AntiSnipeInjected(address(this), nutboxCommunity, sellsmanEth, tokensPurchased);
         } catch {
-            // Fallback: revert the supply change and send ETH to IPShare
+            // The failed external call rolls back its transferFrom, but not the
+            // approval made above in this frame. Revoke it before falling back.
+            _approve(address(this), calculator, 0);
             bondingCurveSupply -= tokensPurchased;
             IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
         }
@@ -321,11 +349,13 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         uint256 sellsmanFeePercent,
         address sellsman
     ) private returns (uint256) {
+        if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
+
         uint256 priceBeforeFee = bondingCurve.getPrice(bondingCurveSupply, actualAmount);
         uint256 usedEth = (priceBeforeFee * divisor) / (divisor - tiptagFeePercent - sellsmanFeePercent);
         if (usedEth > msg.value) revert InsufficientFund();
         if (usedEth < msg.value) {
-            (bool ok, ) = msg.sender.call{value: msg.value - usedEth}("");
+            (bool ok,) = msg.sender.call{value: msg.value - usedEth}("");
             if (!ok) revert RefundFail();
         }
         uint256 tiptagFee = (usedEth * tiptagFeePercent) / divisor;
@@ -335,7 +365,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         bondingCurveSupply += actualAmount;
         this.transfer(msg.sender, actualAmount);
 
-        (bool success1, ) = tiptapFeeAddress.call{value: tiptagFee}("");
+        (bool success1,) = tiptapFeeAddress.call{value: tiptagFee}("");
         if (!success1) revert CostFeeFail();
         address feeRecipient = _getFeeRecipient(sellsman);
         _handleSellsmanFee(sellsmanFee, feeRecipient);
@@ -358,14 +388,41 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /// @notice 动态交易期（15s 内）费用固定归部署者，防止 MEV 攻击者通过传入自己为 sellsman 回收费用
     function _getFeeRecipient(address sellsman) private view returns (address) {
-        if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
+        if (_inAntiSnipeWindow()) {
             return ipshareSubject;
         }
         return sellsman;
     }
 
+    function _isPumpPremine() private view returns (bool) {
+        return msg.sender == manager && nutboxCommunity == address(0) && bondingCurveSupply == 0;
+    }
+
+    function _inAntiSnipeWindow() private view returns (bool) {
+        return block.timestamp - createdAt < ANTI_SNIPE_WINDOW;
+    }
+
     /********************************** to dex (PancakeSwap V4 Infinity) ********************************/
+
+    /// @notice Permissionless: collect listing LP fees, reward caller, and route BNB→platform, Token→Hook.
+    function collectFees() external nonReentrant returns (uint256 bnbAmount, uint256 tokenAmount) {
+        if (!listed) revert TokenNotListed();
+
+        bytes memory callbackData =
+            abi.encode(LOCK_OP_COLLECT, _listingPoolKey(), LISTING_TICK_LOWER, LISTING_TICK_UPPER, msg.sender);
+        vault.lock(callbackData);
+
+        bnbAmount = _collectBnbAmount;
+        tokenAmount = _collectTokenAmount;
+        _collectBnbAmount = 0;
+        _collectTokenAmount = 0;
+
+        uint256 callerReward = (bnbAmount * COLLECT_CALLER_REWARD_BPS) / divisor;
+        emit ListingFeesCollected(msg.sender, bnbAmount, tokenAmount, callerReward);
+    }
+
     function _makeLiquidityPool() private {
+        if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
         require(address(this).balance >= LISTING_ETH_BUDGET, "Insufficient ETH for listing");
         require(balanceOf(address(this)) >= LISTING_TOKEN_AMOUNT + NUTBOX_ALLOCATION, "Insufficient token for listing");
 
@@ -374,20 +431,11 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         require(hookAddr != address(0), "Hook not set");
         _transfer(address(this), hookAddr, NUTBOX_ALLOCATION);
 
-        // 1. Build the PoolKey (PCS V4 format)
-        //    currency0 = Native ETH (address(0)), currency1 = Token
-        //    tickSpacing is encoded in bytes32 parameters (bits [16-39])
         uint16 hookBitmap = IHooks(hookAddr).getHooksRegistrationBitmap();
-        bytes32 parameters = CLPoolParametersHelper.setTickSpacing(bytes32(uint256(hookBitmap)), TICK_SPACING);
+        listingHook = hookAddr;
+        listingPoolParameters = CLPoolParametersHelper.setTickSpacing(bytes32(uint256(hookBitmap)), TICK_SPACING);
 
-        PoolKey memory poolKey = PoolKey({
-            currency0: CurrencyLibrary.NATIVE, // Native ETH
-            currency1: Currency.wrap(address(this)), // Token
-            hooks: IHooks(hookAddr),
-            poolManager: IPoolManager(address(clPoolManager)),
-            fee: 0, // No native LP fee, all fees via Hook
-            parameters: parameters
-        });
+        PoolKey memory poolKey = _listingPoolKey();
 
         // 2. Use fixed initial price to avoid runtime price drift and overflow edge-cases.
         uint160 sqrtPriceX96 = INITIAL_SQRT_PRICE_X96;
@@ -405,14 +453,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         ITipTagSwapHook(hookAddr).registerPool(poolId, address(this));
 
         // 6. Add bounded-range liquidity via vault.lock() callback.
-        bytes memory callbackData = abi.encode(poolKey, tickLower, tickUpper);
+        bytes memory callbackData = abi.encode(LOCK_OP_SEED, poolKey, tickLower, tickUpper, address(0));
         vault.lock(callbackData);
 
         // 7. After LP is settled, send all remaining ETH to platform. Remaining token stays in this contract.
         address tiptagFeeAddress = IPump(manager).getFeeReceiver();
         uint256 remainEth = address(this).balance;
         if (remainEth > 0) {
-            (bool success1, ) = tiptagFeeAddress.call{value: remainEth}("");
+            (bool success1,) = tiptagFeeAddress.call{value: remainEth}("");
             require(success1, "Transfer ETH failed");
         }
 
@@ -420,29 +468,74 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         emit TokenListedToDex(address(this), PoolId.unwrap(poolId), sqrtPriceX96);
     }
 
-    /// @notice ILockCallback — 单次 token-first LP：200M token 全进池，配对 ~19.174 BNB。
+    /// @notice ILockCallback — seed listing LP or collect accrued LP fees (liquidityDelta=0).
     function lockAcquired(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(vault), "Only Vault");
 
-        (PoolKey memory poolKey, int24 tickLower, int24 tickUpper) = abi.decode(data, (PoolKey, int24, int24));
+        (uint8 op, PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) =
+            abi.decode(data, (uint8, PoolKey, int24, int24, address));
 
-        _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+        if (op == LOCK_OP_SEED) {
+            _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+        } else if (op == LOCK_OP_COLLECT) {
+            _collectListingFees(poolKey, tickLower, tickUpper, collector);
+        } else {
+            revert("Invalid lock op");
+        }
 
         return "";
     }
 
-    /// @dev Shared modifyLiquidity + vault settle/take for listing LP adds.
-    function _modifyAndSettleLiquidity(
-        PoolKey memory poolKey,
-        int24 tickLower,
-        int24 tickUpper,
-        int256 liquidityDelta
-    ) private {
+    /// @dev Rebuild the immutable listing PoolKey from values snapshotted when this token listed.
+    function _listingPoolKey() private view returns (PoolKey memory) {
+        return PoolKey({
+            currency0: CurrencyLibrary.NATIVE,
+            currency1: Currency.wrap(address(this)),
+            hooks: IHooks(listingHook),
+            poolManager: IPoolManager(address(clPoolManager)),
+            fee: LISTING_LP_FEE,
+            parameters: listingPoolParameters
+        });
+    }
+
+    /// @dev Collect listing LP fees via modifyLiquidity(0); route only this feeDelta batch.
+    function _collectListingFees(PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) private {
         ICLPoolManager.ModifyLiquidityParams memory params = ICLPoolManager.ModifyLiquidityParams({
-            tickLower: tickLower,
-            tickUpper: tickUpper,
-            liquidityDelta: liquidityDelta,
-            salt: bytes32(0)
+            tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: 0, salt: bytes32(0)
+        });
+
+        (, BalanceDelta feeDelta) = clPoolManager.modifyLiquidity(poolKey, params, "");
+
+        int128 ethFee = feeDelta.amount0();
+        int128 tokenFee = feeDelta.amount1();
+
+        uint256 bnbAmount;
+        uint256 tokenAmount;
+
+        if (ethFee > 0) {
+            bnbAmount = uint256(uint128(ethFee));
+            uint256 callerReward = (bnbAmount * COLLECT_CALLER_REWARD_BPS) / divisor;
+            address feeReceiver = IPump(manager).getFeeReceiver();
+            // Route directly from Vault so Token never holds collected BNB.
+            if (callerReward != 0) vault.take(poolKey.currency0, collector, callerReward);
+            vault.take(poolKey.currency0, feeReceiver, bnbAmount - callerReward);
+        }
+
+        if (tokenFee > 0) {
+            tokenAmount = uint256(uint128(tokenFee));
+            vault.take(poolKey.currency1, address(poolKey.hooks), tokenAmount);
+        }
+
+        _collectBnbAmount = bnbAmount;
+        _collectTokenAmount = tokenAmount;
+    }
+
+    /// @dev Shared modifyLiquidity + vault settle/take for listing LP adds.
+    function _modifyAndSettleLiquidity(PoolKey memory poolKey, int24 tickLower, int24 tickUpper, int256 liquidityDelta)
+        private
+    {
+        ICLPoolManager.ModifyLiquidityParams memory params = ICLPoolManager.ModifyLiquidityParams({
+            tickLower: tickLower, tickUpper: tickUpper, liquidityDelta: liquidityDelta, salt: bytes32(0)
         });
 
         (BalanceDelta callerDelta,) = clPoolManager.modifyLiquidity(poolKey, params, "");

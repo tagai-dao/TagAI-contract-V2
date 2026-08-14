@@ -18,19 +18,20 @@ contract BSCForkNutboxInject is BSCForkBase {
         address community = token.nutboxCommunity();
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
+        uint256 balBefore = IERC20(tokenAddr).balanceOf(address(hook));
         uint256 totalInjectedBefore = calculator.totalInjected(community);
 
         uint256 tokensReceived = _swapBuyExactIn(poolKey, buyer, 50 ether);
         assertTrue(tokensReceived > 0, "buy delivered tokens");
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(remainingBefore), "same period: no inject");
+        uint256 hookBalanceAfter = IERC20(tokenAddr).balanceOf(address(hook));
+        uint256 directionalFee = hookBalanceAfter - balBefore;
+        assertGt(directionalFee, 0, "buy directional fee");
         assertEq(calculator.totalInjected(community), totalInjectedBefore, "same period: calculator unchanged");
 
         (uint32 periodIdx, uint256 periodBuy) = _readPeriodState(tokenAddr);
         assertEq(periodIdx, uint32(block.timestamp / PERIOD_LENGTH), "period index");
-        assertEq(periodBuy, tokensReceived, "period buy accumulator");
+        assertEq(periodBuy, tokensReceived + directionalFee, "gross period buy accumulator");
     }
 
     /// @dev Next period first buy settles prior period using direct 10-minute volume tier lookup.
@@ -40,44 +41,37 @@ contract BSCForkNutboxInject is BSCForkBase {
         address community = token.nutboxCommunity();
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        uint256 period1Buy = _swapBuyExactIn(poolKey, buyer, 50 ether);
-        assertTrue(period1Buy > 0, "period1 buy");
+        uint256 period1Received = _swapBuyExactIn(poolKey, buyer, 50 ether);
+        assertTrue(period1Received > 0, "period1 buy");
+        (, uint256 period1Volume) = _readPeriodState(tokenAddr);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
+        uint256 balBefore = IERC20(tokenAddr).balanceOf(address(hook));
         uint256 totalInjectedBefore = calculator.totalInjected(community);
         uint256 communityBalBefore = IERC20(tokenAddr).balanceOf(community);
 
         _warpToNextPeriod();
 
-        uint256 period2Buy = _swapBuyExactIn(poolKey, buyer2, 30 ether);
-        assertTrue(period2Buy > 0, "period2 buy triggers settlement");
+        uint256 period2Received = _swapBuyExactIn(poolKey, buyer2, 30 ether);
+        assertTrue(period2Received > 0, "period2 buy triggers settlement");
+        (uint32 p2, uint256 period2Volume) = _readPeriodState(tokenAddr);
+        uint256 period2DirectionalFee = period2Volume - period2Received;
 
-        uint256 expectedInject = _capInjectAmount(
-            _expectedPeriodSettleInject(period1Buy),
-            uint256(remainingBefore)
-        );
+        uint256 expectedInject =
+            _capInjectAmount(_expectedPeriodSettleInject(period1Volume), balBefore + period2DirectionalFee);
         assertTrue(expectedInject >= MIN_INJECT_OUTPUT, "inject output above minimum");
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
         assertEq(
-            uint256(remainingBefore) - uint256(remainingAfter),
-            expectedInject,
-            "hook remaining matches period settlement"
+            IERC20(tokenAddr).balanceOf(address(hook)),
+            balBefore + period2DirectionalFee - expectedInject,
+            "hook balance matches fee and period settlement"
         );
+        assertEq(calculator.totalInjected(community) - totalInjectedBefore, expectedInject, "calculator totalInjected");
         assertEq(
-            calculator.totalInjected(community) - totalInjectedBefore,
-            expectedInject,
-            "calculator totalInjected"
-        );
-        assertEq(
-            IERC20(tokenAddr).balanceOf(community) - communityBalBefore,
-            expectedInject,
-            "community received tokens"
+            IERC20(tokenAddr).balanceOf(community) - communityBalBefore, expectedInject, "community received tokens"
         );
 
-        (uint32 p2, uint256 p2Buy) = _readPeriodState(tokenAddr);
         assertEq(p2, uint32(block.timestamp / PERIOD_LENGTH), "now in period2");
-        assertEq(p2Buy, period2Buy, "period2 accumulator");
+        assertEq(period2Volume, period2Received + period2DirectionalFee, "period2 accumulator");
     }
 
     /// @dev Period settlement below 16.8 tokens is skipped entirely.
@@ -87,18 +81,27 @@ contract BSCForkNutboxInject is BSCForkBase {
         address community = token.nutboxCommunity();
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
+        uint256 balBefore = IERC20(tokenAddr).balanceOf(address(hook));
         uint256 totalInjectedBefore = calculator.totalInjected(community);
 
-        _simulateHookBuy(poolKey, 800 ether);
+        uint256 period1Received = _swapBuyExactIn(poolKey, buyer, 1e12);
+        (, uint256 period1Volume) = _readPeriodState(tokenAddr);
+        assertGt(period1Received, 0, "small period1 buy");
+        assertEq(_expectedPeriodSettleInject(period1Volume), 0, "settle below minimum");
+
+        uint256 balAfterPeriod1 = IERC20(tokenAddr).balanceOf(address(hook));
 
         _warpToNextPeriod();
-        _simulateHookBuy(poolKey, 1000 ether);
+        uint256 period2Received = _swapBuyExactIn(poolKey, buyer2, 1e12);
+        (, uint256 period2Volume) = _readPeriodState(tokenAddr);
+        uint256 period2DirectionalFee = period2Volume - period2Received;
 
-        assertEq(_expectedPeriodSettleInject(800 ether), 0, "settle below minimum");
-
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(remainingBefore), "no remaining change");
+        assertEq(
+            IERC20(tokenAddr).balanceOf(address(hook)),
+            balAfterPeriod1 + period2DirectionalFee,
+            "only directional fees accumulate"
+        );
+        assertGt(IERC20(tokenAddr).balanceOf(address(hook)), balBefore, "directional fees missing");
         assertEq(calculator.totalInjected(community), totalInjectedBefore, "no calculator inject");
     }
 
@@ -108,28 +111,32 @@ contract BSCForkNutboxInject is BSCForkBase {
         address tokenAddr = address(token);
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        uint256 period1Buy = _swapBuyExactIn(poolKey, buyer, 60 ether);
-        assertTrue(period1Buy > 0);
+        uint256 period1Received = _swapBuyExactIn(poolKey, buyer, 60 ether);
+        assertTrue(period1Received > 0);
+        (, uint256 period1Volume) = _readPeriodState(tokenAddr);
 
         _warpToNextPeriod();
         // Skip period 2 entirely (no trades).
         _warpToNextPeriod();
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
-        uint256 period3Buy = _swapBuyExactIn(poolKey, buyer2, 25 ether);
-        assertTrue(period3Buy > 0);
+        uint256 balBefore = IERC20(tokenAddr).balanceOf(address(hook));
+        uint256 period3Received = _swapBuyExactIn(poolKey, buyer2, 25 ether);
+        assertTrue(period3Received > 0);
+        (, uint256 period3Volume) = _readPeriodState(tokenAddr);
+        uint256 period3DirectionalFee = period3Volume - period3Received;
 
-        uint256 expectedInject = _capInjectAmount(
-            _expectedPeriodSettleInject(period1Buy),
-            uint256(remainingBefore)
-        );
+        uint256 expectedInject =
+            _capInjectAmount(_expectedPeriodSettleInject(period1Volume), balBefore + period3DirectionalFee);
         if (expectedInject > 0) {
-            (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-            assertEq(uint256(remainingBefore) - uint256(remainingAfter), expectedInject, "period1 settled on period3");
+            assertEq(
+                IERC20(tokenAddr).balanceOf(address(hook)),
+                balBefore + period3DirectionalFee - expectedInject,
+                "period1 settled on period3 after directional fee"
+            );
         }
     }
 
-    /// @dev Sell path must not inject or change hook remaining / calculator totals.
+    /// @dev Sell path must not inject or change hook balance / calculator totals.
     function test_fork_nutboxInject_sellDoesNotInject() public onlyBscFork {
         Token token = _createAndListToken("FORKINJ5");
         address tokenAddr = address(token);
@@ -141,14 +148,13 @@ contract BSCForkNutboxInject is BSCForkBase {
         uint256 tokenBal = IERC20(tokenAddr).balanceOf(buyer);
         assertTrue(tokenBal > 0);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
+        uint256 balBefore = IERC20(tokenAddr).balanceOf(address(hook));
         uint256 totalInjectedBefore = calculator.totalInjected(community);
 
         uint256 sellAmount = tokenBal / 3;
         _swapSellExactIn(poolKey, buyer, sellAmount);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(remainingBefore), "sell: remaining unchanged");
+        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), balBefore, "sell: balance unchanged");
         assertEq(calculator.totalInjected(community), totalInjectedBefore, "sell: no new inject");
     }
 
@@ -159,8 +165,9 @@ contract BSCForkNutboxInject is BSCForkBase {
         address community = token.nutboxCommunity();
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        uint256 period1Buy = _swapBuyExactIn(poolKey, buyer, 50 ether);
-        assertTrue(period1Buy > 0);
+        uint256 period1Received = _swapBuyExactIn(poolKey, buyer, 50 ether);
+        assertTrue(period1Received > 0);
+        (, uint256 period1Volume) = _readPeriodState(tokenAddr);
 
         _warpToNextPeriod();
 
@@ -169,7 +176,7 @@ contract BSCForkNutboxInject is BSCForkBase {
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         bytes32 settledTopic = keccak256("PeriodSettled(address,uint32,uint256,uint256,uint32,uint256)");
-        bytes32 injectTopic = keccak256("NutboxInjected(address,address,uint256,uint96)");
+        bytes32 injectTopic = keccak256("NutboxInjected(address,address,uint256,uint256)");
         bool sawSettled;
         bool sawInject;
 
@@ -184,7 +191,7 @@ contract BSCForkNutboxInject is BSCForkBase {
         }
 
         assertTrue(sawSettled, "PeriodSettled emitted");
-        uint256 injectOut = _expectedPeriodSettleInject(period1Buy);
+        uint256 injectOut = _expectedPeriodSettleInject(period1Volume);
         if (injectOut >= MIN_INJECT_OUTPUT) {
             assertTrue(sawInject, "NutboxInjected emitted when settle >= min");
         }

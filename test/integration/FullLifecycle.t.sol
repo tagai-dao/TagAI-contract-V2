@@ -174,16 +174,16 @@ contract FullLifecycleTest is Test {
         Token token = _createAndListToken("HOOK1");
         address tokenAddr = address(token);
 
-        // Get initial remaining
-        (, uint96 initialRemaining,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(initialRemaining), NUTBOX_ALLOCATION, "Initial remaining should be NUTBOX_ALLOCATION");
+        uint256 initialBal = IERC20(tokenAddr).balanceOf(address(hook));
+        assertEq(initialBal, NUTBOX_ALLOCATION, "Initial hook balance should be NUTBOX_ALLOCATION");
+
+        uint256 bought = 10_000 ether;
+        uint256 directionalFee = (bought * 30) / 10000;
 
         // Simulate a buy swap via MockPoolManager
         // Buy: zeroForOne = true (ETH → Token)
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        // Call afterSwap directly from pool manager
-        vm.prank(address(mockPoolManager));
         ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
             zeroForOne: true,
             amountSpecified: -1 ether, // exactInput 1 ETH
@@ -191,38 +191,37 @@ contract FullLifecycleTest is Test {
         });
 
         // Mock returns delta with tokenOut = 10_000 ether (accumulated in period 1)
-        BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
-        hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
-
-        // Same period: no inject yet.
-        (, uint96 remainingAfterAccum,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfterAccum), uint256(initialRemaining), "Same period: no inject");
-
-        // Next period first buy settles prior period.
-        vm.warp(block.timestamp + 600);
+        BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(bought)));
+        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
 
-        (, uint96 remainingAfterBuy,) = hook.tokenInfo(tokenAddr);
+        // Same period: no inject yet — directional fee accrues on Hook
+        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), initialBal + directionalFee, "Same period: fee only, no inject");
 
-        (,, uint256 injectAmount) = hook.previewPeriodSettle(10_000 ether);
+        // Next period first buy settles prior period.
+        vm.warp(block.timestamp + 600);
+        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
+        uint256 balBeforeSettle = IERC20(tokenAddr).balanceOf(address(hook));
+        vm.prank(address(mockPoolManager));
+        hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
+
+        uint256 balAfterBuy = IERC20(tokenAddr).balanceOf(address(hook));
+
+        (,, uint256 injectAmount) = hook.previewPeriodSettle(bought);
         if (injectAmount >= 168 ether / 10) {
-            assertTrue(uint256(remainingAfterBuy) < uint256(initialRemaining), "Remaining should decrease after period settle");
-            assertEq(
-                uint256(initialRemaining) - uint256(remainingAfterBuy),
-                injectAmount,
-                "Should inject period settlement amount"
-            );
+            assertTrue(balAfterBuy < balBeforeSettle + directionalFee, "Hook balance should decrease after period settle");
+            assertEq(balBeforeSettle + directionalFee - balAfterBuy, injectAmount, "Should inject period settlement amount");
         }
     }
 
-    // ─── Test: Hook remaining stays same on sell swaps ───
+    // ─── Test: Hook balance stays same on sell swaps ───
 
     function test_hookRemaining_unchangedOnSell() public {
         Token token = _createAndListToken("HOOK2");
         address tokenAddr = address(token);
 
-        (, uint96 initialRemaining,) = hook.tokenInfo(tokenAddr);
+        uint256 initialBal = IERC20(tokenAddr).balanceOf(address(hook));
 
         // Simulate a sell swap: zeroForOne = false (Token → ETH)
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
@@ -237,8 +236,7 @@ contract FullLifecycleTest is Test {
         BalanceDelta sellDelta = toBalanceDelta(-1 ether, int128(int256(10_000 ether)));
         hook.afterSwap(address(0), poolKey, sellParams, sellDelta, bytes(""));
 
-        (, uint96 remainingAfterSell,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfterSell), uint256(initialRemaining), "Remaining should not change on sell");
+        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), initialBal, "Hook balance should not change on sell");
     }
 
     // ─── Test: Total supply invariant throughout lifecycle ───
@@ -248,7 +246,7 @@ contract FullLifecycleTest is Test {
         assertEq(IERC20(address(token)).totalSupply(), TOTAL_SUPPLY, "Total supply must always be 1B");
     }
 
-    // ─── Test: Multiple buy swaps decrease remaining monotonically ───
+    // ─── Test: Multiple buy swaps decrease hook balance monotonically ───
 
     function test_multipleBuySwaps_monotonicDecrease() public {
         Token token = _createAndListToken("MONO");
@@ -256,25 +254,26 @@ contract FullLifecycleTest is Test {
 
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        uint96 prevRemaining;
-        (, prevRemaining,) = hook.tokenInfo(tokenAddr);
+        uint256 bought = 10_000 ether;
+        uint256 directionalFee = (bought * 30) / 10000;
+        uint256 prevBal = IERC20(tokenAddr).balanceOf(address(hook));
 
-        // Simulate 5 buy swaps
+        // Simulate 5 buy swaps in the same period — balance non-decreasing via directional fees (no inject yet)
         for (uint256 i = 0; i < 5; i++) {
+            deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
             vm.prank(address(mockPoolManager));
             ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
                 zeroForOne: true,
                 amountSpecified: -1 ether,
                 sqrtPriceLimitX96: 0
             });
-            // Large enough bought amount to trigger inject
-            BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
+            BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(bought)));
             hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
 
-            (, uint96 currentRemaining,) = hook.tokenInfo(tokenAddr);
-            // Remaining should be <= previous (monotonically non-increasing)
-            assertTrue(currentRemaining <= prevRemaining, "Remaining should be monotonically non-increasing");
-            prevRemaining = currentRemaining;
+            uint256 currentBal = IERC20(tokenAddr).balanceOf(address(hook));
+            assertTrue(currentBal >= prevBal, "Same-period buys accrue directional fees (non-decreasing)");
+            assertEq(currentBal, prevBal + directionalFee);
+            prevBal = currentBal;
         }
     }
 
@@ -284,22 +283,28 @@ contract FullLifecycleTest is Test {
         Token token = _createAndListToken("SMALL");
         address tokenAddr = address(token);
 
-        (, uint96 initialRemaining,) = hook.tokenInfo(tokenAddr);
+        uint256 initialBal = IERC20(tokenAddr).balanceOf(address(hook));
+        uint256 bought = 100 ether;
+        uint256 directionalFee = (bought * 30) / 10000;
 
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
         // Small buy: 100 ether tokens (below MIN_INJECT_AMOUNT of 8400 ether)
+        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
         ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
             zeroForOne: true,
             amountSpecified: -0.01 ether,
             sqrtPriceLimitX96: 0
         });
-        BalanceDelta smallDelta = toBalanceDelta(-0.01 ether, -int128(int256(100 ether)));
+        BalanceDelta smallDelta = toBalanceDelta(-0.01 ether, -int128(int256(bought)));
         hook.afterSwap(address(0), poolKey, buyParams, smallDelta, bytes(""));
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(initialRemaining), "Small buy should not trigger inject");
+        assertEq(
+            IERC20(tokenAddr).balanceOf(address(hook)),
+            initialBal + directionalFee,
+            "Small buy: directional fee only, no inject"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -375,7 +380,7 @@ contract FullLifecycleTest is Test {
             currency1: Currency.wrap(tokenAddr),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 0,
+            fee: 3000,
             parameters: parameters
         });
     }

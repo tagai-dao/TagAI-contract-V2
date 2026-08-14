@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {Currency} from "infinity-core/src/types/Currency.sol";
 import {BalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
 import {ILockCallback} from "infinity-core/src/interfaces/ILockCallback.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title MockVault
@@ -46,6 +47,8 @@ contract MockVault {
                 (bool success,) = to.call{value: amount}("");
                 require(success, "MockVault: ETH transfer failed");
             }
+        } else {
+            IERC20(currencyAddr).transfer(to, amount);
         }
     }
 

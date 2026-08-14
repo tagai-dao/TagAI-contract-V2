@@ -22,6 +22,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     uint256 public createFee = 0.005 ether;
     uint256 private divisor = 10000;
     address private feeReceiver = 0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048;
+    /// @dev Inner-market (bonding curve) fee split only — post-list PCS V4 fees are hardcoded in TagAISwapHook.
     uint256[2] private feeRatio = [30, 30]; // 0: to tiptag; 1: to salesman
 
     // BSC Nutbox stack
@@ -239,7 +240,11 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
 
         emit NutboxLinked(instance, community, pool);
 
-        // Transfer community ownership to creator (uses Ownable.transferOwnership)
+        // Hand over both roles while Pump is still owner:
+        // 1) adminSetDev — community revenue recipient (devFund)
+        // 2) transferOwnership — community admin (Ownable)
+        (bool setDevOk,) = community.call(abi.encodeWithSignature("adminSetDev(address)", creator));
+        require(setDevOk, "Set dev failed");
         (bool txOk,) = community.call(abi.encodeWithSignature("transferOwnership(address)", creator));
         require(txOk, "Transfer ownership failed");
 

@@ -146,7 +146,7 @@ contract HookSecurityTest is Test {
             currency1: Currency.wrap(address(token)),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 0,
+            fee: 3000,
             parameters: parameters
         });
     }
@@ -240,7 +240,7 @@ contract HookSecurityTest is Test {
         // tokenInfo. But Hook does not enforce one-time registration. The protection is that
         // ONLY the legitimate token contract can call. We verified this in
         // test_registerPool_revertsIfNotTokenCaller. This test just documents the assumption.
-        (address community,,) = hook.tokenInfo(address(token));
+        (address community,) = hook.tokenInfo(address(token));
         assertTrue(community != address(0), "Token should have been registered during listing");
     }
 
@@ -271,31 +271,36 @@ contract HookSecurityTest is Test {
 
     function test_assetCustody_balanceOnlyDecreasesViaInject() public {
         uint256 hookTokenBalanceBefore = IERC20(address(token)).balanceOf(address(hook));
+        uint256 bought = 20_000 ether;
+        uint256 directionalFee = (bought * 30) / 10000;
 
-        // Trigger a buy → should inject (decrease Hook balance)
+        // Trigger a buy → accrues directional fee; inject deferred to next period
         PoolKey memory poolKey = _buildPoolKey();
         ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
             zeroForOne: true,
             amountSpecified: -1 ether,
             sqrtPriceLimitX96: 0
         });
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(20_000 ether)));
+        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(bought)));
 
+        deal(address(token), address(mockVault), IERC20(address(token)).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
-        // Same period: no inject yet.
+        // Same period: no inject yet — directional fee increases Hook balance
         uint256 hookTokenBalanceMid = IERC20(address(token)).balanceOf(address(hook));
-        assertEq(hookTokenBalanceMid, hookTokenBalanceBefore, "same period: no balance change");
+        assertEq(hookTokenBalanceMid, hookTokenBalanceBefore + directionalFee, "same period: fee only");
 
         vm.warp(block.timestamp + 600);
 
+        deal(address(token), address(mockVault), IERC20(address(token)).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
         uint256 hookTokenBalanceAfter = IERC20(address(token)).balanceOf(address(hook));
         uint256 expectedInject = 20_000 ether * 106_069_772 / 1e9;
-        assertEq(hookTokenBalanceBefore - hookTokenBalanceAfter, expectedInject);
+        // Mid + triggerFee - after = inject
+        assertEq(hookTokenBalanceMid + directionalFee - hookTokenBalanceAfter, expectedInject);
     }
 
     // ─── Attack 6: Reentrancy via inject callback ───

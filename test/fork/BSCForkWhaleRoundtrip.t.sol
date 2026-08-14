@@ -68,7 +68,7 @@ contract BSCForkWhaleRoundtrip is BSCForkBase {
         assertApproxEqAbs(bnbOut, LISTING_ETH_AMOUNT, 1 ether, "~19 BNB back from full roundtrip");
         assertLe(whaleLeft, MAX_LISTING_DUST, "whale token dust <= 1");
         // 808M 卖完后 tick 应接近 upper（不必精确到 tickUpper，spacing=60）
-        assertGe(finalTick, LISTING_TICK_UPPER - 360, "price near upper after full sell");
+        assertGe(finalTick, LISTING_TICK_UPPER - 480, "price near upper after full sell");
         // 808M 卖完后，vault 中 token 应接近 10 亿（200M LP + ~808M 卖入）
         assertGe(vaultTokenFinal, 990_000_000 ether, "vault holds ~1B tokens");
     }

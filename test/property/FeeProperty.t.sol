@@ -108,11 +108,43 @@ contract FeePropertyTest is Test {
     // ═══════════════════════════════════════════════════════════════════
 
     /// Feature: tagai-v2-nutbox-integration, Property 9: Fee Distribution
-    /// platformFee + deployerFee == totalFee for any swap amount.
-    /// platformFee = swapAmount * feeRatio[0] / 10000
-    /// deployerFee = totalFee - platformFee = swapAmount * feeRatio[1] / 10000 (with subtraction
-    /// absorbing integer-division residue).
-    function testFuzz_P9_feeDistributionCorrectness(uint256 swapAmount) public {
+    /// Post-list Hook fees are HARDCODED (not Pump.feeRatio):
+    ///   Buy BNB:  IPShare 30 BPS only; platform BNB = 0
+    ///   Sell BNB: IPShare 30 + platform directional 30 on SAME gross base
+    /// Bonding-curve feeRatio split is covered by anti-snipe / Token tests (P10).
+    function testFuzz_P9_hookBuyBnb_ipshareOnly(uint256 swapAmount) public {
+        swapAmount = bound(swapAmount, 1e8, 1_000_000 ether);
+
+        uint256 ipshareFee = (swapAmount * 30) / DIVISOR;
+        uint256 platformFeeFromHookBnb = 0; // buy BNB leg no longer pays platform via feeRatio[0]
+
+        assertEq(platformFeeFromHookBnb, 0);
+        assertEq(ipshareFee, (swapAmount * 30) / DIVISOR);
+        assertLe(ipshareFee, swapAmount);
+    }
+
+    function testFuzz_P9_hookSellBnb_platformPlusIpshareSameBase(uint256 swapAmount) public {
+        swapAmount = bound(swapAmount, 1e8, 1_000_000 ether);
+
+        uint256 ipshareFee = (swapAmount * 30) / DIVISOR;
+        uint256 platformFee = (swapAmount * 30) / DIVISOR; // directional, same gross base (not nested)
+        uint256 totalFee = ipshareFee + platformFee;
+
+        assertEq(platformFee + ipshareFee, totalFee);
+        // (x*60)/10000 may differ by 1 wei vs two separate (x*30)/10000 due to truncating division
+        assertApproxEqAbs(totalFee, (swapAmount * 60) / DIVISOR, 1);
+        assertLe(totalFee, swapAmount);
+    }
+
+    function testFuzz_P9_hookBuyDirectionalToken(uint256 boughtAmount) public {
+        boughtAmount = bound(boughtAmount, 1e8, 1_000_000_000 ether);
+        uint256 tokenFee = (boughtAmount * 30) / DIVISOR;
+        assertLe(tokenFee, boughtAmount);
+        assertEq(tokenFee, (boughtAmount * 30) / DIVISOR);
+    }
+
+    /// Inner-market (bonding curve) still uses feeRatio[0]+[1] split — arithmetic invariant.
+    function testFuzz_P9_bondingCurveFeeDistributionCorrectness(uint256 swapAmount) public {
         swapAmount = bound(swapAmount, 1e8, 1_000_000 ether);
 
         uint256[2] memory feeRatio = pump.getFeeRatio();
@@ -122,16 +154,9 @@ contract FeePropertyTest is Test {
         uint256 platformFee = (swapAmount * feeRatio[0]) / DIVISOR;
         uint256 deployerFee = totalFee - platformFee;
 
-        // platformFee + deployerFee == totalFee (by definition)
         assertEq(platformFee + deployerFee, totalFee);
-
-        // platformFee should be feeRatio[0] BPS of swapAmount
-        assertEq(platformFee, (swapAmount * 30) / DIVISOR); // default feeRatio[0] = 30 BPS
-
-        // deployerFee should be feeRatio[1] BPS minus any rounding residue
-        uint256 expectedDeployerFee = (swapAmount * 30) / DIVISOR; // default feeRatio[1] = 30 BPS
-        // The actual deployerFee is totalFee - platformFee, which absorbs residue
-        // So deployerFee may differ from raw computation by at most 1 wei
+        assertEq(platformFee, (swapAmount * 30) / DIVISOR);
+        uint256 expectedDeployerFee = (swapAmount * 30) / DIVISOR;
         assertApproxEqAbs(deployerFee, expectedDeployerFee, 1);
     }
 
@@ -152,15 +177,9 @@ contract FeePropertyTest is Test {
     /// Within Anti_Snipe_Window (15s), sellsmanFee follows quadratic decay:
     /// sellsmanFee = feeRatio[1] + ((8000 - feeRatio[1]) * remaining² ) / 225
     /// where remaining = 15 - elapsed
-    function testFuzz_P10_antiSnipeFormula_withinWindow(uint256 elapsed, uint256 buyAmount) public {
+    function testFuzz_P10_antiSnipeFormula_withinWindow(uint256 elapsed) public {
         elapsed = bound(elapsed, 1, ANTI_SNIPE_WINDOW - 1); // 1 to 14 seconds
-        buyAmount = bound(buyAmount, 0.01 ether, 1 ether);
 
-        // First buy at supply == 0 — anti-snipe doesn't apply yet
-        vm.prank(buyer, buyer);
-        token.buyToken{value: 0.01 ether}(0, creator, 0);
-
-        // Now within anti-snipe window (token.createdAt was set during setUp + small offset)
         // Warp to a point where elapsed seconds have passed since createdAt
         vm.warp(token.createdAt() + elapsed);
 
@@ -179,10 +198,6 @@ contract FeePropertyTest is Test {
     function testFuzz_P10_antiSnipeFormula_normalAfterWindow(uint256 elapsed) public {
         elapsed = bound(elapsed, ANTI_SNIPE_WINDOW, 1000); // >= 15 seconds
 
-        // First buy at supply == 0
-        vm.prank(buyer, buyer);
-        token.buyToken{value: 0.01 ether}(0, creator, 0);
-
         vm.warp(token.createdAt() + elapsed);
 
         (uint256 platformFee, uint256 sellsmanFee) = token.getBuyFeeRatios();
@@ -193,12 +208,11 @@ contract FeePropertyTest is Test {
     }
 
     function test_P10_antiSnipeFormula_atZeroElapsed() public {
-        // First buy with bondingCurveSupply == 0 — anti-snipe NOT applied
+        // A public first buy is covered by anti-snipe immediately at elapsed == 0.
         (uint256 platformFee, uint256 sellsmanFee) = token.getBuyFeeRatios();
 
         uint256[2] memory feeRatio = pump.getFeeRatio();
-        // At supply == 0, normal fees apply (no anti-snipe inflation)
         assertEq(platformFee, feeRatio[0]);
-        assertEq(sellsmanFee, feeRatio[1]);
+        assertEq(sellsmanFee, ANTI_SNIPE_FEE_MAX);
     }
 }
