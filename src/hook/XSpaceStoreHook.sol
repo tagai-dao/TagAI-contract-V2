@@ -15,10 +15,10 @@ import "../interfaces/IIPShare.sol";
 
 /// @title XSpaceStoreHook
 /// @notice Standalone PCS V4 CL Hook for a fixed external token (XSpace Store).
-///   Total swap cost: 1% = 0.4% native LP fee (PoolKey.fee) + 0.6% Hook fee on ETH side.
+///   Total swap cost: 0.8% = 0.4% native LP fee (PoolKey.fee) + 0.4% Hook fee on ETH side.
 ///   Hook fee split (hardcoded):
-///     - 0.3% → platform feeReceiver
-///     - 0.3% → IPShare.valueCapture() when hookData carries a valid subject, else feeReceiver
+///     - 0.2% → platform feeReceiver
+///     - 0.2% → IPShare.valueCapture() when hookData carries a valid subject, else feeReceiver
 ///   No Pump dependency, no Nutbox injection.
 contract XSpaceStoreHook is ICLHooks {
     using PoolIdLibrary for PoolKey;

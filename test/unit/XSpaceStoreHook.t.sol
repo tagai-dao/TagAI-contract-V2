@@ -29,8 +29,8 @@ contract XSpaceStoreHookTest is Test {
     address public ipshareSubject;
 
     uint256 constant DIVISOR = 10000;
-    uint256 constant PLATFORM_FEE_BPS = 30;
-    uint256 constant IPSHARE_FEE_BPS = 30;
+    uint256 constant PLATFORM_FEE_BPS = 20;
+    uint256 constant IPSHARE_FEE_BPS = 20;
 
     function setUp() public {
         feeRecipient = makeAddr("feeRecipient");
@@ -113,14 +113,15 @@ contract XSpaceStoreHookTest is Test {
 
         assertEq(feeRecipient.balance - feeRecipientBefore, expectedPlatform + expectedIpShare);
         assertEq(mockVault.takeCount(), 1);
-        assertEq(expectedPlatform, 0.03 ether);
-        assertEq(expectedIpShare, 0.03 ether);
+        assertEq(expectedPlatform, 0.02 ether);
+        assertEq(expectedIpShare, 0.02 ether);
     }
 
     function test_beforeSwap_routesIpShareFeeWhenValidSubject() public {
         uint256 swapAmount = 10 ether;
         uint256 expectedPlatform = (swapAmount * PLATFORM_FEE_BPS) / DIVISOR;
         uint256 expectedIpShare = (swapAmount * IPSHARE_FEE_BPS) / DIVISOR;
+        uint256 expectedIpShareProtocolFee = (expectedIpShare * ipshare.protocolFeePercent()) / DIVISOR;
 
         uint256 feeRecipientBefore = feeRecipient.balance;
         uint256 subjectSupplyBefore = ipshare.ipshareSupply(ipshareSubject);
@@ -136,10 +137,10 @@ contract XSpaceStoreHookTest is Test {
         vm.prank(address(mockPoolManager));
         hook.beforeSwap(address(0), poolKey, params, hookData);
 
-        assertEq(feeRecipient.balance - feeRecipientBefore, expectedPlatform);
+        assertEq(feeRecipient.balance - feeRecipientBefore, expectedPlatform + expectedIpShareProtocolFee);
         assertGt(ipshare.ipshareSupply(ipshareSubject), subjectSupplyBefore);
-        assertEq(expectedPlatform, 0.03 ether);
-        assertEq(expectedIpShare, 0.03 ether);
+        assertEq(expectedPlatform, 0.02 ether);
+        assertEq(expectedIpShare, 0.02 ether);
     }
 
     function test_getHooksRegistrationBitmap_correctBits() public view {
