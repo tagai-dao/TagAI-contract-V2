@@ -23,24 +23,76 @@
 | V8 | 已被新发行入口替代 | 面向 Agent 社区，bonding curve 上市前只允许 Agent 交易，并为 Nutbox Community 自动分配 15% 供应量。 |
 | V9 | 当前新发行入口 | 通过 Pump 创建新社区代币，支持开放 bonding curve 交易、反狙击、PCS V4 上市、TagAISwapHook 和 Nutbox 奖励注入。 |
 | V10 | 当前外部代币导入入口 | 通过 ImportHelper 将已部署 ERC20 接入 Nutbox，创建不可增发 Community 和默认 SocialCuration Pool；不创建 Token、bonding curve、PCS V4 池或 Hook。 |
-| V11 | 准备部署 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。尚未部署到 BSC 主网。 |
+| V11 | 主网合约已部署，发布收尾中 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。所有新合约已部署并验证，待最终 Owner 接收、Committee 白名单和主网烟雾测试。 |
 
 ---
 
-## V11 — BSC 部署准备中
+## V11 — BSC 合约已部署，发布收尾中
 
-V11 使用累积部署快照。`version11.json` 已从 V10 继承仍然有效的合约地址，并加入本次部署所需的 Basket 和 PancakeSwap 依赖；尚未部署的新合约字段不会预填零地址。
+V11 使用累积部署快照。`version11.json` 从 V10 继承仍然有效的合约地址，并记录本次新部署的 Pump、Token implementation、TagAISwapHook 和 Index Broker NFT 合约组。
 
 | 项目 | 记录 |
 | --- | --- |
-| 状态 | `preparing`，尚未部署 |
+| 状态 | `contracts-deployed`；所有合约已部署并完成 BscScan 源码验证，尚未标记为正式发布完成 |
 | 网络 | BNB Smart Chain（chain ID `56`） |
 | 来源版本 | V10 |
-| 版本源码提交 | 待部署前完成最终验证后固定 |
+| 版本源码提交 | [`a573440387b079252bb936bcfa2ae14d52cacdc6`](https://github.com/tagai-dao/TagAI-contract-V2/commit/a573440387b079252bb936bcfa2ae14d52cacdc6) |
+| Pump 部署记录提交 | [`9a7f9f77441304e2f27744fa8773786ca74015f9`](https://github.com/tagai-dao/TagAI-contract-V2/commit/9a7f9f77441304e2f27744fa8773786ca74015f9) |
+| Index Broker 部署记录提交 | [`43aa618e4f221720a849dbe6d52506849730bbf4`](https://github.com/tagai-dao/TagAI-contract-V2/commit/43aa618e4f221720a849dbe6d52506849730bbf4) |
+| 部署日期 | 2026-08-14 |
+| 部署账户 | [`0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`](https://bscscan.com/address/0x78c2af38330c5b41ae7946a313e43cdceeaf8611) |
+| 目标管理地址 | [`0x871fb7006C5964B21695Ba20006021777A26146C`](https://bscscan.com/address/0x871fb7006c5964b21695ba20006021777a26146c) |
 | 部署快照 | [`deployments/56/version11.json`](deployments/56/version11.json) |
-| 部署顺序 | Pump/Token/Hook → Index Broker NFT 合约组 → 所有权/白名单/烟雾测试 → `complete` |
+| Pump/Token/Hook 详细更新 | [`docs/PUMP_TOKEN_HOOK_V11.md`](docs/PUMP_TOKEN_HOOK_V11.md) |
+| Index Broker NFT 详细说明 | [`src/nutbox/dapps/index-broker-nft/README.md`](src/nutbox/dapps/index-broker-nft/README.md) |
 
-V11 部署脚本只原位更新自己的字段，不会整体重写快照。Pump 部署成功后状态变为 `pump-deployed`；Index Broker NFT 合约组写入后状态变为 `contracts-deployed`。完成所有权接收、Committee 白名单和主网烟雾测试后，才可将状态改为 `complete` 并补充最终源码提交、交易、区块和标签。
+### Pump、Token implementation 与 Hook
+
+| 合约 | BSC 主网地址 | 部署交易 / 区块 |
+| --- | --- | --- |
+| Pump | [`0x8fEF5b4c0f761a0cc447800e3019B089ac306F28`](https://bscscan.com/address/0x8fef5b4c0f761a0cc447800e3019b089ac306f28) | [`0x4e450e...36307`](https://bscscan.com/tx/0x4e450e816c1e752172fc60568f636a2dcc4b019ef2b86c56d31220ccaff36307) / `115869783` |
+| Token implementation | [`0xfD40C112F39D372786265a032C546D05Feec4D66`](https://bscscan.com/address/0xfd40c112f39d372786265a032c546d05feec4d66) | 由 Pump 构造函数在同一交易中创建 / `115869783` |
+| TagAISwapHook | [`0x9E38747072F326b4e614EfF6FdCA8529db090cc1`](https://bscscan.com/address/0x9e38747072f326b4e614eff6fdca8529db090cc1) | [`0xaf2a6f...cf98c2`](https://bscscan.com/tx/0xaf2a6fe984638464dda75399c55e3ebcac512f18bf2ab4ec507adc936c7aee58) / `115869796` |
+
+Hook CREATE2 salt 为 `5845`，权限位图为 `0x0cc1`。三个地址均已完成 BscScan 源码验证。
+
+本次 Pump/Token/Hook 的主要变化：
+
+- 新上市池启用原生 0.3% LP Fee，上市流动性继续永久保存在 Token 合约仓位中；
+- 任何地址可调用 `Token.collectFees()`，BNB LP Fee 的 0.5% 奖励调用者、其余发送平台，社区 Token LP Fee 进入原上市 Hook；
+- Token 在上市时固定 Hook 和 Pool 参数，Pump 后续更换默认 Hook 不会改变旧池；
+- Hook 上市后不再读取 Pump 的内盘 `feeRatio`：买入收取 BNB 侧 0.3% 给 IPShare 和社区 Token 输出侧 0.3% 给 Nutbox；卖出按同一 BNB 毛金额分别收取 0.3% 给 IPShare、0.3% 给平台；
+- Hook 注入预算改为实际 Token 余额，可由初始 150M、买入 Token Fee、LP Token Fee 和外部转账持续补充；
+- 修正公开第一笔买入绕过 anti-snipe、窗口内触发上市、Calculator 选择及失败授权残留；
+- Pump 在创建 Community 后把 `devFund` 设置为 Token 创建者，并向创建者发起 Community 管理权交接。
+
+完整资金流、兼容范围和安全不变量见 [`Pump、Token 与 TagAISwapHook V11 更新说明`](docs/PUMP_TOKEN_HOOK_V11.md)。
+
+### Index Broker NFT 合约组
+
+| 合约 | BSC 主网地址 | 部署交易 / 区块 |
+| --- | --- | --- |
+| StonkBrokerRenderer | [`0xd4B6120f566CDecD88b7Be6f994a6c7493F8a068`](https://bscscan.com/address/0xd4b6120f566cdecd88b7be6f994a6c7493f8a068) | [`0x03bf54...128bf`](https://bscscan.com/tx/0x03bf54163e7379b91fbd300e994861f5508ec7c58ad0ce165793eb40d38128bf) / `115870623` |
+| StonkBrokerFaceRenderer | [`0x42f24CfAaaE018c24f44820bfA9C0694981551CC`](https://bscscan.com/address/0x42f24cfaaae018c24f44820bfa9c0694981551cc) | Renderer 构造函数内部创建 / `115870623` |
+| StonkBrokerBodyRenderer | [`0xA6269124844addc89A62CBb760b0b58a28977b42`](https://bscscan.com/address/0xa6269124844addc89a62cbb760b0b58a28977b42) | Renderer 构造函数内部创建 / `115870623` |
+| StonkBrokerAccessoryRenderer | [`0xc76717354091DcFb177c3B4e162aBC4Fca202D87`](https://bscscan.com/address/0xc76717354091dcfb177c3b4e162abc4fca202d87) | Renderer 构造函数内部创建 / `115870623` |
+| IndexBrokerNFTAMM template | [`0x1712C2BEdc1A9F5611D879e31caf9dfd1F665175`](https://bscscan.com/address/0x1712c2bedc1a9f5611d879e31caf9dfd1f665175) | [`0x0fd617...c8c13`](https://bscscan.com/tx/0x0fd6170c31cbf906302b2097810888625db62cd1efdc074014373e91ebcc8c13) / `115870625` |
+| IndexBrokerNFTPriceOracle | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) | [`0xbf2bae...c1f66`](https://bscscan.com/tx/0xbf2baec5dcb707c360a4aacc066ccc9d984849f436c0506ad0192f325d7c1f66) / `115870628` |
+| IndexBrokerNFTFactory | [`0xFa26Bf8d0830EC78ff7B2D959a1724f5E178392E`](https://bscscan.com/address/0xfa26bf8d0830ec78ff7b2d959a1724f5e178392e) | [`0x9a9836...d6a6f8`](https://bscscan.com/tx/0x9a9836a1729a63e4e70266ef0fb722db8620b1d26ddb9b4b69f760b2c3d6a6f8) / `115870631` |
+| IndexBrokerNFT Pool template | [`0xd4064239369b1A1dd78b1EcC5C1050F7A21c2303`](https://bscscan.com/address/0xd4064239369b1a1dd78b1ecc5c1050f7a21c2303) | Factory 构造函数内部创建 / `115870631` |
+
+以上八个地址均已完成 BscScan 源码验证。Index Broker NFT 的铸造模式、白名单、AMM、DEX 价格源、指数回购、社区/指数双挖、揭图和 Renderer 接口，统一以 [`Index Broker NFT 矿池说明`](src/nutbox/dapps/index-broker-nft/README.md) 为准，版本记录不重复维护同一套参数说明。
+
+### 发布收尾状态
+
+截至当前记录：
+
+- Pump 当前 owner 仍为部署账户，`pendingOwner` 为目标管理地址；
+- IndexBrokerNFTFactory 当前 owner 仍为部署账户，`pendingOwner` 为目标管理地址；
+- Committee 尚未将 IndexBrokerNFTFactory 加入可用 Pool Factory 白名单；
+- 因此 V11 快照保持 `contracts-deployed`，不能标记为 `complete`。
+
+完成两个 `acceptOwnership()`、Committee `adminAddContract(factory)`、主网烟雾测试和前端/API/Subgraph 地址切换后，才可把快照状态更新为 `complete` 并创建发布标签。
 
 ---
 

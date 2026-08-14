@@ -18,7 +18,7 @@ Index Broker NFT 是一种与 Nutbox 社区绑定的固定总量 NFT 矿池。�
 | --------------------------- | --------------------------------------------------------------------------------------------- |
 | `IndexBrokerNFTFactory`     | 创建 NFT 矿池和一对一的 AMM，管理全局平台费、默认指数代币和保留名称                                                        |
 | `IndexBrokerNFT`            | ERC-721 NFT、铸造、推荐升级、社区挖矿、指数挖矿、揭图和元数据入口                                                        |
-| `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备，并通过`IndexBrokerNFTPriceOracle计算价格收集原生代币手续后回购指数代币，分给NFT指数挖矿` |
+| `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备，并通过 `IndexBrokerNFTPriceOracle` 计算价格、收取原生代币手续费、回购指数代币并注入 NFT 指数挖矿 |
 | `IndexBrokerNFTPriceOracle` | 从受支持的 DEX 池读取社区代币对 BNB 的现货价格，用于计算 AMM 的 BNB 手续费                                               |
 | Renderer                    | 为NFT提供SVG、`tokenURI` 和 `contractURI`；矿池创建时可选默认或自定义 Renderer                                   |
 

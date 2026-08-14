@@ -172,7 +172,7 @@ The source commits and complete BSC deployment inventory for each release are ma
 | **V8** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy (superseded) | Agent-focused communities: only agents could trade on the bonding curve pre-listing; 15% supply auto-provisioned for Nutbox Community creation with a default SocialCuration pool. |
 | **V9** | **This repo** | **Current (new launches)** | Full Nutbox integration (HourlyTickCalculator, SocialCuration, DFXStar Score Staking), open bonding-curve trading with anti-snipe, PCS V4 listing via `TagAISwapHook`, and Nutbox token injection on DEX swaps. |
 | **V10** | **This repo** (`ImportHelper`) | **Current (external import)** | Import an **already-deployed ERC20** into Nutbox without going through Pump: create a non-mintable Community bound to that token, mount a default SocialCuration pool, and hand ownership to the caller. Replaces the old Pump6 import flow. |
-| **V11** | **This repo** | **Preparing (not deployed)** | Pump/Token/Hook fee-collection refresh plus the Index Broker NFT factory, fixed-price NFT AMM, index-token buybacks, dual mining, and on-chain renderer stack. |
+| **V11** | **This repo** | **Contracts deployed; release finalization pending** | Pump/Token/Hook fee-collection refresh plus the Index Broker NFT factory, fixed-price NFT AMM, index-token buybacks, dual mining, and on-chain renderer stack. |
 
 ### What is V10 (`ImportHelper`)
 
@@ -215,25 +215,28 @@ Published in [tagai-contract README](https://github.com/tagai-dao/tagai-contract
 - **New Pump + Hook deployment**: Fresh factory and `TagAISwapHook` with updated listing and fee/injection logic on PCS V4
 - **Same IPShare layer**: Creator shares still flow through the production IPShare v1 contract
 
-## BSC Mainnet — Pump V9 / ImportHelper V10
+## BSC Mainnet — V11 deployment
 
 Chain: **BNB Smart Chain (56)**
 
-Current production snapshot: [`deployments/56/version10.json`](deployments/56/version10.json)
+V11 deployment snapshot: [`deployments/56/version11.json`](deployments/56/version11.json)
 
-V9 snapshot: [`deployments/56/version9.json`](deployments/56/version9.json) · V11 deployment candidate: [`deployments/56/version11.json`](deployments/56/version11.json)
+Status: all V11 contracts are deployed and source-verified; final owner acceptance, Committee whitelist, smoke tests, and application address cutover are still pending.
 
 | Contract | Address |
 |----------|---------|
-| Pump | [`0x327a473c763bcf0d60CCd6811F832332939110D5`](https://bscscan.com/address/0x327a473c763bcf0d60ccd6811f832332939110d5) |
-| Token (implementation) | [`0x69B1B0635220e5f16A36Ad44c3B2B1FB9ca65e16`](https://bscscan.com/address/0x69b1b0635220e5f16a36ad44c3b2b1fb9ca65e16) |
-| TagAISwapHook | [`0x78443e75aD3D70DAAab0De33d2D5Dea0cBae0cC1`](https://bscscan.com/address/0x78443e75ad3d70daaab0de33d2d5dea0cbae0cc1) |
-| HourlyTickCalculator | [`0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d`](https://bscscan.com/address/0x6ccec02e7d371fed954d7d16ecb7f2f57cccf54d) |
-| DFXStarScoreStakingFactory | [`0x77Fb65140B746e639bB512c2C25604d1924aE774`](https://bscscan.com/address/0x77fb65140b746e639bb512c2c25604d1924ae774) |
-| ImportHelper (V10) | [`0xF346A700830633bB27a46fC1e7eAAE49F593A4c6`](https://bscscan.com/address/0xF346A700830633bB27a46fC1e7eAAE49F593A4c6) |
-| IPShare (reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
+| Pump | [`0x8fEF5b4c0f761a0cc447800e3019B089ac306F28`](https://bscscan.com/address/0x8fef5b4c0f761a0cc447800e3019b089ac306f28) |
+| Token implementation | [`0xfD40C112F39D372786265a032C546D05Feec4D66`](https://bscscan.com/address/0xfd40c112f39d372786265a032c546d05feec4d66) |
+| TagAISwapHook | [`0x9E38747072F326b4e614EfF6FdCA8529db090cc1`](https://bscscan.com/address/0x9e38747072f326b4e614eff6fdca8529db090cc1) |
+| IndexBrokerNFTFactory | [`0xFa26Bf8d0830EC78ff7B2D959a1724f5E178392E`](https://bscscan.com/address/0xfa26bf8d0830ec78ff7b2d959a1724f5e178392e) |
+| IndexBrokerNFT Pool template | [`0xd4064239369b1A1dd78b1EcC5C1050F7A21c2303`](https://bscscan.com/address/0xd4064239369b1a1dd78b1ecc5c1050f7a21c2303) |
+| IndexBrokerNFTAMM template | [`0x1712C2BEdc1A9F5611D879e31caf9dfd1F665175`](https://bscscan.com/address/0x1712c2bedc1a9f5611d879e31caf9dfd1f665175) |
+| IndexBrokerNFTPriceOracle | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) |
+| StonkBrokerRenderer | [`0xd4B6120f566CDecD88b7Be6f994a6c7493F8a068`](https://bscscan.com/address/0xd4b6120f566cdecd88b7be6f994a6c7493f8a068) |
 
-**Reused Nutbox / PCS infrastructure:** Committee, CommunityFactory, SocialCurationFactory, PCS V4 CLPoolManager, Vault (see the versioned deployment snapshots above).
+Detailed behavior: [`Pump / Token / Hook V11`](docs/PUMP_TOKEN_HOOK_V11.md) · [`Index Broker NFT`](src/nutbox/dapps/index-broker-nft/README.md) · [`full version and transaction history`](VERSION_HISTORY.md).
+
+Previous production snapshots remain immutable: [`V9`](deployments/56/version9.json) · [`V10`](deployments/56/version10.json). Reused Nutbox, Basket, IPShare, PancakeSwap and ImportHelper addresses are included in the cumulative V11 snapshot.
 
 ## Ecosystem
 
