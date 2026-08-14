@@ -17,6 +17,7 @@ import "../interfaces/IPump.sol";
 import "../interfaces/IIPShare.sol";
 import "../interfaces/IToken.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
+import "../interfaces/ICommunity.sol";
 
 /// @title TagAISwapHook
 /// @notice PancakeSwap V4 (Infinity) CL Hook for post-list fee routing + Nutbox injection.
@@ -154,7 +155,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
 
         // Read Nutbox info from Token
         address community = IToken(token).nutboxCommunity();
-        address calculator = IPump(address(pump)).getCalculator();
+        address calculator = ICommunity(community).rewardCalculator();
 
         tokenInfo[token] = HookTokenInfo({community: community, calculator: calculator});
 

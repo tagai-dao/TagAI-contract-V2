@@ -177,15 +177,9 @@ contract FeePropertyTest is Test {
     /// Within Anti_Snipe_Window (15s), sellsmanFee follows quadratic decay:
     /// sellsmanFee = feeRatio[1] + ((8000 - feeRatio[1]) * remaining² ) / 225
     /// where remaining = 15 - elapsed
-    function testFuzz_P10_antiSnipeFormula_withinWindow(uint256 elapsed, uint256 buyAmount) public {
+    function testFuzz_P10_antiSnipeFormula_withinWindow(uint256 elapsed) public {
         elapsed = bound(elapsed, 1, ANTI_SNIPE_WINDOW - 1); // 1 to 14 seconds
-        buyAmount = bound(buyAmount, 0.01 ether, 1 ether);
 
-        // First buy at supply == 0 — anti-snipe doesn't apply yet
-        vm.prank(buyer, buyer);
-        token.buyToken{value: 0.01 ether}(0, creator, 0);
-
-        // Now within anti-snipe window (token.createdAt was set during setUp + small offset)
         // Warp to a point where elapsed seconds have passed since createdAt
         vm.warp(token.createdAt() + elapsed);
 
@@ -204,10 +198,6 @@ contract FeePropertyTest is Test {
     function testFuzz_P10_antiSnipeFormula_normalAfterWindow(uint256 elapsed) public {
         elapsed = bound(elapsed, ANTI_SNIPE_WINDOW, 1000); // >= 15 seconds
 
-        // First buy at supply == 0
-        vm.prank(buyer, buyer);
-        token.buyToken{value: 0.01 ether}(0, creator, 0);
-
         vm.warp(token.createdAt() + elapsed);
 
         (uint256 platformFee, uint256 sellsmanFee) = token.getBuyFeeRatios();
@@ -218,12 +208,11 @@ contract FeePropertyTest is Test {
     }
 
     function test_P10_antiSnipeFormula_atZeroElapsed() public {
-        // First buy with bondingCurveSupply == 0 — anti-snipe NOT applied
+        // A public first buy is covered by anti-snipe immediately at elapsed == 0.
         (uint256 platformFee, uint256 sellsmanFee) = token.getBuyFeeRatios();
 
         uint256[2] memory feeRatio = pump.getFeeRatio();
-        // At supply == 0, normal fees apply (no anti-snipe inflation)
         assertEq(platformFee, feeRatio[0]);
-        assertEq(sellsmanFee, feeRatio[1]);
+        assertEq(sellsmanFee, ANTI_SNIPE_FEE_MAX);
     }
 }

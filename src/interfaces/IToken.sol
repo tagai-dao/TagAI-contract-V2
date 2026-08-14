@@ -18,6 +18,7 @@ interface IToken {
     error RefundFail();
     error CostFeeFail();
     error DustIssue();
+    error ListingDisabledDuringAntiSnipe();
 
     // ─── Events ──────────────────────────────────────────────────────────────────
 

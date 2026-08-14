@@ -84,7 +84,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint16 public constant PLATFORM_FEE_BPS = 50;
-    uint16 public constant INDEX_PURCHASE_CALLER_BPS = 30;
+    uint16 public constant INDEX_PURCHASE_CALLER_BPS = 100;
 
     address public factory;
     address public collection;
@@ -315,7 +315,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
 
     /**
      * @notice Permissionlessly invests all accumulated native trading fees into the fixed index token.
-     * @dev The caller receives 0.3% of the native reserve as execution compensation. Purchased
+     * @dev The caller receives 1% of the native reserve as execution compensation. Purchased
      *      index tokens are injected into the paired NFT's index-mining rewards. Slippage and
      *      Basket hook data are supplied by the caller.
      */

@@ -1151,7 +1151,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(platformTreasury.balance, oldTreasuryBefore);
     }
 
-    function test_AMMPublicCallerInvestsNativeReserveAndReceivesPointThreePercent() public {
+    function test_AMMPublicCallerInvestsNativeReserveAndReceivesOnePercent() public {
         _mintWhitelist(whitelistUser1, 0, 0);
         vm.prank(whitelistUser1);
         pool.approve(address(amm), 1);
@@ -1249,18 +1249,18 @@ contract IndexBrokerNFTTest is Test {
         this.addPoolWithIndexForRevertTest(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(fakeIndex));
     }
 
-    function test_RejectsReservedStonkBrokerCollectionNames() public {
-        string[5] memory reservedNames = [
-            "StonkBroker", "STONK BROKERS", "Official-Stonk_Broker NFT", "My.Stonk/Broker.Collection", "stonk brokerage"
-        ];
+    function test_RejectsOnlyExactReservedCollectionName() public {
+        vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameUsed.selector);
+        this.addPoolNamedForRevertTest("stonkbroker");
 
-        for (uint256 i; i < reservedNames.length; ++i) {
-            vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameUsed.selector);
-            this.addPoolNamedForRevertTest(reservedNames[i]);
+        string[4] memory allowedNames = ["StonkBroker", "STONK BROKERS", "Official-Stonk_Broker NFT", "stonk brokerage"];
+        for (uint256 i; i < allowedNames.length; ++i) {
+            IndexBrokerNFT namedPool = this.addPoolNamedForRevertTest(allowedNames[i]);
+            assertEq(namedPool.name(), allowedNames[i]);
         }
     }
 
-    function test_PlatformCanPermanentlyAddReservedCollectionNames() public {
+    function test_PlatformCanAddExactReservedCollectionNames() public {
         assertEq(poolFactory.reservedCollectionNameCount(), 1);
         assertEq(poolFactory.reservedCollectionNameAt(0), "stonkbroker");
 
@@ -1270,11 +1270,88 @@ contract IndexBrokerNFTTest is Test {
         poolFactory.addReservedCollectionNames(names);
 
         assertEq(poolFactory.reservedCollectionNameCount(), 3);
-        assertEq(poolFactory.reservedCollectionNameAt(1), "indexbrokerofficial");
-        assertTrue(poolFactory.reservedCollectionNameHash(keccak256(bytes("protectedbrand"))));
+        assertEq(poolFactory.reservedCollectionNameAt(1), "Index Broker Official");
+        assertTrue(poolFactory.reservedCollectionNameHash(keccak256(bytes("Protected Brand"))));
 
         vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameUsed.selector);
-        this.addPoolNamedForRevertTest("The Protected-Brand Collection");
+        this.addPoolNamedForRevertTest("Protected Brand");
+
+        IndexBrokerNFT allowedPool = this.addPoolNamedForRevertTest("protected brand");
+        assertEq(allowedPool.name(), "protected brand");
+    }
+
+    function test_PlatformCanRemoveReservedCollectionName() public {
+        string[] memory names = new string[](2);
+        names[0] = "Reserved Alpha";
+        names[1] = "Reserved Beta";
+        poolFactory.addReservedCollectionNames(names);
+
+        poolFactory.removeReservedCollectionName("Reserved Alpha");
+
+        assertEq(poolFactory.reservedCollectionNameCount(), 2);
+        assertEq(poolFactory.reservedCollectionNameAt(0), "stonkbroker");
+        assertEq(poolFactory.reservedCollectionNameAt(1), "Reserved Beta");
+        assertFalse(poolFactory.reservedCollectionNameHash(keccak256(bytes("Reserved Alpha"))));
+        assertTrue(poolFactory.reservedCollectionNameHash(keccak256(bytes("Reserved Beta"))));
+
+        IndexBrokerNFT namedPool = this.addPoolNamedForRevertTest("Reserved Alpha");
+        assertEq(namedPool.name(), "Reserved Alpha");
+
+        vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameUsed.selector);
+        this.addPoolNamedForRevertTest("Reserved Beta");
+
+        // Beta was moved when Alpha was removed. Removing it proves the moved entry's private index was updated.
+        poolFactory.removeReservedCollectionName("Reserved Beta");
+        assertEq(poolFactory.reservedCollectionNameCount(), 1);
+        assertFalse(poolFactory.reservedCollectionNameHash(keccak256(bytes("Reserved Beta"))));
+
+        // Cover removal of the last remaining array entry.
+        poolFactory.removeReservedCollectionName("stonkbroker");
+        assertEq(poolFactory.reservedCollectionNameCount(), 0);
+
+        names = new string[](1);
+        names[0] = "Reserved Alpha";
+        poolFactory.addReservedCollectionNames(names);
+        assertTrue(poolFactory.reservedCollectionNameHash(keccak256(bytes("Reserved Alpha"))));
+
+        vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameUsed.selector);
+        this.addPoolNamedForRevertTest("Reserved Alpha");
+    }
+
+    function test_RemoveReservedCollectionNameRevertsWhenNotFound() public {
+        vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameNotFound.selector);
+        poolFactory.removeReservedCollectionName("Not Reserved");
+    }
+
+    function test_ReservedCollectionNamesUseExactStringIdentity() public {
+        string[] memory names = new string[](1);
+        names[0] = "Protected Brand";
+        poolFactory.addReservedCollectionNames(names);
+
+        vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameAlreadyAdded.selector);
+        poolFactory.addReservedCollectionNames(names);
+
+        names[0] = "protected brand";
+        poolFactory.addReservedCollectionNames(names);
+        assertTrue(poolFactory.reservedCollectionNameHash(keccak256(bytes("Protected Brand"))));
+        assertTrue(poolFactory.reservedCollectionNameHash(keccak256(bytes("protected brand"))));
+
+        vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameNotFound.selector);
+        poolFactory.removeReservedCollectionName("PROTECTED BRAND");
+    }
+
+    function test_AddReservedCollectionNameRejectsInvalidLength() public {
+        string[] memory names = new string[](1);
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidReservedCollectionName.selector);
+        poolFactory.addReservedCollectionNames(names);
+
+        bytes memory tooLong = new bytes(poolFactory.MAX_RESERVED_NAME_LENGTH() + 1);
+        for (uint256 i; i < tooLong.length; ++i) {
+            tooLong[i] = 0x61;
+        }
+        names[0] = string(tooLong);
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidReservedCollectionName.selector);
+        poolFactory.addReservedCollectionNames(names);
     }
 
     function test_OnlyPlatformOwnerCanAddReservedCollectionNames() public {
@@ -1283,6 +1360,12 @@ contract IndexBrokerNFTTest is Test {
         vm.prank(paidUser);
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         poolFactory.addReservedCollectionNames(names);
+    }
+
+    function test_OnlyPlatformOwnerCanRemoveReservedCollectionName() public {
+        vm.prank(paidUser);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        poolFactory.removeReservedCollectionName("stonkbroker");
     }
 
     function test_AllowsUnrelatedCollectionName() public {

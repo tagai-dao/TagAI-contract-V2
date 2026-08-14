@@ -341,10 +341,6 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             if (msg.value != nativePrice) revert InvalidPayment();
             ++paidMinted;
             effectiveReferrerTokenId = referrerTokenId;
-            if (effectiveReferrerTokenId != 0) {
-                commissionReceiver = ownerOf(effectiveReferrerTokenId);
-                if (commissionReceiver == ammVault) revert ReferrerInAMM();
-            }
         }
 
         tokenId = ++nextTokenId;
@@ -366,6 +362,15 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         emit RevealCommitted(msg.sender, tokenId, 1, revealBlock, 0);
 
         _collectCommunityToken();
+
+        // Resolve the referrer only after the externally supplied community token
+        // has completed transferFrom. A callback may transfer the referrer NFT, so
+        // using an owner snapshot taken before payment would corrupt mining weights
+        // if this referral also triggers a level upgrade.
+        if (effectiveReferrerTokenId != 0) {
+            commissionReceiver = ownerOf(effectiveReferrerTokenId);
+            if (commissionReceiver == ammVault) revert ReferrerInAMM();
+        }
 
         if (isWhitelistMint) {
             if (msg.value != 0) {

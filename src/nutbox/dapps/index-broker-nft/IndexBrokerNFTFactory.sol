@@ -69,10 +69,12 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     uint16 public platformFeeBps = DEFAULT_PLATFORM_FEE_BPS;
     bytes[] private _reservedCollectionNames;
     mapping(bytes32 => bool) public reservedCollectionNameHash;
+    mapping(bytes32 => uint256) private _reservedCollectionNameIndexPlusOne;
 
     event PlatformFeeBpsChanged(uint16 previousBps, uint16 newBps);
     event DefaultIndexTokenChanged(address indexed previousToken, address indexed newToken);
-    event ReservedCollectionNameAdded(string normalizedName);
+    event ReservedCollectionNameAdded(string name);
+    event ReservedCollectionNameRemoved(string name);
     event IndexBrokerNFTAMMCreated(
         address indexed pool,
         address indexed ammVault,
@@ -105,6 +107,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
 
     error InvalidReservedCollectionName();
     error ReservedCollectionNameAlreadyAdded();
+    error ReservedCollectionNameNotFound();
     error ReservedCollectionNameUsed();
 
     constructor(
@@ -154,17 +157,38 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         emit DefaultIndexTokenChanged(previousToken, newToken);
     }
 
-    /// @notice Permanently adds normalized name fragments that future NFT collections cannot contain.
+    /// @notice Adds exact, case-sensitive collection names that future NFT collections cannot use.
     function addReservedCollectionNames(string[] calldata names) external onlyOwner {
         for (uint256 i; i < names.length; ++i) {
             _addReservedCollectionName(names[i]);
         }
     }
 
+    /// @notice Removes one exact, case-sensitive collection name from the reserved list.
+    function removeReservedCollectionName(string calldata name) external onlyOwner {
+        bytes32 nameHash = keccak256(bytes(name));
+        uint256 indexPlusOne = _reservedCollectionNameIndexPlusOne[nameHash];
+        if (indexPlusOne == 0) revert ReservedCollectionNameNotFound();
+
+        uint256 index = indexPlusOne - 1;
+        uint256 lastIndex = _reservedCollectionNames.length - 1;
+        if (index != lastIndex) {
+            bytes memory movedName = _reservedCollectionNames[lastIndex];
+            _reservedCollectionNames[index] = movedName;
+            _reservedCollectionNameIndexPlusOne[keccak256(movedName)] = index + 1;
+        }
+
+        _reservedCollectionNames.pop();
+        delete _reservedCollectionNameIndexPlusOne[nameHash];
+        delete reservedCollectionNameHash[nameHash];
+        emit ReservedCollectionNameRemoved(name);
+    }
+
     function reservedCollectionNameCount() external view returns (uint256) {
         return _reservedCollectionNames.length;
     }
 
+    /// @dev Removal uses swap-and-pop, so enumeration order is not stable.
     function reservedCollectionNameAt(uint256 index) external view returns (string memory) {
         return string(_reservedCollectionNames[index]);
     }
@@ -206,47 +230,20 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     }
 
     function _addReservedCollectionName(string memory name) internal {
-        bytes memory normalized = _normalizeCollectionName(name);
-        if (normalized.length == 0 || bytes(name).length > MAX_RESERVED_NAME_LENGTH) {
+        bytes memory rawName = bytes(name);
+        if (rawName.length == 0 || rawName.length > MAX_RESERVED_NAME_LENGTH) {
             revert InvalidReservedCollectionName();
         }
-        bytes32 nameHash = keccak256(normalized);
+        bytes32 nameHash = keccak256(rawName);
         if (reservedCollectionNameHash[nameHash]) revert ReservedCollectionNameAlreadyAdded();
         reservedCollectionNameHash[nameHash] = true;
-        _reservedCollectionNames.push(normalized);
-        emit ReservedCollectionNameAdded(string(normalized));
+        _reservedCollectionNames.push(rawName);
+        _reservedCollectionNameIndexPlusOne[nameHash] = _reservedCollectionNames.length;
+        emit ReservedCollectionNameAdded(name);
     }
 
     function _validateCollectionName(string memory name) internal view {
-        bytes memory normalized = _normalizeCollectionName(name);
-        for (uint256 i; i < _reservedCollectionNames.length; ++i) {
-            bytes storage reserved = _reservedCollectionNames[i];
-            if (reserved.length > normalized.length) continue;
-            for (uint256 offset; offset <= normalized.length - reserved.length; ++offset) {
-                bool matches = true;
-                for (uint256 j; j < reserved.length; ++j) {
-                    if (normalized[offset + j] != reserved[j]) {
-                        matches = false;
-                        break;
-                    }
-                }
-                if (matches) revert ReservedCollectionNameUsed();
-            }
-        }
-    }
-
-    function _normalizeCollectionName(string memory name) internal pure returns (bytes memory normalized) {
-        bytes memory raw = bytes(name);
-        normalized = new bytes(raw.length);
-        uint256 length;
-        for (uint256 i; i < raw.length; ++i) {
-            uint8 c = uint8(raw[i]);
-            if (c >= 0x41 && c <= 0x5a) c += 0x20;
-            if ((c >= 0x61 && c <= 0x7a) || (c >= 0x30 && c <= 0x39)) normalized[length++] = bytes1(c);
-        }
-        assembly ("memory-safe") {
-            mstore(normalized, length)
-        }
+        if (reservedCollectionNameHash[keccak256(bytes(name))]) revert ReservedCollectionNameUsed();
     }
 
     function _initializeNFT(

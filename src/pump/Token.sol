@@ -9,6 +9,7 @@ import "../interfaces/IIPShare.sol";
 import "../interfaces/IPump.sol";
 import "../interfaces/IBondingCurve.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
+import "../interfaces/ICommunity.sol";
 
 // PancakeSwap V4 (Infinity)
 import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
@@ -106,7 +107,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     function _buyTokenDirect() private {
         address sellsman = _checkBondingCurveState(address(0));
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (buyFunds * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (buyFunds * sellsmanFeePercent) / divisor;
@@ -181,7 +182,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     {
         require(msg.sender != address(clPoolManager), "can't buy token from pool");
         sellsman = _checkBondingCurveState(sellsman);
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (msg.value * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (msg.value * sellsmanFeePercent) / divisor;
@@ -268,17 +269,21 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /**
      * Get current buy fee ratios (basis points, e.g. 100 = 1%).
-     * 1. First buy (bondingCurveSupply == 0): uses Pump's feeRatio as-is.
-     * 2. Within 15s after creation: tiptag = feeRatio[0]; sellsman decays quadratically from 80% to feeRatio[1].
+     * 1. A Pump premine before the Community is linked uses Pump's feeRatio as-is.
+     * 2. Public buys within 15s use the anti-snipe fee, including the first buy.
      * 3. After 15s: uses Pump's configured feeRatio.
      */
     function getBuyFeeRatios() external view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        return _getBuyFeeRatiosView();
+        return _getBuyFeeRatiosView(false);
     }
 
-    function _getBuyFeeRatiosView() private view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
+    function _getBuyFeeRatiosView(bool pumpPremine)
+        private
+        view
+        returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent)
+    {
         uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
-        if (bondingCurveSupply == 0) {
+        if (pumpPremine) {
             return (feeRatio[0], feeRatio[1]);
         }
         uint256 elapsed = block.timestamp - createdAt;
@@ -293,7 +298,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /// @notice Handles sellsman fee: during anti-snipe window, injects into Calculator; otherwise sends to IPShare.
     function _handleSellsmanFee(uint256 sellsmanFee, address feeRecipient) private {
-        if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
+        if (_inAntiSnipeWindow()) {
             _antiSnipeInject(sellsmanFee);
         } else {
             IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanFee}(feeRecipient);
@@ -302,16 +307,27 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /// @notice During anti-snipe window, use sellsman ETH to buy tokens on bonding curve and inject into Calculator.
     function _antiSnipeInject(uint256 sellsmanEth) private {
+        // Pump premine runs before its Community exists. At that point there is
+        // no canonical Community calculator, so route the fee to IPShare.
+        if (nutboxCommunity == address(0)) {
+            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            return;
+        }
+
         // Use sellsman ETH to buy tokens on the bonding curve
         uint256 tokensPurchased = bondingCurve.getBuyAmountByValue(bondingCurveSupply, sellsmanEth);
         uint256 remaining = bondingCurveTotalAmount - bondingCurveSupply;
-        if (tokensPurchased > remaining) {
-            tokensPurchased = remaining;
+        if (tokensPurchased >= remaining) {
+            revert ListingDisabledDuringAntiSnipe();
+        }
+        if (tokensPurchased == 0) {
+            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            return;
         }
         bondingCurveSupply += tokensPurchased;
 
-        // Get calculator address and inject
-        address calculator = IPump(manager).getCalculator();
+        // The Community's calculator is canonical for its entire lifetime.
+        address calculator = ICommunity(nutboxCommunity).rewardCalculator();
 
         // Approve calculator to pull tokens (inject does transferFrom(msg.sender=Token, community, amount))
         _approve(address(this), calculator, tokensPurchased);
@@ -319,7 +335,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         try IHourlyTickCalculator(calculator).inject(nutboxCommunity, tokensPurchased) {
             emit AntiSnipeInjected(address(this), nutboxCommunity, sellsmanEth, tokensPurchased);
         } catch {
-            // Fallback: revert the supply change and send ETH to IPShare
+            // The failed external call rolls back its transferFrom, but not the
+            // approval made above in this frame. Revoke it before falling back.
+            _approve(address(this), calculator, 0);
             bondingCurveSupply -= tokensPurchased;
             IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
         }
@@ -331,6 +349,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         uint256 sellsmanFeePercent,
         address sellsman
     ) private returns (uint256) {
+        if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
+
         uint256 priceBeforeFee = bondingCurve.getPrice(bondingCurveSupply, actualAmount);
         uint256 usedEth = (priceBeforeFee * divisor) / (divisor - tiptagFeePercent - sellsmanFeePercent);
         if (usedEth > msg.value) revert InsufficientFund();
@@ -368,10 +388,18 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /// @notice 动态交易期（15s 内）费用固定归部署者，防止 MEV 攻击者通过传入自己为 sellsman 回收费用
     function _getFeeRecipient(address sellsman) private view returns (address) {
-        if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
+        if (_inAntiSnipeWindow()) {
             return ipshareSubject;
         }
         return sellsman;
+    }
+
+    function _isPumpPremine() private view returns (bool) {
+        return msg.sender == manager && nutboxCommunity == address(0) && bondingCurveSupply == 0;
+    }
+
+    function _inAntiSnipeWindow() private view returns (bool) {
+        return block.timestamp - createdAt < ANTI_SNIPE_WINDOW;
     }
 
     /********************************** to dex (PancakeSwap V4 Infinity) ********************************/
@@ -394,6 +422,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     }
 
     function _makeLiquidityPool() private {
+        if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
         require(address(this).balance >= LISTING_ETH_BUDGET, "Insufficient ETH for listing");
         require(balanceOf(address(this)) >= LISTING_TOKEN_AMOUNT + NUTBOX_ALLOCATION, "Insufficient token for listing");
 

@@ -7,6 +7,8 @@ pragma solidity ^0.8.20;
  * Unified interface covering both internal Nutbox usage and TagAI V2 (Pump, Hook, tests).
  */
 interface ICommunity {
+    function rewardCalculator() external view returns (address);
+
     function poolActived(address pool) external view returns (bool);
 
     function getShareAcc(address pool) external view returns (uint256);
