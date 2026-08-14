@@ -10,7 +10,7 @@
 | CommunityFactory | `0x5597e814399906095ecaA5769A40394F58E5E0Cf` |
 | BasketRegistry | `0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe` |
 
-上述地址默认从 `deployments/56/addresses.json` 读取，也可以通过
+上述地址来自已冻结的 `deployments/56/version9.json` 快照，也可以通过
 `BSC_COMMUNITY_FACTORY` 和 `BSC_BASKET_REGISTRY` 覆盖。
 
 ## 部署
@@ -42,7 +42,7 @@ FOUNDRY_PROFILE=bsc_mainnet forge script \
   --gas-price 50000000 --gas-estimate-multiplier 150 -vvv
 ```
 
-广播成功后，脚本会把六个新地址写入 `deployments/56/addresses.json`。脚本不会操作
+历史部署完成后，六个地址已固化在 `deployments/56/version9.json`。脚本不会操作
 Committee 白名单；多签需要分别对白名单加入 `NFTMiningPoolFactory` 和
 `BasketTVLMiningPoolFactory`。
 

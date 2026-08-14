@@ -172,6 +172,7 @@ The source commits and complete BSC deployment inventory for each release are ma
 | **V8** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy (superseded) | Agent-focused communities: only agents could trade on the bonding curve pre-listing; 15% supply auto-provisioned for Nutbox Community creation with a default SocialCuration pool. |
 | **V9** | **This repo** | **Current (new launches)** | Full Nutbox integration (HourlyTickCalculator, SocialCuration, DFXStar Score Staking), open bonding-curve trading with anti-snipe, PCS V4 listing via `TagAISwapHook`, and Nutbox token injection on DEX swaps. |
 | **V10** | **This repo** (`ImportHelper`) | **Current (external import)** | Import an **already-deployed ERC20** into Nutbox without going through Pump: create a non-mintable Community bound to that token, mount a default SocialCuration pool, and hand ownership to the caller. Replaces the old Pump6 import flow. |
+| **V11** | **This repo** | **Preparing (not deployed)** | Pump/Token/Hook fee-collection refresh plus the Index Broker NFT factory, fixed-price NFT AMM, index-token buybacks, dual mining, and on-chain renderer stack. |
 
 ### What is V10 (`ImportHelper`)
 
@@ -216,8 +217,11 @@ Published in [tagai-contract README](https://github.com/tagai-dao/tagai-contract
 
 ## BSC Mainnet — Pump V9 / ImportHelper V10
 
-Chain: **BNB Smart Chain (56)**  
-Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
+Chain: **BNB Smart Chain (56)**
+
+Current production snapshot: [`deployments/56/version10.json`](deployments/56/version10.json)
+
+V9 snapshot: [`deployments/56/version9.json`](deployments/56/version9.json) · V11 deployment candidate: [`deployments/56/version11.json`](deployments/56/version11.json)
 
 | Contract | Address |
 |----------|---------|
@@ -229,7 +233,7 @@ Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
 | ImportHelper (V10) | [`0xF346A700830633bB27a46fC1e7eAAE49F593A4c6`](https://bscscan.com/address/0xF346A700830633bB27a46fC1e7eAAE49F593A4c6) |
 | IPShare (reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
 
-**Reused Nutbox / PCS infrastructure:** Committee, CommunityFactory, SocialCurationFactory, PCS V4 CLPoolManager, Vault (see `addresses.json`).
+**Reused Nutbox / PCS infrastructure:** Committee, CommunityFactory, SocialCurationFactory, PCS V4 CLPoolManager, Vault (see the versioned deployment snapshots above).
 
 ## Ecosystem
 

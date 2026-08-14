@@ -143,6 +143,6 @@ contract DeployBSCScript is Script {
         console.log("  Pump.communityFactory:", COMMUNITY_FACTORY);
         console.log("  Pump.socialCurationFactory:", SOCIAL_CURATION_FACTORY);
         console.log("");
-        console.log("// Post-process: save output to deployments/56/addresses.json");
+        console.log("// Historical V9 script: compare output with deployments/56/version9.json");
     }
 }

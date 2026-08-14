@@ -2,7 +2,6 @@
 pragma solidity ^0.8.26;
 
 import {Script, console} from "forge-std/Script.sol";
-import {VmSafe} from "forge-std/Vm.sol";
 
 import {NFTMiningPoolFactory} from "../src/nutbox/dapps/nft-mining/NFTMiningPoolFactory.sol";
 import {BasketTVLMiningPoolFactory} from "../src/nutbox/dapps/basket-tvl-mining/BasketTVLMiningPoolFactory.sol";
@@ -23,16 +22,16 @@ import {BasketTVLMiningPoolFactory} from "../src/nutbox/dapps/basket-tvl-mining/
  *     --rpc-url $BSC_RPC_URL --broadcast --slow --legacy \
  *     --gas-price 50000000 --gas-estimate-multiplier 150 -vvv
  *
- * A successful broadcast writes all six newly deployed addresses plus the
- * resolved dependencies to deployments/56/addresses.json.
+ * The production V9 snapshot is immutable. This historical script reads its
+ * dependencies from version9.json but never overwrites that file.
  */
 contract DeployBSCMiningFactoriesScript is Script {
     uint256 internal constant BSC_MAINNET_CHAIN_ID = 56;
-    string internal constant BSC_MAINNET_DEPLOYMENTS = "deployments/56/addresses.json";
+    string internal constant BSC_MAINNET_DEPLOYMENTS = "deployments/56/version9.json";
 
     function run() external {
         require(block.chainid == BSC_MAINNET_CHAIN_ID, "expected BSC mainnet chain 56");
-        require(vm.exists(BSC_MAINNET_DEPLOYMENTS), "deployments/56/addresses.json missing");
+        require(vm.exists(BSC_MAINNET_DEPLOYMENTS), "deployments/56/version9.json missing");
 
         uint256 privateKey = vm.envUint("PRIVATE_KEY_MAIN");
         address deployer = vm.addr(privateKey);
@@ -75,47 +74,9 @@ contract DeployBSCMiningFactoriesScript is Script {
         console.log("BasketTVLMiningPoolTemplate:", basketTemplate);
         console.log("BasketStakePoolTemplate:", basketStakeTemplate);
 
-        if (vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume)) {
-            _writeAddresses(
-                communityFactory,
-                basketRegistry,
-                address(nftFactory),
-                nftTemplate,
-                nftRenderer,
-                address(basketFactory),
-                basketTemplate,
-                basketStakeTemplate
-            );
-        } else {
-            console.log("Dry-run: deployments/56/addresses.json was not changed");
-        }
+        console.log("Immutable deployment snapshot was not changed:", BSC_MAINNET_DEPLOYMENTS);
 
         console.log("Whitelist was NOT applied. Committee multisig must add both factory addresses.");
         console.log("=== Done ===");
-    }
-
-    function _writeAddresses(
-        address communityFactory,
-        address basketRegistry,
-        address nftFactory,
-        address nftTemplate,
-        address nftRenderer,
-        address basketFactory,
-        address basketTemplate,
-        address basketStakeTemplate
-    ) internal {
-        _writeAddress(".CommunityFactory", communityFactory);
-        _writeAddress(".BasketRegistry", basketRegistry);
-        _writeAddress(".NFTMiningPoolFactory", nftFactory);
-        _writeAddress(".NFTMiningPoolTemplate", nftTemplate);
-        _writeAddress(".BSCNFTMiningRenderer", nftRenderer);
-        _writeAddress(".BasketTVLMiningPoolFactory", basketFactory);
-        _writeAddress(".BasketTVLMiningPoolTemplate", basketTemplate);
-        _writeAddress(".BasketStakePoolTemplate", basketStakeTemplate);
-        console.log("Addresses added to:", BSC_MAINNET_DEPLOYMENTS);
-    }
-
-    function _writeAddress(string memory key, address value) internal {
-        vm.writeJson(string.concat('"', vm.toString(value), '"'), BSC_MAINNET_DEPLOYMENTS, key);
     }
 }

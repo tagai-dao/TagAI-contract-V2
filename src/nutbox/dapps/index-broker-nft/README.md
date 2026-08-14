@@ -1056,8 +1056,8 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 部署前先在最新 BSC 状态上运行全部 fork 测试：
 
 ```bash
-BSC_RPC_URL=$BSC_RPC_URL FOUNDRY_PROFILE=fork \
-forge test --rpc-url $BSC_RPC_URL --match-path 'test/fork/BSC*.t.sol' -vv
+forge test --rpc-url "$BSC_RPC_URL" --chain 56 \
+  --match-path 'test/fork/BSC*.t.sol' -vv
 ```
 
 先模拟部署新版 Pump、Token implementation 和 Hook。模拟不会写入任何地址文件：
@@ -1067,7 +1067,7 @@ forge script script/DeployBSCPumpRefresh.s.sol \
   --rpc-url $BSC_RPC_URL --chain-id 56 -vv
 ```
 
-模拟成功后再广播。`PUMP_OWNER` 应填写最终管理地址；只有广播时才设置 `WRITE_DEPLOYMENTS=true`，成功后生成独立的 `deployments/56/pump-refresh.json` 候选记录，不会覆盖现网的 `addresses.json`：
+模拟成功后再广播。`PUMP_OWNER` 应填写最终管理地址；只有广播时才设置 `WRITE_DEPLOYMENTS=true`。脚本从 `deployments/56/version11.json` 读取复用依赖，仅替换 Pump、Token implementation、Hook 和部署元数据，然后把状态从 `preparing` 更新为 `pump-deployed`：
 
 ```bash
 PUMP_OWNER=$PUMP_OWNER WRITE_DEPLOYMENTS=true \
@@ -1076,24 +1076,24 @@ forge script script/DeployBSCPumpRefresh.s.sol \
   --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
 ```
 
-取得新版 Pump 地址后，先模拟部署 Index Broker NFT 合约组：
+新版 Pump 写入 V11 后，先模拟部署 Index Broker NFT 合约组。默认直接读取 V11 中的新 Pump，不需要额外传 `BSC_PUMP`：
 
 ```bash
-BSC_PUMP=$NEW_PUMP INDEX_BROKER_OWNER=$INDEX_BROKER_OWNER \
+INDEX_BROKER_OWNER=$INDEX_BROKER_OWNER \
 forge script script/DeployBSCIndexBrokerNFT.s.sol \
   --rpc-url $BSC_RPC_URL --chain-id 56 -vv
 ```
 
-模拟成功后再广播，并生成独立的 `deployments/56/index-broker-nft.json`：
+模拟成功后再广播。脚本把 Index Broker 合约组追加到同一个 V11 快照，并把状态更新为 `contracts-deployed`：
 
 ```bash
-BSC_PUMP=$NEW_PUMP INDEX_BROKER_OWNER=$INDEX_BROKER_OWNER WRITE_DEPLOYMENTS=true \
+INDEX_BROKER_OWNER=$INDEX_BROKER_OWNER WRITE_DEPLOYMENTS=true \
 forge script script/DeployBSCIndexBrokerNFT.s.sol \
   --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
   --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
 ```
 
-广播后还必须完成以下确认，才可把候选地址合并进正式地址记录并发布版本：
+广播后还必须完成以下确认，才可把 `version11.json` 状态改为 `complete` 并发布版本：
 
 1. `PUMP_OWNER` 和 `INDEX_BROKER_OWNER` 分别执行 `acceptOwnership()`（若与部署者不同）。
 2. Committee 中 `verifyContract(IndexBrokerNFTFactory)` 返回 `true`；若部署者不是 Committee owner，需要由 Committee owner 执行 `adminAddContract(factory)`。

@@ -181,14 +181,7 @@ contract DeployBSCTwoPhaseScript is Script {
         _logPendingWhitelist("HourlyTickCalculator", address(calculator));
         _logPendingWhitelist("DFXStarScoreStakingFactory", dfxFactory);
 
-        _writeAddresses(
-            calculator,
-            dfxFactory,
-            pump,
-            hook,
-            hookSalt,
-            deployer
-        );
+        console.log("Historical V9 snapshot is immutable: deployments/56/version9.json");
 
         // ─── Output Summary ──────────────────────────────────────────────────────
         console.log("");
@@ -235,41 +228,6 @@ contract DeployBSCTwoPhaseScript is Script {
         } else {
             console.log(string.concat("  [TODO] ", label, " -> Committee.adminAddContract(", vm.toString(target), ")"));
         }
-    }
-
-    function _writeAddresses(
-        HourlyTickCalculator calculator,
-        address dfxFactory,
-        Pump pump,
-        TagAISwapHook hook,
-        bytes32 hookSalt,
-        address deployer
-    ) internal {
-        string memory chainIdStr = vm.toString(block.chainid);
-        string memory dir = string.concat("deployments/", chainIdStr);
-        string memory path = string.concat(dir, "/addresses.json");
-
-        string memory json = string.concat(
-            "{\n",
-            '  "chainId": ', chainIdStr, ',\n',
-            '  "deployer": "', vm.toString(deployer), '",\n',
-            '  "Committee": "', vm.toString(COMMITTEE), '",\n',
-            '  "CommunityFactory": "', vm.toString(COMMUNITY_FACTORY), '",\n',
-            '  "HourlyTickCalculator": "', vm.toString(address(calculator)), '",\n',
-            '  "SocialCurationFactory": "', vm.toString(SOCIAL_CURATION_FACTORY), '",\n',
-            '  "DFXStarScoreStakingFactory": "', vm.toString(dfxFactory), '",\n',
-            '  "IPShare": "', vm.toString(IPSHARE), '",\n',
-            '  "CLPoolManager": "', vm.toString(CL_POOL_MANAGER), '",\n',
-            '  "Vault": "', vm.toString(VAULT), '",\n',
-            '  "Pump": "', vm.toString(address(pump)), '",\n',
-            '  "TagAISwapHook": "', vm.toString(address(hook)), '",\n',
-            '  "HookSalt": "', vm.toString(uint256(hookSalt)), '"\n',
-            "}\n"
-        );
-
-        try vm.createDir(dir, true) {} catch {}
-        vm.writeFile(path, json);
-        console.log(string.concat("Addresses written to: ", path));
     }
 
     /**

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Script, console2} from "forge-std/Script.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ICommittee} from "../src/interfaces/ICommittee.sol";
@@ -41,49 +42,62 @@ interface IDeployPancakeV3Factory {
  *   forge script script/DeployBSCIndexBrokerNFT.s.sol \
  *     --rpc-url $BSC_RPC_URL --chain-id 56 -vv
  *
- * Broadcast and write deployments/56/index-broker-nft.json only after success:
+ * Broadcast and append the new addresses to deployments/56/version11.json only after success:
  *   WRITE_DEPLOYMENTS=true forge script script/DeployBSCIndexBrokerNFT.s.sol \
  *     --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
  *     --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
  *
- * Set BSC_PUMP to the newly deployed Pump address when it has not yet been written to
- * deployments/56/addresses.json. Set INDEX_BROKER_OWNER to initiate Ownable2Step handover.
+ * The V11 Pump deployment must be recorded first. Set INDEX_BROKER_OWNER to
+ * initiate Ownable2Step handover. A successful write advances the V11 status
+ * from `pump-deployed` to `contracts-deployed`; post-deploy ownership and
+ * Committee actions are recorded separately before the release becomes complete.
  */
 contract DeployBSCIndexBrokerNFTScript is Script {
-    string internal constant BSC_DEPLOYMENTS = "deployments/56/addresses.json";
-    string internal constant OUTPUT_PATH = "deployments/56/index-broker-nft.json";
+    string internal constant VERSION11_PATH = "deployments/56/version11.json";
 
-    address internal constant COMMITTEE = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
-    address internal constant COMMUNITY_FACTORY = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
-    address internal constant CL_POOL_MANAGER = 0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b;
-    address internal constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
-    address internal constant USDT = 0x55d398326f99059fF775485246999027B3197955;
-    address internal constant PANCAKE_V2_FACTORY = 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73;
-    address internal constant PANCAKE_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
-    address internal constant PANCAKE_V3_SMART_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
-    address internal constant BASKET_REGISTRY = 0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe;
-    address internal constant BASKET_SWAP_ROUTER = 0x4c3a94f166d3046F10D002FDDe426E9C0b6C703e;
-    address internal constant DEFAULT_INDEX_TOKEN = 0xcF99DeC9439630ccf7Efe392F0fc2aF98EF99a61;
-    uint24 internal constant BNB_USDT_V3_FEE = 100;
+    address internal committee;
+    address internal communityFactory;
+    address internal clPoolManager;
+    address internal wbnb;
+    address internal usdt;
+    address internal pancakeV2Factory;
+    address internal pancakeV3Factory;
+    address internal pancakeV3SmartRouter;
+    address internal basketRegistry;
+    address internal basketSwapRouter;
+    address internal defaultIndexToken;
+    uint24 internal bnbUsdtV3Fee;
+    address internal recordedPump;
+    string internal version11Status;
 
     function run() external {
         require(block.chainid == 56, "BSC mainnet only");
-        require(vm.exists(BSC_DEPLOYMENTS), "BSC deployment record missing");
+        _loadVersion11();
 
         uint256 privateKey = vm.envUint("PRIVATE_KEY_MAIN");
         address deployer = vm.addr(privateKey);
-        string memory currentDeployments = vm.readFile(BSC_DEPLOYMENTS);
-        address recordedPump = vm.parseJsonAddress(currentDeployments, ".Pump");
+        bool pumpOverridden = vm.envExists("BSC_PUMP");
         address pump = vm.envOr("BSC_PUMP", recordedPump);
         address targetOwner = vm.envOr("INDEX_BROKER_OWNER", deployer);
         bool writeDeployments = vm.envOr("WRITE_DEPLOYMENTS", false);
+        bool isBroadcast =
+            vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume);
+        bool shouldWrite = writeDeployments && isBroadcast;
+        if (_sameString(version11Status, "preparing")) {
+            require(pumpOverridden, "Record the V11 Pump first or set BSC_PUMP for dry run");
+        }
+        if (shouldWrite) {
+            require(_sameString(version11Status, "pump-deployed"), "V11 Pump must be recorded first");
+            require(pump == recordedPump, "Write requires the Pump recorded in V11");
+        }
 
         _validateDependencies(pump);
 
         console2.log("=== BSC Index Broker NFT Deploy ===");
+        console2.log("V11 deployment record", VERSION11_PATH);
         console2.log("Deployer", deployer);
         console2.log("Pump", pump);
-        console2.log("Default index token", DEFAULT_INDEX_TOKEN);
+        console2.log("Default index token", defaultIndexToken);
         console2.log("Target Factory owner", targetOwner);
 
         vm.startBroadcast(privateKey);
@@ -92,33 +106,33 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         IndexBrokerNFTAMM ammTemplate = new IndexBrokerNFTAMM();
 
         address[] memory v2Factories = new address[](1);
-        v2Factories[0] = PANCAKE_V2_FACTORY;
+        v2Factories[0] = pancakeV2Factory;
         address[] memory v3Factories = new address[](1);
-        v3Factories[0] = PANCAKE_V3_FACTORY;
+        v3Factories[0] = pancakeV3Factory;
         address[] memory pancakeV4Managers = new address[](1);
-        pancakeV4Managers[0] = CL_POOL_MANAGER;
+        pancakeV4Managers[0] = clPoolManager;
         IndexBrokerNFTPriceOracle oracle =
-            new IndexBrokerNFTPriceOracle(WBNB, v2Factories, v3Factories, new address[](0), pancakeV4Managers);
+            new IndexBrokerNFTPriceOracle(wbnb, v2Factories, v3Factories, new address[](0), pancakeV4Managers);
 
         IndexBrokerNFTFactory factory = new IndexBrokerNFTFactory(
-            COMMUNITY_FACTORY,
+            communityFactory,
             pump,
             address(renderer),
             address(ammTemplate),
             address(oracle),
-            BASKET_REGISTRY,
-            BASKET_SWAP_ROUTER,
-            PANCAKE_V3_SMART_ROUTER,
-            BNB_USDT_V3_FEE,
-            DEFAULT_INDEX_TOKEN
+            basketRegistry,
+            basketSwapRouter,
+            pancakeV3SmartRouter,
+            bnbUsdtV3Fee,
+            defaultIndexToken
         );
 
         if (targetOwner != deployer) factory.transferOwnership(targetOwner);
 
-        address committeeOwner = Ownable(COMMITTEE).owner();
-        bool committeeWhitelisted = ICommittee(COMMITTEE).verifyContract(address(factory));
+        address committeeOwner = Ownable(committee).owner();
+        bool committeeWhitelisted = ICommittee(committee).verifyContract(address(factory));
         if (!committeeWhitelisted && committeeOwner == deployer) {
-            ICommittee(COMMITTEE).adminAddContract(address(factory));
+            ICommittee(committee).adminAddContract(address(factory));
             committeeWhitelisted = true;
         }
 
@@ -142,31 +156,58 @@ contract DeployBSCIndexBrokerNFTScript is Script {
             console2.log("ACTION REQUIRED: target owner must accept Factory ownership", targetOwner);
         }
 
-        if (writeDeployments) {
+        if (shouldWrite) {
             _writeDeployment(factory, renderer, ammTemplate, oracle, pump, deployer, targetOwner, committeeWhitelisted);
-            console2.log("Deployment record written", OUTPUT_PATH);
+            console2.log("V11 Index Broker deployment recorded", VERSION11_PATH);
+        } else if (writeDeployments) {
+            console2.log("Dry run: WRITE_DEPLOYMENTS ignored outside broadcast/resume context");
         } else {
             console2.log("Dry run: deployment record not written");
         }
     }
 
+    function _loadVersion11() internal {
+        require(vm.exists(VERSION11_PATH), "deployments/56/version11.json missing");
+        string memory json = vm.readFile(VERSION11_PATH);
+        require(vm.parseJsonUint(json, ".version") == 11, "Expected deployment version 11");
+
+        version11Status = vm.parseJsonString(json, ".status");
+        require(
+            _sameString(version11Status, "preparing") || _sameString(version11Status, "pump-deployed"),
+            "V11 Index Broker already recorded"
+        );
+        committee = vm.parseJsonAddress(json, ".Committee");
+        communityFactory = vm.parseJsonAddress(json, ".CommunityFactory");
+        clPoolManager = vm.parseJsonAddress(json, ".CLPoolManager");
+        wbnb = vm.parseJsonAddress(json, ".WBNB");
+        usdt = vm.parseJsonAddress(json, ".USDT");
+        pancakeV2Factory = vm.parseJsonAddress(json, ".PancakeV2Factory");
+        pancakeV3Factory = vm.parseJsonAddress(json, ".PancakeV3Factory");
+        pancakeV3SmartRouter = vm.parseJsonAddress(json, ".PancakeV3SmartRouter");
+        basketRegistry = vm.parseJsonAddress(json, ".BasketRegistry");
+        basketSwapRouter = vm.parseJsonAddress(json, ".BasketSwapRouter");
+        defaultIndexToken = vm.parseJsonAddress(json, ".DefaultIndexToken");
+        uint256 configuredFee = vm.parseJsonUint(json, ".BnbUsdtV3Fee");
+        require(configuredFee <= type(uint24).max, "Invalid BNB/USDT V3 fee");
+        bnbUsdtV3Fee = uint24(configuredFee);
+        recordedPump = vm.parseJsonAddress(json, ".Pump");
+    }
+
     function _validateDependencies(address pump) internal view {
         require(pump.code.length > 0, "Pump missing");
-        require(COMMITTEE.code.length > 0, "Committee missing");
-        require(COMMUNITY_FACTORY.code.length > 0, "CommunityFactory missing");
-        require(CL_POOL_MANAGER.code.length > 0, "CLPoolManager missing");
-        require(PANCAKE_V2_FACTORY.code.length > 0, "Pancake V2 factory missing");
-        require(PANCAKE_V3_FACTORY.code.length > 0, "Pancake V3 factory missing");
-        require(PANCAKE_V3_SMART_ROUTER.code.length > 0, "Pancake V3 router missing");
-        require(BASKET_REGISTRY.code.length > 0, "BasketRegistry missing");
-        require(BASKET_SWAP_ROUTER.code.length > 0, "BasketSwapRouter missing");
-        require(IDeployBasketRegistry(BASKET_REGISTRY).isBasket(DEFAULT_INDEX_TOKEN), "Invalid default index token");
-        require(IDeployBasketSwapRouter(BASKET_SWAP_ROUTER).settlementToken() == USDT, "Unexpected settlement token");
-        require(IDeployPancakeV3Router(PANCAKE_V3_SMART_ROUTER).WETH9() == WBNB, "Unexpected wrapped native");
-        require(
-            IDeployPancakeV3Router(PANCAKE_V3_SMART_ROUTER).factory() == PANCAKE_V3_FACTORY, "Unexpected V3 factory"
-        );
-        address bnbUsdtPool = IDeployPancakeV3Factory(PANCAKE_V3_FACTORY).getPool(WBNB, USDT, BNB_USDT_V3_FEE);
+        require(committee.code.length > 0, "Committee missing");
+        require(communityFactory.code.length > 0, "CommunityFactory missing");
+        require(clPoolManager.code.length > 0, "CLPoolManager missing");
+        require(pancakeV2Factory.code.length > 0, "Pancake V2 factory missing");
+        require(pancakeV3Factory.code.length > 0, "Pancake V3 factory missing");
+        require(pancakeV3SmartRouter.code.length > 0, "Pancake V3 router missing");
+        require(basketRegistry.code.length > 0, "BasketRegistry missing");
+        require(basketSwapRouter.code.length > 0, "BasketSwapRouter missing");
+        require(IDeployBasketRegistry(basketRegistry).isBasket(defaultIndexToken), "Invalid default index token");
+        require(IDeployBasketSwapRouter(basketSwapRouter).settlementToken() == usdt, "Unexpected settlement token");
+        require(IDeployPancakeV3Router(pancakeV3SmartRouter).WETH9() == wbnb, "Unexpected wrapped native");
+        require(IDeployPancakeV3Router(pancakeV3SmartRouter).factory() == pancakeV3Factory, "Unexpected V3 factory");
+        address bnbUsdtPool = IDeployPancakeV3Factory(pancakeV3Factory).getPool(wbnb, usdt, bnbUsdtV3Fee);
         require(bnbUsdtPool.code.length > 0, "BNB/USDT V3 pool missing");
     }
 
@@ -187,10 +228,10 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         require(factory.defaultRenderer() == address(renderer), "Factory Renderer mismatch");
         require(factory.ammTemplate() == address(ammTemplate), "Factory AMM mismatch");
         require(factory.priceOracle() == address(oracle), "Factory Oracle mismatch");
-        require(factory.defaultIndexToken() == DEFAULT_INDEX_TOKEN, "Factory index mismatch");
-        require(oracle.allowedPancakeV4CLManager(CL_POOL_MANAGER), "Oracle V4 manager missing");
-        require(oracle.allowedV2Factory(PANCAKE_V2_FACTORY), "Oracle V2 factory missing");
-        require(oracle.allowedV3Factory(PANCAKE_V3_FACTORY), "Oracle V3 factory missing");
+        require(factory.defaultIndexToken() == defaultIndexToken, "Factory index mismatch");
+        require(oracle.allowedPancakeV4CLManager(clPoolManager), "Oracle V4 manager missing");
+        require(oracle.allowedV2Factory(pancakeV2Factory), "Oracle V2 factory missing");
+        require(oracle.allowedV3Factory(pancakeV3Factory), "Oracle V3 factory missing");
         if (targetOwner != factory.owner()) {
             require(factory.pendingOwner() == targetOwner, "Factory owner handover missing");
         }
@@ -206,27 +247,42 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         address targetOwner,
         bool committeeWhitelisted
     ) internal {
-        string memory objectKey = "indexBrokerNFT";
-        vm.serializeUint(objectKey, "chainId", block.chainid);
-        vm.serializeAddress(objectKey, "deployer", deployer);
-        vm.serializeAddress(objectKey, "targetOwner", targetOwner);
-        vm.serializeBool(objectKey, "committeeWhitelisted", committeeWhitelisted);
-        vm.serializeAddress(objectKey, "Pump", pump);
-        vm.serializeAddress(objectKey, "IndexBrokerNFTFactory", address(factory));
-        vm.serializeAddress(objectKey, "IndexBrokerNFTPoolTemplate", factory.poolTemplate());
-        vm.serializeAddress(objectKey, "IndexBrokerNFTAMMTemplate", address(ammTemplate));
-        vm.serializeAddress(objectKey, "IndexBrokerNFTPriceOracle", address(oracle));
-        vm.serializeAddress(objectKey, "StonkBrokerRenderer", address(renderer));
-        vm.serializeAddress(objectKey, "StonkBrokerFaceRenderer", address(renderer.faceRenderer()));
-        vm.serializeAddress(objectKey, "StonkBrokerBodyRenderer", address(renderer.bodyRenderer()));
-        vm.serializeAddress(objectKey, "StonkBrokerAccessoryRenderer", address(renderer.accessoryRenderer()));
-        vm.serializeAddress(objectKey, "CommunityFactory", COMMUNITY_FACTORY);
-        vm.serializeAddress(objectKey, "Committee", COMMITTEE);
-        vm.serializeAddress(objectKey, "BasketRegistry", BASKET_REGISTRY);
-        vm.serializeAddress(objectKey, "BasketSwapRouter", BASKET_SWAP_ROUTER);
-        vm.serializeAddress(objectKey, "PancakeV3SmartRouter", PANCAKE_V3_SMART_ROUTER);
-        vm.serializeUint(objectKey, "BnbUsdtV3Fee", BNB_USDT_V3_FEE);
-        string memory json = vm.serializeAddress(objectKey, "DefaultIndexToken", DEFAULT_INDEX_TOKEN);
-        vm.writeJson(json, OUTPUT_PATH);
+        _requireVersion11Status("pump-deployed");
+        require(pump == vm.parseJsonAddress(vm.readFile(VERSION11_PATH), ".Pump"), "V11 Pump changed before write");
+        _writeAddress(".IndexBrokerDeployer", deployer);
+        _writeAddress(".IndexBrokerTargetOwner", targetOwner);
+        _writeBool(".IndexBrokerOwnershipAccepted", targetOwner == deployer);
+        _writeBool(".IndexBrokerFactoryWhitelisted", committeeWhitelisted);
+        _writeAddress(".IndexBrokerNFTFactory", address(factory));
+        _writeAddress(".IndexBrokerNFTPoolTemplate", factory.poolTemplate());
+        _writeAddress(".IndexBrokerNFTAMMTemplate", address(ammTemplate));
+        _writeAddress(".IndexBrokerNFTPriceOracle", address(oracle));
+        _writeAddress(".StonkBrokerRenderer", address(renderer));
+        _writeAddress(".StonkBrokerFaceRenderer", address(renderer.faceRenderer()));
+        _writeAddress(".StonkBrokerBodyRenderer", address(renderer.bodyRenderer()));
+        _writeAddress(".StonkBrokerAccessoryRenderer", address(renderer.accessoryRenderer()));
+        _writeString(".status", "contracts-deployed");
+    }
+
+    function _requireVersion11Status(string memory expected) internal view {
+        string memory json = vm.readFile(VERSION11_PATH);
+        require(vm.parseJsonUint(json, ".version") == 11, "Expected deployment version 11");
+        require(_sameString(vm.parseJsonString(json, ".status"), expected), "Unexpected V11 deployment status");
+    }
+
+    function _writeAddress(string memory key, address value) internal {
+        vm.writeJson(string.concat('"', vm.toString(value), '"'), VERSION11_PATH, key);
+    }
+
+    function _writeBool(string memory key, bool value) internal {
+        vm.writeJson(value ? "true" : "false", VERSION11_PATH, key);
+    }
+
+    function _writeString(string memory key, string memory value) internal {
+        vm.writeJson(string.concat('"', value, '"'), VERSION11_PATH, key);
+    }
+
+    function _sameString(string memory a, string memory b) internal pure returns (bool) {
+        return keccak256(bytes(a)) == keccak256(bytes(b));
     }
 }

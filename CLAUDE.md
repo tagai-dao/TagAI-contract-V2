@@ -84,7 +84,7 @@ test/
 └── benchmark/      # GasBenchmark
 
 script/             # Forge deployment scripts
-deployments/56/     # BSC mainnet deployed addresses (addresses.json)
+deployments/56/     # BSC mainnet cumulative deployment snapshots (version9/10/11.json)
 ```
 
 ## Key Technical Details

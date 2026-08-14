@@ -7,6 +7,7 @@
 - 新版本按时间倒序追加，最新版本放在最前面。
 - `版本源码提交` 是该版本部署和验证所依据的固定提交；部署后不得在不变更版本记录的情况下改用其他提交。
 - `部署记录提交` 是把最终地址、交易和验证结果写回本仓库的提交。由于提交只能在部署完成后产生，它通常晚于版本源码提交。
+- 每个 `versionN.json` 是该版本可独立读取的累积快照；仍然有效的旧地址会复制到新版本，已被替换的地址保留在旧版本文件中。
 - 一个版本可以复用旧合约。复用地址必须标明为“复用”，不能被误认为在该版本中重新部署。
 - 正式发布记录应尽量包含部署交易、区块、最终 owner、Committee 白名单状态和浏览器验证状态。历史资料未保存的字段明确标记为待补充，不凭推测填写。
 
@@ -22,6 +23,24 @@
 | V8 | 已被新发行入口替代 | 面向 Agent 社区，bonding curve 上市前只允许 Agent 交易，并为 Nutbox Community 自动分配 15% 供应量。 |
 | V9 | 当前新发行入口 | 通过 Pump 创建新社区代币，支持开放 bonding curve 交易、反狙击、PCS V4 上市、TagAISwapHook 和 Nutbox 奖励注入。 |
 | V10 | 当前外部代币导入入口 | 通过 ImportHelper 将已部署 ERC20 接入 Nutbox，创建不可增发 Community 和默认 SocialCuration Pool；不创建 Token、bonding curve、PCS V4 池或 Hook。 |
+| V11 | 准备部署 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。尚未部署到 BSC 主网。 |
+
+---
+
+## V11 — BSC 部署准备中
+
+V11 使用累积部署快照。`version11.json` 已从 V10 继承仍然有效的合约地址，并加入本次部署所需的 Basket 和 PancakeSwap 依赖；尚未部署的新合约字段不会预填零地址。
+
+| 项目 | 记录 |
+| --- | --- |
+| 状态 | `preparing`，尚未部署 |
+| 网络 | BNB Smart Chain（chain ID `56`） |
+| 来源版本 | V10 |
+| 版本源码提交 | 待部署前完成最终验证后固定 |
+| 部署快照 | [`deployments/56/version11.json`](deployments/56/version11.json) |
+| 部署顺序 | Pump/Token/Hook → Index Broker NFT 合约组 → 所有权/白名单/烟雾测试 → `complete` |
+
+V11 部署脚本只原位更新自己的字段，不会整体重写快照。Pump 部署成功后状态变为 `pump-deployed`；Index Broker NFT 合约组写入后状态变为 `contracts-deployed`。完成所有权接收、Committee 白名单和主网烟雾测试后，才可将状态改为 `complete` 并补充最终源码提交、交易、区块和标签。
 
 ---
 
@@ -36,7 +55,8 @@
 | 完整基线提交 | [`06933725e6bc684a1e9c59da8a03c787e23e3a75`](https://github.com/tagai-dao/TagAI-contract-V2/commit/06933725e6bc684a1e9c59da8a03c787e23e3a75) |
 | 源码分支 | `main` |
 | 基线记录日期 | 2026-08-14 |
-| 部署地址文件 | [`deployments/56/addresses.json`](deployments/56/addresses.json) |
+| V9 部署快照 | [`deployments/56/version9.json`](deployments/56/version9.json) |
+| V10 部署快照 | [`deployments/56/version10.json`](deployments/56/version10.json) |
 | 历史标签 | `version9` → [`a5e58f75cf98cf12adf68cb6f7bbb9932ea8af50`](https://github.com/tagai-dao/TagAI-contract-V2/commit/a5e58f75cf98cf12adf68cb6f7bbb9932ea8af50) |
 
 > `version9` 标签早于 NFT Mining 和 Basket Mining 的提交，因此该标签不能单独代表本节列出的完整线上基线。完整基线以 `06933725e6bc684a1e9c59da8a03c787e23e3a75` 为准。
