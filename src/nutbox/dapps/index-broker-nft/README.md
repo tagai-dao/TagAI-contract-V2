@@ -569,6 +569,23 @@ nftPool.totalActiveIndexMiningWeight();
 nftPool.queuedIndexRewards();
 ```
 
+### 10.5 指数代币 Holder Fee 回收
+
+回购得到的 `indexToken` 在用户领取之前由 NFT Pool 持有，因此会在 Index Basket 中累积属于 NFT Pool 的 Holder Fee。任何地址都可以调用：
+
+```solidity
+uint256 wrappedNativeAmount = nftPool.harvestIndexHolderFees();
+```
+
+该操作会原子完成：
+
+1. 从固定的 `indexToken` 领取属于 NFT Pool 的 Holder Fee；
+2. 将收到的 WBNB 转入配套 AMM；
+3. AMM 将 WBNB 解包为 BNB；
+4. BNB 与 AMM 交易费进入同一回购储备，后续由 `buyIndexWithNativeReserve(...)` 统一回购指数代币。
+
+调用者不能指定领取地址、WBNB 地址或 AMM 地址。没有可领取 Holder Fee 时交易会回滚。Keeper 可以在同一笔组合交易中先领取 Holder Fee，再执行回购并获得回购流程的 1% 执行奖励。
+
 
 
 ## 11. 揭图与重新生成
@@ -716,10 +733,12 @@ amm.buyIndexWithNativeReserve(
 执行流程：
 
 1. 读取 AMM 当前全部 BNB 余额；
-2. 将余额的 **30 BPS（0.3%）** 发送给执行者作为执行奖励；
+2. 将余额的 **100 BPS（1%）** 发送给执行者作为执行奖励；
 3. 其余 BNB 通过固定 Pancake V3 路径换成 Basket Router 的结算代币；
 4. 再用结算代币购买该矿池固定的 `indexToken`；
 5. 将买到的指数代币注入 NFT Pool，按指数挖矿权重分配。
+
+NFT Pool 持有指数代币期间产生的 Index Basket Holder Fee，也可以通过 `harvestIndexHolderFees()` 转成 BNB 并加入这里的同一储备。AMM 不区分 BNB 来自 NFT 交易费还是 Index Holder Fee。
 
 `minSettlementOut`、`minIndexOut` 和 `hookData` 由执行者提供。执行者或 Keeper 应先使用对应 Router 的最新报价生成合理的最小输出和 Basket Hook 数据，避免使用过期参数。
 
@@ -804,6 +823,7 @@ Factory owner可以：
 
 - 官方代币上市后的 `amm.activate()`；
 - `injectIndexRewards(amount)`；
+- `harvestIndexHolderFees()`；
 - `buyIndexWithNativeReserve(...)`；
 - 正常铸造、揭图、挖矿升级、领取和 AMM 买卖。
 
@@ -827,6 +847,7 @@ Factory owner可以：
 | `indexMiningWeightOf(tokenId)`          | NFT 保存的指数挖矿权重                   |
 | `activeIndexMiningWeightOf(tokenId)`    | 当前实际生效的指数挖矿权重                   |
 | `pendingIndexRewardsOf(tokenId)`        | 当前可领取的指数代币奖励                    |
+| `harvestIndexHolderFees()`              | 领取 Index Holder Fee 并转成 AMM BNB 储备   |
 | `platformFeeReceiver()`                 | 当前平台费接收地址                       |
 | `platformFeeBps()`                      | 当前公开铸造平台费率                      |
 
@@ -877,6 +898,7 @@ Factory owner可以：
 - `IndexMiningWeightReduced`
 - `IndexRewardsInjected`
 - `IndexRewardsClaimed`
+- `IndexHolderFeesHarvested`
 - `MetadataUpdate`
 
 
@@ -888,6 +910,7 @@ Factory owner可以：
 - `NFTBought`
 - `PlatformFeePaid`
 - `NativeFeeRefunded`
+- `IndexHolderFeesConverted`
 - `IndexTokenPurchased`
 
 
@@ -1027,3 +1050,54 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 10. 社区代币应支持精确 ERC-20 转账；扣税或短到账代币会使铸造、挖矿升级或 AMM 交易回滚。
 11. 揭图依赖有限的未来区块窗口，前端应提醒持有人及时操作。
 12. 不要直接向 NFT Pool、AMM 或销毁地址转账来代替合约函数；直接转账不会产生个人份额或额外权益。
+
+## 21. BSC 主网部署顺序
+
+部署前先在最新 BSC 状态上运行全部 fork 测试：
+
+```bash
+BSC_RPC_URL=$BSC_RPC_URL FOUNDRY_PROFILE=fork \
+forge test --rpc-url $BSC_RPC_URL --match-path 'test/fork/BSC*.t.sol' -vv
+```
+
+先模拟部署新版 Pump、Token implementation 和 Hook。模拟不会写入任何地址文件：
+
+```bash
+forge script script/DeployBSCPumpRefresh.s.sol \
+  --rpc-url $BSC_RPC_URL --chain-id 56 -vv
+```
+
+模拟成功后再广播。`PUMP_OWNER` 应填写最终管理地址；只有广播时才设置 `WRITE_DEPLOYMENTS=true`，成功后生成独立的 `deployments/56/pump-refresh.json` 候选记录，不会覆盖现网的 `addresses.json`：
+
+```bash
+PUMP_OWNER=$PUMP_OWNER WRITE_DEPLOYMENTS=true \
+forge script script/DeployBSCPumpRefresh.s.sol \
+  --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
+  --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
+```
+
+取得新版 Pump 地址后，先模拟部署 Index Broker NFT 合约组：
+
+```bash
+BSC_PUMP=$NEW_PUMP INDEX_BROKER_OWNER=$INDEX_BROKER_OWNER \
+forge script script/DeployBSCIndexBrokerNFT.s.sol \
+  --rpc-url $BSC_RPC_URL --chain-id 56 -vv
+```
+
+模拟成功后再广播，并生成独立的 `deployments/56/index-broker-nft.json`：
+
+```bash
+BSC_PUMP=$NEW_PUMP INDEX_BROKER_OWNER=$INDEX_BROKER_OWNER WRITE_DEPLOYMENTS=true \
+forge script script/DeployBSCIndexBrokerNFT.s.sol \
+  --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
+  --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
+```
+
+广播后还必须完成以下确认，才可把候选地址合并进正式地址记录并发布版本：
+
+1. `PUMP_OWNER` 和 `INDEX_BROKER_OWNER` 分别执行 `acceptOwnership()`（若与部署者不同）。
+2. Committee 中 `verifyContract(IndexBrokerNFTFactory)` 返回 `true`；若部署者不是 Committee owner，需要由 Committee owner 执行 `adminAddContract(factory)`。
+3. 新 Pump 的 PoolManager、Vault、Hook、Calculator 和 Nutbox 地址与部署记录一致，Hook 地址低 16 位符合 `0x0cc1` 权限位图。
+4. Factory 的默认指数代币为 `0xcF99DeC9439630ccf7Efe392F0fc2aF98EF99a61`，并且 BasketRegistry 仍将其识别为有效 Basket。
+5. 完成一次小额 Token 创建/上市/双向交易/`collectFees()`，以及一次 NFT 创建、铸造、AMM 交易、指数回购、奖励领取的主网烟雾测试。
+6. 确认前端、API 和 Subgraph 使用新 Pump、Hook 和 IndexBrokerNFTFactory 地址后，再推送提交和创建版本标签。

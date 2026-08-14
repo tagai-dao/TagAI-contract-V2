@@ -3,12 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IHooks} from "infinity-core/src/interfaces/IHooks.sol";
-import {IPoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
-import {Currency} from "infinity-core/src/types/Currency.sol";
-import {PoolKey} from "infinity-core/src/types/PoolKey.sol";
 
 import {Committee} from "../../src/nutbox/Committee.sol";
 import {Community} from "../../src/nutbox/Community.sol";
@@ -22,51 +17,6 @@ import {BasketTVLMiningPoolFactory} from "../../src/nutbox/dapps/basket-tvl-mini
 
 interface IBSCBasketRegistry {
     function isBasket(address basket) external view returns (bool);
-    function basketCount() external view returns (uint256);
-}
-
-interface IBSCBasketRouter {
-    enum Venue {
-        V4,
-        V3,
-        WBNB
-    }
-
-    struct LegRoute {
-        Venue venue;
-        PoolKey v4Pool;
-        uint24 v3Fee;
-    }
-
-    struct CreateParams {
-        string name;
-        string symbol;
-        address creator;
-        uint16 basketFeeBps;
-        uint16 creatorShareBps;
-        address[] constituentAssets;
-        LegRoute[] constituentRoutes;
-        uint16[] targetWeights;
-    }
-
-    struct TradeData {
-        address frontend;
-        uint256 minBasketOut;
-        uint256 minSettlementOut;
-        uint256[] legMins;
-        uint160[] legSqrtPriceLimitsX96;
-        uint160 hubSqrtPriceLimitX96;
-        bool[] allowFailedLegs;
-    }
-
-    function createAndBuyExactSettlement(
-        bytes32 userSalt,
-        CreateParams calldata createParams,
-        uint256 settlementTokenIn,
-        uint256 minBasketOut,
-        bytes calldata hookData,
-        address recipient
-    ) external returns (address basket, uint256 basketOut);
 }
 
 interface IBSCLiveBasket {
@@ -78,8 +28,8 @@ interface IBSCLiveBasket {
 
 /**
  * @notice BSC latest-block integration coverage for the two migrated mining factories.
- * @dev Creates and buys a real Basket through the deployed BSC protocol, then uses that
- * Basket in locally deployed NFT Mining and Basket TVL Mining pools on the fork.
+ * @dev Uses the live default Index Basket in locally deployed NFT Mining and Basket TVL
+ * Mining pools on the fork. This avoids relying on deprecated Basket creation entrypoints.
  *
  * Run:
  *   FOUNDRY_PROFILE=fork BSC_RPC_URL=<rpc-url> FOUNDRY_ETH_RPC_URL= \
@@ -88,22 +38,18 @@ interface IBSCLiveBasket {
  * The latest block is used by default. Set BSC_FORK_BLOCK only to reproduce historical state.
  */
 contract BSCMiningPoolsForkTest is Test, IERC721Receiver {
-    using SafeERC20 for IERC20;
-
     uint256 internal constant BSC_CHAIN_ID = 56;
     uint256 internal constant LOCK_DURATION = 7 days;
     uint16 internal constant NFT_REWARD_BPS = 500;
-    uint24 internal constant V3_FEE = 500;
 
     address internal constant BSC_COMMUNITY_FACTORY = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
     address internal constant BSC_BASKET_REGISTRY = 0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe;
-    address internal constant BSC_BASKET_ROUTER = 0x8749B6073A7c8fE8BB5a3e56AD9fc239E1967244;
-    address internal constant USDT = 0x55d398326f99059fF775485246999027B3197955;
-    address internal constant USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
+    address internal constant DEFAULT_INDEX_TOKEN = 0xcF99DeC9439630ccf7Efe392F0fc2aF98EF99a61;
     address internal constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
 
     bool internal forkReady;
     address internal liveBasket;
+    address internal communityToken;
     uint256 internal basketShares;
 
     Committee internal committee;
@@ -138,10 +84,10 @@ contract BSCMiningPoolsForkTest is Test, IERC721Receiver {
         }
         assertGt(BSC_COMMUNITY_FACTORY.code.length, 0, "BSC CommunityFactory missing");
         assertGt(BSC_BASKET_REGISTRY.code.length, 0, "BSC BasketRegistry missing");
-        assertGt(BSC_BASKET_ROUTER.code.length, 0, "BSC Basket router missing");
+        assertGt(DEFAULT_INDEX_TOKEN.code.length, 0, "Default index Basket missing");
         forkReady = true;
 
-        (liveBasket, basketShares) = _createLiveUsdcBasket();
+        _loadLiveIndexBasket();
         _deployMiningPools();
     }
 
@@ -160,20 +106,23 @@ contract BSCMiningPoolsForkTest is Test, IERC721Receiver {
     function testFork_RealBscBasketUsesWbnbAndCompletesStakeLifecycle() external onlyBscFork {
         IBSCBasketRegistry registry = IBSCBasketRegistry(BSC_BASKET_REGISTRY);
         assertTrue(registry.isBasket(liveBasket));
-        assertEq(IBSCLiveBasket(liveBasket).creatorPayout(), address(this));
+        assertNotEq(IBSCLiveBasket(liveBasket).creatorPayout(), address(0));
         assertEq(IBSCLiveBasket(liveBasket).wbnb(), WBNB);
-        assertEq(IBSCLiveBasket(liveBasket).assetCount(), 1);
+        assertGt(IBSCLiveBasket(liveBasket).assetCount(), 0);
 
         (address asset, uint16 weight, uint256 activeReserve) = IBSCLiveBasket(liveBasket).assetAt(0);
-        assertEq(asset, USDC);
-        assertEq(weight, 10_000);
+        assertEq(asset, communityToken);
+        assertGt(weight, 0);
         assertGt(activeReserve, 0);
-        assertEq(basketPool.basketCommunityTokenBalance(liveBasket), IERC20(USDC).balanceOf(liveBasket));
+        assertEq(basketPool.basketCommunityTokenBalance(liveBasket), IERC20(communityToken).balanceOf(liveBasket));
 
+        address basketCreator = IBSCLiveBasket(liveBasket).creatorPayout();
+        nftPool.transferFrom(address(this), basketCreator, 1);
+        vm.prank(basketCreator);
         address childAddress = basketPool.createBasketStake(liveBasket, 1);
         BasketStakePool child = BasketStakePool(payable(childAddress));
         assertEq(child.stakeToken(), liveBasket);
-        assertEq(child.rewardToken(), USDC);
+        assertEq(child.rewardToken(), communityToken);
         assertEq(child.holderFeeToken(), WBNB);
         assertEq(child.lockDuration(), LOCK_DURATION);
 
@@ -190,51 +139,15 @@ contract BSCMiningPoolsForkTest is Test, IERC721Receiver {
         assertEq(IERC20(liveBasket).balanceOf(address(this)), balanceBefore + depositAmount);
     }
 
-    function _createLiveUsdcBasket() private returns (address basket, uint256 shares) {
-        uint256 countBefore = IBSCBasketRegistry(BSC_BASKET_REGISTRY).basketCount();
-        deal(USDT, address(this), 1_000 ether);
-        IERC20(USDT).forceApprove(BSC_BASKET_ROUTER, type(uint256).max);
+    function _loadLiveIndexBasket() private {
+        liveBasket = DEFAULT_INDEX_TOKEN;
+        assertTrue(IBSCBasketRegistry(BSC_BASKET_REGISTRY).isBasket(liveBasket));
+        (communityToken,,) = IBSCLiveBasket(liveBasket).assetAt(0);
+        assertGt(communityToken.code.length, 0, "Index constituent missing");
 
-        address[] memory assets = new address[](1);
-        assets[0] = USDC;
-        IBSCBasketRouter.LegRoute[] memory routes = new IBSCBasketRouter.LegRoute[](1);
-        routes[0] = IBSCBasketRouter.LegRoute({venue: IBSCBasketRouter.Venue.V3, v4Pool: _emptyPool(), v3Fee: V3_FEE});
-        uint16[] memory weights = new uint16[](1);
-        weights[0] = 10_000;
-        IBSCBasketRouter.CreateParams memory params = IBSCBasketRouter.CreateParams({
-            name: "TagAI BSC Mining Fork Basket",
-            symbol: "tbmBSC",
-            creator: address(this),
-            basketFeeBps: 200,
-            creatorShareBps: 2_000,
-            constituentAssets: assets,
-            constituentRoutes: routes,
-            targetWeights: weights
-        });
-
-        uint256[] memory legMins = new uint256[](1);
-        legMins[0] = 1;
-        IBSCBasketRouter.TradeData memory tradeData = IBSCBasketRouter.TradeData({
-            frontend: address(0),
-            minBasketOut: 0,
-            minSettlementOut: 0,
-            legMins: legMins,
-            legSqrtPriceLimitsX96: new uint160[](0),
-            hubSqrtPriceLimitX96: 0,
-            allowFailedLegs: new bool[](1)
-        });
-
-        (basket, shares) = IBSCBasketRouter(BSC_BASKET_ROUTER)
-            .createAndBuyExactSettlement(
-                keccak256(abi.encode(block.number, address(this))),
-                params,
-                100 ether,
-                1,
-                abi.encode(tradeData),
-                address(this)
-            );
-        assertEq(IBSCBasketRegistry(BSC_BASKET_REGISTRY).basketCount(), countBefore + 1);
-        assertGt(shares, 0);
+        basketShares = 100 ether;
+        deal(liveBasket, address(this), basketShares);
+        assertEq(IERC20(liveBasket).balanceOf(address(this)), basketShares);
     }
 
     function _deployMiningPools() private {
@@ -255,7 +168,7 @@ contract BSCMiningPoolsForkTest is Test, IERC721Receiver {
 
         community = Community(
             payable(communityFactory.createCommunity(
-                    false, USDC, address(0), bytes(""), address(calculator), bytes("")
+                    false, communityToken, address(0), bytes(""), address(calculator), bytes("")
                 ))
         );
 
@@ -294,17 +207,6 @@ contract BSCMiningPoolsForkTest is Test, IERC721Receiver {
             abi.encode(address(nftPool), NFT_REWARD_BPS, LOCK_DURATION)
         );
         basketPool = BasketTVLMiningPool(community.activedPools(1));
-    }
-
-    function _emptyPool() private pure returns (PoolKey memory key) {
-        key = PoolKey({
-            currency0: Currency.wrap(address(0)),
-            currency1: Currency.wrap(address(0)),
-            hooks: IHooks(address(0)),
-            poolManager: IPoolManager(address(0)),
-            fee: 0,
-            parameters: bytes32(0)
-        });
     }
 
     function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {

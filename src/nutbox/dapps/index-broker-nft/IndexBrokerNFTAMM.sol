@@ -34,6 +34,10 @@ interface IIndexBrokerBasketRegistry {
     function isBasket(address candidate) external view returns (bool);
 }
 
+interface IIndexBrokerBasketToken {
+    function wbnb() external view returns (address);
+}
+
 interface IIndexBrokerBasketSwapRouter {
     function settlementToken() external view returns (address);
     function buyExactSettlement(
@@ -63,6 +67,10 @@ interface IIndexBrokerPancakeV3Router {
     function factory() external view returns (address);
     function WETH9() external view returns (address);
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
+}
+
+interface IIndexBrokerWrappedNative {
+    function withdraw(uint256 amount) external;
 }
 
 /**
@@ -138,6 +146,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         uint256 settlementAmount,
         uint256 indexAmount
     );
+    event IndexHolderFeesConverted(uint256 wrappedNativeAmount);
     event AMMActivated(
         address indexed activator,
         IIndexBrokerNFTPriceOracle.SourceType indexed priceSourceType,
@@ -155,6 +164,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     error InvalidCommunityTokenPayment();
     error NoNativeReserve();
     error InvalidIndexPurchase();
+    error InvalidIndexHolderFees();
     error AMMInactive();
     error AMMAlreadyActive();
     error OfficialTokenNotListed();
@@ -214,6 +224,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         address v3Factory = v3Router.factory();
         if (
             settlement.code.length == 0 || wrappedNative.code.length == 0 || v3Factory.code.length == 0
+                || IIndexBrokerBasketToken(indexToken_).wbnb() != wrappedNative
                 || IIndexBrokerPancakeV3Factory(v3Factory).getPool(wrappedNative, settlement, indexV3Fee_).code.length
                     == 0
         ) revert InvalidConfig();
@@ -360,6 +371,13 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         if (callerReward != 0) Address.sendValue(payable(msg.sender), callerReward);
 
         emit IndexTokenPurchased(msg.sender, indexToken, nativeToInvest, callerReward, settlementOut, indexOut);
+    }
+
+    /// @notice Converts Index Basket holder-fee WBNB received from the paired NFT pool into buyback BNB.
+    function convertIndexHolderFees(uint256 amount) external nonReentrant whenActive {
+        if (msg.sender != collection || amount == 0) revert InvalidIndexHolderFees();
+        IIndexBrokerWrappedNative(indexWrappedNative).withdraw(amount);
+        emit IndexHolderFeesConverted(amount);
     }
 
     function sellNFT(uint256 tokenId) external payable nonReentrant whenActive {

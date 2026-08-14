@@ -34,6 +34,14 @@ contract IndexBrokerCommunityToken is ERC20 {
         v4PoolId = keccak256(abi.encode(address(0), address(this), hook, poolManager, LISTING_LP_FEE, parameters));
         listed = listed_;
     }
+
+    function withdraw(uint256 amount) external {
+        _burn(msg.sender, amount);
+        (bool success,) = msg.sender.call{value: amount}("");
+        require(success, "native transfer failed");
+    }
+
+    receive() external payable {}
 }
 
 contract IndexBrokerPumpMock {
@@ -67,10 +75,32 @@ contract IndexBrokerPancakeV4CLManagerMock {
 }
 
 contract IndexBrokerIndexTokenMock is ERC20 {
+    address public wbnb;
+    mapping(address => uint256) private _holderFees;
+
     constructor(string memory symbol_) ERC20("Index Token", symbol_) {}
 
     function mint(address recipient, uint256 amount) external {
         _mint(recipient, amount);
+    }
+
+    function setWbnb(address wrappedNative_) external {
+        wbnb = wrappedNative_;
+    }
+
+    function fundHolderFees(address holder, uint256 amount) external {
+        assert(IERC20(wbnb).transferFrom(msg.sender, address(this), amount));
+        _holderFees[holder] += amount;
+    }
+
+    function claimableHolderFees(address holder) external view returns (uint256) {
+        return _holderFees[holder];
+    }
+
+    function claimHolderFeesFor(address holder) external returns (uint256 amount) {
+        amount = _holderFees[holder];
+        delete _holderFees[holder];
+        if (amount != 0) assert(IERC20(wbnb).transfer(holder, amount));
     }
 }
 
@@ -242,6 +272,7 @@ contract IndexBrokerNFTTest is Test {
         indexV3Factory.setPool(address(wrappedNative), address(indexSettlementToken), INDEX_V3_FEE, address(v2Pair));
         basketSwapRouter = new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken));
         defaultIndexToken = new IndexBrokerIndexTokenMock("DEFAULT-INDEX");
+        defaultIndexToken.setWbnb(address(wrappedNative));
         basketRegistry.setIndexToken(address(defaultIndexToken), true);
         assertTrue(indexSettlementToken.transfer(address(indexV3Router), 1_000_000 ether));
         poolFactory = new IndexBrokerNFTFactory(
@@ -1205,6 +1236,46 @@ contract IndexBrokerNFTTest is Test {
         assertEq(pool.queuedIndexRewards(), 0);
     }
 
+    function test_AnyoneHarvestsIndexHolderFeesIntoAMMAndNextBuybackUsesThem() public {
+        uint256 holderFees = 1 ether;
+        vm.deal(address(wrappedNative), holderFees);
+        wrappedNative.approve(address(defaultIndexToken), holderFees);
+        defaultIndexToken.fundHolderFees(address(pool), holderFees);
+
+        address keeper = makeAddr("holderFeeKeeper");
+        uint256 ammNativeBefore = address(amm).balance;
+        vm.prank(keeper);
+        uint256 harvested = pool.harvestIndexHolderFees();
+
+        assertEq(harvested, holderFees);
+        assertEq(address(amm).balance - ammNativeBefore, holderFees);
+        assertEq(wrappedNative.balanceOf(address(pool)), 0);
+        assertEq(wrappedNative.balanceOf(address(amm)), 0);
+        assertEq(defaultIndexToken.claimableHolderFees(address(pool)), 0);
+
+        uint256 expectedReward = holderFees * amm.INDEX_PURCHASE_CALLER_BPS() / 10_000;
+        uint256 investment = holderFees - expectedReward;
+        uint256 keeperBefore = keeper.balance;
+        vm.prank(keeper);
+        (uint256 callerReward,, uint256 indexOut) =
+            amm.buyIndexWithNativeReserve(investment * 2, investment * 6, bytes(""));
+
+        assertEq(callerReward, expectedReward);
+        assertEq(keeper.balance - keeperBefore, expectedReward);
+        assertEq(indexOut, investment * 6);
+        assertEq(address(amm).balance, 0);
+        assertEq(defaultIndexToken.balanceOf(address(pool)), indexOut);
+        assertEq(pool.queuedIndexRewards(), indexOut);
+    }
+
+    function test_IndexHolderFeeHarvestRejectsEmptyAndAMMRejectsNonCollection() public {
+        vm.expectRevert(IndexBrokerNFT.NoIndexHolderFees.selector);
+        pool.harvestIndexHolderFees();
+
+        vm.expectRevert(IndexBrokerNFTAMM.InvalidIndexHolderFees.selector);
+        amm.convertIndexHolderFees(1);
+    }
+
     function test_AMMIndexPurchaseSlippageRevertsCallerRewardAndReserveMovement() public {
         uint256 reserve = 1 ether;
         vm.deal(address(amm), reserve);
@@ -1223,6 +1294,7 @@ contract IndexBrokerNFTTest is Test {
 
     function test_AMMIndexTokenIsFixedWhileFactoryDefaultCanChange() public {
         IndexBrokerIndexTokenMock newDefault = new IndexBrokerIndexTokenMock("NEW-DEFAULT");
+        newDefault.setWbnb(address(wrappedNative));
         basketRegistry.setIndexToken(address(newDefault), true);
         poolFactory.setDefaultIndexToken(address(newDefault));
 
@@ -1247,6 +1319,19 @@ contract IndexBrokerNFTTest is Test {
         IndexBrokerIndexTokenMock fakeIndex = new IndexBrokerIndexTokenMock("FAKE");
         vm.expectRevert(bytes("Invalid index token"));
         this.addPoolWithIndexForRevertTest(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(fakeIndex));
+    }
+
+    function test_FactoryRejectsIndexBasketWithDifferentWrappedNative() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        IndexBrokerIndexTokenMock incompatibleIndex = new IndexBrokerIndexTokenMock("INCOMPATIBLE");
+        incompatibleIndex.setWbnb(makeAddr("differentWrappedNative"));
+        basketRegistry.setIndexToken(address(incompatibleIndex), true);
+
+        vm.expectRevert(IndexBrokerNFTAMM.InvalidConfig.selector);
+        this.addPoolWithIndexForRevertTest(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(incompatibleIndex));
     }
 
     function test_RejectsOnlyExactReservedCollectionName() public {

@@ -48,9 +48,7 @@ contract BSCForkTest is BSCForkBase {
         router.swap{value: ethIn}(
             poolKey,
             ICLPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -int256(ethIn),
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
+                zeroForOne: true, amountSpecified: -int256(ethIn), sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
             }),
             CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
             bytes("")
@@ -60,34 +58,30 @@ contract BSCForkTest is BSCForkBase {
         assertTrue(tokensReceived > 0, "buy swap should deliver tokens");
         assertTrue(FEE_RECEIVER.balance > feeReceiverBalBefore, "platform fee collected on buy");
 
-        // Same 10-minute period: accumulate only, no inject yet.
-        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), balBefore, "same period: no inject");
+        // Same 10-minute period: no inject yet, but the directional token fee accumulates on Hook.
+        uint256 balAfterFirstBuy = IERC20(tokenAddr).balanceOf(address(hook));
+        uint256 period1DirectionalFee = balAfterFirstBuy - balBefore;
+        assertGt(period1DirectionalFee, 0, "buy directional fee");
+        (, uint256 period1Volume) = _readPeriodState(tokenAddr);
+        assertEq(period1Volume, tokensReceived + period1DirectionalFee, "gross period1 volume");
 
         _warpToNextPeriod();
-        vm.deal(buyer2, 20 ether);
-        vm.prank(buyer2);
-        router.swap{value: 20 ether}(
-            poolKey,
-            ICLPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -int256(20 ether),
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
-            }),
-            CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
-            bytes("")
-        );
-
-        uint256 expectedInject = _capInjectAmount(_expectedPeriodSettleInject(tokensReceived), balBefore);
+        uint256 period2Received = _swapBuyExactIn(poolKey, buyer2, 20 ether);
+        (, uint256 period2Volume) = _readPeriodState(tokenAddr);
+        uint256 period2DirectionalFee = period2Volume - period2Received;
+        uint256 expectedInject =
+            _capInjectAmount(_expectedPeriodSettleInject(period1Volume), balAfterFirstBuy + period2DirectionalFee);
 
         uint256 balAfter = IERC20(tokenAddr).balanceOf(address(hook));
         if (expectedInject > 0) {
-            assertEq(balBefore - balAfter, expectedInject, "period settlement inject");
-            assertTrue(
-                calculator.totalInjected(token.nutboxCommunity()) > 0,
-                "calculator received inject"
+            assertEq(
+                balAfter,
+                balAfterFirstBuy + period2DirectionalFee - expectedInject,
+                "period settlement inject after directional fee"
             );
+            assertTrue(calculator.totalInjected(token.nutboxCommunity()) > 0, "calculator received inject");
         } else {
-            assertEq(balAfter, balBefore, "no inject below 16.8 output");
+            assertEq(balAfter, balAfterFirstBuy + period2DirectionalFee, "no inject below 16.8 output");
         }
     }
 
@@ -102,9 +96,7 @@ contract BSCForkTest is BSCForkBase {
         router.swap{value: ethIn}(
             poolKey,
             ICLPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -int256(ethIn),
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
+                zeroForOne: true, amountSpecified: -int256(ethIn), sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
             }),
             CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
             bytes("")
@@ -123,9 +115,7 @@ contract BSCForkTest is BSCForkBase {
         router.swap(
             poolKey,
             ICLPoolManager.SwapParams({
-                zeroForOne: false,
-                amountSpecified: -int256(sellAmount),
-                sqrtPriceLimitX96: TickMath.MAX_SQRT_RATIO - 1
+                zeroForOne: false, amountSpecified: -int256(sellAmount), sqrtPriceLimitX96: TickMath.MAX_SQRT_RATIO - 1
             }),
             CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
             bytes("")
@@ -144,9 +134,7 @@ contract BSCForkTest is BSCForkBase {
         router.swap{value: 5 ether}(
             poolKey,
             ICLPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -5 ether,
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
+                zeroForOne: true, amountSpecified: -5 ether, sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
             }),
             CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
             bytes("")
@@ -160,9 +148,7 @@ contract BSCForkTest is BSCForkBase {
         router.swap(
             poolKey,
             ICLPoolManager.SwapParams({
-                zeroForOne: false,
-                amountSpecified: -int256(bal / 4),
-                sqrtPriceLimitX96: TickMath.MAX_SQRT_RATIO - 1
+                zeroForOne: false, amountSpecified: -int256(bal / 4), sqrtPriceLimitX96: TickMath.MAX_SQRT_RATIO - 1
             }),
             CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
             bytes("")

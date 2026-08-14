@@ -27,6 +27,12 @@ interface INFTMiningPlatformFee {
 
 interface IIndexBrokerNFTAMM {
     function isAcceptingNFT(address from, uint256 tokenId) external view returns (bool);
+    function indexWrappedNative() external view returns (address);
+    function convertIndexHolderFees(uint256 amount) external;
+}
+
+interface IIndexBrokerIndexHolderFees {
+    function claimHolderFeesFor(address holder) external returns (uint256 amount);
 }
 
 /**
@@ -162,6 +168,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     event IndexMiningWeightReduced(uint256 indexed tokenId, uint256 previousWeight, uint256 newWeight);
     event IndexRewardsInjected(address indexed caller, uint256 amount, uint256 distributed, uint256 queued);
     event IndexRewardsClaimed(address indexed owner, uint256 indexed tokenId, uint256 amount);
+    event IndexHolderFeesHarvested(address indexed caller, uint256 wrappedNativeAmount);
     event RevealCommitted(
         address indexed owner, uint256 indexed tokenId, uint256 indexed revealRound, uint256 revealBlock, uint256 price
     );
@@ -190,6 +197,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     error InvalidIndexMiningWeight();
     error InvalidIndexRewardAmount();
     error NoIndexRewards();
+    error NoIndexHolderFees();
     error RevealNotReady();
     error RevealExpired();
     error RevealStillPending();
@@ -509,6 +517,17 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         totalIndexRewardsClaimed += amount;
         IERC20(indexToken).safeTransfer(msg.sender, amount);
         emit IndexRewardsClaimed(msg.sender, tokenId, amount);
+    }
+
+    /// @notice Claims this pool's Index Basket holder fees and adds them to the paired AMM's native buyback reserve.
+    function harvestIndexHolderFees() external nonReentrant returns (uint256 amount) {
+        amount = IIndexBrokerIndexHolderFees(indexToken).claimHolderFeesFor(address(this));
+        if (amount == 0) revert NoIndexHolderFees();
+
+        IIndexBrokerNFTAMM pairedAMM = IIndexBrokerNFTAMM(ammVault);
+        IERC20(pairedAMM.indexWrappedNative()).safeTransfer(ammVault, amount);
+        pairedAMM.convertIndexHolderFees(amount);
+        emit IndexHolderFeesHarvested(msg.sender, amount);
     }
 
     // ─────────────────────────────── Nutbox IPool ──────────────────────────────

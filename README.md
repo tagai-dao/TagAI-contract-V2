@@ -1,8 +1,8 @@
 # TagAI Contract V2
 
-Smart contracts for **TagAI (TipTag)** on BSC — **Pump Version 9 (V9)**. V9 ties together **community token launches**, **creator IPShare**, **Nutbox community incentives**, and **PancakeSwap V4 on-chain trading**. Users participate through Twitter/X social activity; tokens start on a bonding curve and migrate to the DEX once listing conditions are met, with swap fees flowing back to the community and creators.
+Smart contracts for **TagAI (TipTag)** on BSC — **Pump Version 9 (V9)** for new community token launches, plus **Version 10 (V10)** for importing existing ERC20s into Nutbox via `ImportHelper`. V9 ties together **community token launches**, **creator IPShare**, **Nutbox community incentives**, and **PancakeSwap V4 on-chain trading**. Users participate through Twitter/X social activity; tokens start on a bonding curve and migrate to the DEX once listing conditions are met, with swap fees flowing back to the community and creators.
 
-> **Earlier Pump versions (V1–V8)** live in the legacy Hardhat repo: [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract). This repository is the Foundry-based **V9** deployment and supersedes V8 on BSC mainnet for new community tokens.
+> **Earlier Pump versions (V1–V8)** live in the legacy Hardhat repo: [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract). This repository is the Foundry-based **V9 / V10** deployment and supersedes V8 on BSC mainnet for new community tokens (and for external-token Nutbox imports that previously went through Pump6).
 
 ## What It Solves
 
@@ -42,6 +42,7 @@ User creates community token
 | **HourlyTickCalculator** | Nutbox reward calculator: hourly buckets + 168h linear vesting per injection |
 | **SocialCurationFactory** | Social curation reward pool (Nutbox dApp) |
 | **DFXStarScoreStakingFactory** | Score-staking reward pool (Nutbox dApp, e.g. DFXStar Score) |
+| **ImportHelper** | V10 helper: import an existing ERC20 into Nutbox (Community + SocialCuration) in one tx |
 
 ### Nutbox Stack
 
@@ -161,13 +162,35 @@ Period buy volume *P* (whole tokens, 18 decimals). Ratio applies to the settled 
 
 ## Protocol Versions
 
-TagAI’s on-chain launch stack has evolved through multiple **Pump** factory versions on BSC. **IPShare v1** (`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`) has been reused since early versions and is still shared by V9.
+TagAI’s on-chain launch stack has evolved through multiple **Pump** factory versions on BSC. **IPShare v1** (`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`) has been reused since early versions and is still shared by V9 / V10.
 
 | Version | Repository | Status | Summary |
 |---------|------------|--------|---------|
 | **V1–V7** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy | Iterative Hardhat releases: bonding-curve launch, IPShare value capture, PCS hook fee routing. Historical Pump / Hook addresses documented in that repo. |
 | **V8** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy (superseded) | Agent-focused communities: only agents could trade on the bonding curve pre-listing; 15% supply auto-provisioned for Nutbox Community creation with a default SocialCuration pool. |
-| **V9** | **This repo** | **Current** | Full Nutbox integration (HourlyTickCalculator, SocialCuration, DFXStar Score Staking), open bonding-curve trading with anti-snipe, PCS V4 listing via `TagAISwapHook`, and Nutbox token injection on DEX swaps. |
+| **V9** | **This repo** | **Current (new launches)** | Full Nutbox integration (HourlyTickCalculator, SocialCuration, DFXStar Score Staking), open bonding-curve trading with anti-snipe, PCS V4 listing via `TagAISwapHook`, and Nutbox token injection on DEX swaps. |
+| **V10** | **This repo** (`ImportHelper`) | **Current (external import)** | Import an **already-deployed ERC20** into Nutbox without going through Pump: create a non-mintable Community bound to that token, mount a default SocialCuration pool, and hand ownership to the caller. Replaces the old Pump6 import flow. |
+
+### What is V10 (`ImportHelper`)
+
+V9 creates **new** community tokens via Pump (bonding curve → PCS V4). **V10** is a parallel path for tokens that **already exist** on-chain and only need Nutbox community incentives wired up.
+
+Contract: [`src/helper/ImportHelper.sol`](src/helper/ImportHelper.sol)
+
+**One-shot flow** (`createCommunityAndPool`)
+
+1. Pay the Committee create-community fee and call `CommunityFactory.createCommunity` with `isMintable = false` and `communityToken =` the imported ERC20
+2. Set the Community `devFund` to the caller
+3. Pay the community-settings fee and `adminAddPool` a **Social Curation** pool at **100%** reward ratio
+4. Transfer Community ownership to the caller
+
+**What V10 does *not* do**
+
+- Does not deploy a new ERC20, Pump Token, bonding curve, or `TagAISwapHook`
+- Does not list on PCS V4 or inject from DEX fees (those remain V9 Pump-token mechanics)
+- Reward calculator (e.g. `HourlyTickCalculator`) and `distributionPolicy` are supplied by the caller at import time
+
+Existing tokens created under V8 (or earlier) remain bound to their original Pump / Token / Hook contracts. **New launches should use Pump V9**; **importing an external ERC20 into Nutbox should use ImportHelper (V10)**.
 
 ### Legacy mainnet addresses (V1–V8)
 
@@ -182,8 +205,6 @@ Published in [tagai-contract README](https://github.com/tagai-dao/tagai-contract
 | **Pump V8** | `0x88d495228E831b01D8Ae6d62f9633cBcC6d27De2` |
 | **TipTagSwapHook V8** | `0xF1fa1B3Eb87D9A916fc8d9D1b172Ec67b4612800` |
 
-Existing tokens created under V8 (or earlier) remain bound to their original Pump / Token / Hook contracts. **New launches should use Pump V9** (addresses below).
-
 ### What changed in V9
 
 - **Broader Nutbox stack**: HourlyTickCalculator plus DFXStar Score Staking factory alongside SocialCuration
@@ -191,7 +212,7 @@ Existing tokens created under V8 (or earlier) remain bound to their original Pum
 - **New Pump + Hook deployment**: Fresh factory and `TagAISwapHook` with updated listing and fee/injection logic on PCS V4
 - **Same IPShare layer**: Creator shares still flow through the production IPShare v1 contract
 
-## BSC Mainnet — Pump V9
+## BSC Mainnet — Pump V9 / ImportHelper V10
 
 Chain: **BNB Smart Chain (56)**  
 Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
@@ -203,6 +224,7 @@ Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
 | TagAISwapHook | [`0x78443e75aD3D70DAAab0De33d2D5Dea0cBae0cC1`](https://bscscan.com/address/0x78443e75ad3d70daaab0de33d2d5dea0cbae0cc1) |
 | HourlyTickCalculator | [`0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d`](https://bscscan.com/address/0x6ccec02e7d371fed954d7d16ecb7f2f57cccf54d) |
 | DFXStarScoreStakingFactory | [`0x77Fb65140B746e639bB512c2C25604d1924aE774`](https://bscscan.com/address/0x77fb65140b746e639bb512c2c25604d1924ae774) |
+| ImportHelper (V10) | [`0xF346A700830633bB27a46fC1e7eAAE49F593A4c6`](https://bscscan.com/address/0xF346A700830633bB27a46fC1e7eAAE49F593A4c6) |
 | IPShare (reused) | [`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`](https://bscscan.com/address/0x95450aad4cc195e03bb4791b7f6f04ac6d9ba922) |
 
 **Reused Nutbox / PCS infrastructure:** Committee, CommunityFactory, SocialCurationFactory, PCS V4 CLPoolManager, Vault (see `addresses.json`).
