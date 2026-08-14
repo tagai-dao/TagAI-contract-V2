@@ -163,6 +163,8 @@ Period buy volume *P* (whole tokens, 18 decimals). Ratio applies to the settled 
 
 TagAI’s on-chain launch stack has evolved through multiple **Pump** factory versions on BSC. **IPShare v1** (`0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922`) has been reused since early versions and is still shared by V9.
 
+The source commits and complete BSC deployment inventory for each release are maintained in [`VERSION_HISTORY.md`](VERSION_HISTORY.md).
+
 | Version | Repository | Status | Summary |
 |---------|------------|--------|---------|
 | **V1–V7** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy | Iterative Hardhat releases: bonding-curve launch, IPShare value capture, PCS hook fee routing. Historical Pump / Hook addresses documented in that repo. |
