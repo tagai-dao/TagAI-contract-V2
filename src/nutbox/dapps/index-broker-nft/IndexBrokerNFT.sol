@@ -238,8 +238,8 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         _validateText(symbol_, MAX_SYMBOL_LENGTH);
         _validateLevelConfig(thresholds_, weights_);
         if (
-            communityTokenPrice_ == 0 || indexMiningActivationTokenAmount_ == 0 || maxSupply_ == 0
-                || referralBps_ > BPS_DENOMINATOR || (nativePrice_ == 0 && referralBps_ != 0)
+            communityTokenPrice_ == 0 || maxSupply_ == 0 || referralBps_ > BPS_DENOMINATOR
+                || (nativePrice_ == 0 && referralBps_ != 0)
         ) revert InvalidMintConfig();
         if (whitelistAccounts_.length == 0 || whitelistAccounts_.length != whitelistAllowances_.length) {
             revert InvalidWhitelistConfig();
@@ -452,14 +452,17 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         if (record.indexMiningActive) revert IndexMiningAlreadyActive();
         uint256 weight = record.indexMiningWeight;
 
-        _burnCommunityToken(indexMiningActivationTokenAmount);
+        uint256 activationAmount = indexMiningActivationTokenAmount;
+        if (activationAmount != 0) {
+            _burnCommunityToken(activationAmount);
 
-        // The community token is externally supplied and may execute callbacks from
-        // transferFrom. Do not continue with stale ownership or mining state after it
-        // has had an opportunity to transfer this NFT.
-        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
-        if (record.indexMiningActive) revert IndexMiningAlreadyActive();
-        if (record.indexMiningWeight != weight) revert IndexMiningStateChanged();
+            // The community token is externally supplied and may execute callbacks from
+            // transferFrom. Do not continue with stale ownership or mining state after it
+            // has had an opportunity to transfer this NFT.
+            if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+            if (record.indexMiningActive) revert IndexMiningAlreadyActive();
+            if (record.indexMiningWeight != weight) revert IndexMiningStateChanged();
+        }
 
         record.indexMiningActive = true;
         if (weight != 0) {
@@ -467,7 +470,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             record.indexRewardDebt = Math.mulDiv(weight, indexRewardPerWeight, INDEX_REWARD_PRECISION);
             _distributeQueuedIndexRewards();
         }
-        emit IndexMiningActivated(msg.sender, tokenId, indexMiningActivationTokenAmount);
+        emit IndexMiningActivated(msg.sender, tokenId, activationAmount);
         emit MetadataUpdate(tokenId);
     }
 

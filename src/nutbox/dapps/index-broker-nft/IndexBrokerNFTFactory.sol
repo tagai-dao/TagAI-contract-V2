@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 
 import "../../CommunityFactory.sol";
 import "../../interfaces/IPoolFactory.sol";
-import "./IIndexBrokerNFTPriceOracle.sol";
+import "../../../router/INutboxRouter.sol";
 import "./IndexBrokerNFTAMM.sol";
 import "./IndexBrokerNFT.sol";
 
@@ -16,6 +16,10 @@ interface IOwnableCommunity {
 
 interface IIndexBrokerFactoryBasketRegistry {
     function isBasket(address candidate) external view returns (bool);
+}
+
+interface IIndexBrokerFactoryPump {
+    function createdTokens(address token) external view returns (bool);
 }
 
 /**
@@ -50,9 +54,12 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     struct AMMConfig {
         uint16 normalFeeBps;
         uint16 specificFeeBps;
-        IIndexBrokerNFTPriceOracle.SourceType priceSourceType;
+        INutboxRouter.SourceType priceSourceType;
         bytes priceSourceData;
         address indexToken;
+        /// @dev Zero selects the constructor-supplied Pump when it created the
+        ///      community token, otherwise the token is treated as external.
+        address pump;
     }
 
     address public immutable communityFactory;
@@ -60,26 +67,31 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     address public immutable defaultRenderer;
     address public immutable poolTemplate;
     address public immutable ammTemplate;
-    address public immutable priceOracle;
+    address public immutable nutboxRouter;
     address public immutable basketRegistry;
     address public immutable basketSwapRouter;
     address public immutable indexV3Router;
     uint24 public immutable indexV3Fee;
     address public defaultIndexToken;
     uint16 public platformFeeBps = DEFAULT_PLATFORM_FEE_BPS;
+    mapping(address => bool) public supportedPump;
     bytes[] private _reservedCollectionNames;
     mapping(bytes32 => bool) public reservedCollectionNameHash;
     mapping(bytes32 => uint256) private _reservedCollectionNameIndexPlusOne;
 
     event PlatformFeeBpsChanged(uint16 previousBps, uint16 newBps);
     event DefaultIndexTokenChanged(address indexed previousToken, address indexed newToken);
+    event PumpAdded(address indexed pump);
+    event PumpRemoved(address indexed pump);
     event ReservedCollectionNameAdded(string name);
     event ReservedCollectionNameRemoved(string name);
     event IndexBrokerNFTAMMCreated(
         address indexed pool,
         address indexed ammVault,
-        address priceOracle,
-        IIndexBrokerNFTPriceOracle.SourceType priceSourceType,
+        address indexed pump,
+        address nutboxRouter,
+        INutboxRouter.SourceType priceSourceType,
+        address priceQuoteToken,
         bool active,
         uint16 normalFeeBps,
         uint16 specificFeeBps,
@@ -109,13 +121,17 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     error ReservedCollectionNameAlreadyAdded();
     error ReservedCollectionNameNotFound();
     error ReservedCollectionNameUsed();
+    error InvalidPump();
+    error PumpAlreadyAdded();
+    error PumpNotFound();
+    error TokenNotCreatedByPump();
 
     constructor(
         address communityFactory_,
         address pump_,
         address defaultRenderer_,
         address ammTemplate_,
-        address priceOracle_,
+        address nutboxRouter_,
         address basketRegistry_,
         address basketSwapRouter_,
         address indexV3Router_,
@@ -124,7 +140,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     ) {
         require(
             communityFactory_ != address(0) && pump_.code.length > 0 && defaultRenderer_.code.length > 0
-                && ammTemplate_.code.length > 0 && priceOracle_.code.length > 0 && basketRegistry_.code.length > 0
+                && ammTemplate_.code.length > 0 && nutboxRouter_.code.length > 0 && basketRegistry_.code.length > 0
                 && basketSwapRouter_.code.length > 0 && indexV3Router_.code.length > 0,
             "Invalid address"
         );
@@ -134,13 +150,31 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         defaultRenderer = defaultRenderer_;
         poolTemplate = address(new IndexBrokerNFT());
         ammTemplate = ammTemplate_;
-        priceOracle = priceOracle_;
+        nutboxRouter = nutboxRouter_;
         basketRegistry = basketRegistry_;
         basketSwapRouter = basketSwapRouter_;
         indexV3Router = indexV3Router_;
         indexV3Fee = indexV3Fee_;
         defaultIndexToken = defaultIndexToken_;
+        supportedPump[pump_] = true;
+        emit PumpAdded(pump_);
         _addReservedCollectionName("stonkbroker");
+    }
+
+    /// @notice Enables a Pump version for future NFT pools.
+    /// @dev Existing AMMs snapshot their Pump and are not affected by later registry changes.
+    function addPump(address newPump) external onlyOwner {
+        if (newPump.code.length == 0) revert InvalidPump();
+        if (supportedPump[newPump]) revert PumpAlreadyAdded();
+        supportedPump[newPump] = true;
+        emit PumpAdded(newPump);
+    }
+
+    /// @notice Prevents a Pump version from being selected by future NFT pools.
+    function removePump(address oldPump) external onlyOwner {
+        if (!supportedPump[oldPump]) revert PumpNotFound();
+        delete supportedPump[oldPump];
+        emit PumpRemoved(oldPump);
     }
 
     function setPlatformFeeBps(uint16 newBps) external onlyOwner {
@@ -213,14 +247,17 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address ammClone = Clones.clone(ammTemplate);
         IndexBrokerNFT pool = IndexBrokerNFT(payable(clone));
         _initializeNFT(pool, community, admin, selectedRenderer, ammClone, selectedIndexToken, name, config);
-        _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, selectedIndexToken, ammConfig);
+        address selectedPump = _selectPump(pool.communityToken(), ammConfig.pump);
+        _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, selectedIndexToken, selectedPump, ammConfig);
         _emitNFTCreated(pool, clone, community, admin, selectedRenderer, name, config);
         IndexBrokerNFTAMM initializedAMM = IndexBrokerNFTAMM(payable(ammClone));
         emit IndexBrokerNFTAMMCreated(
             clone,
             ammClone,
-            priceOracle,
+            selectedPump,
+            nutboxRouter,
             initializedAMM.priceSourceType(),
+            initializedAMM.priceQuoteToken(),
             initializedAMM.active(),
             ammConfig.normalFeeBps,
             ammConfig.specificFeeBps,
@@ -286,6 +323,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address ammClone,
         uint256 communityTokenPrice,
         address selectedIndexToken,
+        address selectedPump,
         AMMConfig memory config
     ) internal {
         IndexBrokerNFTAMM(payable(ammClone))
@@ -295,8 +333,8 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
                 communityTokenPrice,
                 config.normalFeeBps,
                 config.specificFeeBps,
-                pump,
-                priceOracle,
+                selectedPump,
+                nutboxRouter,
                 config.priceSourceType,
                 config.priceSourceData,
                 basketRegistry,
@@ -305,6 +343,18 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
                 indexV3Fee,
                 selectedIndexToken
             );
+    }
+
+    function _selectPump(address communityToken, address configuredPump) internal view returns (address selectedPump) {
+        selectedPump = configuredPump;
+        if (selectedPump == address(0)) {
+            // Preserve the original single-Pump creation flow without scanning an
+            // ever-growing Pump list. Newer Pump versions are selected explicitly.
+            if (supportedPump[pump] && IIndexBrokerFactoryPump(pump).createdTokens(communityToken)) return pump;
+            return address(0);
+        }
+        if (!supportedPump[selectedPump]) revert PumpNotFound();
+        if (!IIndexBrokerFactoryPump(selectedPump).createdTokens(communityToken)) revert TokenNotCreatedByPump();
     }
 
     function _emitNFTCreated(

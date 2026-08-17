@@ -234,7 +234,7 @@ Status: V11 is deployed and published; all new contracts are source-verified.
 | IndexBrokerNFTPriceOracle | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) |
 | StonkBrokerRenderer | [`0xd4B6120f566CDecD88b7Be6f994a6c7493F8a068`](https://bscscan.com/address/0xd4b6120f566cdecd88b7be6f994a6c7493f8a068) |
 
-Detailed behavior: [`Pump / Token / Hook V11`](docs/PUMP_TOKEN_HOOK_V11.md) · [`Index Broker NFT`](src/nutbox/dapps/index-broker-nft/README.md) · [`full version and transaction history`](VERSION_HISTORY.md).
+Detailed behavior: [`Pump / Token / Hook V11`](docs/PUMP_TOKEN_HOOK_V11.md) · [`NutboxRouter`](src/router/README.md) · [`Index Broker NFT`](src/nutbox/dapps/index-broker-nft/README.md) · [`full version and transaction history`](VERSION_HISTORY.md).
 
 Previous production snapshots remain immutable: [`V9`](deployments/56/version9.json) · [`V10`](deployments/56/version10.json). Reused Nutbox, Basket, IPShare, PancakeSwap and ImportHelper addresses are included in the cumulative V11 snapshot.
 

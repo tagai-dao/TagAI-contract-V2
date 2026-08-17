@@ -12,7 +12,7 @@ import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
 import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol";
 import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTAMM.sol";
 import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTFactory.sol";
-import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTPriceOracle.sol";
+import "../../src/router/NutboxRouter.sol";
 import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTRenderer.sol";
 
 contract IndexBrokerCommunityToken is ERC20 {
@@ -28,10 +28,31 @@ contract IndexBrokerCommunityToken is ERC20 {
     }
 
     function configureListing(address poolManager, address hook, bytes32 parameters, bool listed_) external {
+        _configureListing(poolManager, hook, parameters, address(0), listed_);
+    }
+
+    function configureListingWithQuoteToken(
+        address poolManager,
+        address hook,
+        bytes32 parameters,
+        address quoteToken,
+        bool listed_
+    ) external {
+        _configureListing(poolManager, hook, parameters, quoteToken, listed_);
+    }
+
+    function _configureListing(address poolManager, address hook, bytes32 parameters, address quoteToken, bool listed_)
+        internal
+    {
         clPoolManager = poolManager;
         listingHook = hook;
         listingPoolParameters = parameters;
-        v4PoolId = keccak256(abi.encode(address(0), address(this), hook, poolManager, LISTING_LP_FEE, parameters));
+        (address currency0, address currency1) = quoteToken == address(0) || quoteToken < address(this)
+            ? (quoteToken, address(this))
+            : (address(this), quoteToken);
+        v4PoolId = keccak256(abi.encode(currency0, currency1, hook, poolManager, LISTING_LP_FEE, parameters));
+        IndexBrokerPancakeV4CLManagerMock(poolManager)
+            .setPoolKey(v4PoolId, currency0, currency1, hook, LISTING_LP_FEE, parameters);
         listed = listed_;
     }
 
@@ -52,9 +73,37 @@ contract IndexBrokerPumpMock {
     }
 }
 
+contract IndexBrokerPancakeV4VaultMock {}
+
 contract IndexBrokerPancakeV4CLManagerMock {
+    address public immutable vault;
+
+    constructor(address vault_) {
+        vault = vault_;
+    }
+
+    struct StoredPoolKey {
+        address currency0;
+        address currency1;
+        address hooks;
+        uint24 fee;
+        bytes32 parameters;
+    }
+
     mapping(bytes32 => uint160) private _sqrtPriceX96;
     mapping(bytes32 => uint128) private _liquidity;
+    mapping(bytes32 => StoredPoolKey) private _poolKeys;
+
+    function setPoolKey(
+        bytes32 poolId,
+        address currency0,
+        address currency1,
+        address hooks,
+        uint24 fee,
+        bytes32 parameters
+    ) external {
+        _poolKeys[poolId] = StoredPoolKey(currency0, currency1, hooks, fee, parameters);
+    }
 
     function setPool(bytes32 poolId, uint160 sqrtPriceX96, uint128 liquidity) external {
         _sqrtPriceX96[poolId] = sqrtPriceX96;
@@ -71,6 +120,22 @@ contract IndexBrokerPancakeV4CLManagerMock {
 
     function getLiquidity(bytes32 poolId) external view returns (uint128 liquidity) {
         return _liquidity[poolId];
+    }
+
+    function poolIdToPoolKey(bytes32 poolId)
+        external
+        view
+        returns (
+            address currency0,
+            address currency1,
+            address hooks,
+            address poolManager,
+            uint24 fee,
+            bytes32 parameters
+        )
+    {
+        StoredPoolKey memory key = _poolKeys[poolId];
+        return (key.currency0, key.currency1, key.hooks, address(this), key.fee, key.parameters);
     }
 }
 
@@ -211,7 +276,7 @@ contract IndexBrokerNFTTest is Test {
     ERC20 internal wrappedNative;
     IndexBrokerV2FactoryMock internal v2Factory;
     IndexBrokerV2PairMock internal v2Pair;
-    IndexBrokerNFTPriceOracle internal priceOracle;
+    NutboxRouter internal nutboxRouter;
     IndexBrokerBasketRegistryMock internal basketRegistry;
     IndexBrokerIndexV3FactoryMock internal indexV3Factory;
     IndexBrokerIndexV3RouterMock internal indexV3Router;
@@ -251,24 +316,33 @@ contract IndexBrokerNFTTest is Test {
         calculator = new HourlyTickCalculator(address(communityFactory));
         communityToken = new IndexBrokerCommunityToken();
         pump = new IndexBrokerPumpMock();
-        pancakeV4Manager = new IndexBrokerPancakeV4CLManagerMock();
+        pancakeV4Manager = new IndexBrokerPancakeV4CLManagerMock(address(new IndexBrokerPancakeV4VaultMock()));
         wrappedNative = new IndexBrokerCommunityToken();
         v2Factory = new IndexBrokerV2FactoryMock();
         v2Pair = new IndexBrokerV2PairMock(address(v2Factory), address(communityToken), address(wrappedNative));
         v2Factory.setPair(address(communityToken), address(wrappedNative), address(v2Pair));
         _setV2Price(1_000_000 ether, 100 ether);
 
+        indexV3Factory = new IndexBrokerIndexV3FactoryMock();
+        indexV3Router = new IndexBrokerIndexV3RouterMock(address(indexV3Factory), address(wrappedNative));
+
         address[] memory v2Factories = new address[](1);
         v2Factories[0] = address(v2Factory);
+        address[] memory v3Factories = new address[](1);
+        v3Factories[0] = address(indexV3Factory);
         address[] memory pancakeV4Managers = new address[](1);
         pancakeV4Managers[0] = address(pancakeV4Manager);
-        priceOracle = new IndexBrokerNFTPriceOracle(
-            address(wrappedNative), v2Factories, new address[](0), new address[](0), pancakeV4Managers
+        nutboxRouter = new NutboxRouter(
+            address(wrappedNative),
+            address(indexV3Router),
+            new address[](0),
+            v2Factories,
+            v3Factories,
+            new address[](0),
+            pancakeV4Managers
         );
         basketRegistry = new IndexBrokerBasketRegistryMock();
         indexSettlementToken = new IndexBrokerCommunityToken();
-        indexV3Factory = new IndexBrokerIndexV3FactoryMock();
-        indexV3Router = new IndexBrokerIndexV3RouterMock(address(indexV3Factory), address(wrappedNative));
         indexV3Factory.setPool(address(wrappedNative), address(indexSettlementToken), INDEX_V3_FEE, address(v2Pair));
         basketSwapRouter = new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken));
         defaultIndexToken = new IndexBrokerIndexTokenMock("DEFAULT-INDEX");
@@ -280,7 +354,7 @@ contract IndexBrokerNFTTest is Test {
             address(pump),
             address(new IndexBrokerNFTRenderer()),
             address(new IndexBrokerNFTAMM()),
-            address(priceOracle),
+            address(nutboxRouter),
             address(basketRegistry),
             address(basketSwapRouter),
             address(indexV3Router),
@@ -336,7 +410,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(amm.tokensPerNFT(), COMMUNITY_TOKEN_PRICE);
         assertEq(amm.normalFeeBps(), AMM_NORMAL_FEE_BPS);
         assertEq(amm.specificFeeBps(), AMM_SPECIFIC_FEE_BPS);
-        assertEq(amm.priceOracle(), address(priceOracle));
+        assertEq(amm.nutboxRouter(), address(nutboxRouter));
         assertEq(amm.basketRegistry(), address(basketRegistry));
         assertEq(address(amm.basketSwapRouter()), address(basketSwapRouter));
         assertEq(address(amm.indexV3Router()), address(indexV3Router));
@@ -346,7 +420,8 @@ contract IndexBrokerNFTTest is Test {
         assertEq(amm.indexToken(), address(defaultIndexToken));
         assertEq(amm.platformFeeReceiver(), platformTreasury);
         assertTrue(amm.active());
-        assertEq(uint8(amm.priceSourceType()), uint8(IIndexBrokerNFTPriceOracle.SourceType.V2_PAIR));
+        assertEq(uint8(amm.priceSourceType()), uint8(INutboxRouter.SourceType.V2_PAIR));
+        assertEq(amm.priceQuoteToken(), address(wrappedNative));
         assertEq(amm.quoteNativeValue(), NFT_NATIVE_VALUE);
         uint256 platformFee = NFT_NATIVE_VALUE * AMM_PLATFORM_FEE_BPS / 10_000;
         assertEq(amm.PLATFORM_FEE_BPS(), AMM_PLATFORM_FEE_BPS);
@@ -367,8 +442,72 @@ contract IndexBrokerNFTTest is Test {
     function test_ExternalTokenCreatesImmediatelyActiveAMM() public view {
         assertFalse(pump.createdTokens(address(communityToken)));
         assertTrue(amm.active());
-        assertEq(uint8(amm.priceSourceType()), uint8(IIndexBrokerNFTPriceOracle.SourceType.V2_PAIR));
+        assertEq(uint8(amm.priceSourceType()), uint8(INutboxRouter.SourceType.V2_PAIR));
         assertEq(amm.priceSourceData(), abi.encode(address(v2Factory), address(v2Pair)));
+    }
+
+    function test_AMMReadsOwnFirstPoolThenUsesDynamicRouterRoute() public {
+        (Community externalCommunity, IndexBrokerCommunityToken tokenA) = _createCommunity(false);
+        IndexBrokerCommunityToken spcx = new IndexBrokerCommunityToken();
+        IndexBrokerCommunityToken usdt = new IndexBrokerCommunityToken();
+
+        IndexBrokerV2PairMock aSpcx = _createV2Pair(address(tokenA), address(spcx), 1_000_000 ether, 2_000_000 ether);
+        IndexBrokerV2PairMock spcxUsdt = _createV2Pair(address(spcx), address(usdt), 1_000_000 ether, 1_000_000 ether);
+        IndexBrokerV2PairMock usdtWbnb =
+            _createV2Pair(address(usdt), address(wrappedNative), 1_000_000 ether, 100 ether);
+
+        bytes32[] memory poolIds = new bytes32[](2);
+        poolIds[0] = nutboxRouter.addPricePool(
+            INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(spcxUsdt))
+        );
+        poolIds[1] = nutboxRouter.addPricePool(
+            INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(usdtWbnb))
+        );
+        nutboxRouter.addRoute(address(spcx), address(wrappedNative), poolIds);
+
+        IndexBrokerNFT routedPool =
+            _addPoolToCommunity(externalCommunity, abi.encode(address(v2Factory), address(aSpcx)));
+        IndexBrokerNFTAMM routedAMM = IndexBrokerNFTAMM(payable(routedPool.ammVault()));
+
+        assertTrue(routedAMM.active());
+        assertEq(routedAMM.priceQuoteToken(), address(spcx));
+        assertEq(routedAMM.quoteNativeValue(), 0.2 ether);
+
+        _setPairReserves(usdtWbnb, address(usdt), 1_000_000 ether, 200 ether);
+        assertEq(routedAMM.quoteNativeValue(), 0.4 ether);
+
+        IndexBrokerV2PairMock replacementSpcxUsdt =
+            _createV2Pair(address(spcx), address(usdt), 1_000_000 ether, 2_000_000 ether);
+        bytes32 stableSpcxUsdtPoolId = nutboxRouter.replacePricePool(
+            INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(replacementSpcxUsdt))
+        );
+        assertEq(stableSpcxUsdtPoolId, poolIds[0]);
+        assertEq(nutboxRouter.routePoolAt(address(spcx), address(wrappedNative), 0), poolIds[0]);
+        assertEq(routedAMM.quoteNativeValue(), 0.8 ether);
+
+        IndexBrokerV2PairMock spcxWbnb =
+            _createV2Pair(address(spcx), address(wrappedNative), 1_000_000 ether, 300 ether);
+        bytes32 directPoolId = nutboxRouter.addPricePool(
+            INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(spcxWbnb))
+        );
+        bytes32[] memory replacementPoolIds = new bytes32[](1);
+        replacementPoolIds[0] = directPoolId;
+        nutboxRouter.replaceRoute(address(spcx), address(wrappedNative), replacementPoolIds);
+        assertEq(routedAMM.quoteNativeValue(), 0.6 ether);
+
+        nutboxRouter.removeRoute(address(spcx), address(wrappedNative));
+        vm.expectRevert(NutboxRouter.RouteNotFound.selector);
+        routedAMM.quoteNativeValue();
+    }
+
+    function test_ExternalAMMQuotedInNonNativeTokenRequiresRouterRoute() public {
+        (Community externalCommunity, IndexBrokerCommunityToken tokenA) = _createCommunity(false);
+        IndexBrokerCommunityToken unsupportedQuoteToken = new IndexBrokerCommunityToken();
+        IndexBrokerV2PairMock pair =
+            _createV2Pair(address(tokenA), address(unsupportedQuoteToken), 1_000_000 ether, 1_000_000 ether);
+
+        vm.expectRevert(NutboxRouter.RouteNotFound.selector);
+        this.addPoolToCommunityForRevertTest(externalCommunity, abi.encode(address(v2Factory), address(pair)));
     }
 
     function test_OfficialTokenRejectsConfiguredSourceAtCreation() public {
@@ -376,6 +515,103 @@ contract IndexBrokerNFTTest is Test {
 
         vm.expectRevert(IndexBrokerNFTAMM.OfficialPriceSourceMustBeAutomatic.selector);
         this.addPoolToCommunityForRevertTest(officialCommunity, abi.encode(address(v2Factory), address(v2Pair)));
+    }
+
+    function test_FactoryOwnerManagesSupportedPumpVersionsInConstantTime() public {
+        IndexBrokerPumpMock secondPump = new IndexBrokerPumpMock();
+        assertTrue(poolFactory.supportedPump(address(pump)));
+        assertFalse(poolFactory.supportedPump(address(secondPump)));
+
+        vm.prank(paidUser);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        poolFactory.addPump(address(secondPump));
+
+        poolFactory.addPump(address(secondPump));
+        assertTrue(poolFactory.supportedPump(address(secondPump)));
+
+        vm.expectRevert(IndexBrokerNFTFactory.PumpAlreadyAdded.selector);
+        poolFactory.addPump(address(secondPump));
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidPump.selector);
+        poolFactory.addPump(paidUser);
+
+        vm.prank(paidUser);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        poolFactory.removePump(address(secondPump));
+
+        poolFactory.removePump(address(secondPump));
+        assertFalse(poolFactory.supportedPump(address(secondPump)));
+        vm.expectRevert(IndexBrokerNFTFactory.PumpNotFound.selector);
+        poolFactory.removePump(address(secondPump));
+    }
+
+    function test_ExplicitPumpMustBeSupportedAndMustHaveCreatedCommunityToken() public {
+        IndexBrokerPumpMock secondPump = new IndexBrokerPumpMock();
+        (Community externalCommunity,) = _createCommunity(false);
+
+        vm.expectRevert(IndexBrokerNFTFactory.PumpNotFound.selector);
+        this.addPoolToCommunityWithPumpForRevertTest(externalCommunity, bytes(""), address(secondPump));
+
+        poolFactory.addPump(address(secondPump));
+        vm.expectRevert(IndexBrokerNFTFactory.TokenNotCreatedByPump.selector);
+        this.addPoolToCommunityWithPumpForRevertTest(externalCommunity, bytes(""), address(secondPump));
+    }
+
+    function test_SecondPumpNonNativeListingUsesDynamicRouterRouteAfterPumpRemoval() public {
+        IndexBrokerPumpMock secondPump = new IndexBrokerPumpMock();
+        poolFactory.addPump(address(secondPump));
+
+        IndexBrokerCommunityToken officialToken = new IndexBrokerCommunityToken();
+        IndexBrokerCommunityToken quoteToken = new IndexBrokerCommunityToken();
+        secondPump.setCreatedToken(address(officialToken), true);
+        Community officialCommunity = _createCommunityForToken(officialToken);
+
+        IndexBrokerV2PairMock quoteNativePair =
+            _createV2Pair(address(quoteToken), address(wrappedNative), 1_000_000 ether, 100 ether);
+        bytes32 quoteNativePoolId = nutboxRouter.addPricePool(
+            INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(quoteNativePair))
+        );
+        bytes32[] memory route = new bytes32[](1);
+        route[0] = quoteNativePoolId;
+        nutboxRouter.addRoute(address(quoteToken), address(wrappedNative), route);
+
+        address listingHook = makeAddr("secondPumpListingHook");
+        bytes32 parameters = bytes32(uint256(0x9876));
+        officialToken.configureListingWithQuoteToken(
+            address(pancakeV4Manager), listingHook, parameters, address(quoteToken), true
+        );
+        pancakeV4Manager.setPool(officialToken.v4PoolId(), uint160(1 << 96), 1_000_000);
+
+        IndexBrokerNFT officialPool = _addPoolToCommunityWithPump(officialCommunity, bytes(""), address(secondPump));
+        IndexBrokerNFTAMM officialAMM = IndexBrokerNFTAMM(payable(officialPool.ammVault()));
+
+        assertTrue(officialAMM.active());
+        assertEq(officialAMM.pump(), address(secondPump));
+        assertEq(officialAMM.priceQuoteToken(), address(quoteToken));
+        assertEq(officialAMM.quoteNativeValue(), 0.1 ether);
+
+        INutboxRouter.PancakeV4CLSource memory source =
+            abi.decode(officialAMM.priceSourceData(), (INutboxRouter.PancakeV4CLSource));
+        assertEq(
+            source.currency0,
+            address(officialToken) < address(quoteToken) ? address(officialToken) : address(quoteToken)
+        );
+        assertEq(
+            source.currency1,
+            address(officialToken) < address(quoteToken) ? address(quoteToken) : address(officialToken)
+        );
+
+        _setPairReserves(quoteNativePair, address(quoteToken), 1_000_000 ether, 200 ether);
+        assertEq(officialAMM.quoteNativeValue(), 0.2 ether);
+
+        poolFactory.removePump(address(secondPump));
+        assertFalse(poolFactory.supportedPump(address(secondPump)));
+        assertEq(officialAMM.quoteNativeValue(), 0.2 ether);
+
+        IndexBrokerCommunityToken nextOfficialToken = new IndexBrokerCommunityToken();
+        secondPump.setCreatedToken(address(nextOfficialToken), true);
+        Community nextCommunity = _createCommunityForToken(nextOfficialToken);
+        vm.expectRevert(IndexBrokerNFTFactory.PumpNotFound.selector);
+        this.addPoolToCommunityWithPumpForRevertTest(nextCommunity, bytes(""), address(secondPump));
     }
 
     function test_OfficialTokenStartsInactiveButMintCanSeedReserve() public {
@@ -430,9 +666,9 @@ contract IndexBrokerNFTTest is Test {
         officialAMM.activate();
 
         assertTrue(officialAMM.active());
-        assertEq(uint8(officialAMM.priceSourceType()), uint8(IIndexBrokerNFTPriceOracle.SourceType.PANCAKE_V4_CL));
-        IIndexBrokerNFTPriceOracle.PancakeV4CLSource memory source =
-            abi.decode(officialAMM.priceSourceData(), (IIndexBrokerNFTPriceOracle.PancakeV4CLSource));
+        assertEq(uint8(officialAMM.priceSourceType()), uint8(INutboxRouter.SourceType.PANCAKE_V4_CL));
+        INutboxRouter.PancakeV4CLSource memory source =
+            abi.decode(officialAMM.priceSourceData(), (INutboxRouter.PancakeV4CLSource));
         assertEq(source.currency0, address(0));
         assertEq(source.currency1, address(officialToken));
         assertEq(source.hooks, listingHook);
@@ -466,9 +702,9 @@ contract IndexBrokerNFTTest is Test {
         IndexBrokerNFTAMM officialAMM = IndexBrokerNFTAMM(payable(officialPool.ammVault()));
 
         assertTrue(officialAMM.active());
-        assertEq(uint8(officialAMM.priceSourceType()), uint8(IIndexBrokerNFTPriceOracle.SourceType.PANCAKE_V4_CL));
-        IIndexBrokerNFTPriceOracle.PancakeV4CLSource memory source =
-            abi.decode(officialAMM.priceSourceData(), (IIndexBrokerNFTPriceOracle.PancakeV4CLSource));
+        assertEq(uint8(officialAMM.priceSourceType()), uint8(INutboxRouter.SourceType.PANCAKE_V4_CL));
+        INutboxRouter.PancakeV4CLSource memory source =
+            abi.decode(officialAMM.priceSourceData(), (INutboxRouter.PancakeV4CLSource));
         assertEq(source.currency0, address(0));
         assertEq(source.currency1, address(officialToken));
         assertEq(source.hooks, listingHook);
@@ -477,24 +713,28 @@ contract IndexBrokerNFTTest is Test {
         assertEq(source.parameters, parameters);
         assertEq(officialAMM.quoteNativeValue(), COMMUNITY_TOKEN_PRICE);
 
-        bytes32 createdEventSignature =
-            keccak256("IndexBrokerNFTAMMCreated(address,address,address,uint8,bool,uint16,uint16,address)");
+        bytes32 createdEventSignature = keccak256(
+            "IndexBrokerNFTAMMCreated(address,address,address,address,uint8,address,bool,uint16,uint16,address)"
+        );
         bool foundCreatedEvent;
         for (uint256 i; i < logs.length; ++i) {
             if (logs[i].emitter != address(poolFactory) || logs[i].topics[0] != createdEventSignature) continue;
 
             (
-                address emittedOracle,
+                address emittedRouter,
                 uint8 emittedSourceType,
+                address emittedQuoteToken,
                 bool emittedActive,
                 uint16 emittedNormalFeeBps,
                 uint16 emittedSpecificFeeBps,
                 address emittedIndexToken
-            ) = abi.decode(logs[i].data, (address, uint8, bool, uint16, uint16, address));
+            ) = abi.decode(logs[i].data, (address, uint8, address, bool, uint16, uint16, address));
             assertEq(address(uint160(uint256(logs[i].topics[1]))), address(officialPool));
             assertEq(address(uint160(uint256(logs[i].topics[2]))), address(officialAMM));
-            assertEq(emittedOracle, address(priceOracle));
-            assertEq(emittedSourceType, uint8(IIndexBrokerNFTPriceOracle.SourceType.PANCAKE_V4_CL));
+            assertEq(address(uint160(uint256(logs[i].topics[3]))), address(pump));
+            assertEq(emittedRouter, address(nutboxRouter));
+            assertEq(emittedSourceType, uint8(INutboxRouter.SourceType.PANCAKE_V4_CL));
+            assertEq(emittedQuoteToken, address(0));
             assertTrue(emittedActive);
             assertEq(emittedNormalFeeBps, AMM_NORMAL_FEE_BPS);
             assertEq(emittedSpecificFeeBps, AMM_SPECIFIC_FEE_BPS);
@@ -514,7 +754,7 @@ contract IndexBrokerNFTTest is Test {
             address(pancakeV4Manager), makeAddr("uninitializedPoolHook"), bytes32(uint256(0x9abc)), true
         );
 
-        vm.expectRevert(IndexBrokerNFTPriceOracle.PoolNotInitialized.selector);
+        vm.expectRevert(NutboxRouter.PoolNotInitialized.selector);
         this.addPoolToCommunityForRevertTest(officialCommunity, bytes(""));
     }
 
@@ -706,6 +946,39 @@ contract IndexBrokerNFTTest is Test {
         assertTrue(pool.miningActiveOf(1));
         assertEq(pool.getUserStakedAmount(whitelistUser2), BASE_WEIGHT);
         assertEq(pool.getTotalStakedAmount(), BASE_WEIGHT);
+    }
+
+    function test_ZeroActivationAmountAllowsFreeReactivationWithoutTokenApproval() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = paidUser;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        IndexBrokerNFT freeActivationPool =
+            _addPoolConfigured(0, 1, 0, true, accounts, allowances, address(0), 0, false, 0, "Free Activation NFT");
+        assertEq(freeActivationPool.indexMiningActivationTokenAmount(), 0);
+
+        _fundAndApprove(paidUser, freeActivationPool);
+        vm.prank(paidUser);
+        freeActivationPool.mint(0);
+        vm.prank(paidUser);
+        freeActivationPool.upgradeIndexMining(1, 100 ether);
+
+        address newOwner = makeAddr("freeActivationOwner");
+        vm.prank(paidUser);
+        freeActivationPool.transferFrom(paidUser, newOwner, 1);
+        assertFalse(freeActivationPool.indexMiningActiveOf(1));
+        assertEq(freeActivationPool.indexMiningWeightOf(1), 80 ether);
+        assertEq(communityToken.balanceOf(newOwner), 0);
+        assertEq(communityToken.allowance(newOwner, address(freeActivationPool)), 0);
+
+        uint256 burnBalanceBefore = communityToken.balanceOf(freeActivationPool.INDEX_MINING_BURN_ADDRESS());
+        vm.prank(newOwner);
+        freeActivationPool.activateIndexMining(1);
+
+        assertTrue(freeActivationPool.indexMiningActiveOf(1));
+        assertEq(freeActivationPool.activeIndexMiningWeightOf(1), 80 ether);
+        assertEq(freeActivationPool.totalActiveIndexMiningWeight(), 80 ether);
+        assertEq(communityToken.balanceOf(freeActivationPool.INDEX_MINING_BURN_ADDRESS()), burnBalanceBefore);
     }
 
     function test_IndexMiningUpgradeRequiresActiveNFTAndBurnsCommunityTokens() public {
@@ -1464,14 +1737,39 @@ contract IndexBrokerNFTTest is Test {
     {
         createdToken = new IndexBrokerCommunityToken();
         if (official) pump.setCreatedToken(address(createdToken), true);
+        createdCommunity = _createCommunityForToken(createdToken);
+    }
+
+    function _createCommunityForToken(IndexBrokerCommunityToken token) internal returns (Community createdCommunity) {
         createdCommunity = Community(
             payable(communityFactory.createCommunity(
-                    false, address(createdToken), address(0), bytes(""), address(calculator), bytes("")
+                    false, address(token), address(0), bytes(""), address(calculator), bytes("")
                 ))
         );
     }
 
+    function _createV2Pair(address tokenA, address tokenB, uint112 reserveA, uint112 reserveB)
+        internal
+        returns (IndexBrokerV2PairMock pair)
+    {
+        pair = new IndexBrokerV2PairMock(address(v2Factory), tokenA, tokenB);
+        v2Factory.setPair(tokenA, tokenB, address(pair));
+        _setPairReserves(pair, tokenA, reserveA, reserveB);
+    }
+
+    function _setPairReserves(IndexBrokerV2PairMock pair, address tokenA, uint112 reserveA, uint112 reserveB) internal {
+        if (pair.token0() == tokenA) pair.setReserves(reserveA, reserveB);
+        else pair.setReserves(reserveB, reserveA);
+    }
+
     function _addPoolToCommunity(Community targetCommunity, bytes memory priceSourceData)
+        internal
+        returns (IndexBrokerNFT createdPool)
+    {
+        return _addPoolToCommunityWithPump(targetCommunity, priceSourceData, address(0));
+    }
+
+    function _addPoolToCommunityWithPump(Community targetCommunity, bytes memory priceSourceData, address selectedPump)
         internal
         returns (IndexBrokerNFT createdPool)
     {
@@ -1486,9 +1784,10 @@ contract IndexBrokerNFTTest is Test {
         IndexBrokerNFTFactory.AMMConfig memory ammConfig = IndexBrokerNFTFactory.AMMConfig({
             normalFeeBps: AMM_NORMAL_FEE_BPS,
             specificFeeBps: AMM_SPECIFIC_FEE_BPS,
-            priceSourceType: IIndexBrokerNFTPriceOracle.SourceType.V2_PAIR,
+            priceSourceType: INutboxRouter.SourceType.V2_PAIR,
             priceSourceData: priceSourceData,
-            indexToken: address(0)
+            indexToken: address(0),
+            pump: selectedPump
         });
         IndexBrokerNFTFactory.PoolConfig memory config = IndexBrokerNFTFactory.PoolConfig({
             symbol: "IDXNFT",
@@ -1522,6 +1821,15 @@ contract IndexBrokerNFTTest is Test {
         return _addPoolToCommunity(targetCommunity, priceSourceData);
     }
 
+    function addPoolToCommunityWithPumpForRevertTest(
+        Community targetCommunity,
+        bytes calldata priceSourceData,
+        address selectedPump
+    ) external returns (IndexBrokerNFT) {
+        require(msg.sender == address(this), "test only");
+        return _addPoolToCommunityWithPump(targetCommunity, priceSourceData, selectedPump);
+    }
+
     function _addPool(
         uint256 nativePrice,
         uint256 supply,
@@ -1543,7 +1851,17 @@ contract IndexBrokerNFTTest is Test {
         address indexToken
     ) internal returns (IndexBrokerNFT createdPool) {
         return _addPoolConfigured(
-            nativePrice, supply, referralRate, lockSlots, accounts, allowances, indexToken, true, 0, "Index Broker NFT"
+            nativePrice,
+            supply,
+            referralRate,
+            lockSlots,
+            accounts,
+            allowances,
+            indexToken,
+            INDEX_MINING_ACTIVATION_TOKEN_AMOUNT,
+            true,
+            0,
+            "Index Broker NFT"
         );
     }
 
@@ -1565,6 +1883,7 @@ contract IndexBrokerNFTTest is Test {
             accounts,
             allowances,
             address(0),
+            INDEX_MINING_ACTIVATION_TOKEN_AMOUNT,
             reroll,
             rerollPrice,
             "Index Broker NFT"
@@ -1579,6 +1898,7 @@ contract IndexBrokerNFTTest is Test {
         address[] memory accounts,
         uint256[] memory allowances,
         address indexToken,
+        uint256 activationTokenAmount,
         bool reroll,
         uint256 rerollPrice,
         string memory collectionName
@@ -1595,9 +1915,10 @@ contract IndexBrokerNFTTest is Test {
         IndexBrokerNFTFactory.AMMConfig memory ammConfig = IndexBrokerNFTFactory.AMMConfig({
             normalFeeBps: AMM_NORMAL_FEE_BPS,
             specificFeeBps: AMM_SPECIFIC_FEE_BPS,
-            priceSourceType: IIndexBrokerNFTPriceOracle.SourceType.V2_PAIR,
+            priceSourceType: INutboxRouter.SourceType.V2_PAIR,
             priceSourceData: abi.encode(address(v2Factory), address(v2Pair)),
-            indexToken: indexToken
+            indexToken: indexToken,
+            pump: address(0)
         });
 
         IndexBrokerNFTFactory.PoolConfig memory config = IndexBrokerNFTFactory.PoolConfig({
@@ -1607,7 +1928,7 @@ contract IndexBrokerNFTTest is Test {
             levelThresholds: thresholds,
             levelWeights: weights,
             communityTokenPrice: COMMUNITY_TOKEN_PRICE,
-            indexMiningActivationTokenAmount: INDEX_MINING_ACTIVATION_TOKEN_AMOUNT,
+            indexMiningActivationTokenAmount: activationTokenAmount,
             recommitPrice: rerollPrice,
             nativePrice: nativePrice,
             maxSupply: supply,
@@ -1665,7 +1986,19 @@ contract IndexBrokerNFTTest is Test {
         accounts[0] = whitelistUser1;
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 1;
-        return _addPoolConfigured(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(0), true, 0, collectionName);
+        return _addPoolConfigured(
+            NATIVE_PRICE,
+            3,
+            0,
+            false,
+            accounts,
+            allowances,
+            address(0),
+            INDEX_MINING_ACTIVATION_TOKEN_AMOUNT,
+            true,
+            0,
+            collectionName
+        );
     }
 
     function _fundAndApprove(address user, IndexBrokerNFT targetPool) internal {

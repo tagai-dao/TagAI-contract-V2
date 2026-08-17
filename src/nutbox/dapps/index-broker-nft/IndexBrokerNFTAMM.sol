@@ -10,7 +10,8 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "./IIndexBrokerNFTPriceOracle.sol";
+import "../../../router/INutboxRouter.sol";
+import "../../../router/NutboxSpotPrice.sol";
 
 interface IIndexBrokerNFTPlatformFee {
     function platformFeeReceiver() external view returns (address);
@@ -25,9 +26,20 @@ interface IIndexBrokerTagAIToken {
     function listed() external view returns (bool);
     function clPoolManager() external view returns (address);
     function v4PoolId() external view returns (bytes32);
-    function listingHook() external view returns (address);
-    function listingPoolParameters() external view returns (bytes32);
-    function LISTING_LP_FEE() external view returns (uint24);
+}
+
+interface IIndexBrokerPancakeV4PoolKeyManager {
+    function poolIdToPoolKey(bytes32 poolId)
+        external
+        view
+        returns (
+            address currency0,
+            address currency1,
+            address hooks,
+            address poolManager,
+            uint24 fee,
+            bytes32 parameters
+        );
 }
 
 interface IIndexBrokerBasketRegistry {
@@ -82,10 +94,12 @@ interface IIndexBrokerWrappedNative {
  * contract and intentionally have no withdrawal path yet. An additional fixed
  * 0.5% of the NFT's native-coin value is sent to the platform on every trade.
  *
- * Native fee ratios and the DEX spot-price source are immutable once trading is active.
+ * Native fee ratios and the AMM's first-hop DEX pool are immutable once trading is active.
+ * Platform-managed quote-asset routes in the shared router remain dynamic.
  * AMMs for unlisted official Pump tokens start inactive so mints can seed their reserve
  * before listing. Already-listed official tokens and externally imported tokens activate
- * atomically during initialization.
+ * atomically during initialization. An official listing pool may use native coin or another
+ * ERC20 as its quote asset; non-native quotes continue through the shared router route.
  */
 contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     using SafeERC20 for IERC20;
@@ -101,9 +115,10 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     uint16 public normalFeeBps;
     uint16 public specificFeeBps;
     address public pump;
-    address public priceOracle;
-    IIndexBrokerNFTPriceOracle.SourceType public priceSourceType;
+    address public nutboxRouter;
+    INutboxRouter.SourceType public priceSourceType;
     bytes public priceSourceData;
+    address public priceQuoteToken;
     bool public active;
     address public basketRegistry;
     IIndexBrokerBasketSwapRouter public basketSwapRouter;
@@ -149,7 +164,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     event IndexHolderFeesConverted(uint256 wrappedNativeAmount);
     event AMMActivated(
         address indexed activator,
-        IIndexBrokerNFTPriceOracle.SourceType indexed priceSourceType,
+        INutboxRouter.SourceType indexed priceSourceType,
         bytes priceSourceData,
         bool officialTagAIToken
     );
@@ -184,8 +199,8 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         uint16 normalFeeBps_,
         uint16 specificFeeBps_,
         address pump_,
-        address priceOracle_,
-        IIndexBrokerNFTPriceOracle.SourceType priceSourceType_,
+        address nutboxRouter_,
+        INutboxRouter.SourceType priceSourceType_,
         bytes calldata priceSourceData_,
         address basketRegistry_,
         address basketSwapRouter_,
@@ -194,9 +209,10 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         address indexToken_
     ) external initializer {
         if (
-            collection_.code.length == 0 || communityToken_.code.length == 0 || pump_.code.length == 0
-                || priceOracle_.code.length == 0 || basketRegistry_.code.length == 0
-                || basketSwapRouter_.code.length == 0 || indexV3Router_.code.length == 0 || indexToken_.code.length == 0
+            collection_.code.length == 0 || communityToken_.code.length == 0 || nutboxRouter_.code.length == 0
+                || basketRegistry_.code.length == 0 || basketSwapRouter_.code.length == 0
+                || indexV3Router_.code.length == 0 || indexToken_.code.length == 0
+                || (pump_ != address(0) && pump_.code.length == 0)
         ) {
             revert InvalidAddress();
         }
@@ -211,7 +227,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         normalFeeBps = normalFeeBps_;
         specificFeeBps = specificFeeBps_;
         pump = pump_;
-        priceOracle = priceOracle_;
+        nutboxRouter = nutboxRouter_;
         basketRegistry = basketRegistry_;
         indexToken = indexToken_;
 
@@ -235,8 +251,9 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         indexSettlementToken = settlement;
         indexV3Fee = indexV3Fee_;
 
-        bool officialTagAIToken = IIndexBrokerPump(pump_).createdTokens(communityToken_);
+        bool officialTagAIToken = pump_ != address(0);
         if (officialTagAIToken) {
+            if (!IIndexBrokerPump(pump_).createdTokens(communityToken_)) revert NotOfficialToken();
             if (priceSourceData_.length != 0) revert OfficialPriceSourceMustBeAutomatic();
             if (IIndexBrokerTagAIToken(communityToken_).listed()) _activateOfficialToken();
         } else {
@@ -261,7 +278,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
      *      token's snapshotted Pancake V4 listing PoolKey and checked against v4PoolId.
      */
     function activate() external nonReentrant {
-        if (!IIndexBrokerPump(pump).createdTokens(communityToken)) revert NotOfficialToken();
+        if (pump == address(0) || !IIndexBrokerPump(pump).createdTokens(communityToken)) revert NotOfficialToken();
         if (active) revert AMMAlreadyActive();
 
         _activateOfficialToken();
@@ -271,24 +288,33 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         IIndexBrokerTagAIToken token = IIndexBrokerTagAIToken(communityToken);
         if (!token.listed()) revert OfficialTokenNotListed();
 
-        IIndexBrokerNFTPriceOracle.PancakeV4CLSource memory source = IIndexBrokerNFTPriceOracle.PancakeV4CLSource({
-            currency0: address(0),
-            currency1: communityToken,
-            hooks: token.listingHook(),
-            poolManager: token.clPoolManager(),
-            fee: token.LISTING_LP_FEE(),
-            parameters: token.listingPoolParameters()
+        address manager = token.clPoolManager();
+        bytes32 poolId = token.v4PoolId();
+        if (manager.code.length == 0 || poolId == bytes32(0)) revert InvalidOfficialPool();
+        (address currency0, address currency1, address hooks, address poolManager, uint24 fee, bytes32 parameters) =
+            IIndexBrokerPancakeV4PoolKeyManager(manager).poolIdToPoolKey(poolId);
+
+        INutboxRouter.PancakeV4CLSource memory source = INutboxRouter.PancakeV4CLSource({
+            currency0: currency0,
+            currency1: currency1,
+            hooks: hooks,
+            poolManager: poolManager,
+            fee: fee,
+            parameters: parameters
         });
         bytes32 reconstructedPoolId = keccak256(
             abi.encode(
                 source.currency0, source.currency1, source.hooks, source.poolManager, source.fee, source.parameters
             )
         );
-        if (source.hooks == address(0) || source.poolManager == address(0) || token.v4PoolId() != reconstructedPoolId) {
+        if (
+            source.hooks == address(0) || source.poolManager != manager || reconstructedPoolId != poolId
+                || (source.currency0 != communityToken && source.currency1 != communityToken)
+        ) {
             revert InvalidOfficialPool();
         }
 
-        _activate(IIndexBrokerNFTPriceOracle.SourceType.PANCAKE_V4_CL, abi.encode(source), true);
+        _activate(INutboxRouter.SourceType.PANCAKE_V4_CL, abi.encode(source), true);
     }
 
     function quoteNormalNativeFee() external view whenActive returns (uint256) {
@@ -501,23 +527,33 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     }
 
     function _quoteNativeValue() internal view returns (uint256) {
-        return IIndexBrokerNFTPriceOracle(priceOracle)
-            .quoteNative(communityToken, tokensPerNFT, priceSourceType, priceSourceData);
+        INutboxRouter router = INutboxRouter(nutboxRouter);
+        uint256 quoteAmount = NutboxSpotPrice.quote(
+            router, communityToken, priceQuoteToken, tokensPerNFT, priceSourceType, priceSourceData
+        );
+        if (priceQuoteToken == address(0) || priceQuoteToken == router.wrappedNative()) return quoteAmount;
+        return router.quote(priceQuoteToken, router.wrappedNative(), quoteAmount);
     }
 
     function _activate(
-        IIndexBrokerNFTPriceOracle.SourceType priceSourceType_,
+        INutboxRouter.SourceType priceSourceType_,
         bytes memory priceSourceData_,
         bool officialTagAIToken
     ) internal {
         if (active) revert AMMAlreadyActive();
 
-        IIndexBrokerNFTPriceOracle oracle = IIndexBrokerNFTPriceOracle(priceOracle);
-        oracle.validateSource(communityToken, priceSourceType_, priceSourceData_);
-        oracle.quoteNative(communityToken, tokensPerNFT, priceSourceType_, priceSourceData_);
+        INutboxRouter router = INutboxRouter(nutboxRouter);
+        address quoteToken = NutboxSpotPrice.otherToken(communityToken, priceSourceType_, priceSourceData_);
+        uint256 quoteAmount =
+            NutboxSpotPrice.quote(router, communityToken, quoteToken, tokensPerNFT, priceSourceType_, priceSourceData_);
+        if (quoteToken != address(0) && quoteToken != router.wrappedNative()) {
+            router.validateRoute(quoteToken, router.wrappedNative());
+            router.quote(quoteToken, router.wrappedNative(), quoteAmount);
+        }
 
         priceSourceType = priceSourceType_;
         priceSourceData = priceSourceData_;
+        priceQuoteToken = quoteToken;
         active = true;
         emit AMMActivated(msg.sender, priceSourceType_, priceSourceData_, officialTagAIToken);
     }

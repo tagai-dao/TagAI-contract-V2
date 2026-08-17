@@ -18,8 +18,8 @@ Index Broker NFT 是一种与 Nutbox 社区绑定的固定总量 NFT 矿池。�
 | --------------------------- | --------------------------------------------------------------------------------------------- |
 | `IndexBrokerNFTFactory`     | 创建 NFT 矿池和一对一的 AMM，管理全局平台费、默认指数代币和保留名称                                                        |
 | `IndexBrokerNFT`            | ERC-721 NFT、铸造、推荐升级、社区挖矿、指数挖矿、揭图和元数据入口                                                        |
-| `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备，并通过 `IndexBrokerNFTPriceOracle` 计算价格、收取原生代币手续费、回购指数代币并注入 NFT 指数挖矿 |
-| `IndexBrokerNFTPriceOracle` | 从受支持的 DEX 池读取社区代币对 BNB 的现货价格，用于计算 AMM 的 BNB 手续费                                               |
+| `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备，读取创建时固定的社区代币报价池，并在需要时调用 Router 把报价币换算为 BNB                              |
+| [`NutboxRouter`](../../../router/README.md) | 平台级公共询价与交易路由；由平台登记共享价格池并维护最多五跳、可双向使用的默认路径，任何合约或账户均可使用 |
 | Renderer                    | 为NFT提供SVG、`tokenURI` 和 `contractURI`；矿池创建时可选默认或自定义 Renderer                                   |
 
 
@@ -165,7 +165,7 @@ struct PoolConfig {
 | `fundsReceiver`                    | 接收公开铸造净 BNB 收入的地址，不可为零地址或 NFT Pool 自身           |
 | `renderer`                         | Renderer 地址；填零地址时使用 Factory 的 `defaultRenderer` |
 | `communityTokenPrice`              | 每次铸造和 AMM 买卖一枚 NFT 所使用的固定社区代币数量，必须大于 0          |
-| `indexMiningActivationTokenAmount` | NFT 转移后重新激活指数挖矿时需要销毁的社区代币数量，必须大于 0              |
+| `indexMiningActivationTokenAmount` | NFT 转移后重新激活指数挖矿时需要销毁的社区代币数量；设为 0 表示免费激活 |
 | `recommitPrice`                    | 重新提交揭图所需销毁的社区代币数量；仅在 `rerollEnabled=true` 时生效   |
 | `nativePrice`                      | 公开铸造需要精确支付的 BNB；为 0 时矿池为纯白名单模式                  |
 | `maxSupply`                        | NFT 最大供应量，必须大于 0；Token ID 从 1 开始                |
@@ -254,9 +254,10 @@ levelWeights    = [10_000, 12_000, 15_000];
 struct AMMConfig {
     uint16 normalFeeBps;
     uint16 specificFeeBps;
-    IIndexBrokerNFTPriceOracle.SourceType priceSourceType;
+    INutboxRouter.SourceType priceSourceType;
     bytes priceSourceData;
     address indexToken;
+    address pump;
 }
 ```
 
@@ -265,16 +266,24 @@ struct AMMConfig {
 | ----------------- | ------------------------------------ |
 | `normalFeeBps`    | 出售 NFT、按队首买入 NFT 时的交易费率，最大 10,000    |
 | `specificFeeBps`  | 购买指定 Token ID 时的交易费率，最大 10,000       |
-| `priceSourceType` | 社区代币对 BNB 的 DEX 价格源类型                |
-| `priceSourceData` | 对应 DEX 价格源的 ABI 编码数据                 |
+| `priceSourceType` | AMM 保存的社区代币第一跳池类型                    |
+| `priceSourceData` | 社区代币第一跳池对应的 ABI 编码数据                |
 | `indexToken`      | 指数挖矿奖励代币；零地址表示使用创建当时的 Factory 默认指数代币 |
+| `pump`            | 官方社区代币所属的受支持 Pump；外部代币填零地址。当前构造函数传入的默认 Pump 可自动识别 |
 
 
 `indexToken` 必须是 `basketRegistry` 认可的 Basket。矿池创建完成后，选定的指数代币固定不变；以后 Factory 修改默认指数代币不会影响既有矿池。
 
 ## 6. 官方 Pump 代币与外部代币的 AMM 激活规则
 
-Factory 通过 `Pump.createdTokens(communityToken)` 判断社区代币类型。
+Factory 维护 `supportedPump(address)` 注册表。构造函数传入的 `pump` 会自动加入注册表，Owner 后续可以通过
+`addPump(newPump)` 和 `removePump(oldPump)` 增删支持的 Pump 版本，查询和校验复杂度均为 O(1)。
+
+创建时可以在 `ammConfig.pump` 中显式指定 Pump。该地址必须已注册，并且
+`Pump.createdTokens(communityToken)` 必须返回 `true`。为了兼容原有创建参数，当 `ammConfig.pump` 为零且
+社区代币由构造函数传入的默认 Pump 创建时，Factory 会自动选中该默认 Pump；其他零地址配置按外部代币处理。
+每个 AMM 会永久保存创建时选中的 Pump。Factory 后续移除某个 Pump 只阻止该版本创建新的 NFT 矿池，
+不会影响已经创建的 AMM 激活、报价或交易。
 
 ### 6.1 官方 Pump 代币
 
@@ -283,6 +292,7 @@ Factory 通过 `Pump.createdTokens(communityToken)` 判断社区代币类型。
 创建配置要求：
 
 ```solidity
+ammConfig.pump = officialPump;
 ammConfig.priceSourceData = bytes("");
 ```
 
@@ -296,23 +306,33 @@ ammConfig.priceSourceData = bytes("");
   AMM 创建后处于 `active=false`。NFT 仍然可以正常铸造，每次铸造支付的社区代币继续进入 AMM 储备。代币上市后，任何地址都可以调用：
    `activate()` 不接收池地址或价格源参数。合约会自动读取官方代币保存的：
   - `clPoolManager`
-  - `listingHook`
-  - `LISTING_LP_FEE`
-  - `listingPoolParameters`
   - `v4PoolId`
-   只有重建出的 Pool ID 与代币保存的 `v4PoolId` 一致、池已初始化且有有效流动性时，AMM 才会激活。
+   AMM 再通过现有 `clPoolManager.poolIdToPoolKey(v4PoolId)` 读取完整 PoolKey，包括两侧 Currency、Hook、
+   Pool Manager、LP Fee 和 Parameters。只有读出的 PoolKey 仍包含社区代币、重新计算出的 Pool ID 与
+   `v4PoolId` 一致、池已初始化且有有效流动性时，AMM 才会激活。
 
 激活是公开操作，但调用者不能替换官方价格源，也不会因为激活而获得矿池管理权限。
 
+官方上市池不要求必须是 `communityToken/BNB`。AMM 从 Pool Manager 已保存的 PoolKey 自动识别另一侧报价币：
+如果报价币是 BNB/WBNB，直接得到原生币价值；如果报价币是 SPCXB、USDT 等 ERC-20，则先读取官方上市池的
+`communityToken → quoteToken` 价格，再使用 Router 当前共享路由把 `quoteToken` 换算为 WBNB。整个过程只使用
+现有 Pump/Token 接口，不要求 Pump 或 Token 为 NFT AMM 增加新方法。
+
 ### 6.2 外部导入代币
 
-不属于当前 Factory 所绑定 Pump 的代币被视为外部代币。外部代币必须在创建 NFT 矿池时直接提供有效 DEX 价格源：
+外部代币将 `ammConfig.pump` 设置为零地址，并在创建 NFT 矿池时提供包含社区代币的第一跳 DEX 池：
 
 ```solidity
 ammConfig.priceSourceData = abi.encode(...);
+ammConfig.pump = address(0);
 ```
 
-如果价格源为空，创建会失败。价格源验证成功后，外部代币的 AMM 在创建交易内直接激活。外部代币不能使用官方代币的无参数 `activate()` 流程。
+如果价格源为空，创建会失败。AMM 会从池中自动识别另一侧报价币：
+
+- 报价币是 WBNB，或 V4 池直接使用原生 BNB：AMM 直接完成 BNB 估值；
+- 报价币是 SPCXB、USDT 等 ERC-20：该报价币必须已经在共享 Router 中配置有效的 BNB 路由。
+
+第一跳池和必要的 Router 路由验证成功后，外部代币的 AMM 在创建交易内直接激活。外部代币不能使用官方代币的无参数 `activate()` 流程。
 
 ### 6.3 AMM 未激活时可以做什么
 
@@ -333,7 +353,7 @@ AMM 未激活只限制 AMM 二级交易，不会暂停 NFT Pool 本身。
 | 直接向 AMM 发送 BNB      | 不可用，普通转账会回滚                       |
 
 
-AMM 激活后不可再次激活，也没有停用或更换价格源的用户入口。
+AMM 激活后不可再次激活，创建者也不能替换其保存的第一跳池。Router 的基础币路由由平台动态管理，路由变化会立即影响所有依赖该报价币的 AMM。
 
 ## 7. 支持的 DEX 价格源
 
@@ -370,16 +390,91 @@ struct PancakeV4CLSource {
 }
 ```
 
-价格源需要满足：
+AMM 保存的第一跳池需要满足：
 
-- Factory 或 Pool Manager 已被共享 Oracle 列入允许列表；
+- Factory 或 Pool Manager 已被共享 Router 列入允许列表；
 - 交易对的一侧是社区代币；
-- 另一侧是 Wrapped Native，V4 还允许原生币地址 `address(0)`；
+- 另一侧可以是 WBNB、V4 原生 BNB，或 Router 已支持的基础报价币；
 - 池地址、Factory 和 Pool ID 相互匹配；
-- 池已初始化；
-- 储备或当前有效流动性不为 0。
+- 池已初始化且储备或当前有效流动性不为 0。
 
-Oracle 使用 DEX 的**当前现货价格**。前端应在发送交易前重新调用 AMM 报价函数；当池价或有效流动性变化时，BNB 手续费也会立即变化。如果价格源暂时没有有效流动性，依赖报价的 AMM 操作会回滚。
+### 7.1 基础报价币路由
+
+Router 的完整架构、全部函数、四类 DEX 执行流程、V4 回调和安全边界见独立文档 [`src/router/README.md`](../../../router/README.md)。本节只说明 NFT AMM 如何使用该公共 Router。
+
+Router 不保存各种社区代币的原始池，也不直接为社区代币选择价格。AMM 先读取自己保存的第一跳池，然后仅在报价币不是 BNB/WBNB 时调用 Router。
+
+```text
+A/BNB：             AMM 读取 A → BNB
+A/SPCXB：           AMM 读取 A → SPCXB，Router 读取 SPCXB → BNB
+A/SPCXB：           AMM 读取 A → SPCXB，Router 读取 SPCXB → USDT → BNB
+```
+
+Router 的一条默认路由最多引用五个池。加上 AMM 创建时固定的第一跳池后，NFT 手续费估值最多读取六个池。
+
+平台先为每个共享代币对登记唯一的当前官方池：
+
+```solidity
+bytes32 poolId = router.addPricePool(sourceType, sourceData);
+```
+
+`poolId` 实际是由归一化后的两个代币地址确定的稳定 pair ID，不由具体 DEX 类型或池地址确定。A-B 只能存在一个当前官方池，但该稳定 ID 可以同时被多条默认路由引用。平台再为一对端点代币配置由稳定 pair ID 组成的默认路由：
+
+```solidity
+bytes32[] memory poolIds = new bytes32[](2);
+poolIds[0] = spcxbUsdtPoolId;
+poolIds[1] = usdtWbnbPoolId;
+router.addRoute(SPCXB, WBNB, poolIds);
+```
+
+平台通过 Router owner 接口管理价格池和默认路由：
+
+- `addPricePool(sourceType, sourceData)`：为一个尚未登记的代币对设置首个官方池并返回稳定 pair ID；
+- `replacePricePool(sourceType, sourceData)`：原子更换同一代币对的官方池，所有引用路径自动生效且 pair ID 不变；
+- `removePricePool(poolId)`：删除没有被任何路由引用的整个代币对槽位；
+- `addRoute(tokenIn, tokenOut, poolIds)`：新增一条最多五跳的默认路由；
+- `replaceRoute(tokenIn, tokenOut, poolIds)`：在同一笔交易内原子替换现有默认路由；
+- `removeRoute(tokenIn, tokenOut)`：删除默认路由并释放其价格池引用；
+- `routePoolCount(tokenIn, tokenOut)` / `routePoolAt(tokenIn, tokenOut, index)`：按询价方向读取当前路径；
+- `quote(tokenIn, tokenOut, amountIn)`：使用平台当前默认路由询价；
+- `swapExactInput(tokenIn, tokenOut, amountIn, amountOutMinimum, recipient, deadline)`：使用平台执行时的当前默认路由完成精确输入交易。
+
+路由必须连续、不能重复经过同一个代币，且最终必须输出请求的目标代币。登记或替换的每个官方池都必须来自 Router 构造时允许的 Factory 或 Pool Manager，并验证池身份和有效流动性。更换 A-B 的具体池只调用 `replacePricePool`，不需要修改任何路径；只有删除整个 A-B 槽位时，才需要先删除或改变所有引用它的路径。
+
+每条路由自动支持反向询价和反向交易。例如平台只需要配置 `SPCXB → USDT → WBNB`，同一路由也可以用于 `WBNB → USDT → SPCXB`。路径可以混合已启用执行器的 V2、Pancake V3、Uniswap V4 和 Pancake V4 CL 池。原生 BNB 与 WBNB 在路由端点按 1:1 包装关系处理，并可直接包装或解包，无需额外价格池。
+
+官方池和默认路由都是动态共享配置：调用者只提供输入代币、输出代币、数量、最终最小输出和期限，不能指定或锁定路径。更换某个代币对的官方池后，所有包含该 pair ID 的路径立即使用新池；改变路径拓扑后，所有后续调用立即使用新路径。NFT AMM 自己保存的第一跳池仍不受 Router 共享配置变化影响。
+
+Router 的外部调用者不能提供路径或 DEX 地址。V2 只调用构造时为相应 Factory 绑定的官方 Router02；V3 只调用固定的 Pancake SmartRouter；Uniswap V4 与 Pancake V4 CL 只调用构造时允许的 PoolManager，Pancake V4 的资金结算通过该 Manager 对应的 Vault 完成。允许列表和执行器在部署后不能由 Router owner 扩大，owner 只能在已批准来源中登记池和维护路线。
+
+Router 不长期保管交易资产。每一跳的输入和输出只在当前调用内短暂经过 Router；V2/V3 授权仅为当前一跳的精确数量并在成交后归零，V4 债务在同一次 unlock/lock 回调内结清。所有中间原生 BNB 会立即与 WBNB 互相包装，最终资产再交付接收者。交易使用最终实际成交输出检查 `amountOutMinimum`，整条路径任一跳失败都会原子回滚；不能把不含手续费和价格冲击的现货询价结果直接当作保证成交数量。
+
+### 7.2 BSC 默认真实资产路由
+
+BSC 部署脚本会在转移 Router 所有权前，使用 [`BSCNutboxRouterConfig.sol`](../../../../script/config/BSCNutboxRouterConfig.sol) 登记 15 个 PancakeSwap V3 现货池。每个 ERC-20 资产同时具有到 USDT 和 WBNB 的默认路由；同一路由自动支持反向询价。
+
+| 用户资产 | 链上符号 | 第一价格池 | Fee | 到 WBNB 的默认路径 |
+| --- | --- | --- | ---: | --- |
+| USDT | USDT | [`USDT/WBNB`](https://bscscan.com/address/0x172fcd41e0913e95784454622d1c3724f546f849) | 0.01% | `USDT → WBNB` |
+| BNB | 原生 BNB / WBNB | 不需要池 | — | 按 1:1 包装关系处理 |
+| ETH | ETH | [`ETH/WBNB`](https://bscscan.com/address/0xd0e226f674bbf064f54ab47f42473ff80db98cba) | 0.05% | `ETH → WBNB` |
+| BTC | BTCB | [`BTCB/WBNB`](https://bscscan.com/address/0x6bbc40579ad1bbd243895ca0acb086bb6300d636) | 0.05% | `BTCB → WBNB` |
+| QQQB | QQQB | [`QQQB/USDT`](https://bscscan.com/address/0xe531fcb1f5a195de7608b9f4f9518544c2cdb693) | 0.01% | `QQQB → USDT → WBNB` |
+| SPAXB（输入名称） | SPCXB（实际链上符号） | [`SPCXB/USDT`](https://bscscan.com/address/0x977daffc095b33872e2741c19568925015c35b4d) | 0.25% | `SPCXB → USDT → WBNB` |
+| AAPL（输入名称） | AAPLB（实际链上符号） | [`AAPLB/USDT`](https://bscscan.com/address/0xe9b9998b2ec5430d2246c7f1f8d9f298c97d7365) | 0.25% | `AAPLB → USDT → WBNB` |
+| SKHYB | SKHYB | [`SKHYB/USDT`](https://bscscan.com/address/0xd7d30f434b12f7ed9b0ae11ff1c754745a10ad52) | 0.25% | `SKHYB → USDT → WBNB` |
+| SPYB | SPYB | [`SPYB/USDT`](https://bscscan.com/address/0x7aa6d92fc369a8c1edc631a3aac44efb0808ddbf) | 0.01% | `SPYB → USDT → WBNB` |
+| XAUT | XAUt | [`XAUt/USDT`](https://bscscan.com/address/0x83a0a8a723262651ae9c54bbba929f167443bc59) | 0.05% | `XAUt → USDT → WBNB` |
+| NVDAB | NVDAB | [`NVDAB/USDT`](https://bscscan.com/address/0x8fb4243b553ac29ba088acf00b9b7da24bd6690c) | 0.25% | `NVDAB → USDT → WBNB` |
+| TSLAB | TSLAB | [`TSLAB/USDT`](https://bscscan.com/address/0xb0f5e5400e8f0f7c242f2b7740c004f020579c41) | 0.25% | `TSLAB → USDT → WBNB` |
+| MSFTB | MSFTB | [`MSFTB/USDT`](https://bscscan.com/address/0x5018b018ceb7645c927c5cf246786f89ebcbe7ea) | 0.25% | `MSFTB → USDT → WBNB` |
+| HOODB | HOODB | [`HOODB/USDT`](https://bscscan.com/address/0xfeef70ff6f58f0a900e28a77e5a8945afb343923) | 0.25% | `HOODB → USDT → WBNB` |
+| BABAB | BABAB | [`BABAB/USDT`](https://bscscan.com/address/0xfd95cb1391999006eb91797a7c62acfe88b20292) | 0.25% | `BABAB → USDT → WBNB` |
+| GMEB | GMEB | [`GMEB/USDT`](https://bscscan.com/address/0x908d49048eb3a7bedfd238972403842805eaf2be) | 0.25% | `GMEB → USDT → WBNB` |
+
+这些地址不是只写在文档中的常量：Fork 测试会逐个向 Pancake V3 Factory 校验池地址和 Fee，检查池已初始化且当前有效流动性不为零，并对全部资产执行 USDT、WBNB 两个方向的询价。若某个官方池失效，平台可通过 `replacePricePool` 将同一 pair ID 原子切换到另一个 V3、V4 或其他已允许来源，无需修改引用它的路径。
+
+所有步骤都使用 DEX 的**当前现货价格**。前端应在发送交易前重新调用 AMM 报价函数；任一池价格或有效流动性变化时，BNB 手续费都会立即变化。
 
 ## 8. 铸造 NFT
 
@@ -531,7 +626,7 @@ nftPool.upgradeIndexMining(tokenId, tokenAmount);
 nftPool.activateIndexMining(tokenId);
 ```
 
-合约会销毁固定的 `indexMiningActivationTokenAmount` 数量社区代币，并重新激活 NFT 当前保留下来的指数权重。
+当 `indexMiningActivationTokenAmount` 大于 0 时，合约会销毁固定数量的社区代币；设为 0 时不调用社区代币合约，持有人可免费重新激活。激活只恢复 NFT 当前保留下来的指数权重，权重为 0 的 NFT 激活后仍不会获得指数奖励。
 
 重新激活不会自动增加新权重。如果 NFT 权重已经归零，需要在激活后再调用 `upgradeIndexMining` 增加权重。
 
@@ -817,7 +912,17 @@ Factory owner可以：
 
 修改默认指数代币不会改变既有矿池的 `indexToken`。
 
-### 15.4 公开操作
+### 15.4 Router owner
+
+Router owner可以：
+
+- 登记或删除共享价格池；
+- 新增任意基础代币对之间最多五跳、可双向询价和交易的默认路由，路径可混合平台批准的 V2、V3 与 V4 池；
+- 原子替换或删除已有默认路由。
+
+Router 路由属于共享动态配置，管理操作会影响所有依赖对应基础报价币的既有 AMM。Factory owner 与 Router owner 可以是同一平台管理地址，但两份 Ownable2Step 所有权需要分别完成接收。
+
+### 15.5 公开操作
 
 以下操作不需要管理员权限：
 
@@ -868,7 +973,8 @@ Factory owner可以：
 | `inventoryCount()`                        | AMM 当前 NFT 库存数量      |
 | `oldestTokenId()`                         | 当前队首 Token ID        |
 | `newestTokenId()`                         | 当前队尾 Token ID        |
-| `priceSourceType()` / `priceSourceData()` | 激活后的 DEX 报价源         |
+| `priceSourceType()` / `priceSourceData()` | AMM 创建时固定的第一跳 DEX 池  |
+| `priceQuoteToken()`                       | 第一跳池识别出的报价币           |
 
 
 
@@ -917,7 +1023,7 @@ Factory owner可以：
 
 ## 18. 创建示例
 
-以下示例展示外部社区代币使用 V2 价格源创建矿池。参数仅用于说明编码方式，应根据实际项目配置：
+以下示例展示外部社区代币使用 V2 第一跳池创建矿池。池子可以是 `communityToken/WBNB`，也可以是 `communityToken/SPCXB` 等交易对；后一种情况下，Router 必须已经支持 SPCXB 到 BNB 的路由。参数仅用于说明编码方式，应根据实际项目配置：
 
 ```solidity
 uint256[] memory thresholds = new uint256[](3);
@@ -942,9 +1048,10 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
     IndexBrokerNFTFactory.AMMConfig({
         normalFeeBps: 100,       // 1%
         specificFeeBps: 300,     // 3%
-        priceSourceType: IIndexBrokerNFTPriceOracle.SourceType.V2_PAIR,
+        priceSourceType: INutboxRouter.SourceType.V2_PAIR,
         priceSourceData: abi.encode(v2Factory, v2Pair),
-        indexToken: address(0)    // 使用创建当时的 Factory 默认指数代币
+        indexToken: address(0),   // 使用创建当时的 Factory 默认指数代币
+        pump: address(0)          // 外部代币
     });
 
 IndexBrokerNFTFactory.PoolConfig memory config =
@@ -985,9 +1092,10 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
     IndexBrokerNFTFactory.AMMConfig({
         normalFeeBps: 100,
         specificFeeBps: 300,
-        priceSourceType: IIndexBrokerNFTPriceOracle.SourceType.PANCAKE_V4_CL,
+        priceSourceType: INutboxRouter.SourceType.PANCAKE_V4_CL,
         priceSourceData: bytes(""),
-        indexToken: address(0)
+        indexToken: address(0),
+        pump: officialPump
     });
 ```
 
@@ -1001,8 +1109,8 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 
 - 明确显示社区代币铸造成本和公开铸造 BNB 价格是两笔独立支付。
 - 校验等级门槛、权重和白名单数组。
-- 根据 `Pump.createdTokens(communityToken)` 自动切换官方代币与外部代币配置表单。
-- 官方未上市代币不要求用户填写 DEX 池；外部代币必须填写并预验证价格源。
+- 读取 `supportedPump(pump)`，并通过所选 Pump 的 `createdTokens(communityToken)` 校验官方代币；外部代币将 `pump` 留空。
+- 官方未上市代币不要求用户填写 DEX 池；外部代币必须填写并预验证第一跳池和必要的 Router 基础币路由。
 - 显示 `indexToken` 的实际选定地址，不只显示“默认”。
 
 
@@ -1045,22 +1153,22 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 5. AMM 中的 NFT 不参与社区挖矿，也不能作为推荐 NFT。
 6. AMM 的社区代币成交数量固定，BNB 手续费随 DEX 现货价格变化。
 7. 官方 Pump 代币可以在上市前创建矿池并正常铸造，AMM 交易需等上市后公开激活。
-8. 外部代币必须在创建矿池时提供有效 DEX 价格源，并立即激活 AMM。
-9. 指数代币、Renderer、AMM 费率和激活后的价格源在矿池创建后不能由 Pool owner 修改。
+8. 外部代币必须在创建矿池时提供包含社区代币的有效第一跳池，并立即激活 AMM。
+9. 指数代币、Renderer、AMM 费率和第一跳池在矿池创建后不能由 Pool owner 修改；共享 Router 基础币路由由平台动态管理。
 10. 社区代币应支持精确 ERC-20 转账；扣税或短到账代币会使铸造、挖矿升级或 AMM 交易回滚。
 11. 揭图依赖有限的未来区块窗口，前端应提醒持有人及时操作。
 12. 不要直接向 NFT Pool、AMM 或销毁地址转账来代替合约函数；直接转账不会产生个人份额或额外权益。
 
-## 21. BSC V11 主网部署
+## 21. BSC V11 部署记录
 
-Index Broker NFT 已作为 V11 的一部分部署到 BNB Smart Chain：
+下表是多跳基础币路由升级前的一轮 Index Broker NFT 部署记录。该 NFT 功能尚未正式对外开放，本次升级会替换 Factory、AMM template、Router 和 Factory 内部创建的 NFT Pool template；Pump、Token、Hook 与 Renderer 地址继续复用。新地址写入部署快照前，不应把下表中的旧 NFT 地址视为与本文当前源码一致。
 
 | 合约 | 地址 |
 | --- | --- |
 | IndexBrokerNFTFactory | [`0xFa26Bf8d0830EC78ff7B2D959a1724f5E178392E`](https://bscscan.com/address/0xfa26bf8d0830ec78ff7b2d959a1724f5e178392e) |
 | IndexBrokerNFT Pool template | [`0xd4064239369b1A1dd78b1EcC5C1050F7A21c2303`](https://bscscan.com/address/0xd4064239369b1a1dd78b1ecc5c1050f7a21c2303) |
 | IndexBrokerNFTAMM template | [`0x1712C2BEdc1A9F5611D879e31caf9dfd1F665175`](https://bscscan.com/address/0x1712c2bedc1a9f5611d879e31caf9dfd1f665175) |
-| IndexBrokerNFTPriceOracle | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) |
+| IndexBrokerNFTPriceOracle（旧部署） | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) |
 | StonkBrokerRenderer | [`0xd4B6120f566CDecD88b7Be6f994a6c7493F8a068`](https://bscscan.com/address/0xd4b6120f566cdecd88b7be6f994a6c7493f8a068) |
 
 完整地址、部署交易、区块、源码提交和复用依赖见仓库根目录的 [`VERSION_HISTORY.md`](../../../../VERSION_HISTORY.md) 与 [`deployments/56/version11.json`](../../../../deployments/56/version11.json)。

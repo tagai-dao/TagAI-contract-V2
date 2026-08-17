@@ -4,14 +4,14 @@ pragma solidity ^0.8.26;
 import "./BSCForkBase.t.sol";
 
 import {Community} from "../../src/nutbox/Community.sol";
-import {IIndexBrokerNFTPriceOracle} from "../../src/nutbox/dapps/index-broker-nft/IIndexBrokerNFTPriceOracle.sol";
+import {INutboxRouter} from "../../src/router/INutboxRouter.sol";
 import {IndexBrokerNFT} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol";
 import {
     IndexBrokerNFTAMM,
     IIndexBrokerBasketSwapRouter
 } from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTAMM.sol";
 import {IndexBrokerNFTFactory} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTFactory.sol";
-import {IndexBrokerNFTPriceOracle} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTPriceOracle.sol";
+import {NutboxRouter} from "../../src/router/NutboxRouter.sol";
 import {IndexBrokerNFTRenderer} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTRenderer.sol";
 import {IBasketToken} from "../../src/interfaces/IBasketToken.sol";
 
@@ -31,6 +31,7 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
     address internal constant BASKET_REGISTRY = 0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe;
     address internal constant BASKET_SWAP_ROUTER = 0x4c3a94f166d3046F10D002FDDe426E9C0b6C703e;
     address internal constant PANCAKE_V3_SMART_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
+    address internal constant PANCAKE_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
     address internal constant INDEX_TOKEN = 0xcF99DeC9439630ccf7Efe392F0fc2aF98EF99a61;
     address internal constant USDT = 0x55d398326f99059fF775485246999027B3197955;
 
@@ -167,14 +168,23 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
     function _indexBrokerFactory() internal virtual returns (IndexBrokerNFTFactory factory) {
         address[] memory pancakeManagers = new address[](1);
         pancakeManagers[0] = CL_POOL_MANAGER;
-        IndexBrokerNFTPriceOracle oracle =
-            new IndexBrokerNFTPriceOracle(WBNB, new address[](0), new address[](0), new address[](0), pancakeManagers);
+        address[] memory v3Factories = new address[](1);
+        v3Factories[0] = PANCAKE_V3_FACTORY;
+        NutboxRouter nutboxRouter = new NutboxRouter(
+            WBNB,
+            PANCAKE_V3_SMART_ROUTER,
+            new address[](0),
+            new address[](0),
+            v3Factories,
+            new address[](0),
+            pancakeManagers
+        );
         factory = new IndexBrokerNFTFactory(
             COMMUNITY_FACTORY,
             address(pump),
             address(new IndexBrokerNFTRenderer()),
             address(new IndexBrokerNFTAMM()),
-            address(oracle),
+            address(nutboxRouter),
             BASKET_REGISTRY,
             BASKET_SWAP_ROUTER,
             PANCAKE_V3_SMART_ROUTER,
@@ -201,9 +211,10 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
         IndexBrokerNFTFactory.AMMConfig memory ammConfig = IndexBrokerNFTFactory.AMMConfig({
             normalFeeBps: NORMAL_AMM_FEE_BPS,
             specificFeeBps: SPECIFIC_AMM_FEE_BPS,
-            priceSourceType: IIndexBrokerNFTPriceOracle.SourceType.PANCAKE_V4_CL,
+            priceSourceType: INutboxRouter.SourceType.PANCAKE_V4_CL,
             priceSourceData: bytes(""),
-            indexToken: INDEX_TOKEN
+            indexToken: INDEX_TOKEN,
+            pump: address(pump)
         });
         IndexBrokerNFTFactory.PoolConfig memory config = IndexBrokerNFTFactory.PoolConfig({
             symbol: "FIDX",
