@@ -1234,14 +1234,15 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 
 ## 21. BSC V11 部署记录
 
-下表是动态 NFT 模板功能之前的一轮 Index Broker NFT 部署记录。该 NFT 功能尚未正式对外开放，本次升级会替换 Factory、AMM template 和 Burn/Stake NFT templates；Pump、Token、Hook、StonkBrokerRenderer、共享 NutboxRouter 与 Basket 基础设施继续复用。新地址写入部署快照前，不应把下表中的旧 NFT 地址视为与本文当前源码一致。
+当前动态模板版本已部署、完成 BscScan 源码验证，并在 BSC 区块 `116653696` 完成部署后 Fork 生命周期测试。Factory 在最终 Owner 交接和 Committee 授权前保持不可创建状态。Pump、Token、Hook、StonkBrokerRenderer、共享 NutboxRouter 与 Basket 基础设施继续复用。
 
 | 合约 | 地址 |
 | --- | --- |
-| IndexBrokerNFTFactory | [`0xFa26Bf8d0830EC78ff7B2D959a1724f5E178392E`](https://bscscan.com/address/0xfa26bf8d0830ec78ff7b2d959a1724f5e178392e) |
-| IndexBrokerNFT Pool template | [`0xd4064239369b1A1dd78b1EcC5C1050F7A21c2303`](https://bscscan.com/address/0xd4064239369b1a1dd78b1ecc5c1050f7a21c2303) |
-| IndexBrokerNFTAMM template | [`0x1712C2BEdc1A9F5611D879e31caf9dfd1F665175`](https://bscscan.com/address/0x1712c2bedc1a9f5611d879e31caf9dfd1f665175) |
-| IndexBrokerNFTPriceOracle（旧部署） | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) |
+| IndexBrokerNFTFactory | [`0xB1708D2F3A504846a47cdB2e4Dfb48b3ea1c9b5F`](https://bscscan.com/address/0xb1708d2f3a504846a47cdb2e4dfb48b3ea1c9b5f) |
+| IndexBrokerNFTBurn template | [`0x1D875946C87a650AF2Aa5B04427D44E647a480B9`](https://bscscan.com/address/0x1d875946c87a650af2aa5b04427d44e647a480b9) |
+| IndexBrokerNFTStake template | [`0xc24Ff0009fF1AaD70eF8714ee32ebc8f6b7983a5`](https://bscscan.com/address/0xc24ff0009ff1aad70ef8714ee32ebc8f6b7983a5) |
+| IndexBrokerNFTAMM template | [`0x698680412e34db49CdBa62c46a0Faad31D05ce0A`](https://bscscan.com/address/0x698680412e34db49cdba62c46a0faad31d05ce0a) |
+| NutboxRouter（共享） | [`0x04e2d43bA38e3f3F0D0dab3A30D1B58BFE9B659f`](https://bscscan.com/address/0x04e2d43ba38e3f3f0d0dab3a30d1b58bfe9b659f) |
 | StonkBrokerRenderer | [`0xd4B6120f566CDecD88b7Be6f994a6c7493F8a068`](https://bscscan.com/address/0xd4b6120f566cdecd88b7be6f994a6c7493f8a068) |
 
 完整地址、部署交易、区块、源码提交和复用依赖见仓库根目录的 [`VERSION_HISTORY.md`](../../../../VERSION_HISTORY.md) 与 [`deployments/56/version11.json`](../../../../deployments/56/version11.json)。

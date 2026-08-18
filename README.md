@@ -221,17 +221,18 @@ Chain: **BNB Smart Chain (56)**
 
 V11 deployment snapshot: [`deployments/56/version11.json`](deployments/56/version11.json)
 
-Status: V11 is deployed and published; all new contracts are source-verified.
+Status: Pump V11 is live. The upgraded Index Broker NFT stack is deployed, source-verified and fork-tested; its Factory authorization remains disabled until the final ownership handover.
 
 | Contract | Address |
 |----------|---------|
 | Pump | [`0x8fEF5b4c0f761a0cc447800e3019B089ac306F28`](https://bscscan.com/address/0x8fef5b4c0f761a0cc447800e3019b089ac306f28) |
 | Token implementation | [`0xfD40C112F39D372786265a032C546D05Feec4D66`](https://bscscan.com/address/0xfd40c112f39d372786265a032c546d05feec4d66) |
 | TagAISwapHook | [`0x9E38747072F326b4e614EfF6FdCA8529db090cc1`](https://bscscan.com/address/0x9e38747072f326b4e614eff6fdca8529db090cc1) |
-| IndexBrokerNFTFactory | [`0xFa26Bf8d0830EC78ff7B2D959a1724f5E178392E`](https://bscscan.com/address/0xfa26bf8d0830ec78ff7b2d959a1724f5e178392e) |
-| IndexBrokerNFT Pool template | [`0xd4064239369b1A1dd78b1EcC5C1050F7A21c2303`](https://bscscan.com/address/0xd4064239369b1a1dd78b1ecc5c1050f7a21c2303) |
-| IndexBrokerNFTAMM template | [`0x1712C2BEdc1A9F5611D879e31caf9dfd1F665175`](https://bscscan.com/address/0x1712c2bedc1a9f5611d879e31caf9dfd1f665175) |
-| IndexBrokerNFTPriceOracle | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) |
+| NutboxRouter (shared) | [`0x04e2d43bA38e3f3F0D0dab3A30D1B58BFE9B659f`](https://bscscan.com/address/0x04e2d43ba38e3f3f0d0dab3a30d1b58bfe9b659f) |
+| IndexBrokerNFTFactory | [`0xB1708D2F3A504846a47cdB2e4Dfb48b3ea1c9b5F`](https://bscscan.com/address/0xb1708d2f3a504846a47cdb2e4dfb48b3ea1c9b5f) |
+| IndexBrokerNFTBurn template | [`0x1D875946C87a650AF2Aa5B04427D44E647a480B9`](https://bscscan.com/address/0x1d875946c87a650af2aa5b04427d44e647a480b9) |
+| IndexBrokerNFTStake template | [`0xc24Ff0009fF1AaD70eF8714ee32ebc8f6b7983a5`](https://bscscan.com/address/0xc24ff0009ff1aad70ef8714ee32ebc8f6b7983a5) |
+| IndexBrokerNFTAMM template | [`0x698680412e34db49CdBa62c46a0Faad31D05ce0A`](https://bscscan.com/address/0x698680412e34db49cdba62c46a0faad31d05ce0a) |
 | StonkBrokerRenderer | [`0xd4B6120f566CDecD88b7Be6f994a6c7493F8a068`](https://bscscan.com/address/0xd4b6120f566cdecd88b7be6f994a6c7493f8a068) |
 
 Detailed behavior: [`Pump / Token / Hook V11`](docs/PUMP_TOKEN_HOOK_V11.md) · [`NutboxRouter`](src/router/README.md) · [`Index Broker NFT`](src/nutbox/dapps/index-broker-nft/README.md) · [`full version and transaction history`](VERSION_HISTORY.md).

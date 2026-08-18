@@ -33,13 +33,14 @@ V11 使用累积部署快照。`version11.json` 从 V10 继承仍然有效的合
 
 | 项目 | 记录 |
 | --- | --- |
-| 状态 | 已部署并发布；所有新合约均已完成 BscScan 源码验证 |
+| 状态 | Pump V11 已上线；升级后的 Index Broker NFT 合约已部署、完成 BscScan 源码验证和主网 Fork 测试，Factory 在最终 Owner 交接前保持未授权状态 |
 | 网络 | BNB Smart Chain（chain ID `56`） |
 | 来源版本 | V10 |
 | 版本源码提交 | [`a573440387b079252bb936bcfa2ae14d52cacdc6`](https://github.com/tagai-dao/TagAI-contract-V2/commit/a573440387b079252bb936bcfa2ae14d52cacdc6) |
+| Index Broker NFT 升级源码提交 | [`cac9b4e8e4c5e6ecc0fbbf2f3b046b5af1435442`](https://github.com/tagai-dao/TagAI-contract-V2/commit/cac9b4e8e4c5e6ecc0fbbf2f3b046b5af1435442) |
 | Pump 部署记录提交 | [`9a7f9f77441304e2f27744fa8773786ca74015f9`](https://github.com/tagai-dao/TagAI-contract-V2/commit/9a7f9f77441304e2f27744fa8773786ca74015f9) |
 | Index Broker 部署记录提交 | [`43aa618e4f221720a849dbe6d52506849730bbf4`](https://github.com/tagai-dao/TagAI-contract-V2/commit/43aa618e4f221720a849dbe6d52506849730bbf4) |
-| 部署日期 | 2026-08-14 |
+| 部署日期 | Pump V11：2026-08-14；NutboxRouter 与 NFT 升级：2026-08-18 |
 | 部署账户 | [`0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`](https://bscscan.com/address/0x78c2af38330c5b41ae7946a313e43cdceeaf8611) |
 | 目标管理地址 | [`0x871fb7006C5964B21695Ba20006021777A26146C`](https://bscscan.com/address/0x871fb7006c5964b21695ba20006021777a26146c) |
 | 部署快照 | [`deployments/56/version11.json`](deployments/56/version11.json) |
@@ -76,12 +77,13 @@ Hook CREATE2 salt 为 `5845`，权限位图为 `0x0cc1`。三个地址均已完�
 | StonkBrokerFaceRenderer | [`0x42f24CfAaaE018c24f44820bfA9C0694981551CC`](https://bscscan.com/address/0x42f24cfaaae018c24f44820bfa9c0694981551cc) | Renderer 构造函数内部创建 / `115870623` |
 | StonkBrokerBodyRenderer | [`0xA6269124844addc89A62CBb760b0b58a28977b42`](https://bscscan.com/address/0xa6269124844addc89a62cbb760b0b58a28977b42) | Renderer 构造函数内部创建 / `115870623` |
 | StonkBrokerAccessoryRenderer | [`0xc76717354091DcFb177c3B4e162aBC4Fca202D87`](https://bscscan.com/address/0xc76717354091dcfb177c3b4e162abc4fca202d87) | Renderer 构造函数内部创建 / `115870623` |
-| IndexBrokerNFTAMM template | [`0x1712C2BEdc1A9F5611D879e31caf9dfd1F665175`](https://bscscan.com/address/0x1712c2bedc1a9f5611d879e31caf9dfd1f665175) | [`0x0fd617...c8c13`](https://bscscan.com/tx/0x0fd6170c31cbf906302b2097810888625db62cd1efdc074014373e91ebcc8c13) / `115870625` |
-| IndexBrokerNFTPriceOracle | [`0x85060fd888a936C77555F6D7899e46e102a697e3`](https://bscscan.com/address/0x85060fd888a936c77555f6d7899e46e102a697e3) | [`0xbf2bae...c1f66`](https://bscscan.com/tx/0xbf2baec5dcb707c360a4aacc066ccc9d984849f436c0506ad0192f325d7c1f66) / `115870628` |
-| IndexBrokerNFTFactory | [`0xFa26Bf8d0830EC78ff7B2D959a1724f5E178392E`](https://bscscan.com/address/0xfa26bf8d0830ec78ff7b2d959a1724f5e178392e) | [`0x9a9836...d6a6f8`](https://bscscan.com/tx/0x9a9836a1729a63e4e70266ef0fb722db8620b1d26ddb9b4b69f760b2c3d6a6f8) / `115870631` |
-| IndexBrokerNFT Pool template | [`0xd4064239369b1A1dd78b1EcC5C1050F7A21c2303`](https://bscscan.com/address/0xd4064239369b1a1dd78b1ecc5c1050f7a21c2303) | Factory 构造函数内部创建 / `115870631` |
+| NutboxRouter（平台共享） | [`0x04e2d43bA38e3f3F0D0dab3A30D1B58BFE9B659f`](https://bscscan.com/address/0x04e2d43ba38e3f3f0d0dab3a30d1b58bfe9b659f) | [`0xf7dc70...27246`](https://bscscan.com/tx/0xf7dc700379de2c8003838b35f393804a4834840aa4bcf88d7e9b2a5518a27246) / `116637869` |
+| IndexBrokerNFTBurn template | [`0x1D875946C87a650AF2Aa5B04427D44E647a480B9`](https://bscscan.com/address/0x1d875946c87a650af2aa5b04427d44e647a480b9) | [`0x73d7a4...7361a`](https://bscscan.com/tx/0x73d7a4026fef4d3e661875e76803392c52d28a06df686f1febc0c85f0c07361a) / `116652658` |
+| IndexBrokerNFTStake template | [`0xc24Ff0009fF1AaD70eF8714ee32ebc8f6b7983a5`](https://bscscan.com/address/0xc24ff0009ff1aad70ef8714ee32ebc8f6b7983a5) | [`0x874a2e...15d05`](https://bscscan.com/tx/0x874a2ece2eca36ee87facc6a09dc1980b3f135cd4f4ce43b1945f0e96da15d05) / `116652661` |
+| IndexBrokerNFTAMM template | [`0x698680412e34db49CdBa62c46a0Faad31D05ce0A`](https://bscscan.com/address/0x698680412e34db49cdba62c46a0faad31d05ce0a) | [`0x7aa9a4...1405`](https://bscscan.com/tx/0x7aa9a457cdb5863d4ad725e4050fdee0133cb240e14a251a027b27ed2f8a1405) / `116652664` |
+| IndexBrokerNFTFactory | [`0xB1708D2F3A504846a47cdB2e4Dfb48b3ea1c9b5F`](https://bscscan.com/address/0xb1708d2f3a504846a47cdb2e4dfb48b3ea1c9b5f) | [`0x472ac6...ffdb`](https://bscscan.com/tx/0x472ac65e4f2ba424b9965377b2deea90511f131d0f2b3d087c6e14c6f55fffdb) / `116652670` |
 
-以上八个地址均已完成 BscScan 源码验证。Index Broker NFT 的铸造模式、白名单、AMM、DEX 价格源、指数回购、社区/指数双挖、揭图和 Renderer 接口，统一以 [`Index Broker NFT 矿池说明`](src/nutbox/dapps/index-broker-nft/README.md) 为准，版本记录不重复维护同一套参数说明。
+以上当前地址均已完成 BscScan 源码验证，并在 BSC 区块 `116653696` 完成部署后 Fork 生命周期测试。Renderer 及三个子 Renderer 沿用原部署；旧 `IndexBrokerNFTPriceOracle` 和未公开的旧 Factory、Pool、AMM 地址已被共享 NutboxRouter 与本表新地址取代。Index Broker NFT 的铸造模式、动态模板、白名单、AMM、DEX 价格源、指数回购、社区/指数双挖、揭图和 Renderer 接口，统一以 [`Index Broker NFT 矿池说明`](src/nutbox/dapps/index-broker-nft/README.md) 为准。
 
 ---
 
