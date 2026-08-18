@@ -16,6 +16,7 @@ interface IOwnableCommunity {
 
 interface IIndexBrokerFactoryBasketRegistry {
     function isBasket(address candidate) external view returns (bool);
+    function basketVersion(address basket) external view returns (uint32);
 }
 
 interface IIndexBrokerFactoryPump {
@@ -70,11 +71,11 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     address public immutable ammTemplate;
     address public immutable nutboxRouter;
     address public immutable basketRegistry;
-    address public immutable basketSwapRouter;
     address public immutable indexV3Router;
     uint24 public immutable indexV3Fee;
     address public defaultIndexToken;
     uint16 public platformFeeBps = DEFAULT_PLATFORM_FEE_BPS;
+    mapping(uint32 => address) public basketSwapRouterForVersion;
     mapping(address => bool) public supportedPump;
     mapping(address => bool) public supportedNFTTemplate;
     address[] private _nftTemplates;
@@ -85,12 +86,16 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
 
     event PlatformFeeBpsChanged(uint16 previousBps, uint16 newBps);
     event DefaultIndexTokenChanged(address indexed previousToken, address indexed newToken);
+    event BasketSwapRouterChanged(uint32 indexed version, address indexed previousRouter, address indexed newRouter);
     event PumpAdded(address indexed pump);
     event PumpRemoved(address indexed pump);
     event NFTTemplateAdded(address indexed template);
     event NFTTemplateRemoved(address indexed template);
     event ReservedCollectionNameAdded(string name);
     event ReservedCollectionNameRemoved(string name);
+    event IndexBasketRouterSelected(
+        address indexed pool, address indexed indexToken, uint32 indexed version, address basketSwapRouter
+    );
     event IndexBrokerNFTAMMCreated(
         address indexed pool,
         address indexed ammVault,
@@ -135,6 +140,10 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     error InvalidNFTTemplate();
     error NFTTemplateAlreadyAdded();
     error NFTTemplateNotFound();
+    error InvalidBasketRouterConfiguration();
+    error DuplicateBasketVersion();
+    error UnsupportedBasketVersion();
+    error DefaultBasketVersion();
 
     constructor(
         address communityFactory_,
@@ -143,7 +152,8 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address ammTemplate_,
         address nutboxRouter_,
         address basketRegistry_,
-        address basketSwapRouter_,
+        uint32[] memory basketVersions_,
+        address[] memory basketSwapRouters_,
         address indexV3Router_,
         uint24 indexV3Fee_,
         address defaultIndexToken_
@@ -151,19 +161,25 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         require(
             communityFactory_ != address(0) && pump_.code.length > 0 && defaultRenderer_.code.length > 0
                 && ammTemplate_.code.length > 0 && nutboxRouter_.code.length > 0 && basketRegistry_.code.length > 0
-                && basketSwapRouter_.code.length > 0 && indexV3Router_.code.length > 0,
+                && indexV3Router_.code.length > 0,
             "Invalid address"
         );
-        require(IIndexBrokerFactoryBasketRegistry(basketRegistry_).isBasket(defaultIndexToken_), "Invalid index token");
+        if (basketVersions_.length == 0 || basketVersions_.length != basketSwapRouters_.length) {
+            revert InvalidBasketRouterConfiguration();
+        }
         communityFactory = communityFactory_;
         pump = pump_;
         defaultRenderer = defaultRenderer_;
         ammTemplate = ammTemplate_;
         nutboxRouter = nutboxRouter_;
         basketRegistry = basketRegistry_;
-        basketSwapRouter = basketSwapRouter_;
         indexV3Router = indexV3Router_;
         indexV3Fee = indexV3Fee_;
+        for (uint256 i; i < basketVersions_.length; ++i) {
+            if (basketSwapRouterForVersion[basketVersions_[i]] != address(0)) revert DuplicateBasketVersion();
+            _setBasketSwapRouter(basketVersions_[i], basketSwapRouters_[i]);
+        }
+        _resolveIndexToken(defaultIndexToken_);
         defaultIndexToken = defaultIndexToken_;
         supportedPump[pump_] = true;
         emit PumpAdded(pump_);
@@ -235,10 +251,34 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     }
 
     function setDefaultIndexToken(address newToken) external onlyOwner {
-        require(IIndexBrokerFactoryBasketRegistry(basketRegistry).isBasket(newToken), "Invalid index token");
+        _resolveIndexToken(newToken);
         address previousToken = defaultIndexToken;
         defaultIndexToken = newToken;
         emit DefaultIndexTokenChanged(previousToken, newToken);
+    }
+
+    /// @notice Adds or replaces the Basket Router used by future NFT pools for one Basket version.
+    /// @dev Existing AMMs keep the Router selected when they were initialized.
+    function setBasketSwapRouter(uint32 version, address newRouter) external onlyOwner {
+        _setBasketSwapRouter(version, newRouter);
+    }
+
+    /// @notice Disables one Basket version for future NFT pools.
+    function removeBasketSwapRouter(uint32 version) external onlyOwner {
+        address previousRouter = basketSwapRouterForVersion[version];
+        if (previousRouter == address(0)) revert UnsupportedBasketVersion();
+        if (IIndexBrokerFactoryBasketRegistry(basketRegistry).basketVersion(defaultIndexToken) == version) {
+            revert DefaultBasketVersion();
+        }
+        delete basketSwapRouterForVersion[version];
+        emit BasketSwapRouterChanged(version, previousRouter, address(0));
+    }
+
+    /// @notice Returns the Router currently selected for the Factory default index token.
+    /// @dev Retains the historical single-Router getter while routing new pools by Basket version.
+    function basketSwapRouter() external view returns (address) {
+        uint32 version = IIndexBrokerFactoryBasketRegistry(basketRegistry).basketVersion(defaultIndexToken);
+        return basketSwapRouterForVersion[version];
     }
 
     /// @notice Adds exact, case-sensitive collection names that future NFT collections cannot use.
@@ -290,7 +330,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         if (!supportedNFTTemplate[config.nftTemplate]) revert NFTTemplateNotFound();
         AMMConfig memory ammConfig = abi.decode(config.ammConfig, (AMMConfig));
         address selectedIndexToken = ammConfig.indexToken == address(0) ? defaultIndexToken : ammConfig.indexToken;
-        require(IIndexBrokerFactoryBasketRegistry(basketRegistry).isBasket(selectedIndexToken), "Invalid index token");
+        (uint32 indexBasketVersion, address selectedBasketSwapRouter) = _resolveIndexToken(selectedIndexToken);
         address admin = IOwnableCommunity(community).owner();
         address selectedRenderer = config.renderer == address(0) ? defaultRenderer : config.renderer;
 
@@ -300,7 +340,16 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         IIndexBrokerNFT pool = IIndexBrokerNFT(clone);
         _initializeNFT(pool, community, admin, selectedRenderer, ammClone, selectedIndexToken, name, config);
         address selectedPump = _selectPump(pool.communityToken(), ammConfig.pump);
-        _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, selectedIndexToken, selectedPump, ammConfig);
+        _initializeAMM(
+            pool,
+            clone,
+            ammClone,
+            config.communityTokenPrice,
+            selectedIndexToken,
+            selectedBasketSwapRouter,
+            selectedPump,
+            ammConfig
+        );
         _emitNFTCreated(pool, clone, community, admin, selectedRenderer, name, config);
         IndexBrokerNFTAMM initializedAMM = IndexBrokerNFTAMM(payable(ammClone));
         emit IndexBrokerNFTAMMCreated(
@@ -315,7 +364,49 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             ammConfig.specificFeeBps,
             selectedIndexToken
         );
+        emit IndexBasketRouterSelected(clone, selectedIndexToken, indexBasketVersion, selectedBasketSwapRouter);
         return clone;
+    }
+
+    function _setBasketSwapRouter(uint32 version, address newRouter) internal {
+        if (version == 0 || newRouter.code.length == 0) revert InvalidBasketRouterConfiguration();
+        IIndexBrokerBasketSwapRouter router = IIndexBrokerBasketSwapRouter(newRouter);
+        address hook = router.basketHook();
+        address settlementToken = router.settlementToken();
+        if (
+            hook.code.length == 0 || settlementToken.code.length == 0
+                || IIndexBrokerBasketHook(hook).tokenVersion() != version
+                || IIndexBrokerBasketHook(hook).basketRegistry() != basketRegistry
+                || IIndexBrokerBasketHook(hook).settlementToken() != settlementToken
+        ) revert InvalidBasketRouterConfiguration();
+
+        if (defaultIndexToken != address(0)) {
+            uint32 defaultVersion = IIndexBrokerFactoryBasketRegistry(basketRegistry).basketVersion(defaultIndexToken);
+            if (defaultVersion == version) _validateIndexToken(defaultIndexToken, version, newRouter);
+        }
+
+        address previousRouter = basketSwapRouterForVersion[version];
+        basketSwapRouterForVersion[version] = newRouter;
+        emit BasketSwapRouterChanged(version, previousRouter, newRouter);
+    }
+
+    function _resolveIndexToken(address token) internal view returns (uint32 version, address selectedRouter) {
+        IIndexBrokerFactoryBasketRegistry registry = IIndexBrokerFactoryBasketRegistry(basketRegistry);
+        if (!registry.isBasket(token)) revert UnsupportedBasketVersion();
+        version = registry.basketVersion(token);
+        selectedRouter = basketSwapRouterForVersion[version];
+        if (version == 0 || selectedRouter == address(0)) revert UnsupportedBasketVersion();
+        _validateIndexToken(token, version, selectedRouter);
+    }
+
+    function _validateIndexToken(address token, uint32 version, address selectedRouter) internal view {
+        IIndexBrokerBasketToken basket = IIndexBrokerBasketToken(token);
+        IIndexBrokerBasketSwapRouter router = IIndexBrokerBasketSwapRouter(selectedRouter);
+        address hook = router.basketHook();
+        if (
+            token.code.length == 0 || basket.protocolVersion() != version || basket.registry() != basketRegistry
+                || basket.engine() != hook || basket.settlementToken() != router.settlementToken()
+        ) revert InvalidBasketRouterConfiguration();
     }
 
     function _addReservedCollectionName(string memory name) internal {
@@ -376,6 +467,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address ammClone,
         uint256 communityTokenPrice,
         address selectedIndexToken,
+        address selectedBasketSwapRouter,
         address selectedPump,
         AMMConfig memory config
     ) internal {
@@ -391,7 +483,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
                 config.priceSourceType,
                 config.priceSourceData,
                 basketRegistry,
-                basketSwapRouter,
+                selectedBasketSwapRouter,
                 indexV3Router,
                 indexV3Fee,
                 selectedIndexToken

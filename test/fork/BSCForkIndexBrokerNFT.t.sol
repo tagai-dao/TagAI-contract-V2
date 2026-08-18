@@ -19,8 +19,8 @@ import {IBasketToken} from "../../src/interfaces/IBasketToken.sol";
  * @title BSCForkIndexBrokerNFT
  * @notice End-to-end BSC mainnet-fork coverage for the Index Broker NFT AMM.
  * @dev The Pump, Token, Hook and NFT contracts are deployed from this branch. BasketRegistry,
- *      BasketSwapRouter, Pancake SmartRouter, BNB/USDT V3 liquidity and the index Basket are
- *      the live BSC contracts at the fork block.
+ *      Basket V2/V3 SwapRouters, Pancake SmartRouter, BNB/USDT V3 liquidity and the V2 default
+ *      index Basket are the live BSC contracts at the fork block.
  *
  * Run:
  *   FOUNDRY_PROFILE=fork forge test --rpc-url bsc \
@@ -30,6 +30,7 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
     address internal constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
     address internal constant BASKET_REGISTRY = 0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe;
     address internal constant BASKET_SWAP_ROUTER = 0x4c3a94f166d3046F10D002FDDe426E9C0b6C703e;
+    address internal constant BASKET_SWAP_ROUTER_V3 = 0xa777987Ae5AE1D619A36Bd8E57258CB08f2A06E1;
     address internal constant PANCAKE_V3_SMART_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
     address internal constant PANCAKE_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
     address internal constant INDEX_TOKEN = 0xcF99DeC9439630ccf7Efe392F0fc2aF98EF99a61;
@@ -180,6 +181,12 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
             pancakeManagers,
             ""
         );
+        uint32[] memory basketVersions = new uint32[](2);
+        basketVersions[0] = 2;
+        basketVersions[1] = 3;
+        address[] memory basketSwapRouters = new address[](2);
+        basketSwapRouters[0] = BASKET_SWAP_ROUTER;
+        basketSwapRouters[1] = BASKET_SWAP_ROUTER_V3;
         factory = new IndexBrokerNFTFactory(
             COMMUNITY_FACTORY,
             address(pump),
@@ -187,11 +194,15 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
             address(new IndexBrokerNFTAMM()),
             address(nutboxRouter),
             BASKET_REGISTRY,
-            BASKET_SWAP_ROUTER,
+            basketVersions,
+            basketSwapRouters,
             PANCAKE_V3_SMART_ROUTER,
             BNB_USDT_V3_FEE,
             INDEX_TOKEN
         );
+        assertEq(factory.basketSwapRouterForVersion(2), BASKET_SWAP_ROUTER, "V2 Basket Router");
+        assertEq(factory.basketSwapRouterForVersion(3), BASKET_SWAP_ROUTER_V3, "V3 Basket Router");
+        assertEq(factory.basketSwapRouter(), BASKET_SWAP_ROUTER, "default Basket Router");
         factory.addNFTTemplate(address(new IndexBrokerNFTBurn()));
 
         address committeeOwner = Ownable(COMMITTEE).owner();

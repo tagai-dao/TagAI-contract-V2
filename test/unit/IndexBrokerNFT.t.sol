@@ -154,6 +154,10 @@ contract IndexBrokerPancakeV4CLManagerMock {
 
 contract IndexBrokerIndexTokenMock is ERC20 {
     address public wbnb;
+    address public engine;
+    address public registry;
+    address public settlementToken;
+    uint32 public protocolVersion;
     mapping(address => uint256) private _holderFees;
 
     constructor(string memory symbol_) ERC20("Index Token", symbol_) {}
@@ -164,6 +168,13 @@ contract IndexBrokerIndexTokenMock is ERC20 {
 
     function setWbnb(address wrappedNative_) external {
         wbnb = wrappedNative_;
+    }
+
+    function configureBasket(address registry_, address engine_, address settlementToken_, uint32 version_) external {
+        registry = registry_;
+        engine = engine_;
+        settlementToken = settlementToken_;
+        protocolVersion = version_;
     }
 
     function fundHolderFees(address holder, uint256 amount) external {
@@ -184,9 +195,23 @@ contract IndexBrokerIndexTokenMock is ERC20 {
 
 contract IndexBrokerBasketRegistryMock {
     mapping(address => bool) public isBasket;
+    mapping(address => uint32) public basketVersion;
 
-    function setIndexToken(address token, bool valid) external {
+    function setIndexToken(address token, bool valid, uint32 version) external {
         isBasket[token] = valid;
+        basketVersion[token] = valid ? version : 0;
+    }
+}
+
+contract IndexBrokerBasketHookMock {
+    address public immutable basketRegistry;
+    address public immutable settlementToken;
+    uint32 public immutable tokenVersion;
+
+    constructor(address basketRegistry_, address settlementToken_, uint32 tokenVersion_) {
+        basketRegistry = basketRegistry_;
+        settlementToken = settlementToken_;
+        tokenVersion = tokenVersion_;
     }
 }
 
@@ -225,9 +250,11 @@ contract IndexBrokerIndexV3RouterMock {
 
 contract IndexBrokerBasketSwapRouterMock {
     address public immutable settlementToken;
+    address public immutable basketHook;
 
-    constructor(address settlementToken_) {
+    constructor(address settlementToken_, address basketHook_) {
         settlementToken = settlementToken_;
+        basketHook = basketHook_;
     }
 
     function buyExactSettlement(
@@ -296,6 +323,7 @@ contract IndexBrokerNFTTest is Test {
     IndexBrokerBasketRegistryMock internal basketRegistry;
     IndexBrokerIndexV3FactoryMock internal indexV3Factory;
     IndexBrokerIndexV3RouterMock internal indexV3Router;
+    IndexBrokerBasketHookMock internal basketHook;
     IndexBrokerBasketSwapRouterMock internal basketSwapRouter;
     IndexBrokerCommunityToken internal indexSettlementToken;
     IndexBrokerIndexTokenMock internal defaultIndexToken;
@@ -317,6 +345,7 @@ contract IndexBrokerNFTTest is Test {
     uint16 internal constant AMM_SPECIFIC_FEE_BPS = 1_500;
     uint16 internal constant AMM_PLATFORM_FEE_BPS = 50;
     uint24 internal constant INDEX_V3_FEE = 100;
+    uint32 internal constant DEFAULT_BASKET_VERSION = 2;
     uint256 internal constant BASE_WEIGHT = 10_000;
     uint256 internal constant NFT_NATIVE_VALUE = 0.1 ether;
 
@@ -362,13 +391,23 @@ contract IndexBrokerNFTTest is Test {
         basketRegistry = new IndexBrokerBasketRegistryMock();
         indexSettlementToken = new IndexBrokerCommunityToken();
         indexV3Factory.setPool(address(wrappedNative), address(indexSettlementToken), INDEX_V3_FEE, address(v2Pair));
-        basketSwapRouter = new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken));
+        basketHook = new IndexBrokerBasketHookMock(
+            address(basketRegistry), address(indexSettlementToken), DEFAULT_BASKET_VERSION
+        );
+        basketSwapRouter = new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken), address(basketHook));
         defaultIndexToken = new IndexBrokerIndexTokenMock("DEFAULT-INDEX");
         defaultIndexToken.setWbnb(address(wrappedNative));
-        basketRegistry.setIndexToken(address(defaultIndexToken), true);
+        defaultIndexToken.configureBasket(
+            address(basketRegistry), address(basketHook), address(indexSettlementToken), DEFAULT_BASKET_VERSION
+        );
+        basketRegistry.setIndexToken(address(defaultIndexToken), true, DEFAULT_BASKET_VERSION);
         assertTrue(indexSettlementToken.transfer(address(indexV3Router), 1_000_000 ether));
         burnTemplate = new IndexBrokerNFTBurn();
         stakeTemplate = new IndexBrokerNFTStake();
+        uint32[] memory basketVersions = new uint32[](1);
+        basketVersions[0] = DEFAULT_BASKET_VERSION;
+        address[] memory basketSwapRouters = new address[](1);
+        basketSwapRouters[0] = address(basketSwapRouter);
         poolFactory = new IndexBrokerNFTFactory(
             address(communityFactory),
             address(pump),
@@ -376,7 +415,8 @@ contract IndexBrokerNFTTest is Test {
             address(new IndexBrokerNFTAMM()),
             address(nutboxRouter),
             address(basketRegistry),
-            address(basketSwapRouter),
+            basketVersions,
+            basketSwapRouters,
             address(indexV3Router),
             INDEX_V3_FEE,
             address(defaultIndexToken)
@@ -436,6 +476,9 @@ contract IndexBrokerNFTTest is Test {
         assertEq(amm.nutboxRouter(), address(nutboxRouter));
         assertEq(amm.basketRegistry(), address(basketRegistry));
         assertEq(address(amm.basketSwapRouter()), address(basketSwapRouter));
+        assertEq(amm.indexBasketVersion(), DEFAULT_BASKET_VERSION);
+        assertEq(poolFactory.basketSwapRouterForVersion(DEFAULT_BASKET_VERSION), address(basketSwapRouter));
+        assertEq(poolFactory.basketSwapRouter(), address(basketSwapRouter));
         assertEq(address(amm.indexV3Router()), address(indexV3Router));
         assertEq(amm.indexWrappedNative(), address(wrappedNative));
         assertEq(amm.indexSettlementToken(), address(indexSettlementToken));
@@ -1767,7 +1810,10 @@ contract IndexBrokerNFTTest is Test {
     function test_AMMIndexTokenIsFixedWhileFactoryDefaultCanChange() public {
         IndexBrokerIndexTokenMock newDefault = new IndexBrokerIndexTokenMock("NEW-DEFAULT");
         newDefault.setWbnb(address(wrappedNative));
-        basketRegistry.setIndexToken(address(newDefault), true);
+        newDefault.configureBasket(
+            address(basketRegistry), address(basketHook), address(indexSettlementToken), DEFAULT_BASKET_VERSION
+        );
+        basketRegistry.setIndexToken(address(newDefault), true, DEFAULT_BASKET_VERSION);
         poolFactory.setDefaultIndexToken(address(newDefault));
 
         assertEq(amm.indexToken(), address(defaultIndexToken));
@@ -1783,13 +1829,118 @@ contract IndexBrokerNFTTest is Test {
         assertEq(IndexBrokerNFTAMM(payable(customPool.ammVault())).indexToken(), address(defaultIndexToken));
     }
 
+    function test_FactorySelectsAndSnapshotsBasketRouterByVersion() public {
+        (IndexBrokerIndexTokenMock version3Token,, IndexBrokerBasketSwapRouterMock version3Router) =
+            _addIndexBasketVersion(3, "V3-INDEX");
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        IndexBrokerNFTBurn version3Pool =
+            _addPoolWithIndex(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(version3Token));
+        IndexBrokerNFTAMM firstAMM = IndexBrokerNFTAMM(payable(version3Pool.ammVault()));
+        assertEq(firstAMM.indexBasketVersion(), 3);
+        assertEq(address(firstAMM.basketSwapRouter()), address(version3Router));
+
+        uint256 holderFees = 0.25 ether;
+        vm.deal(address(wrappedNative), holderFees);
+        wrappedNative.approve(address(version3Token), holderFees);
+        version3Token.fundHolderFees(address(version3Pool), holderFees);
+        assertEq(version3Pool.harvestIndexHolderFees(), holderFees);
+        assertEq(address(firstAMM).balance, holderFees);
+
+        vm.prank(paidUser);
+        (,, uint256 indexOut) = firstAMM.buyIndexWithNativeReserve(0, 0, bytes(""));
+        assertGt(indexOut, 0);
+        assertEq(version3Token.balanceOf(address(version3Pool)), indexOut);
+        assertEq(address(firstAMM).balance, 0);
+
+        IndexBrokerBasketSwapRouterMock replacement =
+            new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken), version3Router.basketHook());
+        poolFactory.setBasketSwapRouter(3, address(replacement));
+
+        IndexBrokerNFTBurn laterPool =
+            _addPoolWithIndex(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(version3Token));
+        IndexBrokerNFTAMM laterAMM = IndexBrokerNFTAMM(payable(laterPool.ammVault()));
+        assertEq(address(firstAMM.basketSwapRouter()), address(version3Router));
+        assertEq(address(laterAMM.basketSwapRouter()), address(replacement));
+    }
+
+    function test_FactoryDefaultIndexCanSwitchAcrossBasketVersions() public {
+        (IndexBrokerIndexTokenMock version3Token,, IndexBrokerBasketSwapRouterMock version3Router) =
+            _addIndexBasketVersion(3, "V3-DEFAULT");
+        poolFactory.setDefaultIndexToken(address(version3Token));
+
+        assertEq(poolFactory.defaultIndexToken(), address(version3Token));
+        assertEq(poolFactory.basketSwapRouter(), address(version3Router));
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        IndexBrokerNFTBurn newDefaultPool = _addPool(NATIVE_PRICE, 3, 0, false, accounts, allowances);
+        IndexBrokerNFTAMM newDefaultAMM = IndexBrokerNFTAMM(payable(newDefaultPool.ammVault()));
+        assertEq(newDefaultAMM.indexToken(), address(version3Token));
+        assertEq(newDefaultAMM.indexBasketVersion(), 3);
+        assertEq(address(newDefaultAMM.basketSwapRouter()), address(version3Router));
+
+        poolFactory.removeBasketSwapRouter(DEFAULT_BASKET_VERSION);
+        assertEq(poolFactory.basketSwapRouterForVersion(DEFAULT_BASKET_VERSION), address(0));
+        vm.expectRevert(IndexBrokerNFTFactory.DefaultBasketVersion.selector);
+        poolFactory.removeBasketSwapRouter(3);
+    }
+
+    function test_FactoryCanRegisterFutureBasketVersionWithoutNFTUpgrade() public {
+        (IndexBrokerIndexTokenMock version4Token,, IndexBrokerBasketSwapRouterMock version4Router) =
+            _addIndexBasketVersion(4, "V4-INDEX");
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        IndexBrokerNFTBurn version4Pool =
+            _addPoolWithIndex(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(version4Token));
+        IndexBrokerNFTAMM version4AMM = IndexBrokerNFTAMM(payable(version4Pool.ammVault()));
+
+        assertEq(poolFactory.basketSwapRouterForVersion(4), address(version4Router));
+        assertEq(version4AMM.indexBasketVersion(), 4);
+        assertEq(address(version4AMM.basketSwapRouter()), address(version4Router));
+    }
+
+    function test_FactoryCanDisableOnlyNonDefaultBasketVersion() public {
+        (IndexBrokerIndexTokenMock version3Token,,) = _addIndexBasketVersion(3, "V3-INDEX");
+        poolFactory.removeBasketSwapRouter(3);
+        assertEq(poolFactory.basketSwapRouterForVersion(3), address(0));
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        vm.expectRevert(IndexBrokerNFTFactory.UnsupportedBasketVersion.selector);
+        this.addPoolWithIndexForRevertTest(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(version3Token));
+
+        vm.expectRevert(IndexBrokerNFTFactory.DefaultBasketVersion.selector);
+        poolFactory.removeBasketSwapRouter(DEFAULT_BASKET_VERSION);
+    }
+
+    function test_FactoryRejectsRouterWhoseHookVersionDoesNotMatch() public {
+        IndexBrokerBasketHookMock version4Hook =
+            new IndexBrokerBasketHookMock(address(basketRegistry), address(indexSettlementToken), 4);
+        IndexBrokerBasketSwapRouterMock version4Router =
+            new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken), address(version4Hook));
+
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidBasketRouterConfiguration.selector);
+        poolFactory.setBasketSwapRouter(3, address(version4Router));
+    }
+
     function test_FactoryRejectsUnregisteredCustomIndexToken() public {
         address[] memory accounts = new address[](1);
         accounts[0] = whitelistUser1;
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 1;
         IndexBrokerIndexTokenMock fakeIndex = new IndexBrokerIndexTokenMock("FAKE");
-        vm.expectRevert(bytes("Invalid index token"));
+        vm.expectRevert(IndexBrokerNFTFactory.UnsupportedBasketVersion.selector);
         this.addPoolWithIndexForRevertTest(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(fakeIndex));
     }
 
@@ -1800,7 +1951,10 @@ contract IndexBrokerNFTTest is Test {
         allowances[0] = 1;
         IndexBrokerIndexTokenMock incompatibleIndex = new IndexBrokerIndexTokenMock("INCOMPATIBLE");
         incompatibleIndex.setWbnb(makeAddr("differentWrappedNative"));
-        basketRegistry.setIndexToken(address(incompatibleIndex), true);
+        incompatibleIndex.configureBasket(
+            address(basketRegistry), address(basketHook), address(indexSettlementToken), DEFAULT_BASKET_VERSION
+        );
+        basketRegistry.setIndexToken(address(incompatibleIndex), true, DEFAULT_BASKET_VERSION);
 
         vm.expectRevert(IndexBrokerNFTAMM.InvalidConfig.selector);
         this.addPoolWithIndexForRevertTest(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(incompatibleIndex));
@@ -2085,6 +2239,23 @@ contract IndexBrokerNFTTest is Test {
         community.adminAddPool("Index Broker Stake NFT", ratios, address(poolFactory), abi.encode(config));
         createdPool = IndexBrokerNFTStake(payable(community.activedPools(existingPools)));
         activePoolCount = existingPools + 1;
+    }
+
+    function _addIndexBasketVersion(uint32 version, string memory symbol)
+        internal
+        returns (
+            IndexBrokerIndexTokenMock token,
+            IndexBrokerBasketHookMock versionHook,
+            IndexBrokerBasketSwapRouterMock versionRouter
+        )
+    {
+        versionHook = new IndexBrokerBasketHookMock(address(basketRegistry), address(indexSettlementToken), version);
+        versionRouter = new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken), address(versionHook));
+        token = new IndexBrokerIndexTokenMock(symbol);
+        token.setWbnb(address(wrappedNative));
+        token.configureBasket(address(basketRegistry), address(versionHook), address(indexSettlementToken), version);
+        basketRegistry.setIndexToken(address(token), true, version);
+        poolFactory.setBasketSwapRouter(version, address(versionRouter));
     }
 
     function _addPool(

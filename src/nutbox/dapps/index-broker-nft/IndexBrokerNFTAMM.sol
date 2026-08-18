@@ -40,13 +40,19 @@ interface IIndexBrokerPancakeV4PoolKeyManager {
 
 interface IIndexBrokerBasketRegistry {
     function isBasket(address candidate) external view returns (bool);
+    function basketVersion(address basket) external view returns (uint32);
 }
 
 interface IIndexBrokerBasketToken {
     function wbnb() external view returns (address);
+    function engine() external view returns (address);
+    function registry() external view returns (address);
+    function settlementToken() external view returns (address);
+    function protocolVersion() external view returns (uint32);
 }
 
 interface IIndexBrokerBasketSwapRouter {
+    function basketHook() external view returns (address);
     function settlementToken() external view returns (address);
     function buyExactSettlement(
         address basket,
@@ -55,6 +61,12 @@ interface IIndexBrokerBasketSwapRouter {
         bytes calldata hookData,
         address recipient
     ) external returns (uint256 basketOut);
+}
+
+interface IIndexBrokerBasketHook {
+    function basketRegistry() external view returns (address);
+    function settlementToken() external view returns (address);
+    function tokenVersion() external view returns (uint32);
 }
 
 interface IIndexBrokerPancakeV3Factory {
@@ -123,6 +135,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     address public indexSettlementToken;
     uint24 public indexV3Fee;
     address public indexToken;
+    uint32 public indexBasketVersion;
 
     uint256 public inventoryCount;
     uint256 public oldestTokenId;
@@ -227,16 +240,23 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         basketRegistry = basketRegistry_;
         indexToken = indexToken_;
 
-        if (!IIndexBrokerBasketRegistry(basketRegistry_).isBasket(indexToken_)) revert InvalidConfig();
+        IIndexBrokerBasketRegistry registry = IIndexBrokerBasketRegistry(basketRegistry_);
+        if (!registry.isBasket(indexToken_)) revert InvalidConfig();
 
         IIndexBrokerBasketSwapRouter router = IIndexBrokerBasketSwapRouter(basketSwapRouter_);
         address settlement = router.settlementToken();
+        address basketHook = router.basketHook();
+        uint32 basketVersion = registry.basketVersion(indexToken_);
         IIndexBrokerPancakeV3Router v3Router = IIndexBrokerPancakeV3Router(indexV3Router_);
         address wrappedNative = v3Router.WETH9();
         address v3Factory = v3Router.factory();
+        IIndexBrokerBasketToken basket = IIndexBrokerBasketToken(indexToken_);
         if (
-            settlement.code.length == 0 || wrappedNative.code.length == 0 || v3Factory.code.length == 0
-                || IIndexBrokerBasketToken(indexToken_).wbnb() != wrappedNative
+            basketVersion == 0 || settlement.code.length == 0 || basketHook.code.length == 0
+                || wrappedNative.code.length == 0 || v3Factory.code.length == 0
+                || basket.protocolVersion() != basketVersion || basket.registry() != basketRegistry_
+                || basket.engine() != basketHook || basket.settlementToken() != settlement
+                || basket.wbnb() != wrappedNative
                 || IIndexBrokerPancakeV3Factory(v3Factory).getPool(wrappedNative, settlement, indexV3Fee_).code.length
                     == 0
         ) revert InvalidConfig();
@@ -246,6 +266,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         indexWrappedNative = wrappedNative;
         indexSettlementToken = settlement;
         indexV3Fee = indexV3Fee_;
+        indexBasketVersion = basketVersion;
 
         bool officialTagAIToken = pump_ != address(0);
         if (officialTagAIToken) {

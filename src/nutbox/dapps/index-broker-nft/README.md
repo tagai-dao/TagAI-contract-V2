@@ -16,11 +16,11 @@ Index Broker NFT 是一种与 Nutbox 社区绑定的固定总量 NFT 矿池。�
 
 | 组件                          | 作用                                                                                            |
 | --------------------------- | --------------------------------------------------------------------------------------------- |
-| `IndexBrokerNFTFactory`     | 管理可用 NFT 模板，创建 NFT 矿池和一对一的 AMM，并管理全局平台费、默认指数代币和保留名称                                      |
+| `IndexBrokerNFTFactory`     | 管理可用 NFT 模板，创建 NFT 矿池和一对一的 AMM，并管理全局平台费、默认指数代币、Basket 版本 Router 和保留名称                         |
 | `IndexBrokerNFTBase`        | 两类 NFT 模板共享的 ERC-721、铸造、推荐升级、社区挖矿、奖励注入、揭图和元数据逻辑                                           |
 | `IndexBrokerNFTBurn`        | 销毁型模板；销毁社区代币增加指数权重，转移后保留 80% 并需要重新激活                                                        |
 | `IndexBrokerNFTStake`       | 质押型模板；质押创建者指定的 ERC-20 增加指数权重，本金、权重和奖励跟随 NFT，转移不衰减                                         |
-| `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备，读取创建时固定的社区代币报价池，并在需要时调用 Router 把报价币换算为 BNB                              |
+| `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备，并固化所选指数代币版本及其 BasketSwapRouter，用 BNB 储备回购指数奖励              |
 | [`NutboxRouter`](../../../router/README.md) | 平台级公共询价与交易路由；由平台登记共享价格池并维护最多五跳、可双向使用的默认路径，任何合约或账户均可使用 |
 | Renderer                    | 为NFT提供SVG、`tokenURI` 和 `contractURI`；矿池创建时可选默认或自定义 Renderer                                   |
 
@@ -282,7 +282,13 @@ struct AMMConfig {
 | `pump`            | 官方社区代币所属的受支持 Pump；外部代币填零地址。当前构造函数传入的默认 Pump 可自动识别 |
 
 
-`indexToken` 必须是 `basketRegistry` 认可的 Basket。矿池创建完成后，选定的指数代币固定不变；以后 Factory 修改默认指数代币不会影响既有矿池。
+`indexToken` 必须是 `basketRegistry` 认可的 Basket，并且 Factory 必须已经为
+`basketRegistry.basketVersion(indexToken)` 登记兼容的 BasketSwapRouter。Factory 会进一步核对指数代币的
+`protocolVersion`、Registry、Engine/Hook、结算代币与 Router 是否一致，不能把 V2 指数交给 V3 Router。
+
+矿池创建时，指数代币、版本和对应 Router 会一起固定在专属 AMM 中。以后 Factory 修改默认指数代币，或替换某个版本的 Router，
+都不会改变已有矿池。当前 V2、V3 使用相同的外层 Token/Router 接口；未来 V4 保持同一接口和资金语义时，平台只需登记 V4 Router，
+不需要重新部署 NFT 模板。
 
 ## 6. 官方 Pump 代币与外部代币的 AMM 激活规则
 
@@ -461,7 +467,7 @@ Router 不长期保管交易资产。每一跳的输入和输出只在当前调�
 
 ### 7.2 BSC 默认真实资产路由
 
-BSC 独立 Router 部署脚本使用 [`BSCNutboxRouterConfig.sol`](../../../../script/config/BSCNutboxRouterConfig.sol)，在构造交易中一次性写入 15 个 PancakeSwap V3 现货池和 29 条默认路径。每个 ERC-20 资产同时具有到 USDT 和 WBNB 的默认路由；同一路由自动支持反向询价。NFT 部署脚本只读取并验证已经部署的共享 Router，不会再次部署或配置 Router。
+BSC 独立 Router 部署脚本使用 [`BSCNutboxRouterConfig.sol`](../../../../script/config/BSCNutboxRouterConfig.sol)，在构造交易中一次性写入 15 个 PancakeSwap V3 现货池和 29 条默认路径。每个 ERC-20 资产同时具有到 USDT 和 WBNB 的默认路由；同一路由自动支持反向询价。NFT 部署脚本只读取并验证已经部署的共享 NutboxRouter，不会再次部署或配置它；同时会把已部署的 Basket V2/V3 SwapRouter 按版本登记进新 Factory。
 
 | 用户资产 | 链上符号 | 第一价格池 | Fee | 到 WBNB 的默认路径 |
 | --- | --- | --- | ---: | --- |
@@ -710,7 +716,7 @@ nftPool.queuedIndexRewards();
 
 ### 10.5 指数代币 Holder Fee 回收
 
-回购得到的 `indexToken` 在用户领取之前由 NFT Pool 持有，因此会在 Index Basket 中累积属于 NFT Pool 的 Holder Fee。任何地址都可以调用：
+回购得到的 `indexToken` 在用户领取之前由 NFT Pool 持有，因此会在 Index Basket 中累积属于 NFT Pool 的 Holder Fee。V2、V3 以及未来兼容版本均通过相同的 `claimHolderFeesFor(address)` 接口领取。任何地址都可以调用：
 
 ```solidity
 uint256 wrappedNativeAmount = nftPool.harvestIndexHolderFees();
@@ -876,14 +882,16 @@ amm.buyIndexWithNativeReserve(
 1. 读取 AMM 当前全部 BNB 余额；
 2. 将余额的 **100 BPS（1%）** 发送给执行者作为执行奖励；
 3. 其余 BNB 通过固定 Pancake V3 路径换成 Basket Router 的结算代币；
-4. 再用结算代币购买该矿池固定的 `indexToken`；
+4. 根据 AMM 固化的 `indexBasketVersion`，使用该版本对应的 BasketSwapRouter 购买固定的 `indexToken`；
 5. 将买到的指数代币注入 NFT Pool，按指数挖矿权重分配。
 
 指数代币在注入交易中按照当时的有效指数挖矿权重一次性完成奖励记账，不采用按天或按区块线性释放；持有人之后再按 Token ID 领取已经归属的奖励。注入时没有有效权重的奖励进入 `queuedIndexRewards`，待后续出现有效权重时一次性分配。
 
 NFT Pool 持有指数代币期间产生的 Index Basket Holder Fee，也可以通过 `harvestIndexHolderFees()` 转成 BNB 并加入这里的同一储备。AMM 不区分 BNB 来自 NFT 交易费还是 Index Holder Fee。
 
-`minSettlementOut`、`minIndexOut` 和 `hookData` 由执行者提供。执行者或 Keeper 应先使用对应 Router 的最新报价生成合理的最小输出和 Basket Hook 数据，避免使用过期参数。
+`minSettlementOut`、`minIndexOut` 和 `hookData` 由执行者提供。执行者或 Keeper 应先读取
+`indexBasketVersion()` 与 `basketSwapRouter()`，再使用对应 Router 的最新报价生成合理的最小输出和 Basket Hook 数据。
+空 `hookData` 在当前 V2/V3 均可使用；非空 Hook 数据必须按对应版本编码，不能假设不同 Basket 版本的内部字段完全一致。
 
 AMM 没有管理员提取社区代币储备或 BNB 交易费的普通入口：
 
@@ -956,10 +964,14 @@ Factory owner可以：
 
 - 调整所有矿池公开铸造所读取的 `platformFeeBps`；
 - 修改以后新建矿池使用的默认指数代币；
+- 通过 `setBasketSwapRouter(version, router)` 新增或替换未来矿池使用的 Basket 版本 Router；
+- 通过 `removeBasketSwapRouter(version)` 停止未来矿池选择某个非默认版本；
 - 通过 `addNFTTemplate(template)` 和 `removeNFTTemplate(template)` 管理以后新建矿池可选择的 NFT 模板；
 - 添加或删除精确匹配的保留集合名称。
 
-修改默认指数代币或模板名单都不会改变既有矿池。可通过 `nftTemplateCount()`、`nftTemplateAt(index)` 和 `supportedNFTTemplate(template)` 查询当前模板名单；删除采用 swap-and-pop，枚举顺序不稳定。
+修改默认指数代币、版本 Router 或模板名单都不会改变既有矿池。当前默认指数所属版本不能被删除；应先切换到另一个有效默认指数。
+可通过 `basketSwapRouterForVersion(version)` 查询版本 Router，并通过 `nftTemplateCount()`、`nftTemplateAt(index)` 和
+`supportedNFTTemplate(template)` 查询当前模板名单；模板删除采用 swap-and-pop，枚举顺序不稳定。
 
 ### 15.4 Router owner
 
@@ -1026,6 +1038,8 @@ Router 路由属于共享动态配置，管理操作会影响所有依赖对应�
 | `newestTokenId()`                         | 当前队尾 Token ID        |
 | `priceSourceType()` / `priceSourceData()` | AMM 创建时固定的第一跳 DEX 池  |
 | `priceQuoteToken()`                       | 第一跳池识别出的报价币           |
+| `indexBasketVersion()`                    | AMM 创建时固化的 Basket 版本   |
+| `basketSwapRouter()`                      | 与该版本和指数代币匹配的固定 Router |
 
 
 
@@ -1038,6 +1052,8 @@ Router 路由属于共享动态配置，管理操作会影响所有依赖对应�
 
 - `IndexBrokerNFTCreated`
 - `IndexBrokerNFTAMMCreated`
+- `IndexBasketRouterSelected`
+- `BasketSwapRouterChanged`
 - `NFTTemplateAdded`
 - `NFTTemplateRemoved`
 
@@ -1218,7 +1234,7 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 
 ## 21. BSC V11 部署记录
 
-下表是动态 NFT 模板功能之前的一轮 Index Broker NFT 部署记录。该 NFT 功能尚未正式对外开放，本次升级会替换 Factory、AMM template、Router 和 NFT templates；Pump、Token、Hook 与 Renderer 地址继续复用。新地址写入部署快照前，不应把下表中的旧 NFT 地址视为与本文当前源码一致。
+下表是动态 NFT 模板功能之前的一轮 Index Broker NFT 部署记录。该 NFT 功能尚未正式对外开放，本次升级会替换 Factory、AMM template、Burn/Stake NFT templates 和 StonkBrokerRenderer；Pump、Token、Hook、共享 NutboxRouter 与 Basket 基础设施继续复用。新地址写入部署快照前，不应把下表中的旧 NFT 地址视为与本文当前源码一致。
 
 | 合约 | 地址 |
 | --- | --- |
