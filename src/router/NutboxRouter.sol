@@ -169,7 +169,8 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         address[] memory v2Factories_,
         address[] memory v3Factories_,
         address[] memory uniswapV4Managers_,
-        address[] memory pancakeV4CLManagers_
+        address[] memory pancakeV4CLManagers_,
+        bytes memory initialConfig_
     ) {
         if (wrappedNative_.code.length == 0 || pancakeV3Router_.code.length == 0) {
             revert InvalidAddress();
@@ -189,6 +190,59 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
             revert InvalidSource();
         }
         pancakeV3Factory = factory;
+
+        if (initialConfig_.length != 0) {
+            (InitialPricePool[] memory initialPricePools, InitialRoute[] memory initialRoutes) =
+                abi.decode(initialConfig_, (InitialPricePool[], InitialRoute[]));
+            for (uint256 i; i < initialPricePools.length; ++i) {
+                _bootstrapPricePool(initialPricePools[i]);
+            }
+            for (uint256 i; i < initialRoutes.length; ++i) {
+                _bootstrapRoute(initialRoutes[i]);
+            }
+        }
+    }
+
+    /// @dev Constructor-only trusted storage path. Deployment tooling validates the source off-chain.
+    function _bootstrapPricePool(InitialPricePool memory config) private {
+        bytes32 poolId = _uncheckedPricePoolId(config.token0, config.token1);
+        StoredPricePool storage pool = _pricePools[poolId];
+        pool.enabled = true;
+        pool.token0 = config.token0;
+        pool.token1 = config.token1;
+        pool.sourceType = config.sourceType;
+        pool.sourceData = config.sourceData;
+        emit PricePoolAdded(poolId, config.token0, config.token1, config.sourceType, config.sourceData);
+    }
+
+    /// @dev Constructor-only trusted storage path. It deliberately skips route validation.
+    function _bootstrapRoute(InitialRoute memory config) private {
+        address normalizedIn = _normalized(config.tokenIn);
+        address normalizedOut = _normalized(config.tokenOut);
+        bool forward = uint160(normalizedIn) < uint160(normalizedOut);
+        address canonicalToken0 = forward ? normalizedIn : normalizedOut;
+        address canonicalToken1 = forward ? normalizedOut : normalizedIn;
+        bytes32 routeKey = keccak256(abi.encode(canonicalToken0, canonicalToken1));
+
+        StoredRoute storage route = _routes[routeKey];
+        route.enabled = true;
+        uint256 length = config.poolIds.length;
+        bytes32[] memory canonicalPoolIds = new bytes32[](length);
+        for (uint256 i; i < length; ++i) {
+            bytes32 poolId = forward ? config.poolIds[i] : config.poolIds[length - 1 - i];
+            route.poolIds.push(poolId);
+            canonicalPoolIds[i] = poolId;
+            ++_pricePools[poolId].routeReferences;
+        }
+        emit RouteAdded(canonicalToken0, canonicalToken1, keccak256(abi.encode(canonicalPoolIds)), canonicalPoolIds);
+    }
+
+    function _uncheckedPricePoolId(address tokenA, address tokenB) private view returns (bytes32 poolId) {
+        address normalizedA = _normalized(tokenA);
+        address normalizedB = _normalized(tokenB);
+        (address canonicalToken0, address canonicalToken1) =
+            uint160(normalizedA) < uint160(normalizedB) ? (normalizedA, normalizedB) : (normalizedB, normalizedA);
+        poolId = keccak256(abi.encode(canonicalToken0, canonicalToken1));
     }
 
     receive() external payable {

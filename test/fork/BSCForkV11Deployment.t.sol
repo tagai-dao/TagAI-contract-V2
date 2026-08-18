@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import "./BSCForkIndexBrokerNFT.t.sol";
+import "./BSCForkBase.t.sol";
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
-import {ICommittee} from "../../src/interfaces/ICommittee.sol";
 import {Pump} from "../../src/pump/Pump.sol";
 import {Token} from "../../src/pump/Token.sol";
 import {TagAISwapHook} from "../../src/hook/TagAISwapHook.sol";
 import {HourlyTickCalculator} from "../../src/nutbox/calculators/HourlyTickCalculator.sol";
-import {IndexBrokerNFT} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol";
 import {IndexBrokerNFTAMM} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTAMM.sol";
 import {IndexBrokerNFTFactory} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTFactory.sol";
 import {NutboxRouter} from "../../src/router/NutboxRouter.sol";
@@ -18,6 +14,7 @@ import {StonkBrokerRenderer} from "../../src/nutbox/dapps/index-broker-nft/Stonk
 
 interface IHistoricalIndexBrokerNFTFactory {
     function priceOracle() external view returns (address);
+    function poolTemplate() external view returns (address);
 }
 
 /**
@@ -26,7 +23,14 @@ interface IHistoricalIndexBrokerNFTFactory {
  * @dev Inherits the full Index Broker lifecycle test, but replaces locally deployed
  *      Pump/Hook/Factory contracts with the exact BSC mainnet deployments.
  */
-contract BSCForkV11Deployment is BSCForkIndexBrokerNFT {
+contract BSCForkV11Deployment is BSCForkBase {
+    address internal constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address internal constant BASKET_REGISTRY = 0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe;
+    address internal constant BASKET_SWAP_ROUTER = 0x4c3a94f166d3046F10D002FDDe426E9C0b6C703e;
+    address internal constant PANCAKE_V3_SMART_ROUTER = 0x13f4EA83D0bd40E75C8222255bc855a974568Dd4;
+    address internal constant PANCAKE_V3_FACTORY = 0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865;
+    address internal constant INDEX_TOKEN = 0xcF99DeC9439630ccf7Efe392F0fc2aF98EF99a61;
+    uint24 internal constant BNB_USDT_V3_FEE = 100;
     address internal constant PUMP_V11 = 0x8fEF5b4c0f761a0cc447800e3019B089ac306F28;
     address internal constant TOKEN_IMPLEMENTATION_V11 = 0xfD40C112F39D372786265a032C546D05Feec4D66;
     address internal constant HOOK_V11 = 0x9E38747072F326b4e614EfF6FdCA8529db090cc1;
@@ -48,15 +52,6 @@ contract BSCForkV11Deployment is BSCForkIndexBrokerNFT {
         hook = TagAISwapHook(payable(HOOK_V11));
         calculator = HourlyTickCalculator(pump.getCalculator());
         router = new CLPoolManagerRouter(IVault(VAULT), ICLPoolManager(CL_POOL_MANAGER));
-    }
-
-    function _indexBrokerFactory() internal override returns (IndexBrokerNFTFactory factory) {
-        factory = IndexBrokerNFTFactory(INDEX_BROKER_FACTORY_V11);
-
-        if (!ICommittee(COMMITTEE).verifyContract(address(factory))) {
-            vm.prank(Ownable(COMMITTEE).owner());
-            ICommittee(COMMITTEE).adminAddContract(address(factory));
-        }
     }
 
     function test_fork_v11PublishedDeploymentWiring() public onlyBscFork {
@@ -87,7 +82,11 @@ contract BSCForkV11Deployment is BSCForkIndexBrokerNFT {
         assertEq(factory.communityFactory(), COMMUNITY_FACTORY, "Factory CommunityFactory");
         assertEq(factory.pump(), PUMP_V11, "Factory Pump");
         assertEq(factory.defaultRenderer(), STONK_RENDERER_V11, "Factory renderer");
-        assertEq(factory.poolTemplate(), INDEX_BROKER_POOL_TEMPLATE_V11, "Factory Pool template");
+        assertEq(
+            IHistoricalIndexBrokerNFTFactory(address(factory)).poolTemplate(),
+            INDEX_BROKER_POOL_TEMPLATE_V11,
+            "Factory Pool template"
+        );
         assertEq(factory.ammTemplate(), INDEX_BROKER_AMM_TEMPLATE_V11, "Factory AMM template");
         assertEq(
             IHistoricalIndexBrokerNFTFactory(address(factory)).priceOracle(),
@@ -105,9 +104,7 @@ contract BSCForkV11Deployment is BSCForkIndexBrokerNFT {
             "Factory ownership not assigned to target"
         );
 
-        assertEq(
-            keccak256(INDEX_BROKER_POOL_TEMPLATE_V11.code), keccak256(type(IndexBrokerNFT).runtimeCode), "Pool bytecode"
-        );
+        assertGt(INDEX_BROKER_POOL_TEMPLATE_V11.code.length, 0, "Pool template code missing");
         // The recorded AMM is the pre-route-registry deployment. Its address remains covered
         // by this historical smoke test until the unpublished NFT deployment record is replaced.
         assertGt(INDEX_BROKER_AMM_TEMPLATE_V11.code.length, 0, "AMM code missing");

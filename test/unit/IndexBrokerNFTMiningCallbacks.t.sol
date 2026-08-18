@@ -62,7 +62,7 @@ contract IndexBrokerMiningCodeStub {}
 contract IndexBrokerCallbackCommunityToken is ERC20 {
     address private constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
-    IndexBrokerNFT public callbackPool;
+    IndexBrokerNFTBurn public callbackPool;
     uint256 public callbackTokenId;
     address public callbackRecipient;
     bool public callbackEnabled;
@@ -72,14 +72,14 @@ contract IndexBrokerCallbackCommunityToken is ERC20 {
         _mint(msg.sender, 10_000_000 ether);
     }
 
-    function configureCallback(IndexBrokerNFT pool_, uint256 tokenId_, bool enabled_) external {
+    function configureCallback(IndexBrokerNFTBurn pool_, uint256 tokenId_, bool enabled_) external {
         callbackPool = pool_;
         callbackTokenId = tokenId_;
         callbackRecipient = address(0);
         callbackEnabled = enabled_;
     }
 
-    function configureTransferCallback(IndexBrokerNFT pool_, uint256 tokenId_, address recipient_, bool enabled_)
+    function configureTransferCallback(IndexBrokerNFTBurn pool_, uint256 tokenId_, address recipient_, bool enabled_)
         external
     {
         callbackPool = pool_;
@@ -119,14 +119,14 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
 
     IndexBrokerCallbackCommunityToken internal communityToken;
     IndexBrokerMiningCommunityMock internal community;
-    IndexBrokerNFT internal pool;
+    IndexBrokerNFTBurn internal pool;
 
     function setUp() public {
         communityToken = new IndexBrokerCallbackCommunityToken();
         community = new IndexBrokerMiningCommunityMock(address(communityToken));
 
-        IndexBrokerNFT implementation = new IndexBrokerNFT();
-        pool = IndexBrokerNFT(payable(Clones.clone(address(implementation))));
+        IndexBrokerNFTBurn implementation = new IndexBrokerNFTBurn();
+        pool = IndexBrokerNFTBurn(payable(Clones.clone(address(implementation))));
 
         uint256[] memory thresholds = new uint256[](2);
         thresholds[0] = 0;
@@ -159,7 +159,8 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
             true,
             false,
             whitelistAccounts,
-            whitelistAllowances
+            whitelistAllowances,
+            bytes("")
         );
         community.setPool(address(pool));
         communityToken.approve(address(pool), type(uint256).max);
@@ -186,7 +187,7 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
         assertEq(pool.ownerOf(1), referrerBuyer);
         assertEq(pool.ownerOf(2), address(this));
 
-        IndexBrokerNFT.NFTInfo memory referrerInfo = pool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory referrerInfo = pool.getNFTInfo(1);
         assertEq(referrerInfo.referralCount, 1);
         assertEq(referrerInfo.level, 2);
         assertEq(pool.getUserStakedAmount(referrerBuyer), 12_000);
@@ -214,7 +215,7 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
         communityToken.configureTransferCallback(pool, 1, ammVault, true);
         vm.deal(address(this), NATIVE_PRICE);
 
-        vm.expectRevert(IndexBrokerNFT.ReferrerInAMM.selector);
+        vm.expectRevert(IndexBrokerNFTBase.ReferrerInAMM.selector);
         pool.mint{value: NATIVE_PRICE}(1);
 
         assertEq(pool.ownerOf(1), address(this));
@@ -232,7 +233,7 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
         pool.setApprovalForAll(address(communityToken), true);
         communityToken.configureCallback(pool, 1, true);
 
-        vm.expectRevert(IndexBrokerNFT.IndexMiningNotActive.selector);
+        vm.expectRevert(IndexBrokerNFTBase.IndexMiningNotActive.selector);
         pool.upgradeIndexMining(1, 10 ether);
 
         assertEq(pool.ownerOf(1), address(this));
@@ -252,7 +253,7 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
         pool.setApprovalForAll(address(communityToken), true);
         communityToken.configureCallback(pool, 1, true);
 
-        vm.expectRevert(IndexBrokerNFT.IndexMiningStateChanged.selector);
+        vm.expectRevert(IndexBrokerNFTBase.IndexMiningStateChanged.selector);
         pool.activateIndexMining(1);
 
         assertFalse(pool.indexMiningActiveOf(1));
@@ -265,7 +266,7 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
         pool.transferFrom(address(this), address(this), 1);
         communityToken.setShortBurnEnabled(true);
 
-        vm.expectRevert(IndexBrokerNFT.InvalidCommunityTokenPayment.selector);
+        vm.expectRevert(IndexBrokerNFTBase.InvalidCommunityTokenPayment.selector);
         pool.activateIndexMining(1);
         assertFalse(pool.indexMiningActiveOf(1));
 
@@ -273,7 +274,7 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
         pool.activateIndexMining(1);
         communityToken.setShortBurnEnabled(true);
 
-        vm.expectRevert(IndexBrokerNFT.InvalidCommunityTokenPayment.selector);
+        vm.expectRevert(IndexBrokerNFTBase.InvalidCommunityTokenPayment.selector);
         pool.upgradeIndexMining(1, 1 ether);
         assertEq(pool.indexMiningWeightOf(1), 0);
         assertEq(pool.totalActiveIndexMiningWeight(), 0);

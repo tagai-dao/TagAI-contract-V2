@@ -156,7 +156,8 @@ constructor(
     address[] memory v2Factories_,
     address[] memory v3Factories_,
     address[] memory uniswapV4Managers_,
-    address[] memory pancakeV4CLManagers_
+    address[] memory pancakeV4CLManagers_,
+    bytes memory initialConfig_
 )
 ```
 
@@ -169,6 +170,7 @@ constructor(
 | `v3Factories_` | 允许登记价格池的 V3 factories |
 | `uniswapV4Managers_` | 允许登记和执行的 Uniswap V4 PoolManagers |
 | `pancakeV4CLManagers_` | 允许登记和执行的 PancakeSwap Infinity CL PoolManagers |
+| `initialConfig_` | `abi.encode(InitialPricePool[], InitialRoute[])`；为空时不初始化池和路径 |
 
 构造阶段会验证：
 
@@ -178,6 +180,8 @@ constructor(
 - Pancake V3 Router 返回的 `WETH9()` 必须等于 `wrappedNative`。
 - Pancake V3 Router 返回的 factory 必须有代码且位于 `v3Factories_` 中。
 - 每个 Pancake V4 CL Manager 的 Vault 必须是有效合约；Router 会同步登记允许回调和转入原生币的 Vault。
+
+DEX 基础依赖完成校验后，构造函数会把 `initialConfig_` 中的平台初始池和路径直接写入存储。该路径只用于一次性的可信部署配置，不重复执行池身份、流动性和路径拓扑校验，以避免把 15 个池和 29 条路径拆成 44 笔管理交易。部署脚本必须在创建 Router 前校验全部真实池，并在创建后验证链上保存的路径和双向报价。部署完成后的 `addPricePool`、`replacePricePool`、`addRoute` 和 `replaceRoute` 仍执行完整校验。
 
 这些 DEX factory、manager、Router 和 wrapped-native 地址部署后不能修改。owner 只能管理池和路径，不能把新的 DEX 执行器加入现有 Router。若要支持新的 factory、manager 或新的交易实现，需要部署新版 Router。
 
@@ -738,7 +742,7 @@ uint256 bnbOut = router.swapExactInput(
 
 ## 13. BSC 配置
 
-BSC 主网配置位于 [`script/config/BSCNutboxRouterConfig.sol`](../../script/config/BSCNutboxRouterConfig.sol)。当前配置以 PancakeSwap V3 USDT/WBNB 为 hub，并为 ETH、BTCB、QQQB、SPCXB、AAPLB、SKHYB、SPYB、XAUt、NVDAB、TSLAB、MSFTB、HOODB、BABAB 和 GMEB 建立到 USDT、WBNB 的双向路径。
+BSC 主网配置位于 [`script/config/BSCNutboxRouterConfig.sol`](../../script/config/BSCNutboxRouterConfig.sol)。当前配置以 PancakeSwap V3 USDT/WBNB 为 hub，并为 ETH、BTCB、QQQB、SPCXB、AAPLB、SKHYB、SPYB、XAUt、NVDAB、TSLAB、MSFTB、HOODB、BABAB 和 GMEB 建立到 USDT、WBNB 的双向路径。`initialConfig()` 将 15 个价格池和 29 条路径编码后交给 Router 构造函数，因此部署时原子写入全部配置，不需要部署后逐笔调用管理接口。
 
 配置库只是部署期工具，不属于 Router 的运行时代码。生产部署完成后，真实状态以 Router 链上 `pricePool`、`routePoolCount`、`routePoolAt` 和相关事件为准。
 
@@ -749,6 +753,7 @@ BSC 主网配置位于 [`script/config/BSCNutboxRouterConfig.sol`](../../script/
 覆盖内容包括：
 
 - V2 池登记和双向报价。
+- 构造函数可信配置一次性初始化池、路径和引用计数。
 - 多跳报价复合和反向池顺序。
 - 同一代币对不能同时登记多个具体池。
 - V2/V3/V4 官方池替换保持 pair ID 和全部路径不变，并立即影响询价和交易。
@@ -787,11 +792,11 @@ fork 测试需要设置 `BSC_RPC_URL`，并使用 `fork` profile 将执行链 ID
 
 部署时：
 
-1. 核对 WBNB 和全部 DEX 官方合约地址。
+1. 核对 WBNB、初始池、初始路径和全部 DEX 官方合约地址。
 2. 确认 V2 Router 与 factory 一一对应。
 3. 确认 Pancake V3 SmartRouter 的 factory 和 WETH9 返回值。
 4. 确认 V4 manager 对应正确 Vault。
-5. 运行单元测试、BSC fork 测试和合约大小检查。
+5. 运行单元测试、BSC fork 测试、部署 dry-run 和合约大小检查。
 
 配置池时：
 

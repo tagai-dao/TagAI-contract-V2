@@ -5,7 +5,7 @@ import "./BSCForkBase.t.sol";
 
 import {Community} from "../../src/nutbox/Community.sol";
 import {INutboxRouter} from "../../src/router/INutboxRouter.sol";
-import {IndexBrokerNFT} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol";
+import {IndexBrokerNFTBase, IndexBrokerNFTBurn} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol";
 import {
     IndexBrokerNFTAMM,
     IIndexBrokerBasketSwapRouter
@@ -46,7 +46,7 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
 
         _collectAndAssertListingFees(token);
 
-        (IndexBrokerNFT nft, IndexBrokerNFTAMM amm) = _createIndexBrokerPool(token);
+        (IndexBrokerNFTBurn nft, IndexBrokerNFTAMM amm) = _createIndexBrokerPool(token);
         _mintAndWeightTwoNFTs(token, nft);
 
         uint256 platformBefore = FEE_RECEIVER.balance;
@@ -101,7 +101,7 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
         assertEq(nft.totalIndexRewardsClaimed(), claimed, "claimed accounting");
     }
 
-    function _accrueHarvestAndRecycleIndexHolderFees(IndexBrokerNFT nft, IndexBrokerNFTAMM amm)
+    function _accrueHarvestAndRecycleIndexHolderFees(IndexBrokerNFTBurn nft, IndexBrokerNFTAMM amm)
         internal
         returns (uint256 recycledIndexOut)
     {
@@ -177,7 +177,8 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
             new address[](0),
             v3Factories,
             new address[](0),
-            pancakeManagers
+            pancakeManagers,
+            ""
         );
         factory = new IndexBrokerNFTFactory(
             COMMUNITY_FACTORY,
@@ -191,13 +192,14 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
             BNB_USDT_V3_FEE,
             INDEX_TOKEN
         );
+        factory.addNFTTemplate(address(new IndexBrokerNFTBurn()));
 
         address committeeOwner = Ownable(COMMITTEE).owner();
         vm.prank(committeeOwner);
         ICommittee(COMMITTEE).adminAddContract(address(factory));
     }
 
-    function _createIndexBrokerPool(Token token) internal returns (IndexBrokerNFT nft, IndexBrokerNFTAMM amm) {
+    function _createIndexBrokerPool(Token token) internal returns (IndexBrokerNFTBurn nft, IndexBrokerNFTAMM amm) {
         IndexBrokerNFTFactory factory = _indexBrokerFactory();
 
         address[] memory whitelist = new address[](1);
@@ -220,6 +222,7 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
             symbol: "FIDX",
             fundsReceiver: creator,
             renderer: address(0),
+            nftTemplate: factory.nftTemplateAt(0),
             levelThresholds: thresholds,
             levelWeights: weights,
             communityTokenPrice: COMMUNITY_TOKEN_PRICE,
@@ -229,6 +232,7 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
             maxSupply: 2,
             referralBps: 0,
             ammConfig: abi.encode(ammConfig),
+            nftTemplateConfig: bytes(""),
             lockWhitelistSlots: true,
             rerollEnabled: false,
             whitelistAccounts: whitelist,
@@ -246,14 +250,14 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
             "Fork Index Broker NFT", ratios, address(factory), abi.encode(config)
         );
 
-        nft = IndexBrokerNFT(payable(community.activedPools(1)));
+        nft = IndexBrokerNFTBurn(payable(community.activedPools(1)));
         amm = IndexBrokerNFTAMM(payable(nft.ammVault()));
         assertTrue(amm.active(), "official-token AMM not activated");
         assertEq(amm.indexToken(), INDEX_TOKEN, "wrong index token");
         assertEq(amm.INDEX_PURCHASE_CALLER_BPS(), 100, "wrong buyback caller BPS");
     }
 
-    function _mintAndWeightTwoNFTs(Token token, IndexBrokerNFT nft) internal {
+    function _mintAndWeightTwoNFTs(Token token, IndexBrokerNFTBurn nft) internal {
         uint256 required = COMMUNITY_TOKEN_PRICE * 2 + INDEX_WEIGHT_PER_NFT * 2;
         assertGe(IERC20(address(token)).balanceOf(buyer), required, "buyer lacks community tokens");
 

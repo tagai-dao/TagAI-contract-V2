@@ -65,6 +65,7 @@ contract BSCForkNutboxRouter is Test {
         v2Routers[0] = BSCNutboxRouterConfig.pancakeV2Router();
         address[] memory pancakeV4Managers = new address[](1);
         pancakeV4Managers[0] = PANCAKE_V4_CL_MANAGER;
+        bytes memory initialConfig = BSCNutboxRouterConfig.initialConfig();
         router = new NutboxRouter(
             BSCNutboxRouterConfig.wrappedNative(),
             BSCNutboxRouterConfig.pancakeV3Router(),
@@ -72,9 +73,9 @@ contract BSCForkNutboxRouter is Test {
             v2Factories,
             v3Factories,
             new address[](0),
-            pancakeV4Managers
+            pancakeV4Managers,
+            initialConfig
         );
-        BSCNutboxRouterConfig.configure(router);
     }
 
     modifier onlyBscFork() {

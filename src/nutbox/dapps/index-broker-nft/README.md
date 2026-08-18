@@ -3,7 +3,7 @@
 Index Broker NFT 是一种与 Nutbox 社区绑定的固定总量 NFT 矿池。每个矿池由一份 NFT 合约和一份专属 AMM 合约组成，并同时提供两套彼此独立的挖矿能力：
 
 - **社区挖矿**：持有 NFT 即可按 NFT 推荐等级权重参与 Nutbox 社区奖励分配。
-- **指数挖矿**：NFT 持有人销毁社区代币增加指数挖矿权重，按权重获得指定指数代币奖励。
+- **指数挖矿**：创建矿池时选择销毁型或质押型 NFT 模板，持有人按对应规则增加权重并获得指定指数代币奖励。
 
 每次铸造 NFT 都必须支付固定数量的社区代币。这些社区代币不会发送给项目方，也不会被销毁，而是直接进入该 NFT 矿池的专属 AMM，作为 AMM 回购 NFT 的储备。公开铸造还可以设置额外的 BNB 价格、推荐返佣和等级成长。
 
@@ -16,8 +16,10 @@ Index Broker NFT 是一种与 Nutbox 社区绑定的固定总量 NFT 矿池。�
 
 | 组件                          | 作用                                                                                            |
 | --------------------------- | --------------------------------------------------------------------------------------------- |
-| `IndexBrokerNFTFactory`     | 创建 NFT 矿池和一对一的 AMM，管理全局平台费、默认指数代币和保留名称                                                        |
-| `IndexBrokerNFT`            | ERC-721 NFT、铸造、推荐升级、社区挖矿、指数挖矿、揭图和元数据入口                                                        |
+| `IndexBrokerNFTFactory`     | 管理可用 NFT 模板，创建 NFT 矿池和一对一的 AMM，并管理全局平台费、默认指数代币和保留名称                                      |
+| `IndexBrokerNFTBase`        | 两类 NFT 模板共享的 ERC-721、铸造、推荐升级、社区挖矿、奖励注入、揭图和元数据逻辑                                           |
+| `IndexBrokerNFTBurn`        | 销毁型模板；销毁社区代币增加指数权重，转移后保留 80% 并需要重新激活                                                        |
+| `IndexBrokerNFTStake`       | 质押型模板；质押创建者指定的 ERC-20 增加指数权重，本金、权重和奖励跟随 NFT，转移不衰减                                         |
 | `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备，读取创建时固定的社区代币报价池，并在需要时调用 Router 把报价币换算为 BNB                              |
 | [`NutboxRouter`](../../../router/README.md) | 平台级公共询价与交易路由；由平台登记共享价格池并维护最多五跳、可双向使用的默认路径，任何合约或账户均可使用 |
 | Renderer                    | 为NFT提供SVG、`tokenURI` 和 `contractURI`；矿池创建时可选默认或自定义 Renderer                                   |
@@ -29,7 +31,7 @@ Index Broker NFT 是一种与 Nutbox 社区绑定的固定总量 NFT 矿池。�
 flowchart LR
     O["社区管理员"] -->|adminAddPool| C["Nutbox Community"]
     C --> F["IndexBrokerNFTFactory"]
-    F --> N["IndexBrokerNFT"]
+    F --> N["已登记的 Burn / Stake / 后续 NFT 模板"]
     F --> A["专属 NFT AMM"]
     U["铸造者"] -->|社区代币| A
     U -->|铸造 NFT| N
@@ -77,8 +79,8 @@ flowchart LR
 
 - 平台费发送给该社区 Committee 当前配置的平台收款地址。
 - 有有效推荐 NFT 时，推荐佣金发送给推荐 NFT 的持有人。
-- 剩余 BNB 发送给 `fundsReceiver`。
-- 没有推荐 NFT 时，推荐佣金为零，剩余部分全部发送给 `fundsReceiver`。
+- 剩余 BNB 发送给 `fundsReceiver`；创建时将 `fundsReceiver` 设为零地址，表示由 Factory 自动替换为该矿池的配套 AMM 地址。
+- 没有推荐 NFT 时，推荐佣金为零，剩余部分全部发送给最终生效的 `fundsReceiver`。当接收方为配套 AMM 时，这部分 BNB 直接成为指数回购储备。
 
 Factory 的平台费初始值为 **30 BPS（0.3%）**，平台管理员可以全局调整，因此前端应读取 `platformFeeBps()`，不要写死。
 
@@ -129,6 +131,8 @@ community.adminAddPool{value: communitySettingsFee}(
 
 可通过 `IndexBrokerNFTCreated` 和 `IndexBrokerNFTAMMCreated` 事件获取这两个地址及主要配置。
 
+Factory owner 可以动态添加或删除 NFT 模板。模板名单的变化只影响之后创建的新矿池；已经创建的 EIP-1167 clone 永久指向创建时选择的实现，不会因为模板被删除而改变。创建者只能选择 `supportedNFTTemplate(template) == true` 的模板。
+
 ## 4. PoolConfig 参数
 
 `meta` 必须为 `abi.encode(PoolConfig)`。当前结构如下：
@@ -138,6 +142,7 @@ struct PoolConfig {
     string symbol;
     address fundsReceiver;
     address renderer;
+    address nftTemplate;
     uint256[] levelThresholds;
     uint256[] levelWeights;
     uint256 communityTokenPrice;
@@ -147,6 +152,7 @@ struct PoolConfig {
     uint256 maxSupply;
     uint16 referralBps;
     bytes ammConfig;
+    bytes nftTemplateConfig;
     bool lockWhitelistSlots;
     bool rerollEnabled;
     address[] whitelistAccounts;
@@ -162,8 +168,9 @@ struct PoolConfig {
 | 参数                                 | 含义与约束                                           |
 | ---------------------------------- | ----------------------------------------------- |
 | `symbol`                           | NFT 集合符号，1～16 字节                                |
-| `fundsReceiver`                    | 接收公开铸造净 BNB 收入的地址，不可为零地址或 NFT Pool 自身           |
+| `fundsReceiver`                    | 接收公开铸造净 BNB 收入的地址；零地址表示配套 AMM，不能是 NFT Pool 自身 |
 | `renderer`                         | Renderer 地址；填零地址时使用 Factory 的 `defaultRenderer` |
+| `nftTemplate`                      | Factory 当前支持的 NFT 实现模板地址；创建后永久固定            |
 | `communityTokenPrice`              | 每次铸造和 AMM 买卖一枚 NFT 所使用的固定社区代币数量，必须大于 0          |
 | `indexMiningActivationTokenAmount` | NFT 转移后重新激活指数挖矿时需要销毁的社区代币数量；设为 0 表示免费激活 |
 | `recommitPrice`                    | 重新提交揭图所需销毁的社区代币数量；仅在 `rerollEnabled=true` 时生效   |
@@ -172,6 +179,9 @@ struct PoolConfig {
 | `referralBps`                      | 推荐佣金费率，分母为 10,000；最大 10,000                     |
 | `lockWhitelistSlots`               | 是否为白名单保留其分配的供应量                                 |
 | `rerollEnabled`                    | NFT 揭图后是否允许付费重新生成外观                             |
+| `nftTemplateConfig`                | 模板专属初始化数据；Burn 模板传空 bytes，Stake 模板传 `abi.encode(stakingToken)` |
+
+`indexMiningActivationTokenAmount` 只由 `IndexBrokerNFTBurn` 使用。创建 `IndexBrokerNFTStake` 时必须设为 0，且 `nftTemplateConfig` 中的质押代币必须是有效合约地址。
 
 
 名称由 `adminAddPool` 的 `collectionName` 提供，要求为 1～64 字节；`symbol` 为 1～16 字节。长度按 UTF-8 字节计算，不是按中文字符数计算。名称和符号不能包含控制字符、双引号、`&`、`<`、`>` 或反斜杠。
@@ -350,7 +360,7 @@ AMM 未激活只限制 AMM 二级交易，不会暂停 NFT Pool 本身。
 | 向 AMM 出售 NFT        | 不可用                               |
 | 从 AMM 购买 NFT        | 不可用                               |
 | 使用 AMM BNB 储备购买指数代币 | 不可用                               |
-| 直接向 AMM 发送 BNB      | 不可用，普通转账会回滚                       |
+| 直接向 AMM 发送 BNB      | 可用，BNB 先作为回购储备积累；激活前不能执行回购          |
 
 
 AMM 激活后不可再次激活，创建者也不能替换其保存的第一跳池。Router 的基础币路由由平台动态管理，路由变化会立即影响所有依赖该报价币的 AMM。
@@ -451,7 +461,7 @@ Router 不长期保管交易资产。每一跳的输入和输出只在当前调�
 
 ### 7.2 BSC 默认真实资产路由
 
-BSC 部署脚本会在转移 Router 所有权前，使用 [`BSCNutboxRouterConfig.sol`](../../../../script/config/BSCNutboxRouterConfig.sol) 登记 15 个 PancakeSwap V3 现货池。每个 ERC-20 资产同时具有到 USDT 和 WBNB 的默认路由；同一路由自动支持反向询价。
+BSC 独立 Router 部署脚本使用 [`BSCNutboxRouterConfig.sol`](../../../../script/config/BSCNutboxRouterConfig.sol)，在构造交易中一次性写入 15 个 PancakeSwap V3 现货池和 29 条默认路径。每个 ERC-20 资产同时具有到 USDT 和 WBNB 的默认路由；同一路由自动支持反向询价。NFT 部署脚本只读取并验证已经部署的共享 Router，不会再次部署或配置 Router。
 
 | 用户资产 | 链上符号 | 第一价格池 | Fee | 到 WBNB 的默认路径 |
 | --- | --- | --- | ---: | --- |
@@ -531,7 +541,7 @@ uint256 tokenId = nftPool.mint{value: bnbAmount}(referrerTokenId);
 
 - 等级为 1；
 - 社区挖矿立即生效，权重为 `levelWeights[0]`；
-- 指数挖矿状态为 active，但初始指数挖矿权重为 0；
+- 指数挖矿初始权重为 0；Burn 模板初始为 active，Stake 模板在首次质押前为 inactive；
 - 初始 `seed` 为 0，显示未揭图样式；
 - 自动创建第 1 轮揭图任务。
 
@@ -572,6 +582,8 @@ nftPool.getTotalStakedAmount();
 community.getPoolPendingRewards(address(nftPool), user);
 ```
 
+这里的 `getUserStakedAmount(user)` 和 `getTotalStakedAmount()` 是 Nutbox **社区挖矿**的兼容接口，返回推荐等级产生的社区挖矿权重，不表示 Stake 模板中质押的 ERC-20 数量。
+
 社区奖励通过 Community 领取，而不是通过 NFT 的 `claimIndexRewards`：
 
 ```solidity
@@ -587,7 +599,7 @@ community.withdrawPoolsRewards{value: operationFee}(pools);
 
 指数挖矿奖励代币为矿池创建时固定的 `indexToken`，与社区挖矿奖励是两套独立资产和独立会计。
 
-### 10.1 增加指数挖矿权重
+### 10.1 Burn 模板：销毁增加权重
 
 NFT 持有人调用：
 
@@ -604,7 +616,9 @@ nftPool.upgradeIndexMining(tokenId, tokenAmount);
 
 `tokenAmount` 会被发送到固定销毁地址 `0x000000000000000000000000000000000000dEaD`，并按 1:1 增加该 NFT 的指数挖矿权重。该销毁不可撤销。
 
-### 10.2 NFT 转移对指数挖矿的影响
+Burn 模板的 `indexMiningToken()` 返回社区代币地址。
+
+### 10.2 Burn 模板：转移与重新激活
 
 每次 ERC-721 转移都会：
 
@@ -618,8 +632,6 @@ nftPool.upgradeIndexMining(tokenId, tokenAmount);
 
 已经结算到 NFT 的 `pendingIndexRewards` 会随 NFT 一起转移，新持有人可以领取。
 
-### 10.3 重新激活指数挖矿
-
 转移后的新持有人调用：
 
 ```solidity
@@ -629,6 +641,36 @@ nftPool.activateIndexMining(tokenId);
 当 `indexMiningActivationTokenAmount` 大于 0 时，合约会销毁固定数量的社区代币；设为 0 时不调用社区代币合约，持有人可免费重新激活。激活只恢复 NFT 当前保留下来的指数权重，权重为 0 的 NFT 激活后仍不会获得指数奖励。
 
 重新激活不会自动增加新权重。如果 NFT 权重已经归零，需要在激活后再调用 `upgradeIndexMining` 增加权重。
+
+### 10.3 Stake 模板：质押与取回
+
+Stake 模板在创建时通过 `nftTemplateConfig = abi.encode(stakingToken)` 固定质押代币。该代币可以与社区代币不同，创建后不能修改；`indexMiningToken()` 和 `stakingToken()` 都返回该地址。
+
+持有人质押：
+
+```solidity
+stakingToken.approve(address(nftPool), tokenAmount);
+nftPool.stakeIndexMining(tokenId, tokenAmount);
+```
+
+- 调用者必须是 NFT 当前持有人；
+- `tokenAmount` 至少为 `10 ** stakingToken.decimals()`；
+- 实际到账必须等于 `tokenAmount`；
+- 质押数量按 1:1 成为指数挖矿权重并立即生效，不需要激活。
+
+当前持有人可以部分或全部取回：
+
+```solidity
+nftPool.unstakeIndexMining(tokenId, tokenAmount);
+```
+
+部分取回后的剩余质押必须为 0，或者不少于一个完整质押代币。合约先按旧权重结算奖励并降低有效权重，再转出本金。
+
+Stake NFT 转移时，质押本金、完整权重和未领取奖励全部跟随 tokenId：不执行 80% 衰减，也不取消指数挖矿。NFT 进入 AMM 库存后仍然继续指数挖矿；从 AMM 买到 NFT 的新持有人可以领取累计奖励或取出全部质押本金。因此出售 Stake NFT 等同于同时转让其质押本金权益。
+
+指数挖矿不保存“某个用户的指数总权重”。权重、奖励债务和待领取奖励都记录在各自的 tokenId 上，`totalActiveIndexMiningWeight` 只记录整个矿池的有效总权重。用户的当前指数权重等于其持有的所有 NFT 指数权重之和：当 NFT 转入 AMM 时，原持有人的这部分持仓权重自然减少，但矿池全局有效权重不变，该 NFT 在 AMM 中继续累计奖励，之后的购买者取得领取权。
+
+质押代币应是标准、非 rebasing、无转账税 ERC-20。恶意代币或余额会自动变化的代币可能导致对应矿池无法正常取回本金。
 
 ### 10.4 指数奖励注入与分配
 
@@ -652,6 +694,8 @@ NFT 当前持有人领取：
 ```solidity
 uint256 amount = nftPool.claimIndexRewards(tokenId);
 ```
+
+奖励领取以单个 tokenId 为单位，并且只能由该 NFT 的当前持有人调用。当前合约没有批量领取接口；持有大量 NFT 的账户应使用 `tokensOfOwner(account, offset, limit)` 分页取得 Token ID，并分别发送领取交易。Burn NFT 在转移前已经结算的奖励，以及 Stake NFT 在原持有人和 AMM 托管期间累计但未领取的奖励，都会由该 NFT 的新持有人领取。
 
 常用查询：
 
@@ -757,7 +801,7 @@ amm.sellNFT{value: fee}(tokenId);
 - 普通交易费留在 AMM；
 - 固定 0.5% 平台费发送给平台；
 - NFT 社区挖矿在 AMM 托管期间暂停；
-- NFT 指数挖矿被停用，指数权重按转移规则保留 80%。
+- Burn NFT 的指数挖矿被停用且权重保留 80%；Stake NFT 的质押本金、指数权重和 active 状态保持不变。
 
 只有 AMM 的 `sellNFT` 流程可以把本集合 NFT 转入 AMM，直接 `transferFrom` 到 AMM 会回滚。
 
@@ -815,7 +859,9 @@ communityToken.balanceOf(address(amm));
 
 ## 13. AMM BNB 储备与指数代币回购
 
-普通 AMM 交易费留在 AMM 中。任何地址都可以执行：
+AMM 的 BNB 储备可以来自 NFT 交易费、以配套 AMM 为 `fundsReceiver` 时的公开铸造净收入、Index Holder Fee 转换，以及任何地址的直接 BNB 转账。未激活的 AMM 也可以接收和积累 BNB，但只能在激活后执行交易和指数回购。
+
+任何地址都可以执行：
 
 ```solidity
 amm.buyIndexWithNativeReserve(
@@ -832,6 +878,8 @@ amm.buyIndexWithNativeReserve(
 3. 其余 BNB 通过固定 Pancake V3 路径换成 Basket Router 的结算代币；
 4. 再用结算代币购买该矿池固定的 `indexToken`；
 5. 将买到的指数代币注入 NFT Pool，按指数挖矿权重分配。
+
+指数代币在注入交易中按照当时的有效指数挖矿权重一次性完成奖励记账，不采用按天或按区块线性释放；持有人之后再按 Token ID 领取已经归属的奖励。注入时没有有效权重的奖励进入 `queuedIndexRewards`，待后续出现有效权重时一次性分配。
 
 NFT Pool 持有指数代币期间产生的 Index Basket Holder Fee，也可以通过 `harvestIndexHolderFees()` 转成 BNB 并加入这里的同一储备。AMM 不区分 BNB 来自 NFT 交易费还是 Index Holder Fee。
 
@@ -908,9 +956,10 @@ Factory owner可以：
 
 - 调整所有矿池公开铸造所读取的 `platformFeeBps`；
 - 修改以后新建矿池使用的默认指数代币；
+- 通过 `addNFTTemplate(template)` 和 `removeNFTTemplate(template)` 管理以后新建矿池可选择的 NFT 模板；
 - 添加或删除精确匹配的保留集合名称。
 
-修改默认指数代币不会改变既有矿池的 `indexToken`。
+修改默认指数代币或模板名单都不会改变既有矿池。可通过 `nftTemplateCount()`、`nftTemplateAt(index)` 和 `supportedNFTTemplate(template)` 查询当前模板名单；删除采用 swap-and-pop，枚举顺序不稳定。
 
 ### 15.4 Router owner
 
@@ -951,7 +1000,9 @@ Router 路由属于共享动态配置，管理操作会影响所有依赖对应�
 | `activeMiningWeightOf(tokenId)`         | 当前实际生效的社区挖矿权重                   |
 | `indexMiningWeightOf(tokenId)`          | NFT 保存的指数挖矿权重                   |
 | `activeIndexMiningWeightOf(tokenId)`    | 当前实际生效的指数挖矿权重                   |
+| `indexMiningToken()`                    | Burn 使用的社区代币或 Stake 使用的创建者指定代币 |
 | `pendingIndexRewardsOf(tokenId)`        | 当前可领取的指数代币奖励                    |
+| `claimIndexRewards(tokenId)`            | 领取单个 NFT 累计的指数代币奖励               |
 | `harvestIndexHolderFees()`              | 领取 Index Holder Fee 并转成 AMM BNB 储备   |
 | `platformFeeReceiver()`                 | 当前平台费接收地址                       |
 | `platformFeeBps()`                      | 当前公开铸造平台费率                      |
@@ -987,6 +1038,8 @@ Router 路由属于共享动态配置，管理操作会影响所有依赖对应�
 
 - `IndexBrokerNFTCreated`
 - `IndexBrokerNFTAMMCreated`
+- `NFTTemplateAdded`
+- `NFTTemplateRemoved`
 
 
 
@@ -1002,6 +1055,8 @@ Router 路由属于共享动态配置，管理操作会影响所有依赖对应�
 - `IndexMiningDeactivated`
 - `IndexMiningWeightUpgraded`
 - `IndexMiningWeightReduced`
+- `IndexMiningStaked`
+- `IndexMiningUnstaked`
 - `IndexRewardsInjected`
 - `IndexRewardsClaimed`
 - `IndexHolderFeesHarvested`
@@ -1059,6 +1114,7 @@ IndexBrokerNFTFactory.PoolConfig memory config =
         symbol: "IDXNFT",
         fundsReceiver: projectTreasury,
         renderer: address(0),
+        nftTemplate: burnTemplate,
         levelThresholds: thresholds,
         levelWeights: weights,
         communityTokenPrice: 1_000 ether,
@@ -1068,6 +1124,7 @@ IndexBrokerNFTFactory.PoolConfig memory config =
         maxSupply: 1_000,
         referralBps: 1_000,      // 扣除平台费后金额的 10%
         ammConfig: abi.encode(ammConfig),
+        nftTemplateConfig: bytes(""), // Stake 模板改为 abi.encode(stakingToken)
         lockWhitelistSlots: true,
         rerollEnabled: true,
         whitelistAccounts: whitelist,
@@ -1131,14 +1188,14 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 - 每次提交交易前重新读取费用，避免使用缓存现货价格。
 - `buyNextNFT` 展示的是当前队首；如果用户要求确定 Token ID，应使用 `buySpecificNFT`。
 - 卖出前检查 AMM 社区代币储备，买入前检查 allowance。
-- 明确提示 AMM 交易属于 NFT 转移，会停用指数挖矿并衰减权重。
+- Burn 模板应提示 AMM 买卖会触发两次转移衰减；Stake 模板应提示质押本金和权重随 NFT 一起进入或离开 AMM。
 
 
 
 ### NFT 详情页
 
 - 分开展示“社区挖矿权重”和“指数挖矿权重”。
-- 展示指数挖矿是否 active、转移后的剩余权重和重新激活成本。
+- 根据创建时的模板地址展示 Burn 的销毁/激活入口，或 Stake 的质押/取回入口和质押代币地址。
 - 展示 `pendingIndexRewards`、`revealBlock`、`revealRound` 和揭图截止区块。
 - 使用 ERC-4906 `MetadataUpdate` 刷新图片和属性。
 
@@ -1149,19 +1206,19 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 1. 白名单只免除 BNB，**不免除社区代币铸造成本**。
 2. 铸造支付的社区代币进入 AMM 公共储备，不进入项目方钱包。
 3. 社区挖矿与指数挖矿互相独立，领取入口也不同。
-4. 任意 NFT 转移都会停用指数挖矿，并把指数权重衰减为原来的 80%。
+4. Burn NFT 转移会停用指数挖矿并保留 80% 权重；Stake NFT 转移不衰减，质押本金、权重和奖励全部跟随 NFT。
 5. AMM 中的 NFT 不参与社区挖矿，也不能作为推荐 NFT。
 6. AMM 的社区代币成交数量固定，BNB 手续费随 DEX 现货价格变化。
 7. 官方 Pump 代币可以在上市前创建矿池并正常铸造，AMM 交易需等上市后公开激活。
 8. 外部代币必须在创建矿池时提供包含社区代币的有效第一跳池，并立即激活 AMM。
 9. 指数代币、Renderer、AMM 费率和第一跳池在矿池创建后不能由 Pool owner 修改；共享 Router 基础币路由由平台动态管理。
-10. 社区代币应支持精确 ERC-20 转账；扣税或短到账代币会使铸造、挖矿升级或 AMM 交易回滚。
+10. 社区代币和 Stake 模板的质押代币应支持精确 ERC-20 转账；扣税、rebasing 或短到账代币不受支持。
 11. 揭图依赖有限的未来区块窗口，前端应提醒持有人及时操作。
 12. 不要直接向 NFT Pool、AMM 或销毁地址转账来代替合约函数；直接转账不会产生个人份额或额外权益。
 
 ## 21. BSC V11 部署记录
 
-下表是多跳基础币路由升级前的一轮 Index Broker NFT 部署记录。该 NFT 功能尚未正式对外开放，本次升级会替换 Factory、AMM template、Router 和 Factory 内部创建的 NFT Pool template；Pump、Token、Hook 与 Renderer 地址继续复用。新地址写入部署快照前，不应把下表中的旧 NFT 地址视为与本文当前源码一致。
+下表是动态 NFT 模板功能之前的一轮 Index Broker NFT 部署记录。该 NFT 功能尚未正式对外开放，本次升级会替换 Factory、AMM template、Router 和 NFT templates；Pump、Token、Hook 与 Renderer 地址继续复用。新地址写入部署快照前，不应把下表中的旧 NFT 地址视为与本文当前源码一致。
 
 | 合约 | 地址 |
 | --- | --- |

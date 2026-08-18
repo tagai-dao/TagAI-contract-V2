@@ -7,8 +7,8 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "../../CommunityFactory.sol";
 import "../../interfaces/IPoolFactory.sol";
 import "../../../router/INutboxRouter.sol";
+import "./IIndexBrokerNFT.sol";
 import "./IndexBrokerNFTAMM.sol";
-import "./IndexBrokerNFT.sol";
 
 interface IOwnableCommunity {
     function owner() external view returns (address);
@@ -36,6 +36,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         string symbol;
         address fundsReceiver;
         address renderer;
+        address nftTemplate;
         uint256[] levelThresholds;
         uint256[] levelWeights;
         uint256 communityTokenPrice;
@@ -45,6 +46,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint256 maxSupply;
         uint16 referralBps;
         bytes ammConfig;
+        bytes nftTemplateConfig;
         bool lockWhitelistSlots;
         bool rerollEnabled;
         address[] whitelistAccounts;
@@ -65,7 +67,6 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     address public immutable communityFactory;
     address public immutable pump;
     address public immutable defaultRenderer;
-    address public immutable poolTemplate;
     address public immutable ammTemplate;
     address public immutable nutboxRouter;
     address public immutable basketRegistry;
@@ -75,6 +76,9 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     address public defaultIndexToken;
     uint16 public platformFeeBps = DEFAULT_PLATFORM_FEE_BPS;
     mapping(address => bool) public supportedPump;
+    mapping(address => bool) public supportedNFTTemplate;
+    address[] private _nftTemplates;
+    mapping(address => uint256) private _nftTemplateIndexPlusOne;
     bytes[] private _reservedCollectionNames;
     mapping(bytes32 => bool) public reservedCollectionNameHash;
     mapping(bytes32 => uint256) private _reservedCollectionNameIndexPlusOne;
@@ -83,6 +87,8 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     event DefaultIndexTokenChanged(address indexed previousToken, address indexed newToken);
     event PumpAdded(address indexed pump);
     event PumpRemoved(address indexed pump);
+    event NFTTemplateAdded(address indexed template);
+    event NFTTemplateRemoved(address indexed template);
     event ReservedCollectionNameAdded(string name);
     event ReservedCollectionNameRemoved(string name);
     event IndexBrokerNFTAMMCreated(
@@ -101,6 +107,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address indexed pool,
         address indexed community,
         address indexed admin,
+        address nftTemplate,
         address communityToken,
         address renderer,
         string name,
@@ -125,6 +132,9 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     error PumpAlreadyAdded();
     error PumpNotFound();
     error TokenNotCreatedByPump();
+    error InvalidNFTTemplate();
+    error NFTTemplateAlreadyAdded();
+    error NFTTemplateNotFound();
 
     constructor(
         address communityFactory_,
@@ -148,7 +158,6 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         communityFactory = communityFactory_;
         pump = pump_;
         defaultRenderer = defaultRenderer_;
-        poolTemplate = address(new IndexBrokerNFT());
         ammTemplate = ammTemplate_;
         nutboxRouter = nutboxRouter_;
         basketRegistry = basketRegistry_;
@@ -159,6 +168,47 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         supportedPump[pump_] = true;
         emit PumpAdded(pump_);
         _addReservedCollectionName("stonkbroker");
+    }
+
+    /// @notice Enables one NFT implementation for future pool creation.
+    function addNFTTemplate(address template) external onlyOwner {
+        if (template.code.length == 0) revert InvalidNFTTemplate();
+        if (supportedNFTTemplate[template]) revert NFTTemplateAlreadyAdded();
+        try IIndexBrokerNFT(template).nftTemplateInterfaceId() returns (bytes4 interfaceId) {
+            if (interfaceId != IIndexBrokerNFT.initialize.selector) revert InvalidNFTTemplate();
+        } catch {
+            revert InvalidNFTTemplate();
+        }
+        supportedNFTTemplate[template] = true;
+        _nftTemplates.push(template);
+        _nftTemplateIndexPlusOne[template] = _nftTemplates.length;
+        emit NFTTemplateAdded(template);
+    }
+
+    /// @notice Removes one implementation from future pool creation only.
+    function removeNFTTemplate(address template) external onlyOwner {
+        uint256 indexPlusOne = _nftTemplateIndexPlusOne[template];
+        if (indexPlusOne == 0) revert NFTTemplateNotFound();
+        uint256 index = indexPlusOne - 1;
+        uint256 lastIndex = _nftTemplates.length - 1;
+        if (index != lastIndex) {
+            address movedTemplate = _nftTemplates[lastIndex];
+            _nftTemplates[index] = movedTemplate;
+            _nftTemplateIndexPlusOne[movedTemplate] = index + 1;
+        }
+        _nftTemplates.pop();
+        delete _nftTemplateIndexPlusOne[template];
+        delete supportedNFTTemplate[template];
+        emit NFTTemplateRemoved(template);
+    }
+
+    function nftTemplateCount() external view returns (uint256) {
+        return _nftTemplates.length;
+    }
+
+    /// @dev Removal uses swap-and-pop, so enumeration order is not stable.
+    function nftTemplateAt(uint256 index) external view returns (address) {
+        return _nftTemplates[index];
     }
 
     /// @notice Enables a Pump version for future NFT pools.
@@ -237,15 +287,17 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         _validateCollectionName(name);
 
         PoolConfig memory config = abi.decode(meta, (PoolConfig));
+        if (!supportedNFTTemplate[config.nftTemplate]) revert NFTTemplateNotFound();
         AMMConfig memory ammConfig = abi.decode(config.ammConfig, (AMMConfig));
         address selectedIndexToken = ammConfig.indexToken == address(0) ? defaultIndexToken : ammConfig.indexToken;
         require(IIndexBrokerFactoryBasketRegistry(basketRegistry).isBasket(selectedIndexToken), "Invalid index token");
         address admin = IOwnableCommunity(community).owner();
         address selectedRenderer = config.renderer == address(0) ? defaultRenderer : config.renderer;
 
-        address clone = Clones.clone(poolTemplate);
+        address clone = Clones.clone(config.nftTemplate);
         address ammClone = Clones.clone(ammTemplate);
-        IndexBrokerNFT pool = IndexBrokerNFT(payable(clone));
+        if (config.fundsReceiver == address(0)) config.fundsReceiver = ammClone;
+        IIndexBrokerNFT pool = IIndexBrokerNFT(clone);
         _initializeNFT(pool, community, admin, selectedRenderer, ammClone, selectedIndexToken, name, config);
         address selectedPump = _selectPump(pool.communityToken(), ammConfig.pump);
         _initializeAMM(pool, clone, ammClone, config.communityTokenPrice, selectedIndexToken, selectedPump, ammConfig);
@@ -284,7 +336,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     }
 
     function _initializeNFT(
-        IndexBrokerNFT pool,
+        IIndexBrokerNFT pool,
         address community,
         address admin,
         address selectedRenderer,
@@ -313,12 +365,13 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             config.lockWhitelistSlots,
             config.rerollEnabled,
             config.whitelistAccounts,
-            config.whitelistAllowances
+            config.whitelistAllowances,
+            config.nftTemplateConfig
         );
     }
 
     function _initializeAMM(
-        IndexBrokerNFT pool,
+        IIndexBrokerNFT pool,
         address clone,
         address ammClone,
         uint256 communityTokenPrice,
@@ -358,7 +411,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     }
 
     function _emitNFTCreated(
-        IndexBrokerNFT pool,
+        IIndexBrokerNFT pool,
         address clone,
         address community,
         address admin,
@@ -366,10 +419,14 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         string memory name,
         PoolConfig memory config
     ) internal {
+        uint256 effectiveRecommitPrice = config.rerollEnabled
+            ? (config.recommitPrice == 0 ? config.communityTokenPrice : config.recommitPrice)
+            : 0;
         emit IndexBrokerNFTCreated(
             clone,
             community,
             admin,
+            config.nftTemplate,
             pool.communityToken(),
             selectedRenderer,
             name,
@@ -377,7 +434,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
             config.fundsReceiver,
             config.communityTokenPrice,
             config.indexMiningActivationTokenAmount,
-            pool.recommitPrice(),
+            effectiveRecommitPrice,
             config.nativePrice,
             config.maxSupply,
             config.referralBps,

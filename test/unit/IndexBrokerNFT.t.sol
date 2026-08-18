@@ -65,6 +65,19 @@ contract IndexBrokerCommunityToken is ERC20 {
     receive() external payable {}
 }
 
+contract IndexBrokerStakingToken is ERC20 {
+    uint8 private immutable _tokenDecimals;
+
+    constructor(uint8 tokenDecimals_) ERC20("Staking Token", "STK") {
+        _tokenDecimals = tokenDecimals_;
+        _mint(msg.sender, 10_000_000 * 10 ** tokenDecimals_);
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _tokenDecimals;
+    }
+}
+
 contract IndexBrokerPumpMock {
     mapping(address => bool) public createdTokens;
 
@@ -267,10 +280,13 @@ contract IndexBrokerNFTTest is Test {
     CommunityFactory internal communityFactory;
     HourlyTickCalculator internal calculator;
     IndexBrokerNFTFactory internal poolFactory;
+    IndexBrokerNFTBurn internal burnTemplate;
+    IndexBrokerNFTStake internal stakeTemplate;
     Community internal community;
-    IndexBrokerNFT internal pool;
+    IndexBrokerNFTBurn internal pool;
     IndexBrokerNFTAMM internal amm;
     IndexBrokerCommunityToken internal communityToken;
+    IndexBrokerStakingToken internal stakingToken;
     IndexBrokerPumpMock internal pump;
     IndexBrokerPancakeV4CLManagerMock internal pancakeV4Manager;
     ERC20 internal wrappedNative;
@@ -315,6 +331,7 @@ contract IndexBrokerNFTTest is Test {
         communityFactory = new CommunityFactory(address(committee));
         calculator = new HourlyTickCalculator(address(communityFactory));
         communityToken = new IndexBrokerCommunityToken();
+        stakingToken = new IndexBrokerStakingToken(6);
         pump = new IndexBrokerPumpMock();
         pancakeV4Manager = new IndexBrokerPancakeV4CLManagerMock(address(new IndexBrokerPancakeV4VaultMock()));
         wrappedNative = new IndexBrokerCommunityToken();
@@ -339,7 +356,8 @@ contract IndexBrokerNFTTest is Test {
             v2Factories,
             v3Factories,
             new address[](0),
-            pancakeV4Managers
+            pancakeV4Managers,
+            ""
         );
         basketRegistry = new IndexBrokerBasketRegistryMock();
         indexSettlementToken = new IndexBrokerCommunityToken();
@@ -349,6 +367,8 @@ contract IndexBrokerNFTTest is Test {
         defaultIndexToken.setWbnb(address(wrappedNative));
         basketRegistry.setIndexToken(address(defaultIndexToken), true);
         assertTrue(indexSettlementToken.transfer(address(indexV3Router), 1_000_000 ether));
+        burnTemplate = new IndexBrokerNFTBurn();
+        stakeTemplate = new IndexBrokerNFTStake();
         poolFactory = new IndexBrokerNFTFactory(
             address(communityFactory),
             address(pump),
@@ -361,6 +381,8 @@ contract IndexBrokerNFTTest is Test {
             INDEX_V3_FEE,
             address(defaultIndexToken)
         );
+        poolFactory.addNFTTemplate(address(burnTemplate));
+        poolFactory.addNFTTemplate(address(stakeTemplate));
 
         committee.adminAddContract(address(calculator));
         committee.adminAddContract(address(poolFactory));
@@ -393,6 +415,7 @@ contract IndexBrokerNFTTest is Test {
         assertTrue(pool.rerollEnabled());
         assertEq(pool.recommitPrice(), COMMUNITY_TOKEN_PRICE);
         assertEq(pool.indexToken(), address(defaultIndexToken));
+        assertEq(pool.indexMiningToken(), address(communityToken));
         assertEq(pool.minimumIndexMiningWeight(), 1 ether);
         assertEq(pool.totalActiveIndexMiningWeight(), 0);
         assertEq(pool.nativePrice(), NATIVE_PRICE);
@@ -432,6 +455,140 @@ contract IndexBrokerNFTTest is Test {
         assertEq(amm.quoteSpecificNativeFee(), NFT_NATIVE_VALUE * AMM_SPECIFIC_FEE_BPS / 10_000 + platformFee);
     }
 
+    function test_FactoryOwnerCanAddAndRemoveNFTTemplatesForFuturePools() public {
+        assertEq(poolFactory.nftTemplateCount(), 2);
+        assertTrue(poolFactory.supportedNFTTemplate(address(burnTemplate)));
+        assertTrue(poolFactory.supportedNFTTemplate(address(stakeTemplate)));
+
+        poolFactory.removeNFTTemplate(address(burnTemplate));
+        assertFalse(poolFactory.supportedNFTTemplate(address(burnTemplate)));
+        assertEq(poolFactory.nftTemplateCount(), 1);
+        assertEq(poolFactory.nftTemplateAt(0), address(stakeTemplate));
+
+        // Existing clones continue using the removed implementation.
+        assertEq(pool.name(), "Index Broker NFT");
+        assertEq(pool.indexMiningToken(), address(communityToken));
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+        vm.expectRevert(IndexBrokerNFTFactory.NFTTemplateNotFound.selector);
+        this.addPoolForRevertTest(NATIVE_PRICE, 1, 0, false, accounts, allowances);
+
+        poolFactory.addNFTTemplate(address(burnTemplate));
+        assertTrue(poolFactory.supportedNFTTemplate(address(burnTemplate)));
+        assertEq(poolFactory.nftTemplateCount(), 2);
+
+        vm.expectRevert(IndexBrokerNFTFactory.NFTTemplateAlreadyAdded.selector);
+        poolFactory.addNFTTemplate(address(burnTemplate));
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidNFTTemplate.selector);
+        poolFactory.addNFTTemplate(address(0xBEEF));
+        address wrongTemplate = address(new IndexBrokerNFTAMM());
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidNFTTemplate.selector);
+        poolFactory.addNFTTemplate(wrongTemplate);
+    }
+
+    function test_OnlyFactoryOwnerCanManageNFTTemplates() public {
+        address outsider = makeAddr("templateOutsider");
+        address candidate = address(new IndexBrokerNFTStake());
+        vm.prank(outsider);
+        vm.expectRevert("Ownable: caller is not the owner");
+        poolFactory.removeNFTTemplate(address(burnTemplate));
+        vm.prank(outsider);
+        vm.expectRevert("Ownable: caller is not the owner");
+        poolFactory.addNFTTemplate(candidate);
+    }
+
+    function test_StakeTemplateUsesCreatorSelectedTokenAndHasNoActivation() public {
+        IndexBrokerNFTStake stakePool = _addStakePool();
+
+        assertEq(stakePool.communityToken(), address(communityToken));
+        assertEq(stakePool.indexMiningToken(), address(stakingToken));
+        assertEq(stakePool.stakingToken(), address(stakingToken));
+        assertEq(stakePool.indexMiningActivationTokenAmount(), 0);
+        assertEq(stakePool.minimumIndexMiningWeight(), 1e6);
+
+        communityToken.approve(address(stakePool), type(uint256).max);
+        stakePool.mint(0);
+        assertFalse(stakePool.indexMiningActiveOf(1));
+        assertEq(stakePool.indexMiningWeightOf(1), 0);
+    }
+
+    function test_StakeWeightPrincipalAndRewardsFollowNFTWithoutTransferDecay() public {
+        IndexBrokerNFTStake stakePool = _addStakePool();
+        communityToken.approve(address(stakePool), type(uint256).max);
+        stakingToken.approve(address(stakePool), type(uint256).max);
+        stakePool.mint(0);
+
+        uint256 stakeAmount = 100e6;
+        stakePool.stakeIndexMining(1, stakeAmount);
+        assertEq(stakingToken.balanceOf(address(stakePool)), stakeAmount);
+        assertEq(stakePool.indexMiningWeightOf(1), stakeAmount);
+        assertEq(stakePool.activeIndexMiningWeightOf(1), stakeAmount);
+        assertEq(stakePool.totalActiveIndexMiningWeight(), stakeAmount);
+
+        defaultIndexToken.mint(address(this), 25 ether);
+        defaultIndexToken.approve(address(stakePool), 25 ether);
+        stakePool.injectIndexRewards(25 ether);
+
+        address buyer = makeAddr("stakeNFTBuyer");
+        stakePool.transferFrom(address(this), buyer, 1);
+        assertEq(stakePool.ownerOf(1), buyer);
+        assertEq(stakePool.indexMiningWeightOf(1), stakeAmount);
+        assertEq(stakePool.activeIndexMiningWeightOf(1), stakeAmount);
+        assertEq(stakePool.totalActiveIndexMiningWeight(), stakeAmount);
+        assertEq(stakePool.pendingIndexRewardsOf(1), 25 ether);
+
+        vm.expectRevert(IndexBrokerNFTBase.NotTokenOwner.selector);
+        stakePool.unstakeIndexMining(1, 1e6);
+
+        vm.startPrank(buyer);
+        stakePool.claimIndexRewards(1);
+        stakePool.unstakeIndexMining(1, 40e6);
+        vm.stopPrank();
+
+        assertEq(defaultIndexToken.balanceOf(buyer), 25 ether);
+        assertEq(stakingToken.balanceOf(buyer), 40e6);
+        assertEq(stakePool.indexMiningWeightOf(1), 60e6);
+        assertEq(stakePool.totalActiveIndexMiningWeight(), 60e6);
+    }
+
+    function test_StakeNFTContinuesIndexMiningInsideAMM() public {
+        IndexBrokerNFTStake stakePool = _addStakePool();
+        IndexBrokerNFTAMM stakeAMM = IndexBrokerNFTAMM(payable(stakePool.ammVault()));
+        communityToken.approve(address(stakePool), type(uint256).max);
+        stakingToken.approve(address(stakePool), type(uint256).max);
+        stakePool.mint(0);
+        stakePool.stakeIndexMining(1, 50e6);
+
+        vm.mockCall(
+            address(stakeAMM), abi.encodeCall(IndexBrokerNFTAMM.isAcceptingNFT, (address(this), 1)), abi.encode(true)
+        );
+        stakePool.transferFrom(address(this), address(stakeAMM), 1);
+
+        assertEq(stakePool.ownerOf(1), address(stakeAMM));
+        assertTrue(stakePool.indexMiningActiveOf(1));
+        assertEq(stakePool.activeIndexMiningWeightOf(1), 50e6);
+        assertEq(stakePool.totalActiveIndexMiningWeight(), 50e6);
+
+        defaultIndexToken.mint(address(this), 10 ether);
+        defaultIndexToken.approve(address(stakePool), 10 ether);
+        stakePool.injectIndexRewards(10 ether);
+
+        address buyer = makeAddr("ammStakeBuyer");
+        vm.prank(address(stakeAMM));
+        stakePool.safeTransferFrom(address(stakeAMM), buyer, 1);
+        assertEq(stakePool.pendingIndexRewardsOf(1), 10 ether);
+        assertEq(stakePool.indexMiningWeightOf(1), 50e6);
+
+        vm.prank(buyer);
+        stakePool.unstakeIndexMining(1, 50e6);
+        assertEq(stakingToken.balanceOf(buyer), 50e6);
+        assertFalse(stakePool.indexMiningActiveOf(1));
+        assertEq(stakePool.totalActiveIndexMiningWeight(), 0);
+    }
+
     function test_ExternalTokenRequiresPriceSourceAtCreation() public {
         (Community externalCommunity,) = _createCommunity(false);
 
@@ -465,7 +622,7 @@ contract IndexBrokerNFTTest is Test {
         );
         nutboxRouter.addRoute(address(spcx), address(wrappedNative), poolIds);
 
-        IndexBrokerNFT routedPool =
+        IndexBrokerNFTBurn routedPool =
             _addPoolToCommunity(externalCommunity, abi.encode(address(v2Factory), address(aSpcx)));
         IndexBrokerNFTAMM routedAMM = IndexBrokerNFTAMM(payable(routedPool.ammVault()));
 
@@ -581,7 +738,7 @@ contract IndexBrokerNFTTest is Test {
         );
         pancakeV4Manager.setPool(officialToken.v4PoolId(), uint160(1 << 96), 1_000_000);
 
-        IndexBrokerNFT officialPool = _addPoolToCommunityWithPump(officialCommunity, bytes(""), address(secondPump));
+        IndexBrokerNFTBurn officialPool = _addPoolToCommunityWithPump(officialCommunity, bytes(""), address(secondPump));
         IndexBrokerNFTAMM officialAMM = IndexBrokerNFTAMM(payable(officialPool.ammVault()));
 
         assertTrue(officialAMM.active());
@@ -616,7 +773,7 @@ contract IndexBrokerNFTTest is Test {
 
     function test_OfficialTokenStartsInactiveButMintCanSeedReserve() public {
         (Community officialCommunity, IndexBrokerCommunityToken officialToken) = _createCommunity(true);
-        IndexBrokerNFT officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
+        IndexBrokerNFTBurn officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
         IndexBrokerNFTAMM officialAMM = IndexBrokerNFTAMM(payable(officialPool.ammVault()));
 
         assertFalse(officialAMM.active());
@@ -639,9 +796,26 @@ contract IndexBrokerNFTTest is Test {
         officialAMM.sellNFT(1);
     }
 
+    function test_AnyoneCanFundInactiveOfficialAMMWithNative() public {
+        (Community officialCommunity,) = _createCommunity(true);
+        IndexBrokerNFTBurn officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
+        IndexBrokerNFTAMM officialAMM = IndexBrokerNFTAMM(payable(officialPool.ammVault()));
+        assertFalse(officialAMM.active());
+
+        uint256 amount = 2 ether;
+        vm.deal(paidUser, amount);
+        vm.prank(paidUser);
+        (bool success,) = address(officialAMM).call{value: amount}("");
+
+        assertTrue(success);
+        assertEq(address(officialAMM).balance, amount);
+        vm.expectRevert(IndexBrokerNFTAMM.AMMInactive.selector);
+        officialAMM.buyIndexWithNativeReserve(1, 1, bytes(""));
+    }
+
     function test_ArbitraryCallerCannotActivateUnlistedOfficialToken() public {
         (Community officialCommunity,) = _createCommunity(true);
-        IndexBrokerNFT officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
+        IndexBrokerNFTBurn officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
         IndexBrokerNFTAMM officialAMM = IndexBrokerNFTAMM(payable(officialPool.ammVault()));
 
         vm.expectRevert(IndexBrokerNFTAMM.OfficialTokenNotListed.selector);
@@ -654,7 +828,7 @@ contract IndexBrokerNFTTest is Test {
 
     function test_UnlistedOfficialTokenActivatesAfterListingOnlyOnce() public {
         (Community officialCommunity, IndexBrokerCommunityToken officialToken) = _createCommunity(true);
-        IndexBrokerNFT officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
+        IndexBrokerNFTBurn officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
         IndexBrokerNFTAMM officialAMM = IndexBrokerNFTAMM(payable(officialPool.ammVault()));
         address listingHook = makeAddr("listingHook");
         bytes32 parameters = bytes32(uint256(0x1234));
@@ -697,7 +871,7 @@ contract IndexBrokerNFTTest is Test {
         pancakeV4Manager.setPool(officialToken.v4PoolId(), uint160(1 << 96), 1_000_000);
 
         vm.recordLogs();
-        IndexBrokerNFT officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
+        IndexBrokerNFTBurn officialPool = _addPoolToCommunity(officialCommunity, bytes(""));
         Vm.Log[] memory logs = vm.getRecordedLogs();
         IndexBrokerNFTAMM officialAMM = IndexBrokerNFTAMM(payable(officialPool.ammVault()));
 
@@ -768,11 +942,11 @@ contract IndexBrokerNFTTest is Test {
         assertEq(pool.getTotalStakedAmount(), BASE_WEIGHT);
         assertEq(communityToken.balanceOf(pool.INDEX_MINING_BURN_ADDRESS()), 0);
 
-        vm.expectRevert(IndexBrokerNFT.IndexMiningAlreadyActive.selector);
+        vm.expectRevert(IndexBrokerNFTBase.IndexMiningAlreadyActive.selector);
         vm.prank(whitelistUser1);
         pool.activateIndexMining(1);
 
-        vm.expectRevert(IndexBrokerNFT.NotTokenOwner.selector);
+        vm.expectRevert(IndexBrokerNFTBase.NotTokenOwner.selector);
         vm.prank(whitelistUser2);
         pool.activateIndexMining(1);
     }
@@ -781,26 +955,26 @@ contract IndexBrokerNFTTest is Test {
         uint256 mintBlock = block.number;
         _mintWhitelist(whitelistUser1, 0, 0);
 
-        IndexBrokerNFT.NFTInfo memory beforeReveal = pool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory beforeReveal = pool.getNFTInfo(1);
         assertEq(beforeReveal.seed, 0);
         assertEq(beforeReveal.revealBlock, mintBlock + 3);
         assertEq(beforeReveal.revealRound, 1);
         assertTrue(beforeReveal.revealPending);
         assertTrue(_contains(pool.tokenSVG(1), "UNREVEALED"));
 
-        vm.expectRevert(IndexBrokerNFT.RevealNotReady.selector);
+        vm.expectRevert(IndexBrokerNFTBase.RevealNotReady.selector);
         vm.prank(whitelistUser1);
         pool.reveal(1);
 
         vm.roll(beforeReveal.revealBlock + 1);
-        vm.expectRevert(IndexBrokerNFT.NotTokenOwner.selector);
+        vm.expectRevert(IndexBrokerNFTBase.NotTokenOwner.selector);
         vm.prank(makeAddr("nonOwnerRevealer"));
         pool.reveal(1);
 
         vm.prank(whitelistUser1);
         uint256 seed = pool.reveal(1);
 
-        IndexBrokerNFT.NFTInfo memory afterReveal = pool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory afterReveal = pool.getNFTInfo(1);
         assertEq(afterReveal.seed, seed);
         assertGt(seed, 0);
         assertFalse(afterReveal.revealPending);
@@ -813,13 +987,13 @@ contract IndexBrokerNFTTest is Test {
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 1;
         uint256 customPrice = 321 ether;
-        IndexBrokerNFT customPool =
+        IndexBrokerNFTBurn customPool =
             _addPoolWithRevealConfig(NATIVE_PRICE, 2, 0, false, accounts, allowances, true, customPrice);
         _fundAndApprove(whitelistUser1, customPool);
 
         vm.prank(whitelistUser1);
         customPool.mint(0);
-        IndexBrokerNFT.NFTInfo memory firstCommit = customPool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory firstCommit = customPool.getNFTInfo(1);
         vm.roll(firstCommit.revealBlock + 1);
         vm.prank(whitelistUser1);
         uint256 firstSeed = customPool.reveal(1);
@@ -828,7 +1002,7 @@ contract IndexBrokerNFTTest is Test {
         vm.prank(whitelistUser1);
         customPool.commitReveal(1);
 
-        IndexBrokerNFT.NFTInfo memory reroll = customPool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory reroll = customPool.getNFTInfo(1);
         assertEq(customPool.recommitPrice(), customPrice);
         assertEq(communityToken.balanceOf(customPool.INDEX_MINING_BURN_ADDRESS()) - burnBefore, customPrice);
         assertEq(reroll.seed, firstSeed);
@@ -845,21 +1019,21 @@ contract IndexBrokerNFTTest is Test {
 
     function test_ExpiredCommitMustBePaidAgainAndKeepsCurrentSeed() public {
         _mintWhitelist(whitelistUser1, 0, 0);
-        IndexBrokerNFT.NFTInfo memory firstCommit = pool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory firstCommit = pool.getNFTInfo(1);
         vm.roll(firstCommit.revealBlock + 1);
         vm.prank(whitelistUser1);
         uint256 oldSeed = pool.reveal(1);
 
         vm.prank(whitelistUser1);
         pool.commitReveal(1);
-        IndexBrokerNFT.NFTInfo memory paidCommit = pool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory paidCommit = pool.getNFTInfo(1);
 
-        vm.expectRevert(IndexBrokerNFT.RevealStillPending.selector);
+        vm.expectRevert(IndexBrokerNFTBase.RevealStillPending.selector);
         vm.prank(whitelistUser1);
         pool.commitReveal(1);
 
         vm.roll(paidCommit.revealBlock + pool.REVEAL_WINDOW_BLOCKS() + 1);
-        vm.expectRevert(IndexBrokerNFT.RevealExpired.selector);
+        vm.expectRevert(IndexBrokerNFTBase.RevealExpired.selector);
         vm.prank(whitelistUser1);
         pool.reveal(1);
 
@@ -876,13 +1050,13 @@ contract IndexBrokerNFTTest is Test {
         accounts[0] = whitelistUser1;
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 1;
-        IndexBrokerNFT fixedPool =
+        IndexBrokerNFTBurn fixedPool =
             _addPoolWithRevealConfig(NATIVE_PRICE, 2, 0, false, accounts, allowances, false, 77 ether);
         _fundAndApprove(whitelistUser1, fixedPool);
 
         vm.prank(whitelistUser1);
         fixedPool.mint(0);
-        IndexBrokerNFT.NFTInfo memory initial = fixedPool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory initial = fixedPool.getNFTInfo(1);
         assertEq(fixedPool.recommitPrice(), 0);
         vm.roll(initial.revealBlock + fixedPool.REVEAL_WINDOW_BLOCKS() + 1);
 
@@ -890,7 +1064,7 @@ contract IndexBrokerNFTTest is Test {
         vm.prank(whitelistUser1);
         fixedPool.commitReveal(1);
         assertEq(communityToken.balanceOf(fixedPool.INDEX_MINING_BURN_ADDRESS()), burnBefore);
-        IndexBrokerNFT.NFTInfo memory retry = fixedPool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory retry = fixedPool.getNFTInfo(1);
 
         vm.roll(retry.revealBlock + fixedPool.REVEAL_WINDOW_BLOCKS() + 1);
         vm.prank(whitelistUser1);
@@ -901,7 +1075,7 @@ contract IndexBrokerNFTTest is Test {
         vm.prank(whitelistUser1);
         fixedPool.reveal(1);
 
-        vm.expectRevert(IndexBrokerNFT.RerollDisabled.selector);
+        vm.expectRevert(IndexBrokerNFTBase.RerollDisabled.selector);
         vm.prank(whitelistUser1);
         fixedPool.commitReveal(1);
     }
@@ -953,7 +1127,7 @@ contract IndexBrokerNFTTest is Test {
         accounts[0] = paidUser;
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 1;
-        IndexBrokerNFT freeActivationPool =
+        IndexBrokerNFTBurn freeActivationPool =
             _addPoolConfigured(0, 1, 0, true, accounts, allowances, address(0), 0, false, 0, "Free Activation NFT");
         assertEq(freeActivationPool.indexMiningActivationTokenAmount(), 0);
 
@@ -985,7 +1159,7 @@ contract IndexBrokerNFTTest is Test {
         _mintWhitelist(whitelistUser1, 0, 0);
         uint256 burnBalanceBefore = communityToken.balanceOf(pool.INDEX_MINING_BURN_ADDRESS());
 
-        vm.expectRevert(IndexBrokerNFT.InvalidIndexMiningWeight.selector);
+        vm.expectRevert(IndexBrokerNFTBase.InvalidIndexMiningWeight.selector);
         vm.prank(whitelistUser1);
         pool.upgradeIndexMining(1, 1 ether - 1);
 
@@ -1004,7 +1178,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(pool.activeIndexMiningWeightOf(1), 0);
         assertEq(pool.totalActiveIndexMiningWeight(), 0);
 
-        vm.expectRevert(IndexBrokerNFT.IndexMiningNotActive.selector);
+        vm.expectRevert(IndexBrokerNFTBase.IndexMiningNotActive.selector);
         vm.prank(whitelistUser2);
         pool.upgradeIndexMining(1, 10 ether);
 
@@ -1142,7 +1316,7 @@ contract IndexBrokerNFTTest is Test {
         _mintPaid(paidUser, 1);
         _mintPaid(paidUser, 1);
 
-        IndexBrokerNFT.NFTInfo memory referrer = pool.getNFTInfo(1);
+        IndexBrokerNFTBase.NFTInfo memory referrer = pool.getNFTInfo(1);
         assertEq(referrer.referralCount, 2);
         assertEq(referrer.level, 2);
         assertEq(referrer.miningWeight, 12_000);
@@ -1172,7 +1346,7 @@ contract IndexBrokerNFTTest is Test {
             _mintPaid(paidUser, 0);
         }
 
-        vm.expectRevert(IndexBrokerNFT.PaidSupplyReached.selector);
+        vm.expectRevert(IndexBrokerNFTBase.PaidSupplyReached.selector);
         vm.prank(paidUser);
         pool.mint{value: NATIVE_PRICE}(0);
 
@@ -1191,7 +1365,7 @@ contract IndexBrokerNFTTest is Test {
         accounts[0] = whitelistUser1;
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 1;
-        IndexBrokerNFT unlockedPool = _addPool(NATIVE_PRICE, 3, REFERRAL_BPS, false, accounts, allowances);
+        IndexBrokerNFTBurn unlockedPool = _addPool(NATIVE_PRICE, 3, REFERRAL_BPS, false, accounts, allowances);
         _fundAndApprove(whitelistUser1, unlockedPool);
         _fundAndApprove(paidUser, unlockedPool);
 
@@ -1200,7 +1374,7 @@ contract IndexBrokerNFTTest is Test {
             unlockedPool.mint{value: NATIVE_PRICE}(0);
         }
 
-        vm.expectRevert(IndexBrokerNFT.MaxSupplyReached.selector);
+        vm.expectRevert(IndexBrokerNFTBase.MaxSupplyReached.selector);
         vm.prank(whitelistUser1);
         unlockedPool.mint(0);
         assertEq(unlockedPool.paidMinted(), 3);
@@ -1213,7 +1387,7 @@ contract IndexBrokerNFTTest is Test {
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 2;
 
-        vm.expectRevert(IndexBrokerNFT.InvalidWhitelistConfig.selector);
+        vm.expectRevert(IndexBrokerNFTBase.InvalidWhitelistConfig.selector);
         this.addPoolForRevertTest(0, 3, 0, false, accounts, allowances);
     }
 
@@ -1224,7 +1398,7 @@ contract IndexBrokerNFTTest is Test {
         uint256[] memory allowances = new uint256[](2);
         allowances[0] = 2;
         allowances[1] = 1;
-        IndexBrokerNFT whitelistPool = _addPool(0, 3, 0, false, accounts, allowances);
+        IndexBrokerNFTBurn whitelistPool = _addPool(0, 3, 0, false, accounts, allowances);
         _fundAndApprove(whitelistUser1, whitelistPool);
         _fundAndApprove(whitelistUser2, whitelistPool);
 
@@ -1240,7 +1414,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(whitelistPool.getUserStakedAmount(whitelistUser1), BASE_WEIGHT);
         assertEq(whitelistPool.getUserStakedAmount(whitelistUser2), BASE_WEIGHT);
 
-        vm.expectRevert(IndexBrokerNFT.WhitelistOnly.selector);
+        vm.expectRevert(IndexBrokerNFTBase.WhitelistOnly.selector);
         vm.prank(paidUser);
         whitelistPool.mint(0);
     }
@@ -1262,12 +1436,37 @@ contract IndexBrokerNFTTest is Test {
         pool.setFundsReceiver(paidUser);
     }
 
+    function test_ZeroFundsReceiverRoutesPaidMintNativeProceedsToPairedAMM() public {
+        address[] memory accounts = new address[](1);
+        accounts[0] = whitelistUser1;
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 1;
+
+        address configuredReceiver = fundsReceiver;
+        fundsReceiver = address(0);
+        IndexBrokerNFTBurn ammFundedPool = _addPool(NATIVE_PRICE, 2, 0, false, accounts, allowances);
+        fundsReceiver = configuredReceiver;
+
+        IndexBrokerNFTAMM pairedAMM = IndexBrokerNFTAMM(payable(ammFundedPool.ammVault()));
+        assertEq(ammFundedPool.fundsReceiver(), address(pairedAMM));
+        _fundAndApprove(paidUser, ammFundedPool);
+
+        uint256 platformBefore = platformTreasury.balance;
+        uint256 reserveBefore = address(pairedAMM).balance;
+        vm.prank(paidUser);
+        ammFundedPool.mint{value: NATIVE_PRICE}(0);
+
+        uint256 platformFee = NATIVE_PRICE * PLATFORM_FEE_BPS / 10_000;
+        assertEq(platformTreasury.balance - platformBefore, platformFee);
+        assertEq(address(pairedAMM).balance - reserveBefore, NATIVE_PRICE - platformFee);
+    }
+
     function test_PaidMintRequiresExactNativePayment() public {
-        vm.expectRevert(IndexBrokerNFT.InvalidPayment.selector);
+        vm.expectRevert(IndexBrokerNFTBase.InvalidPayment.selector);
         vm.prank(paidUser);
         pool.mint{value: NATIVE_PRICE - 1}(0);
 
-        vm.expectRevert(IndexBrokerNFT.InvalidPayment.selector);
+        vm.expectRevert(IndexBrokerNFTBase.InvalidPayment.selector);
         vm.prank(paidUser);
         pool.mint{value: NATIVE_PRICE + 1}(0);
 
@@ -1289,7 +1488,7 @@ contract IndexBrokerNFTTest is Test {
     function test_DirectNFTTransferToAMMIsRejected() public {
         _mintWhitelist(whitelistUser1, 0, 0);
 
-        vm.expectRevert(IndexBrokerNFT.InvalidAMMTransfer.selector);
+        vm.expectRevert(IndexBrokerNFTBase.InvalidAMMTransfer.selector);
         vm.prank(whitelistUser1);
         pool.transferFrom(whitelistUser1, address(amm), 1);
 
@@ -1317,7 +1516,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(pool.getUserStakedAmount(whitelistUser1), 0);
         assertEq(pool.getTotalStakedAmount(), 0);
 
-        vm.expectRevert(IndexBrokerNFT.ReferrerInAMM.selector);
+        vm.expectRevert(IndexBrokerNFTBase.ReferrerInAMM.selector);
         vm.prank(paidUser);
         pool.mint{value: NATIVE_PRICE}(1);
 
@@ -1542,7 +1741,7 @@ contract IndexBrokerNFTTest is Test {
     }
 
     function test_IndexHolderFeeHarvestRejectsEmptyAndAMMRejectsNonCollection() public {
-        vm.expectRevert(IndexBrokerNFT.NoIndexHolderFees.selector);
+        vm.expectRevert(IndexBrokerNFTBase.NoIndexHolderFees.selector);
         pool.harvestIndexHolderFees();
 
         vm.expectRevert(IndexBrokerNFTAMM.InvalidIndexHolderFees.selector);
@@ -1576,10 +1775,10 @@ contract IndexBrokerNFTTest is Test {
         accounts[0] = whitelistUser1;
         uint256[] memory allowances = new uint256[](1);
         allowances[0] = 1;
-        IndexBrokerNFT newDefaultPool = _addPool(NATIVE_PRICE, 3, 0, false, accounts, allowances);
+        IndexBrokerNFTBurn newDefaultPool = _addPool(NATIVE_PRICE, 3, 0, false, accounts, allowances);
         assertEq(IndexBrokerNFTAMM(payable(newDefaultPool.ammVault())).indexToken(), address(newDefault));
 
-        IndexBrokerNFT customPool =
+        IndexBrokerNFTBurn customPool =
             _addPoolWithIndex(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(defaultIndexToken));
         assertEq(IndexBrokerNFTAMM(payable(customPool.ammVault())).indexToken(), address(defaultIndexToken));
     }
@@ -1613,7 +1812,7 @@ contract IndexBrokerNFTTest is Test {
 
         string[4] memory allowedNames = ["StonkBroker", "STONK BROKERS", "Official-Stonk_Broker NFT", "stonk brokerage"];
         for (uint256 i; i < allowedNames.length; ++i) {
-            IndexBrokerNFT namedPool = this.addPoolNamedForRevertTest(allowedNames[i]);
+            IndexBrokerNFTBurn namedPool = this.addPoolNamedForRevertTest(allowedNames[i]);
             assertEq(namedPool.name(), allowedNames[i]);
         }
     }
@@ -1634,7 +1833,7 @@ contract IndexBrokerNFTTest is Test {
         vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameUsed.selector);
         this.addPoolNamedForRevertTest("Protected Brand");
 
-        IndexBrokerNFT allowedPool = this.addPoolNamedForRevertTest("protected brand");
+        IndexBrokerNFTBurn allowedPool = this.addPoolNamedForRevertTest("protected brand");
         assertEq(allowedPool.name(), "protected brand");
     }
 
@@ -1652,7 +1851,7 @@ contract IndexBrokerNFTTest is Test {
         assertFalse(poolFactory.reservedCollectionNameHash(keccak256(bytes("Reserved Alpha"))));
         assertTrue(poolFactory.reservedCollectionNameHash(keccak256(bytes("Reserved Beta"))));
 
-        IndexBrokerNFT namedPool = this.addPoolNamedForRevertTest("Reserved Alpha");
+        IndexBrokerNFTBurn namedPool = this.addPoolNamedForRevertTest("Reserved Alpha");
         assertEq(namedPool.name(), "Reserved Alpha");
 
         vm.expectRevert(IndexBrokerNFTFactory.ReservedCollectionNameUsed.selector);
@@ -1727,7 +1926,7 @@ contract IndexBrokerNFTTest is Test {
     }
 
     function test_AllowsUnrelatedCollectionName() public {
-        IndexBrokerNFT namedPool = this.addPoolNamedForRevertTest("Index Broker Pixels");
+        IndexBrokerNFTBurn namedPool = this.addPoolNamedForRevertTest("Index Broker Pixels");
         assertEq(namedPool.name(), "Index Broker Pixels");
     }
 
@@ -1764,14 +1963,14 @@ contract IndexBrokerNFTTest is Test {
 
     function _addPoolToCommunity(Community targetCommunity, bytes memory priceSourceData)
         internal
-        returns (IndexBrokerNFT createdPool)
+        returns (IndexBrokerNFTBurn createdPool)
     {
         return _addPoolToCommunityWithPump(targetCommunity, priceSourceData, address(0));
     }
 
     function _addPoolToCommunityWithPump(Community targetCommunity, bytes memory priceSourceData, address selectedPump)
         internal
-        returns (IndexBrokerNFT createdPool)
+        returns (IndexBrokerNFTBurn createdPool)
     {
         uint256[] memory thresholds = new uint256[](1);
         uint256[] memory weights = new uint256[](1);
@@ -1793,6 +1992,7 @@ contract IndexBrokerNFTTest is Test {
             symbol: "IDXNFT",
             fundsReceiver: fundsReceiver,
             renderer: address(0),
+            nftTemplate: address(burnTemplate),
             levelThresholds: thresholds,
             levelWeights: weights,
             communityTokenPrice: COMMUNITY_TOKEN_PRICE,
@@ -1802,6 +2002,7 @@ contract IndexBrokerNFTTest is Test {
             maxSupply: 1,
             referralBps: 0,
             ammConfig: abi.encode(ammConfig),
+            nftTemplateConfig: bytes(""),
             lockWhitelistSlots: true,
             rerollEnabled: false,
             whitelistAccounts: accounts,
@@ -1810,12 +2011,12 @@ contract IndexBrokerNFTTest is Test {
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10_000;
         targetCommunity.adminAddPool("Activation Test NFT", ratios, address(poolFactory), abi.encode(config));
-        createdPool = IndexBrokerNFT(payable(targetCommunity.activedPools(0)));
+        createdPool = IndexBrokerNFTBurn(payable(targetCommunity.activedPools(0)));
     }
 
     function addPoolToCommunityForRevertTest(Community targetCommunity, bytes calldata priceSourceData)
         external
-        returns (IndexBrokerNFT)
+        returns (IndexBrokerNFTBurn)
     {
         require(msg.sender == address(this), "test only");
         return _addPoolToCommunity(targetCommunity, priceSourceData);
@@ -1825,9 +2026,65 @@ contract IndexBrokerNFTTest is Test {
         Community targetCommunity,
         bytes calldata priceSourceData,
         address selectedPump
-    ) external returns (IndexBrokerNFT) {
+    ) external returns (IndexBrokerNFTBurn) {
         require(msg.sender == address(this), "test only");
         return _addPoolToCommunityWithPump(targetCommunity, priceSourceData, selectedPump);
+    }
+
+    function onERC721Received(address, address, uint256, bytes calldata) external pure returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
+
+    function _addStakePool() internal returns (IndexBrokerNFTStake createdPool) {
+        uint256[] memory thresholds = new uint256[](1);
+        uint256[] memory weights = new uint256[](1);
+        weights[0] = BASE_WEIGHT;
+        address[] memory accounts = new address[](1);
+        accounts[0] = address(this);
+        uint256[] memory allowances = new uint256[](1);
+        allowances[0] = 2;
+
+        IndexBrokerNFTFactory.AMMConfig memory ammConfig = IndexBrokerNFTFactory.AMMConfig({
+            normalFeeBps: AMM_NORMAL_FEE_BPS,
+            specificFeeBps: AMM_SPECIFIC_FEE_BPS,
+            priceSourceType: INutboxRouter.SourceType.V2_PAIR,
+            priceSourceData: abi.encode(address(v2Factory), address(v2Pair)),
+            indexToken: address(0),
+            pump: address(0)
+        });
+        IndexBrokerNFTFactory.PoolConfig memory config = IndexBrokerNFTFactory.PoolConfig({
+            symbol: "STKNFT",
+            fundsReceiver: fundsReceiver,
+            renderer: address(0),
+            nftTemplate: address(stakeTemplate),
+            levelThresholds: thresholds,
+            levelWeights: weights,
+            communityTokenPrice: COMMUNITY_TOKEN_PRICE,
+            indexMiningActivationTokenAmount: 0,
+            recommitPrice: 0,
+            nativePrice: 0,
+            maxSupply: 2,
+            referralBps: 0,
+            ammConfig: abi.encode(ammConfig),
+            nftTemplateConfig: abi.encode(address(stakingToken)),
+            lockWhitelistSlots: true,
+            rerollEnabled: false,
+            whitelistAccounts: accounts,
+            whitelistAllowances: allowances
+        });
+
+        uint256 existingPools = activePoolCount;
+        uint16[] memory ratios = new uint16[](existingPools + 1);
+        uint16 ratio = uint16(10_000 / (existingPools + 1));
+        uint256 assigned;
+        for (uint256 i; i < existingPools; ++i) {
+            ratios[i] = ratio;
+            assigned += ratio;
+        }
+        ratios[existingPools] = uint16(10_000 - assigned);
+        community.adminAddPool("Index Broker Stake NFT", ratios, address(poolFactory), abi.encode(config));
+        createdPool = IndexBrokerNFTStake(payable(community.activedPools(existingPools)));
+        activePoolCount = existingPools + 1;
     }
 
     function _addPool(
@@ -1837,7 +2094,7 @@ contract IndexBrokerNFTTest is Test {
         bool lockSlots,
         address[] memory accounts,
         uint256[] memory allowances
-    ) internal returns (IndexBrokerNFT createdPool) {
+    ) internal returns (IndexBrokerNFTBurn createdPool) {
         return _addPoolWithIndex(nativePrice, supply, referralRate, lockSlots, accounts, allowances, address(0));
     }
 
@@ -1849,7 +2106,7 @@ contract IndexBrokerNFTTest is Test {
         address[] memory accounts,
         uint256[] memory allowances,
         address indexToken
-    ) internal returns (IndexBrokerNFT createdPool) {
+    ) internal returns (IndexBrokerNFTBurn createdPool) {
         return _addPoolConfigured(
             nativePrice,
             supply,
@@ -1874,7 +2131,7 @@ contract IndexBrokerNFTTest is Test {
         uint256[] memory allowances,
         bool reroll,
         uint256 rerollPrice
-    ) internal returns (IndexBrokerNFT createdPool) {
+    ) internal returns (IndexBrokerNFTBurn createdPool) {
         return _addPoolConfigured(
             nativePrice,
             supply,
@@ -1902,7 +2159,7 @@ contract IndexBrokerNFTTest is Test {
         bool reroll,
         uint256 rerollPrice,
         string memory collectionName
-    ) internal returns (IndexBrokerNFT createdPool) {
+    ) internal returns (IndexBrokerNFTBurn createdPool) {
         uint256[] memory thresholds = new uint256[](3);
         thresholds[0] = 0;
         thresholds[1] = 2;
@@ -1925,6 +2182,7 @@ contract IndexBrokerNFTTest is Test {
             symbol: "IDXNFT",
             fundsReceiver: fundsReceiver,
             renderer: address(0),
+            nftTemplate: address(burnTemplate),
             levelThresholds: thresholds,
             levelWeights: weights,
             communityTokenPrice: COMMUNITY_TOKEN_PRICE,
@@ -1934,6 +2192,7 @@ contract IndexBrokerNFTTest is Test {
             maxSupply: supply,
             referralBps: referralRate,
             ammConfig: abi.encode(ammConfig),
+            nftTemplateConfig: bytes(""),
             lockWhitelistSlots: lockSlots,
             rerollEnabled: reroll,
             whitelistAccounts: accounts,
@@ -1951,7 +2210,7 @@ contract IndexBrokerNFTTest is Test {
         ratios[existingPools] = uint16(10_000 - assigned);
 
         community.adminAddPool(collectionName, ratios, address(poolFactory), abi.encode(config));
-        createdPool = IndexBrokerNFT(payable(community.activedPools(existingPools)));
+        createdPool = IndexBrokerNFTBurn(payable(community.activedPools(existingPools)));
         activePoolCount = existingPools + 1;
     }
 
@@ -1962,7 +2221,7 @@ contract IndexBrokerNFTTest is Test {
         bool lockSlots,
         address[] memory accounts,
         uint256[] memory allowances
-    ) external returns (IndexBrokerNFT) {
+    ) external returns (IndexBrokerNFTBurn) {
         require(msg.sender == address(this), "test only");
         return _addPool(nativePrice, supply, referralRate, lockSlots, accounts, allowances);
     }
@@ -1975,12 +2234,12 @@ contract IndexBrokerNFTTest is Test {
         address[] memory accounts,
         uint256[] memory allowances,
         address indexToken
-    ) external returns (IndexBrokerNFT) {
+    ) external returns (IndexBrokerNFTBurn) {
         require(msg.sender == address(this), "test only");
         return _addPoolWithIndex(nativePrice, supply, referralRate, lockSlots, accounts, allowances, indexToken);
     }
 
-    function addPoolNamedForRevertTest(string calldata collectionName) external returns (IndexBrokerNFT) {
+    function addPoolNamedForRevertTest(string calldata collectionName) external returns (IndexBrokerNFTBurn) {
         require(msg.sender == address(this), "test only");
         address[] memory accounts = new address[](1);
         accounts[0] = whitelistUser1;
@@ -2001,7 +2260,7 @@ contract IndexBrokerNFTTest is Test {
         );
     }
 
-    function _fundAndApprove(address user, IndexBrokerNFT targetPool) internal {
+    function _fundAndApprove(address user, IndexBrokerNFTBurn targetPool) internal {
         if (communityToken.balanceOf(user) < 100_000 ether) {
             assertTrue(communityToken.transfer(user, 100_000 ether));
         }

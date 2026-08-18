@@ -320,26 +320,59 @@ contract NutboxRouterTest is Test {
         uniswapV4Manager = new RouterUniswapV4ManagerMock();
         pancakeV4Manager = new RouterPancakeV4CLManagerMock(address(new RouterPancakeV4VaultMock()));
 
-        address[] memory v2Factories = new address[](1);
-        v2Factories[0] = address(v2Factory);
-        address[] memory v2Routers = new address[](1);
-        v2Routers[0] = address(v2Router);
-        address[] memory v3Factories = new address[](1);
-        v3Factories[0] = address(v3Factory);
-        address[] memory uniswapV4Managers = new address[](1);
-        uniswapV4Managers[0] = address(uniswapV4Manager);
-        address[] memory pancakeV4Managers = new address[](1);
-        pancakeV4Managers[0] = address(pancakeV4Manager);
+        router = _deployRouter(new INutboxRouter.InitialPricePool[](0), new INutboxRouter.InitialRoute[](0));
+    }
 
-        router = new NutboxRouter(
-            address(wrappedNative),
-            address(v3Router),
-            v2Routers,
-            v2Factories,
-            v3Factories,
-            uniswapV4Managers,
-            pancakeV4Managers
-        );
+    function test_ConstructorBootstrapsTrustedPoolAndRoute() public {
+        RouterV2PairMock pair = _createV2Pair(address(baseToken), address(wrappedNative), 1_000 ether, 10 ether);
+        (address token0, address token1) = _sort(address(baseToken), address(wrappedNative));
+        bytes32 poolId = keccak256(abi.encode(token0, token1));
+
+        INutboxRouter.InitialPricePool[] memory pools = new INutboxRouter.InitialPricePool[](1);
+        pools[0] = INutboxRouter.InitialPricePool({
+            token0: token0,
+            token1: token1,
+            sourceType: INutboxRouter.SourceType.V2_PAIR,
+            sourceData: abi.encode(address(v2Factory), address(pair))
+        });
+        INutboxRouter.InitialRoute[] memory routes = new INutboxRouter.InitialRoute[](1);
+        routes[0] = INutboxRouter.InitialRoute({
+            tokenIn: address(baseToken), tokenOut: address(wrappedNative), poolIds: _singlePool(poolId)
+        });
+
+        NutboxRouter bootstrapped = _deployRouter(pools, routes);
+
+        assertEq(bootstrapped.owner(), address(this));
+        assertTrue(bootstrapped.hasPricePool(poolId));
+        assertTrue(bootstrapped.hasRoute(address(baseToken), address(wrappedNative)));
+        assertEq(bootstrapped.routePoolAt(address(baseToken), address(wrappedNative), 0), poolId);
+        assertEq(bootstrapped.routePoolAt(address(wrappedNative), address(baseToken), 0), poolId);
+        assertEq(bootstrapped.quoteNative(address(baseToken), 100 ether), 1 ether);
+        (, uint32 references,,,,) = bootstrapped.pricePool(poolId);
+        assertEq(references, 1);
+    }
+
+    function test_ConstructorBootstrapDeliberatelySkipsPoolAndRouteValidation() public {
+        (address token0, address token1) = _sort(address(baseToken), address(wrappedNative));
+        bytes32 poolId = keccak256(abi.encode(token0, token1));
+        INutboxRouter.InitialPricePool[] memory pools = new INutboxRouter.InitialPricePool[](1);
+        pools[0] = INutboxRouter.InitialPricePool({
+            token0: token0,
+            token1: token1,
+            sourceType: INutboxRouter.SourceType.V2_PAIR,
+            sourceData: abi.encode(makeAddr("unapprovedFactory"), makeAddr("missingPair"))
+        });
+        INutboxRouter.InitialRoute[] memory routes = new INutboxRouter.InitialRoute[](1);
+        routes[0] = INutboxRouter.InitialRoute({
+            tokenIn: address(baseToken), tokenOut: address(wrappedNative), poolIds: _singlePool(poolId)
+        });
+
+        NutboxRouter bootstrapped = _deployRouter(pools, routes);
+
+        assertTrue(bootstrapped.hasPricePool(poolId));
+        assertTrue(bootstrapped.hasRoute(address(baseToken), address(wrappedNative)));
+        vm.expectRevert(NutboxSpotPrice.InvalidSource.selector);
+        bootstrapped.validateRoute(address(baseToken), address(wrappedNative));
     }
 
     function test_OwnerRegistersV2PoolAndRouteQuotesBothDirections() public {
@@ -789,6 +822,32 @@ contract NutboxRouterTest is Test {
     function _singlePool(bytes32 poolId) private pure returns (bytes32[] memory poolIds) {
         poolIds = new bytes32[](1);
         poolIds[0] = poolId;
+    }
+
+    function _deployRouter(
+        INutboxRouter.InitialPricePool[] memory initialPools,
+        INutboxRouter.InitialRoute[] memory initialRoutes
+    ) private returns (NutboxRouter deployed) {
+        address[] memory v2Factories = new address[](1);
+        v2Factories[0] = address(v2Factory);
+        address[] memory v2Routers = new address[](1);
+        v2Routers[0] = address(v2Router);
+        address[] memory v3Factories = new address[](1);
+        v3Factories[0] = address(v3Factory);
+        address[] memory uniswapV4Managers = new address[](1);
+        uniswapV4Managers[0] = address(uniswapV4Manager);
+        address[] memory pancakeV4Managers = new address[](1);
+        pancakeV4Managers[0] = address(pancakeV4Manager);
+        deployed = new NutboxRouter(
+            address(wrappedNative),
+            address(v3Router),
+            v2Routers,
+            v2Factories,
+            v3Factories,
+            uniswapV4Managers,
+            pancakeV4Managers,
+            abi.encode(initialPools, initialRoutes)
+        );
     }
 
     function _registerV2Pool(address tokenA, address tokenB, uint112 reserveA, uint112 reserveB)

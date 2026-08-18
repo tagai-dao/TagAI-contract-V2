@@ -26,22 +26,37 @@ library BSCNutboxRouterConfig {
         address pool;
     }
 
-    function configure(INutboxRouter router) internal {
-        AssetConfig memory hub = hubPoolConfig();
-        bytes32 hubPoolId = _addV3Pool(router, hub.pool);
-        router.addRoute(USDT, WBNB, _singlePool(hubPoolId));
+    function initialConfig() internal pure returns (bytes memory) {
+        return abi.encode(initialPricePools(), initialRoutes());
+    }
 
+    function initialPricePools() internal pure returns (INutboxRouter.InitialPricePool[] memory pools) {
         AssetConfig[] memory assets = assetConfigs();
+        pools = new INutboxRouter.InitialPricePool[](assets.length + 1);
+        AssetConfig memory hub = hubPoolConfig();
+        pools[0] = _initialV3Pool(hub.token, hub.quoteToken, hub.pool);
+        for (uint256 i; i < assets.length; ++i) {
+            pools[i + 1] = _initialV3Pool(assets[i].token, assets[i].quoteToken, assets[i].pool);
+        }
+    }
+
+    function initialRoutes() internal pure returns (INutboxRouter.InitialRoute[] memory routes) {
+        AssetConfig[] memory assets = assetConfigs();
+        routes = new INutboxRouter.InitialRoute[](assets.length * 2 + 1);
+        bytes32 hubPoolId = _pricePoolId(USDT, WBNB);
+        routes[0] = _initialRoute(USDT, WBNB, hubPoolId, bytes32(0));
+
         for (uint256 i; i < assets.length; ++i) {
             AssetConfig memory asset = assets[i];
-            bytes32 assetPoolId = _addV3Pool(router, asset.pool);
+            bytes32 assetPoolId = _pricePoolId(asset.token, asset.quoteToken);
+            uint256 routeIndex = i * 2 + 1;
 
             if (asset.quoteToken == USDT) {
-                router.addRoute(asset.token, USDT, _singlePool(assetPoolId));
-                router.addRoute(asset.token, WBNB, _twoPools(assetPoolId, hubPoolId));
+                routes[routeIndex] = _initialRoute(asset.token, USDT, assetPoolId, bytes32(0));
+                routes[routeIndex + 1] = _initialRoute(asset.token, WBNB, assetPoolId, hubPoolId);
             } else {
-                router.addRoute(asset.token, WBNB, _singlePool(assetPoolId));
-                router.addRoute(asset.token, USDT, _twoPools(assetPoolId, hubPoolId));
+                routes[routeIndex] = _initialRoute(asset.token, WBNB, assetPoolId, bytes32(0));
+                routes[routeIndex + 1] = _initialRoute(asset.token, USDT, assetPoolId, hubPoolId);
             }
         }
     }
@@ -192,18 +207,37 @@ library BSCNutboxRouterConfig {
         });
     }
 
-    function _addV3Pool(INutboxRouter router, address pool) private returns (bytes32 poolId) {
-        poolId = router.addPricePool(INutboxRouter.SourceType.V3_POOL, abi.encode(PANCAKE_V3_FACTORY, pool));
+    function _initialV3Pool(address tokenA, address tokenB, address pool)
+        private
+        pure
+        returns (INutboxRouter.InitialPricePool memory config)
+    {
+        (address token0, address token1) = uint160(tokenA) < uint160(tokenB) ? (tokenA, tokenB) : (tokenB, tokenA);
+        config = INutboxRouter.InitialPricePool({
+            token0: token0,
+            token1: token1,
+            sourceType: INutboxRouter.SourceType.V3_POOL,
+            sourceData: abi.encode(PANCAKE_V3_FACTORY, pool)
+        });
     }
 
-    function _singlePool(bytes32 poolId) private pure returns (bytes32[] memory pools) {
-        pools = new bytes32[](1);
-        pools[0] = poolId;
+    function _initialRoute(address tokenIn, address tokenOut, bytes32 firstPoolId, bytes32 secondPoolId)
+        private
+        pure
+        returns (INutboxRouter.InitialRoute memory route)
+    {
+        uint256 length = secondPoolId == bytes32(0) ? 1 : 2;
+        bytes32[] memory poolIds = new bytes32[](length);
+        poolIds[0] = firstPoolId;
+        if (length == 2) poolIds[1] = secondPoolId;
+        route = INutboxRouter.InitialRoute({tokenIn: tokenIn, tokenOut: tokenOut, poolIds: poolIds});
     }
 
-    function _twoPools(bytes32 first, bytes32 second) private pure returns (bytes32[] memory pools) {
-        pools = new bytes32[](2);
-        pools[0] = first;
-        pools[1] = second;
+    function _pricePoolId(address tokenA, address tokenB) private pure returns (bytes32 poolId) {
+        address normalizedA = tokenA == address(0) ? WBNB : tokenA;
+        address normalizedB = tokenB == address(0) ? WBNB : tokenB;
+        (address token0, address token1) =
+            uint160(normalizedA) < uint160(normalizedB) ? (normalizedA, normalizedB) : (normalizedB, normalizedA);
+        poolId = keccak256(abi.encode(token0, token1));
     }
 }

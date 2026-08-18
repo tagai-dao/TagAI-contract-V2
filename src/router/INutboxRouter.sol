@@ -27,6 +27,21 @@ interface INutboxRouter {
         bytes32 parameters;
     }
 
+    /// @dev Constructor-only bootstrap entry. Runtime administration continues to use addPricePool().
+    struct InitialPricePool {
+        address token0;
+        address token1;
+        SourceType sourceType;
+        bytes sourceData;
+    }
+
+    /// @dev Constructor-only bootstrap entry. Pool IDs must reference entries initialized first.
+    struct InitialRoute {
+        address tokenIn;
+        address tokenOut;
+        bytes32[] poolIds;
+    }
+
     function wrappedNative() external view returns (address);
 
     function pancakeV3Router() external view returns (address);

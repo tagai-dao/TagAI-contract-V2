@@ -66,12 +66,12 @@ contract StonkBrokerRendererTest is Test {
         }
     }
 
-    function test_BadgeUsesCommunityTokenUnitForDecimals() public view {
+    function test_BadgeUsesIndexMiningTokenUnitForDecimals() public view {
         IIndexBrokerNFTRenderer.RenderParams memory eighteenDecimals = _params(123456789);
         eighteenDecimals.indexMiningWeight = 500_000 ether;
 
         IIndexBrokerNFTRenderer.RenderParams memory sixDecimals = _params(123456789);
-        sixDecimals.communityTokenUnit = 1e6;
+        sixDecimals.indexMiningTokenUnit = 1e6;
         sixDecimals.indexMiningWeight = 500_000 * 1e6;
 
         assertEq(
@@ -94,7 +94,7 @@ contract StonkBrokerRendererTest is Test {
             referrerTokenId: 2,
             miningWeight: 12_000,
             indexMiningWeight: 5 ether,
-            communityTokenUnit: 1 ether,
+            indexMiningTokenUnit: 1 ether,
             level: 2,
             miningActive: true,
             indexMiningActive: true

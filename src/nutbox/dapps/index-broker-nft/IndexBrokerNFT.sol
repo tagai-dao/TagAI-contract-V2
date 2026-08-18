@@ -15,6 +15,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../../interfaces/ICommunity.sol";
 import "../../interfaces/ICommittee.sol";
 import "../../interfaces/IPool.sol";
+import "./IIndexBrokerNFT.sol";
 import "./IIndexBrokerNFTRenderer.sol";
 
 interface ICommunityCommittee {
@@ -36,16 +37,16 @@ interface IIndexBrokerIndexHolderFees {
 }
 
 /**
- * @title IndexBrokerNFT
+ * @title IndexBrokerNFTBase
  * @notice Fixed-supply NFT mining pool paid in its community token.
  *
  * Every mint deposits a fixed amount of the community token into its paired AMM vault.
  * Whitelisted accounts waive the native-coin price. Other accounts pay the immutable
- * native price and may use an NFT referrer. Newly minted NFTs start with index mining active.
- * Any later ERC721 transfer clears that activation, and the new owner must permanently burn
- * the configured community-token amount to reactivate it. Existing community mining is unchanged.
+ * native price and may use an NFT referrer. Derived templates select either burn-based or
+ * stake-backed index-mining weight while preserving the same reward injection and claim model.
+ * Existing community mining is unchanged.
  */
-contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step, ReentrancyGuard {
+abstract contract IndexBrokerNFTBase is ERC721Enumerable, IPool, Initializable, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
@@ -98,6 +99,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     address public renderer;
     address public ammVault;
     address public indexToken;
+    address public indexMiningToken;
 
     string private _collectionName;
     string private _collectionSymbol;
@@ -128,7 +130,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
 
     mapping(address => uint256) public whitelistAllowance;
     mapping(address => uint256) public whitelistMintedBy;
-    mapping(uint256 => NFTRecord) private _nftRecords;
+    mapping(uint256 => NFTRecord) internal _nftRecords;
     mapping(address => uint256) private _userMiningWeight;
     uint256 private _totalMiningWeight;
 
@@ -166,6 +168,12 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         address indexed owner, uint256 indexed tokenId, uint256 tokenAmount, uint256 previousWeight, uint256 newWeight
     );
     event IndexMiningWeightReduced(uint256 indexed tokenId, uint256 previousWeight, uint256 newWeight);
+    event IndexMiningStaked(
+        address indexed owner, uint256 indexed tokenId, uint256 tokenAmount, uint256 previousWeight, uint256 newWeight
+    );
+    event IndexMiningUnstaked(
+        address indexed owner, uint256 indexed tokenId, uint256 tokenAmount, uint256 previousWeight, uint256 newWeight
+    );
     event IndexRewardsInjected(address indexed caller, uint256 amount, uint256 distributed, uint256 queued);
     event IndexRewardsClaimed(address indexed owner, uint256 indexed tokenId, uint256 amount);
     event IndexHolderFeesHarvested(address indexed caller, uint256 wrappedNativeAmount);
@@ -195,6 +203,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
     error IndexMiningNotActive();
     error IndexMiningStateChanged();
     error InvalidIndexMiningWeight();
+    error InvalidTemplateConfig();
     error InvalidIndexRewardAmount();
     error NoIndexRewards();
     error NoIndexHolderFees();
@@ -227,7 +236,8 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         bool lockWhitelistSlots_,
         bool rerollEnabled_,
         address[] calldata whitelistAccounts_,
-        uint256[] calldata whitelistAllowances_
+        uint256[] calldata whitelistAllowances_,
+        bytes calldata templateConfig_
     ) external initializer {
         if (
             community_ == address(0) || admin_ == address(0) || renderer_.code.length == 0 || ammVault_.code.length == 0
@@ -258,14 +268,13 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         _collectionName = name_;
         _collectionSymbol = symbol_;
         communityTokenPrice = communityTokenPrice_;
-        indexMiningActivationTokenAmount = indexMiningActivationTokenAmount_;
         recommitPrice = rerollEnabled_ ? (recommitPrice_ == 0 ? communityTokenPrice_ : recommitPrice_) : 0;
-        minimumIndexMiningWeight = 10 ** IERC20Metadata(communityToken_).decimals();
         nativePrice = nativePrice_;
         maxSupply = maxSupply_;
         referralBps = referralBps_;
         lockWhitelistSlots = nativePrice_ == 0 || lockWhitelistSlots_;
         rerollEnabled = rerollEnabled_;
+        _initializeIndexMiningMode(communityToken_, indexMiningActivationTokenAmount_, templateConfig_);
 
         for (uint256 i; i < thresholds_.length; ++i) {
             levelThresholds.push(thresholds_[i]);
@@ -356,7 +365,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
 
         _nftRecords[tokenId] = NFTRecord({
             level: 1,
-            indexMiningActive: true,
+            indexMiningActive: false,
             revealBlock: revealBlock,
             revealRound: 1,
             revealPending: true,
@@ -442,61 +451,6 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
         record.revealPending = true;
 
         emit RevealCommitted(msg.sender, tokenId, nextRound, nextRevealBlock, price);
-    }
-
-    // ────────────────────────── Index mining activation ───────────────────────
-
-    function activateIndexMining(uint256 tokenId) external nonReentrant {
-        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
-        NFTRecord storage record = _nftRecords[tokenId];
-        if (record.indexMiningActive) revert IndexMiningAlreadyActive();
-        uint256 weight = record.indexMiningWeight;
-
-        uint256 activationAmount = indexMiningActivationTokenAmount;
-        if (activationAmount != 0) {
-            _burnCommunityToken(activationAmount);
-
-            // The community token is externally supplied and may execute callbacks from
-            // transferFrom. Do not continue with stale ownership or mining state after it
-            // has had an opportunity to transfer this NFT.
-            if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
-            if (record.indexMiningActive) revert IndexMiningAlreadyActive();
-            if (record.indexMiningWeight != weight) revert IndexMiningStateChanged();
-        }
-
-        record.indexMiningActive = true;
-        if (weight != 0) {
-            totalActiveIndexMiningWeight += weight;
-            record.indexRewardDebt = Math.mulDiv(weight, indexRewardPerWeight, INDEX_REWARD_PRECISION);
-            _distributeQueuedIndexRewards();
-        }
-        emit IndexMiningActivated(msg.sender, tokenId, activationAmount);
-        emit MetadataUpdate(tokenId);
-    }
-
-    function upgradeIndexMining(uint256 tokenId, uint256 tokenAmount) external nonReentrant {
-        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
-        NFTRecord storage record = _nftRecords[tokenId];
-        if (!record.indexMiningActive) revert IndexMiningNotActive();
-        if (tokenAmount < minimumIndexMiningWeight) revert InvalidIndexMiningWeight();
-
-        _settleIndexRewards(record);
-        uint256 previousWeight = record.indexMiningWeight;
-        _burnCommunityToken(tokenAmount);
-
-        // Revalidate all state relied upon below after the untrusted ERC20 call.
-        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
-        if (!record.indexMiningActive) revert IndexMiningNotActive();
-        if (record.indexMiningWeight != previousWeight) revert IndexMiningStateChanged();
-
-        uint256 newWeight = previousWeight + tokenAmount;
-        record.indexMiningWeight = newWeight;
-        totalActiveIndexMiningWeight += tokenAmount;
-        record.indexRewardDebt = Math.mulDiv(newWeight, indexRewardPerWeight, INDEX_REWARD_PRECISION);
-        _distributeQueuedIndexRewards();
-
-        emit IndexMiningWeightUpgraded(msg.sender, tokenId, tokenAmount, previousWeight, newWeight);
-        emit MetadataUpdate(tokenId);
     }
 
     function injectIndexRewards(uint256 amount) external nonReentrant {
@@ -720,26 +674,7 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             revert InvalidAMMTransfer();
         }
 
-        NFTRecord storage indexRecord = _nftRecords[firstTokenId];
-        if (from == address(0)) {
-            indexRecord.indexMiningActive = true;
-            emit IndexMiningActivated(to, firstTokenId, 0);
-        } else {
-            _settleIndexRewards(indexRecord);
-            uint256 previousIndexWeight = indexRecord.indexMiningWeight;
-            if (indexRecord.indexMiningActive && previousIndexWeight != 0) {
-                totalActiveIndexMiningWeight -= previousIndexWeight;
-            }
-            uint256 newIndexWeight = Math.mulDiv(previousIndexWeight, INDEX_WEIGHT_RETENTION_BPS, BPS_DENOMINATOR);
-            if (newIndexWeight < minimumIndexMiningWeight) newIndexWeight = 0;
-            indexRecord.indexMiningActive = false;
-            indexRecord.indexMiningWeight = newIndexWeight;
-            indexRecord.indexRewardDebt = 0;
-
-            emit IndexMiningDeactivated(from, firstTokenId);
-            emit IndexMiningWeightReduced(firstTokenId, previousIndexWeight, newIndexWeight);
-            emit MetadataUpdate(firstTokenId);
-        }
+        _beforeIndexMiningTransfer(from, to, firstTokenId);
 
         address miningFrom = from == ammVault ? address(0) : from;
         address miningTo = to == ammVault ? address(0) : to;
@@ -842,10 +777,181 @@ contract IndexBrokerNFT is ERC721Enumerable, IPool, Initializable, Ownable2Step,
             referrerTokenId: record.referrerTokenId,
             miningWeight: _weightForLevel(record.level),
             indexMiningWeight: record.indexMiningWeight,
-            communityTokenUnit: minimumIndexMiningWeight,
+            indexMiningTokenUnit: minimumIndexMiningWeight,
             level: record.level,
             miningActive: ownerOf(tokenId) != ammVault,
             indexMiningActive: record.indexMiningActive
         });
     }
+
+    function nftTemplateInterfaceId() external pure returns (bytes4) {
+        return IIndexBrokerNFT.initialize.selector;
+    }
+
+    function _initializeIndexMiningMode(
+        address communityToken_,
+        uint256 indexMiningActivationTokenAmount_,
+        bytes calldata templateConfig_
+    ) internal virtual;
+
+    function _beforeIndexMiningTransfer(address from, address to, uint256 tokenId) internal virtual;
+}
+
+/**
+ * @title IndexBrokerNFTBurn
+ * @notice Index-mining weight is purchased by permanently burning the community token.
+ */
+contract IndexBrokerNFTBurn is IndexBrokerNFTBase {
+    function activateIndexMining(uint256 tokenId) external nonReentrant {
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        NFTRecord storage record = _nftRecords[tokenId];
+        if (record.indexMiningActive) revert IndexMiningAlreadyActive();
+        uint256 weight = record.indexMiningWeight;
+
+        uint256 activationAmount = indexMiningActivationTokenAmount;
+        if (activationAmount != 0) {
+            _burnCommunityToken(activationAmount);
+            if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+            if (record.indexMiningActive) revert IndexMiningAlreadyActive();
+            if (record.indexMiningWeight != weight) revert IndexMiningStateChanged();
+        }
+
+        record.indexMiningActive = true;
+        if (weight != 0) {
+            totalActiveIndexMiningWeight += weight;
+            record.indexRewardDebt = Math.mulDiv(weight, indexRewardPerWeight, INDEX_REWARD_PRECISION);
+            _distributeQueuedIndexRewards();
+        }
+        emit IndexMiningActivated(msg.sender, tokenId, activationAmount);
+        emit MetadataUpdate(tokenId);
+    }
+
+    function upgradeIndexMining(uint256 tokenId, uint256 tokenAmount) external nonReentrant {
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        NFTRecord storage record = _nftRecords[tokenId];
+        if (!record.indexMiningActive) revert IndexMiningNotActive();
+        if (tokenAmount < minimumIndexMiningWeight) revert InvalidIndexMiningWeight();
+
+        _settleIndexRewards(record);
+        uint256 previousWeight = record.indexMiningWeight;
+        _burnCommunityToken(tokenAmount);
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        if (!record.indexMiningActive) revert IndexMiningNotActive();
+        if (record.indexMiningWeight != previousWeight) revert IndexMiningStateChanged();
+
+        uint256 newWeight = previousWeight + tokenAmount;
+        record.indexMiningWeight = newWeight;
+        totalActiveIndexMiningWeight += tokenAmount;
+        record.indexRewardDebt = Math.mulDiv(newWeight, indexRewardPerWeight, INDEX_REWARD_PRECISION);
+        _distributeQueuedIndexRewards();
+
+        emit IndexMiningWeightUpgraded(msg.sender, tokenId, tokenAmount, previousWeight, newWeight);
+        emit MetadataUpdate(tokenId);
+    }
+
+    function _initializeIndexMiningMode(
+        address communityToken_,
+        uint256 indexMiningActivationTokenAmount_,
+        bytes calldata templateConfig_
+    ) internal override {
+        if (templateConfig_.length != 0) revert InvalidTemplateConfig();
+        indexMiningToken = communityToken_;
+        indexMiningActivationTokenAmount = indexMiningActivationTokenAmount_;
+        minimumIndexMiningWeight = 10 ** IERC20Metadata(communityToken_).decimals();
+    }
+
+    function _beforeIndexMiningTransfer(address from, address to, uint256 tokenId) internal override {
+        NFTRecord storage record = _nftRecords[tokenId];
+        if (from == address(0)) {
+            record.indexMiningActive = true;
+            emit IndexMiningActivated(to, tokenId, 0);
+            return;
+        }
+
+        _settleIndexRewards(record);
+        uint256 previousWeight = record.indexMiningWeight;
+        if (record.indexMiningActive && previousWeight != 0) totalActiveIndexMiningWeight -= previousWeight;
+        uint256 newWeight = Math.mulDiv(previousWeight, INDEX_WEIGHT_RETENTION_BPS, BPS_DENOMINATOR);
+        if (newWeight < minimumIndexMiningWeight) newWeight = 0;
+        record.indexMiningActive = false;
+        record.indexMiningWeight = newWeight;
+        record.indexRewardDebt = 0;
+
+        emit IndexMiningDeactivated(from, tokenId);
+        emit IndexMiningWeightReduced(tokenId, previousWeight, newWeight);
+        emit MetadataUpdate(tokenId);
+    }
+}
+
+/**
+ * @title IndexBrokerNFTStake
+ * @notice Index-mining weight is backed one-to-one by a creator-selected ERC20 token.
+ */
+contract IndexBrokerNFTStake is IndexBrokerNFTBase {
+    using SafeERC20 for IERC20;
+
+    function stakingToken() external view returns (address) {
+        return indexMiningToken;
+    }
+
+    function stakeIndexMining(uint256 tokenId, uint256 tokenAmount) external nonReentrant {
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        if (tokenAmount < minimumIndexMiningWeight) revert InvalidIndexMiningWeight();
+
+        NFTRecord storage record = _nftRecords[tokenId];
+        _settleIndexRewards(record);
+        uint256 previousWeight = record.indexMiningWeight;
+        IERC20 token = IERC20(indexMiningToken);
+        uint256 balanceBefore = token.balanceOf(address(this));
+        token.safeTransferFrom(msg.sender, address(this), tokenAmount);
+        if (token.balanceOf(address(this)) - balanceBefore != tokenAmount) revert InvalidCommunityTokenPayment();
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        if (record.indexMiningWeight != previousWeight) revert IndexMiningStateChanged();
+
+        uint256 newWeight = previousWeight + tokenAmount;
+        record.indexMiningActive = true;
+        record.indexMiningWeight = newWeight;
+        totalActiveIndexMiningWeight += tokenAmount;
+        record.indexRewardDebt = Math.mulDiv(newWeight, indexRewardPerWeight, INDEX_REWARD_PRECISION);
+        _distributeQueuedIndexRewards();
+
+        emit IndexMiningStaked(msg.sender, tokenId, tokenAmount, previousWeight, newWeight);
+        emit MetadataUpdate(tokenId);
+    }
+
+    function unstakeIndexMining(uint256 tokenId, uint256 tokenAmount) external nonReentrant {
+        if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();
+        NFTRecord storage record = _nftRecords[tokenId];
+        uint256 previousWeight = record.indexMiningWeight;
+        if (tokenAmount == 0 || tokenAmount > previousWeight) revert InvalidIndexMiningWeight();
+        uint256 newWeight = previousWeight - tokenAmount;
+        if (newWeight != 0 && newWeight < minimumIndexMiningWeight) revert InvalidIndexMiningWeight();
+
+        _settleIndexRewards(record);
+        record.indexMiningActive = newWeight != 0;
+        record.indexMiningWeight = newWeight;
+        totalActiveIndexMiningWeight -= tokenAmount;
+        record.indexRewardDebt = Math.mulDiv(newWeight, indexRewardPerWeight, INDEX_REWARD_PRECISION);
+        _distributeQueuedIndexRewards();
+
+        IERC20(indexMiningToken).safeTransfer(msg.sender, tokenAmount);
+        emit IndexMiningUnstaked(msg.sender, tokenId, tokenAmount, previousWeight, newWeight);
+        emit MetadataUpdate(tokenId);
+    }
+
+    function _initializeIndexMiningMode(
+        address,
+        uint256 indexMiningActivationTokenAmount_,
+        bytes calldata templateConfig_
+    ) internal override {
+        if (indexMiningActivationTokenAmount_ != 0 || templateConfig_.length != 32) revert InvalidTemplateConfig();
+        address stakingToken_ = abi.decode(templateConfig_, (address));
+        if (stakingToken_.code.length == 0) revert InvalidAddress();
+        uint8 decimals = IERC20Metadata(stakingToken_).decimals();
+        if (decimals > 77) revert InvalidTemplateConfig();
+        indexMiningToken = stakingToken_;
+        minimumIndexMiningWeight = 10 ** decimals;
+    }
+
+    function _beforeIndexMiningTransfer(address, address, uint256) internal pure override {}
 }

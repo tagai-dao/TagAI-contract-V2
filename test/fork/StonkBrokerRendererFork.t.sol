@@ -48,7 +48,7 @@ contract StonkBrokerRendererForkTest is Test {
             referrerTokenId: 0,
             miningWeight: 0,
             indexMiningWeight: 0,
-            communityTokenUnit: 1 ether,
+            indexMiningTokenUnit: 1 ether,
             level: 0,
             miningActive: false,
             indexMiningActive: false

@@ -7,6 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ICommittee} from "../src/interfaces/ICommittee.sol";
 import {IndexBrokerNFTAMM} from "../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTAMM.sol";
+import {IndexBrokerNFTBurn, IndexBrokerNFTStake} from "../src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol";
 import {IndexBrokerNFTFactory} from "../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTFactory.sol";
 import {NutboxRouter} from "../src/router/NutboxRouter.sol";
 import {StonkBrokerRenderer} from "../src/nutbox/dapps/index-broker-nft/StonkBrokerRenderer.sol";
@@ -34,10 +35,10 @@ interface IDeployPancakeV3Factory {
  * @notice Deploys the complete Index Broker NFT stack against the live BSC Basket protocol.
  *
  * Deployment order:
- *   1. StonkBrokerRenderer (and its three art modules)
- *   2. IndexBrokerNFTAMM implementation template
- *   3. Shared NutboxRouter with the canonical BSC asset routes
- *   4. IndexBrokerNFTFactory (deploys its IndexBrokerNFT template internally)
+ *   1. Validate the previously deployed shared NutboxRouter
+ *   2. StonkBrokerRenderer (and its three art modules)
+ *   3. Burn, Stake and AMM implementation templates
+ *   4. IndexBrokerNFTFactory and template registration
  *
  * Dry run:
  *   forge script script/DeployBSCIndexBrokerNFT.s.sol \
@@ -48,10 +49,13 @@ interface IDeployPancakeV3Factory {
  *     --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
  *     --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
  *
- * The V11 Pump deployment must be recorded first. Set INDEX_BROKER_OWNER to
- * initiate the Factory and Router Ownable2Step handovers. A successful write advances the V11 status
+ * The V11 Pump deployment must be recorded first. NUTBOX_ROUTER must point to the
+ * previously deployed shared Router. Set INDEX_BROKER_OWNER to initiate the Factory
+ * Ownable2Step handover. A successful write advances the V11 status
  * from `pump-deployed` to `contracts-deployed`; post-deploy ownership and
- * Committee actions are recorded separately before the release becomes complete.
+ * Committee actions are recorded separately before the release becomes complete. Because the
+ * previously deployed NFT stack was never published, `contracts-deployed` is also accepted as a
+ * replacement source state and the recorded NFT addresses are overwritten in place.
  */
 contract DeployBSCIndexBrokerNFTScript is Script {
     string internal constant VERSION11_PATH = "deployments/56/version11.json";
@@ -79,7 +83,11 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         address deployer = vm.addr(privateKey);
         bool pumpOverridden = vm.envExists("BSC_PUMP");
         address pump = vm.envOr("BSC_PUMP", recordedPump);
-        address targetOwner = vm.envOr("INDEX_BROKER_OWNER", deployer);
+        require(vm.envExists("INDEX_BROKER_OWNER"), "INDEX_BROKER_OWNER must be explicit");
+        address targetOwner = vm.envAddress("INDEX_BROKER_OWNER");
+        require(targetOwner != address(0), "Index Broker owner missing");
+        require(vm.envExists("NUTBOX_ROUTER"), "NUTBOX_ROUTER must be explicit");
+        NutboxRouter router = NutboxRouter(payable(vm.envAddress("NUTBOX_ROUTER")));
         bool writeDeployments = vm.envOr("WRITE_DEPLOYMENTS", false);
         bool isBroadcast =
             vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume);
@@ -88,36 +96,30 @@ contract DeployBSCIndexBrokerNFTScript is Script {
             require(pumpOverridden, "Record the V11 Pump first or set BSC_PUMP for dry run");
         }
         if (shouldWrite) {
-            require(_sameString(version11Status, "pump-deployed"), "V11 Pump must be recorded first");
+            require(
+                _sameString(version11Status, "pump-deployed") || _sameString(version11Status, "contracts-deployed"),
+                "V11 Pump must be recorded first"
+            );
             require(pump == recordedPump, "Write requires the Pump recorded in V11");
         }
 
-        _validateDependencies(pump);
+        _validateDependencies(pump, router);
 
         console2.log("=== BSC Index Broker NFT Deploy ===");
         console2.log("V11 deployment record", VERSION11_PATH);
         console2.log("Deployer", deployer);
         console2.log("Pump", pump);
         console2.log("Default index token", defaultIndexToken);
-        console2.log("Target Factory/Router owner", targetOwner);
+        console2.log("Shared NutboxRouter", address(router));
+        console2.log("NutboxRouter owner", router.owner());
+        console2.log("Target Factory owner", targetOwner);
 
         vm.startBroadcast(privateKey);
 
         StonkBrokerRenderer renderer = new StonkBrokerRenderer();
+        IndexBrokerNFTBurn burnTemplate = new IndexBrokerNFTBurn();
+        IndexBrokerNFTStake stakeTemplate = new IndexBrokerNFTStake();
         IndexBrokerNFTAMM ammTemplate = new IndexBrokerNFTAMM();
-
-        address[] memory v2Factories = new address[](1);
-        v2Factories[0] = pancakeV2Factory;
-        address[] memory v2Routers = new address[](1);
-        v2Routers[0] = BSCNutboxRouterConfig.pancakeV2Router();
-        address[] memory v3Factories = new address[](1);
-        v3Factories[0] = pancakeV3Factory;
-        address[] memory pancakeV4Managers = new address[](1);
-        pancakeV4Managers[0] = clPoolManager;
-        NutboxRouter router = new NutboxRouter(
-            wbnb, pancakeV3SmartRouter, v2Routers, v2Factories, v3Factories, new address[](0), pancakeV4Managers
-        );
-        BSCNutboxRouterConfig.configure(router);
 
         IndexBrokerNFTFactory factory = new IndexBrokerNFTFactory(
             communityFactory,
@@ -131,10 +133,11 @@ contract DeployBSCIndexBrokerNFTScript is Script {
             bnbUsdtV3Fee,
             defaultIndexToken
         );
+        factory.addNFTTemplate(address(burnTemplate));
+        factory.addNFTTemplate(address(stakeTemplate));
 
         if (targetOwner != deployer) {
             factory.transferOwnership(targetOwner);
-            router.transferOwnership(targetOwner);
         }
 
         address committeeOwner = Ownable(committee).owner();
@@ -146,26 +149,38 @@ contract DeployBSCIndexBrokerNFTScript is Script {
 
         vm.stopBroadcast();
 
-        _validateDeployment(factory, renderer, ammTemplate, router, pump, targetOwner);
+        _validateDeployment(factory, renderer, burnTemplate, stakeTemplate, ammTemplate, router, pump, targetOwner);
 
         console2.log("StonkBrokerRenderer", address(renderer));
         console2.log("StonkBrokerFaceRenderer", address(renderer.faceRenderer()));
         console2.log("StonkBrokerBodyRenderer", address(renderer.bodyRenderer()));
         console2.log("StonkBrokerAccessoryRenderer", address(renderer.accessoryRenderer()));
+        console2.log("IndexBrokerNFTBurnTemplate", address(burnTemplate));
+        console2.log("IndexBrokerNFTStakeTemplate", address(stakeTemplate));
         console2.log("IndexBrokerNFTAMMTemplate", address(ammTemplate));
         console2.log("NutboxRouter", address(router));
         console2.log("IndexBrokerNFTFactory", address(factory));
-        console2.log("IndexBrokerNFTPoolTemplate", factory.poolTemplate());
 
         if (!committeeWhitelisted) {
             console2.log("ACTION REQUIRED: Committee owner must whitelist Factory", committeeOwner);
         }
         if (targetOwner != deployer) {
-            console2.log("ACTION REQUIRED: target owner must accept Factory and Router ownership", targetOwner);
+            console2.log("ACTION REQUIRED: target owner must accept Factory ownership", targetOwner);
         }
 
         if (shouldWrite) {
-            _writeDeployment(factory, renderer, ammTemplate, router, pump, deployer, targetOwner, committeeWhitelisted);
+            _writeDeployment(
+                factory,
+                renderer,
+                burnTemplate,
+                stakeTemplate,
+                ammTemplate,
+                router,
+                pump,
+                deployer,
+                targetOwner,
+                committeeWhitelisted
+            );
             console2.log("V11 Index Broker deployment recorded", VERSION11_PATH);
         } else if (writeDeployments) {
             console2.log("Dry run: WRITE_DEPLOYMENTS ignored outside broadcast/resume context");
@@ -181,8 +196,9 @@ contract DeployBSCIndexBrokerNFTScript is Script {
 
         version11Status = vm.parseJsonString(json, ".status");
         require(
-            _sameString(version11Status, "preparing") || _sameString(version11Status, "pump-deployed"),
-            "V11 Index Broker already recorded"
+            _sameString(version11Status, "preparing") || _sameString(version11Status, "pump-deployed")
+                || _sameString(version11Status, "contracts-deployed"),
+            "Unsupported V11 deployment status"
         );
         committee = vm.parseJsonAddress(json, ".Committee");
         communityFactory = vm.parseJsonAddress(json, ".CommunityFactory");
@@ -201,7 +217,7 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         recordedPump = vm.parseJsonAddress(json, ".Pump");
     }
 
-    function _validateDependencies(address pump) internal view {
+    function _validateDependencies(address pump, NutboxRouter router) internal view {
         require(pump.code.length > 0, "Pump missing");
         require(committee.code.length > 0, "Committee missing");
         require(communityFactory.code.length > 0, "CommunityFactory missing");
@@ -218,27 +234,9 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         require(IDeployPancakeV3Router(pancakeV3SmartRouter).factory() == pancakeV3Factory, "Unexpected V3 factory");
         address bnbUsdtPool = IDeployPancakeV3Factory(pancakeV3Factory).getPool(wbnb, usdt, bnbUsdtV3Fee);
         require(bnbUsdtPool.code.length > 0, "BNB/USDT V3 pool missing");
-    }
 
-    function _validateDeployment(
-        IndexBrokerNFTFactory factory,
-        StonkBrokerRenderer renderer,
-        IndexBrokerNFTAMM ammTemplate,
-        NutboxRouter router,
-        address pump,
-        address targetOwner
-    ) internal view {
-        require(address(factory).code.length > 0, "Factory deployment failed");
-        require(address(renderer).code.length > 0, "Renderer deployment failed");
-        require(address(ammTemplate).code.length > 0, "AMM template deployment failed");
-        require(address(router).code.length > 0, "Router deployment failed");
-        require(factory.poolTemplate().code.length > 0, "NFT template deployment failed");
-        require(factory.pump() == pump, "Factory Pump mismatch");
-        require(factory.supportedPump(pump), "Factory default Pump unsupported");
-        require(factory.defaultRenderer() == address(renderer), "Factory Renderer mismatch");
-        require(factory.ammTemplate() == address(ammTemplate), "Factory AMM mismatch");
-        require(factory.nutboxRouter() == address(router), "Factory Router mismatch");
-        require(factory.defaultIndexToken() == defaultIndexToken, "Factory index mismatch");
+        require(address(router).code.length > 0, "NutboxRouter missing");
+        require(router.wrappedNative() == wbnb, "Router WBNB mismatch");
         require(router.allowedPancakeV4CLManager(clPoolManager), "Router V4 manager missing");
         require(router.allowedV2Factory(pancakeV2Factory), "Router V2 factory missing");
         require(
@@ -256,17 +254,41 @@ contract DeployBSCIndexBrokerNFTScript is Script {
             require(router.hasRoute(asset.token, wbnb), "Router asset/BNB route missing");
             require(router.hasRoute(asset.token, usdt), "Router asset/USDT route missing");
         }
+    }
+
+    function _validateDeployment(
+        IndexBrokerNFTFactory factory,
+        StonkBrokerRenderer renderer,
+        IndexBrokerNFTBurn burnTemplate,
+        IndexBrokerNFTStake stakeTemplate,
+        IndexBrokerNFTAMM ammTemplate,
+        NutboxRouter router,
+        address pump,
+        address targetOwner
+    ) internal view {
+        require(address(factory).code.length > 0, "Factory deployment failed");
+        require(address(renderer).code.length > 0, "Renderer deployment failed");
+        require(address(ammTemplate).code.length > 0, "AMM template deployment failed");
+        require(address(router).code.length > 0, "Router deployment failed");
+        require(factory.supportedNFTTemplate(address(burnTemplate)), "Burn template registration failed");
+        require(factory.supportedNFTTemplate(address(stakeTemplate)), "Stake template registration failed");
+        require(factory.nftTemplateCount() == 2, "Unexpected NFT template count");
+        require(factory.pump() == pump, "Factory Pump mismatch");
+        require(factory.supportedPump(pump), "Factory default Pump unsupported");
+        require(factory.defaultRenderer() == address(renderer), "Factory Renderer mismatch");
+        require(factory.ammTemplate() == address(ammTemplate), "Factory AMM mismatch");
+        require(factory.nutboxRouter() == address(router), "Factory Router mismatch");
+        require(factory.defaultIndexToken() == defaultIndexToken, "Factory index mismatch");
         if (targetOwner != factory.owner()) {
             require(factory.pendingOwner() == targetOwner, "Factory owner handover missing");
-        }
-        if (targetOwner != router.owner()) {
-            require(router.pendingOwner() == targetOwner, "Router owner handover missing");
         }
     }
 
     function _writeDeployment(
         IndexBrokerNFTFactory factory,
         StonkBrokerRenderer renderer,
+        IndexBrokerNFTBurn burnTemplate,
+        IndexBrokerNFTStake stakeTemplate,
         IndexBrokerNFTAMM ammTemplate,
         NutboxRouter router,
         address pump,
@@ -274,14 +296,16 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         address targetOwner,
         bool committeeWhitelisted
     ) internal {
-        _requireVersion11Status("pump-deployed");
+        _requireVersion11WritableStatus();
         require(pump == vm.parseJsonAddress(vm.readFile(VERSION11_PATH), ".Pump"), "V11 Pump changed before write");
         _writeAddress(".IndexBrokerDeployer", deployer);
         _writeAddress(".IndexBrokerTargetOwner", targetOwner);
         _writeBool(".IndexBrokerOwnershipAccepted", targetOwner == deployer);
         _writeBool(".IndexBrokerFactoryWhitelisted", committeeWhitelisted);
         _writeAddress(".IndexBrokerNFTFactory", address(factory));
-        _writeAddress(".IndexBrokerNFTPoolTemplate", factory.poolTemplate());
+        _writeAddress(".IndexBrokerNFTPoolTemplate", address(burnTemplate));
+        _writeAddress(".IndexBrokerNFTBurnTemplate", address(burnTemplate));
+        _writeAddress(".IndexBrokerNFTStakeTemplate", address(stakeTemplate));
         _writeAddress(".IndexBrokerNFTAMMTemplate", address(ammTemplate));
         _writeAddress(".NutboxRouter", address(router));
         _writeAddress(".StonkBrokerRenderer", address(renderer));
@@ -291,10 +315,14 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         _writeString(".status", "contracts-deployed");
     }
 
-    function _requireVersion11Status(string memory expected) internal view {
+    function _requireVersion11WritableStatus() internal view {
         string memory json = vm.readFile(VERSION11_PATH);
         require(vm.parseJsonUint(json, ".version") == 11, "Expected deployment version 11");
-        require(_sameString(vm.parseJsonString(json, ".status"), expected), "Unexpected V11 deployment status");
+        string memory status = vm.parseJsonString(json, ".status");
+        require(
+            _sameString(status, "pump-deployed") || _sameString(status, "contracts-deployed"),
+            "Unexpected V11 deployment status"
+        );
     }
 
     function _writeAddress(string memory key, address value) internal {

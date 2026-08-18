@@ -12,11 +12,7 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "../../../router/INutboxRouter.sol";
 import "../../../router/NutboxSpotPrice.sol";
-
-interface IIndexBrokerNFTPlatformFee {
-    function platformFeeReceiver() external view returns (address);
-    function injectIndexRewards(uint256 amount) external;
-}
+import "./IIndexBrokerNFT.sol";
 
 interface IIndexBrokerPump {
     function createdTokens(address token) external view returns (bool);
@@ -263,7 +259,6 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     }
 
     receive() external payable {
-        if (!active) revert AMMInactive();
         emit NativeFeeReceived(msg.sender, msg.value);
     }
 
@@ -347,7 +342,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     }
 
     function platformFeeReceiver() public view returns (address) {
-        return IIndexBrokerNFTPlatformFee(collection).platformFeeReceiver();
+        return IIndexBrokerNFT(collection).platformFeeReceiver();
     }
 
     /**
@@ -392,7 +387,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
             revert InvalidIndexPurchase();
         }
         IERC20(indexToken).forceApprove(collection, indexOut);
-        IIndexBrokerNFTPlatformFee(collection).injectIndexRewards(indexOut);
+        IIndexBrokerNFT(collection).injectIndexRewards(indexOut);
         IERC20(indexToken).forceApprove(collection, 0);
         if (callerReward != 0) Address.sendValue(payable(msg.sender), callerReward);
 

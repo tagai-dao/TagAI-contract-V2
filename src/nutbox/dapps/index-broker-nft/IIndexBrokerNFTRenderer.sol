@@ -14,7 +14,7 @@ interface IIndexBrokerNFTRenderer {
         uint256 referrerTokenId;
         uint256 miningWeight;
         uint256 indexMiningWeight;
-        uint256 communityTokenUnit;
+        uint256 indexMiningTokenUnit;
         uint32 level;
         bool miningActive;
         bool indexMiningActive;

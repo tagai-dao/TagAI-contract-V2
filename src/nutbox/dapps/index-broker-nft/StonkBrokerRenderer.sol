@@ -91,7 +91,7 @@ contract StonkBrokerRenderer is IIndexBrokerNFTRenderer {
                 body,
                 accessoryRenderer.renderAccessory(params.seed),
                 badge,
-                _indexMiningBadge(params.indexMiningWeight, params.communityTokenUnit),
+                _indexMiningBadge(params.indexMiningWeight, params.indexMiningTokenUnit),
                 "</svg>"
             )
         );
