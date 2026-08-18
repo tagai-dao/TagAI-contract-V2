@@ -44,7 +44,7 @@
   "HookBitmap": 3265,
   "PumpDeployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
   "PumpTargetOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
-  "PumpOwnershipAccepted": false,
+  "PumpOwnershipAccepted": true,
   "sourceCommit": "a573440387b079252bb936bcfa2ae14d52cacdc6",
   "PumpDeployTransaction": "0x4e450e816c1e752172fc60568f636a2dcc4b019ef2b86c56d31220ccaff36307",
   "PumpDeployBlock": 115869783,
