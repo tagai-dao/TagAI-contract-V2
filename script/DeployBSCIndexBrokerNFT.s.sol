@@ -51,10 +51,10 @@ interface IDeployPancakeV3Factory {
  * @notice Deploys the complete Index Broker NFT stack against the live BSC Basket protocol.
  *
  * Deployment order:
- *   1. Validate the previously deployed shared NutboxRouter and Basket V2/V3 Routers
- *   2. StonkBrokerRenderer (and its three art modules)
- *   3. Burn, Stake and AMM implementation templates
- *   4. IndexBrokerNFTFactory and template registration
+ *   1. Validate the previously deployed shared NutboxRouter, Basket V2/V3 Routers
+ *      and StonkBrokerRenderer
+ *   2. Burn, Stake and AMM implementation templates
+ *   3. IndexBrokerNFTFactory and template registration
  *
  * Dry run:
  *   forge script script/DeployBSCIndexBrokerNFT.s.sol \
@@ -90,6 +90,10 @@ contract DeployBSCIndexBrokerNFTScript is Script {
     address internal basketSwapRouterV3;
     address internal defaultIndexToken;
     address internal recordedNutboxRouter;
+    address internal recordedRenderer;
+    address internal recordedFaceRenderer;
+    address internal recordedBodyRenderer;
+    address internal recordedAccessoryRenderer;
     uint24 internal bnbUsdtV3Fee;
     address internal recordedPump;
     string internal version11Status;
@@ -134,9 +138,10 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         console2.log("NutboxRouter owner", router.owner());
         console2.log("Target Factory owner", targetOwner);
 
+        StonkBrokerRenderer renderer = StonkBrokerRenderer(recordedRenderer);
+
         vm.startBroadcast(privateKey);
 
-        StonkBrokerRenderer renderer = new StonkBrokerRenderer();
         IndexBrokerNFTBurn burnTemplate = new IndexBrokerNFTBurn();
         IndexBrokerNFTStake stakeTemplate = new IndexBrokerNFTStake();
         IndexBrokerNFTAMM ammTemplate = new IndexBrokerNFTAMM();
@@ -198,15 +203,7 @@ contract DeployBSCIndexBrokerNFTScript is Script {
 
         if (shouldWrite) {
             _writeDeployment(
-                factory,
-                renderer,
-                burnTemplate,
-                stakeTemplate,
-                ammTemplate,
-                pump,
-                deployer,
-                targetOwner,
-                committeeWhitelisted
+                factory, burnTemplate, stakeTemplate, ammTemplate, pump, deployer, targetOwner, committeeWhitelisted
             );
             console2.log("V11 Index Broker deployment recorded", VERSION11_PATH);
         } else if (writeDeployments) {
@@ -236,6 +233,10 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         pancakeV3Factory = vm.parseJsonAddress(json, ".PancakeV3Factory");
         pancakeV3SmartRouter = vm.parseJsonAddress(json, ".PancakeV3SmartRouter");
         recordedNutboxRouter = vm.parseJsonAddress(json, ".NutboxRouter");
+        recordedRenderer = vm.parseJsonAddress(json, ".StonkBrokerRenderer");
+        recordedFaceRenderer = vm.parseJsonAddress(json, ".StonkBrokerFaceRenderer");
+        recordedBodyRenderer = vm.parseJsonAddress(json, ".StonkBrokerBodyRenderer");
+        recordedAccessoryRenderer = vm.parseJsonAddress(json, ".StonkBrokerAccessoryRenderer");
         basketRegistry = vm.parseJsonAddress(json, ".BasketRegistry");
         basketSwapRouterV2 = vm.parseJsonAddress(json, ".BasketSwapRouterV2");
         basketSwapRouterV3 = vm.parseJsonAddress(json, ".BasketSwapRouterV3");
@@ -255,6 +256,14 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         require(BSCNutboxRouterConfig.pancakeV2Router().code.length > 0, "Pancake V2 router missing");
         require(pancakeV3Factory.code.length > 0, "Pancake V3 factory missing");
         require(pancakeV3SmartRouter.code.length > 0, "Pancake V3 router missing");
+        require(recordedRenderer.code.length > 0, "StonkBrokerRenderer missing");
+        StonkBrokerRenderer renderer = StonkBrokerRenderer(recordedRenderer);
+        require(address(renderer.faceRenderer()) == recordedFaceRenderer, "Face Renderer mismatch");
+        require(address(renderer.bodyRenderer()) == recordedBodyRenderer, "Body Renderer mismatch");
+        require(address(renderer.accessoryRenderer()) == recordedAccessoryRenderer, "Accessory Renderer mismatch");
+        require(recordedFaceRenderer.code.length > 0, "Face Renderer missing");
+        require(recordedBodyRenderer.code.length > 0, "Body Renderer missing");
+        require(recordedAccessoryRenderer.code.length > 0, "Accessory Renderer missing");
         require(basketRegistry.code.length > 0, "BasketRegistry missing");
         require(IDeployBasketRegistry(basketRegistry).isBasket(defaultIndexToken), "Invalid default index token");
         require(
@@ -340,7 +349,6 @@ contract DeployBSCIndexBrokerNFTScript is Script {
 
     function _writeDeployment(
         IndexBrokerNFTFactory factory,
-        StonkBrokerRenderer renderer,
         IndexBrokerNFTBurn burnTemplate,
         IndexBrokerNFTStake stakeTemplate,
         IndexBrokerNFTAMM ammTemplate,
@@ -361,20 +369,15 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         _writeAddress(".IndexBrokerNFTBurnTemplate", address(burnTemplate));
         _writeAddress(".IndexBrokerNFTStakeTemplate", address(stakeTemplate));
         _writeAddress(".IndexBrokerNFTAMMTemplate", address(ammTemplate));
-        _writeAddress(".StonkBrokerRenderer", address(renderer));
-        _writeAddress(".StonkBrokerFaceRenderer", address(renderer.faceRenderer()));
-        _writeAddress(".StonkBrokerBodyRenderer", address(renderer.bodyRenderer()));
-        _writeAddress(".StonkBrokerAccessoryRenderer", address(renderer.accessoryRenderer()));
         _writeString(".status", "contracts-deployed");
     }
 
     /// @dev V11 previously recorded an unpublished NFT stack. New addresses must never
     ///      inherit that stack's transaction, block, legacy Oracle or verification metadata.
+    ///      The already verified StonkBrokerRenderer is deliberately retained.
     function _resetReplacedIndexBrokerMetadata() internal {
         string memory zeroTransaction = vm.toString(bytes32(0));
         _writeAddress(".IndexBrokerNFTPriceOracle", address(0));
-        _writeString(".StonkBrokerRendererDeployTransaction", zeroTransaction);
-        _writeUint(".StonkBrokerRendererDeployBlock", 0);
         _writeString(".IndexBrokerNFTAMMDeployTransaction", zeroTransaction);
         _writeUint(".IndexBrokerNFTAMMDeployBlock", 0);
         _writeString(".IndexBrokerNFTPriceOracleDeployTransaction", zeroTransaction);
@@ -383,10 +386,6 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         _writeUint(".IndexBrokerNFTFactoryDeployBlock", 0);
         _writeString(".IndexBrokerOwnershipTransferTransaction", zeroTransaction);
         _writeUint(".IndexBrokerOwnershipTransferBlock", 0);
-        _writeBool(".StonkBrokerRendererVerified", false);
-        _writeBool(".StonkBrokerFaceRendererVerified", false);
-        _writeBool(".StonkBrokerBodyRendererVerified", false);
-        _writeBool(".StonkBrokerAccessoryRendererVerified", false);
         _writeBool(".IndexBrokerNFTAMMTemplateVerified", false);
         _writeBool(".IndexBrokerNFTPriceOracleVerified", false);
         _writeBool(".IndexBrokerNFTFactoryVerified", false);

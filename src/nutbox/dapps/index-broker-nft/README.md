@@ -1234,7 +1234,7 @@ IndexBrokerNFTFactory.AMMConfig memory ammConfig =
 
 ## 21. BSC V11 部署记录
 
-下表是动态 NFT 模板功能之前的一轮 Index Broker NFT 部署记录。该 NFT 功能尚未正式对外开放，本次升级会替换 Factory、AMM template、Burn/Stake NFT templates 和 StonkBrokerRenderer；Pump、Token、Hook、共享 NutboxRouter 与 Basket 基础设施继续复用。新地址写入部署快照前，不应把下表中的旧 NFT 地址视为与本文当前源码一致。
+下表是动态 NFT 模板功能之前的一轮 Index Broker NFT 部署记录。该 NFT 功能尚未正式对外开放，本次升级会替换 Factory、AMM template 和 Burn/Stake NFT templates；Pump、Token、Hook、StonkBrokerRenderer、共享 NutboxRouter 与 Basket 基础设施继续复用。新地址写入部署快照前，不应把下表中的旧 NFT 地址视为与本文当前源码一致。
 
 | 合约 | 地址 |
 | --- | --- |
