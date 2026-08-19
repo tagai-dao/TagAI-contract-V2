@@ -1,72 +1,120 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+
 import "../interfaces/ICommunityFactory.sol";
 import "../interfaces/ICommunity.sol";
 import "../interfaces/ICommittee.sol";
 import "../nutbox/Community.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+
+interface IImportedTokenMarketRegistrar {
+    function registerImportedToken(address token, address community, address deployer) external;
+
+    function getImportedMarket(address token)
+        external
+        view
+        returns (bool registered, address community, address deployer);
+}
 
 /// @title ImportHelper
-/// @notice Shared helper contract for importing external tokens into the Nutbox community system.
-///         Creates a Nutbox Community + SocialCuration pool in a single transaction.
-///         Replaces the old Pump6 import flow.
+/// @notice Creates an external-token Nutbox Community and its SocialCuration pool, then binds the
+///         token to that Community in ImportedTokenSwapWrapper.
 contract ImportHelper {
-    address constant COMMUNITY_FACTORY      = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
-    address constant SOCIAL_CURATION_FACTORY = 0xc4674D3fBbD201Ea401a8B7e7285F956178593D8;
-    address constant NUTBOX_COMMITTEE       = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
+    using Address for address payable;
+
+    address public immutable communityFactory;
+    address public immutable socialCurationFactory;
+    address public immutable committee;
+    address public immutable hourlyTickCalculator;
+    IImportedTokenMarketRegistrar public immutable swapWrapper;
 
     event CommunityCreated(
-        address indexed token,
-        address indexed community,
-        address indexed pool,
-        address creator,
-        address calculator
+        address indexed token, address indexed community, address indexed pool, address creator, address calculator
     );
+    event ImportedCommunityRecorded(address indexed token, address indexed community, address indexed creator);
 
-    /// @notice Create a Nutbox Community and SocialCuration pool for an external token.
-    /// @param token The ERC20 token address to import.
-    /// @param calculator The reward calculator contract address (e.g. HourlyTickCalculator).
-    /// @param distributionPolicy The distribution policy data passed to the calculator.
-    /// @return community The newly created Nutbox Community address.
-    /// @return pool The newly created SocialCuration pool address.
-    function createCommunityAndPool(
-        address token,
-        address calculator,
-        bytes calldata distributionPolicy
-    ) external payable returns (address community, address pool) {
+    error InvalidAddress();
+    error InvalidToken();
+    error InvalidCommunity();
+    error InvalidRewardCalculator();
+    error TokenAlreadyImported();
+    error InsufficientFee();
+
+    constructor(
+        address communityFactory_,
+        address socialCurationFactory_,
+        address committee_,
+        address hourlyTickCalculator_,
+        address swapWrapper_
+    ) {
+        if (
+            communityFactory_.code.length == 0 || socialCurationFactory_.code.length == 0 || committee_.code.length == 0
+                || hourlyTickCalculator_.code.length == 0 || swapWrapper_.code.length == 0
+        ) revert InvalidAddress();
+        communityFactory = communityFactory_;
+        socialCurationFactory = socialCurationFactory_;
+        committee = committee_;
+        hourlyTickCalculator = hourlyTickCalculator_;
+        swapWrapper = IImportedTokenMarketRegistrar(swapWrapper_);
+    }
+
+    /// @notice Imports an ERC20 and binds it to a new or existing Nutbox Community in the Wrapper.
+    /// @param token ERC20 token being imported.
+    /// @param existingCommunity Optional Community created by communityFactory. Use address(0) to create one.
+    function createCommunityAndPool(address token, address existingCommunity)
+        external
+        payable
+        returns (address community, address pool)
+    {
+        if (token.code.length == 0) revert InvalidToken();
+        (bool registered,,) = swapWrapper.getImportedMarket(token);
+        if (registered) revert TokenAlreadyImported();
         address creator = msg.sender;
 
-        // 1. Create Nutbox Community (ImportHelper becomes owner)
-        uint256 createFee = ICommittee(NUTBOX_COMMITTEE).getCreateCommunityFee();
-        community = ICommunityFactory(COMMUNITY_FACTORY).createCommunity{value: createFee}(
-            false,              // isMintable = false (external token, not mintable)
-            token,              // communityToken = the imported token
-            address(0),         // communityTokenFactory = not needed
-            bytes(""),          // tokenMeta
-            calculator,         // rewardCalculator
-            distributionPolicy  // distributionPolicy
+        if (existingCommunity != address(0)) {
+            _validateExistingCommunity(token, existingCommunity);
+            swapWrapper.registerImportedToken(token, existingCommunity, creator);
+            if (msg.value != 0) payable(creator).sendValue(msg.value);
+            emit ImportedCommunityRecorded(token, existingCommunity, creator);
+            return (existingCommunity, address(0));
+        }
+
+        uint256 createFee = ICommittee(committee).getCreateCommunityFee();
+        uint256 settingsFee = ICommittee(committee).getCommunitySettingsFee();
+        uint256 totalFee = createFee + settingsFee;
+        if (msg.value < totalFee) revert InsufficientFee();
+
+        community = ICommunityFactory(communityFactory).createCommunity{value: createFee}(
+            false, token, address(0), bytes(""), hourlyTickCalculator, bytes("")
         );
 
-        // 2. Set devFund to user address (requires Community concrete call)
+        // Community is initially owned by this helper, so devFund is set before ownership transfer.
         Community(community).adminSetDev(creator);
 
-        // 3. Create SocialCuration pool (100% reward allocation)
-        uint256 settingsFee = ICommittee(NUTBOX_COMMITTEE).getCommunitySettingsFee();
         uint16[] memory ratios = new uint16[](1);
-        ratios[0] = 10000;
+        ratios[0] = 10_000;
         ICommunity(community).adminAddPool{value: settingsFee}(
-            "Social Curation",
-            ratios,
-            SOCIAL_CURATION_FACTORY,
-            bytes("")
+            "Social Curation", ratios, socialCurationFactory, bytes("")
         );
         pool = ICommunity(community).activedPools(0);
 
-        // 4. Transfer ownership to user
+        swapWrapper.registerImportedToken(token, community, creator);
         Ownable(community).transferOwnership(creator);
 
-        emit CommunityCreated(token, community, pool, creator, calculator);
+        if (msg.value > totalFee) payable(creator).sendValue(msg.value - totalFee);
+
+        emit CommunityCreated(token, community, pool, creator, hourlyTickCalculator);
+        emit ImportedCommunityRecorded(token, community, creator);
+    }
+
+    function _validateExistingCommunity(address token, address community) internal view {
+        if (community.code.length == 0 || !ICommunityFactory(communityFactory).createdCommunity(community)) {
+            revert InvalidCommunity();
+        }
+        if (ICommunity(community).getCommunityToken() != token) revert InvalidCommunity();
+        if (ICommunity(community).rewardCalculator() != hourlyTickCalculator) revert InvalidRewardCalculator();
     }
 
     receive() external payable {}

@@ -7,6 +7,8 @@ pragma solidity ^0.8.20;
  * Creates Community clone instances with a specified reward calculator.
  */
 interface ICommunityFactory {
+    function createdCommunity(address community) external view returns (bool);
+
     function createCommunity(
         bool isMintable,
         address communityToken,
