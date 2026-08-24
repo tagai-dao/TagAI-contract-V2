@@ -36,6 +36,14 @@ interface IImportedV2Router {
         address to,
         uint256 deadline
     ) external returns (uint256[] memory amounts);
+
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external;
 }
 
 interface IImportedV2Pair {
@@ -107,6 +115,8 @@ interface IImportedWrappedNative {
  *      uses caller-supplied DEX data. Registered tokens accrue their token-side fee to the bound
  *      Community. NutboxRouter is used only for an optional quote-token/native bridge. Supports V2
  *      Router02, Pancake/SwapRouter02-compatible V3 and Pancake Infinity CL; Uniswap V4 is excluded.
+ *      V2 trades account by actual balance deltas so fee-on-transfer tokens are supported. V3 buys
+ *      also accept taxed output tokens, while V3 sells and Infinity CL retain exact-input accounting.
  */
 contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, ILockCallback {
     using Address for address payable;
@@ -161,6 +171,13 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
     event RegistrarChanged(address indexed previousRegistrar, address indexed newRegistrar);
     event FeeRatiosChanged(uint16 sellsmanRatio, uint16 tagaiRatio, uint16 nutboxTokenRatio);
     event ImportedMarketRegistered(address indexed token, address indexed community, address indexed deployer);
+    event ImportedMarketUpdated(
+        address indexed token,
+        address indexed previousCommunity,
+        address indexed newCommunity,
+        address previousDeployer,
+        address newDeployer
+    );
     event NutboxTokenFeeAccrued(
         address indexed token, address indexed community, uint256 amount, uint256 pendingAmount
     );
@@ -176,7 +193,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         uint256 sellsmanFee
     );
     /// @notice Canonical wrapper trade event for subgraphs and accounting consumers.
-    /// @dev Native amounts are gross/net around wrapper fees; tokenAmount is the bought/sold amount.
+    /// @dev Native amounts are gross/net around wrapper fees; tokenAmount is the actual amount delivered/received.
     event ImportedTokenTrade(
         address indexed trader,
         address indexed token,
@@ -202,6 +219,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
     error UnauthorizedRegistrar();
     error MarketAlreadyRegistered();
     error MarketNotRegistered();
+    error PendingNutboxInjectionExists(address token, uint256 amount);
     error InjectionIntervalActive();
     error DeadlineExpired();
     error UnsupportedSwapSource();
@@ -284,6 +302,27 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         emit ImportedMarketRegistered(token, community, deployer);
     }
 
+    /// @notice Manually updates the Community and deployer bound to a registered imported token.
+    /// @dev Only the owner may correct a binding. A Community change is rejected while token
+    ///      rewards are pending so fees accrued for the previous Community cannot be redirected.
+    function updateImportedMarket(address token, address community, address deployer) external onlyOwner {
+        ImportedMarket storage market = _importedMarkets[token];
+        if (!market.registered) revert MarketNotRegistered();
+        if (token.code.length == 0 || community.code.length == 0 || deployer == address(0)) revert InvalidMarket();
+
+        address previousCommunity = market.community;
+        address previousDeployer = market.deployer;
+        if (community != previousCommunity) {
+            uint256 pending = pendingNutboxInjection[token];
+            if (pending != 0) revert PendingNutboxInjectionExists(token, pending);
+            lastNutboxInjectionAt[token] = block.timestamp;
+        }
+
+        market.community = community;
+        market.deployer = deployer;
+        emit ImportedMarketUpdated(token, previousCommunity, community, previousDeployer, deployer);
+    }
+
     function getImportedMarket(address token)
         external
         view
@@ -360,7 +399,8 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
 
     /**
      * @notice Estimates the final imported-token output for a native-coin buy.
-     * @dev Wrapper fees are deducted before quoting the complete route.
+     * @dev Wrapper fees are deducted before quoting the complete route. V2 token transfer taxes are
+     *      dynamic token behavior and are not included in this theoretical pool quote.
      */
     function quoteBuy(
         address token,
@@ -379,7 +419,8 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
 
     /**
      * @notice Estimates the final net native-coin output for an imported-token sell.
-     * @dev The returned output has wrapper fees deducted.
+     * @dev The returned output has wrapper fees deducted. V2 token transfer taxes are dynamic token
+     *      behavior and are not included in this theoretical pool quote.
      */
     function quoteSell(
         address token,
@@ -428,8 +469,10 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         uint256 grossTokenOut = _executeFirstHop(sourceType, sourceData, quoteToken, token, quoteAmount, 0, deadline);
         uint256 nutboxTokenFee;
         (tokenOut, nutboxTokenFee) = _tokenFeeAmounts(grossTokenOut, community);
+        bool allowTaxedOutput =
+            sourceType == INutboxRouter.SourceType.V2_PAIR || sourceType == INutboxRouter.SourceType.V3_POOL;
+        tokenOut = _deliverToken(token, tokenOut, recipient, allowTaxedOutput);
         if (tokenOut < minimumTokenOut) revert SlippageExceeded();
-        _deliverToken(token, tokenOut, recipient);
         _accrueNutboxTokenFee(token, community, nutboxTokenFee);
 
         emit Trade(msg.sender, sellsman, true, tokenOut, msg.value, tagaiFee, sellsmanFee);
@@ -471,10 +514,13 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         address quoteToken = _resolveQuoteToken(token, sourceType, sourceData);
         sellsman = _resolvedSellsman(sellsman, deployer);
 
-        _receiveToken(token, amountIn);
+        uint256 receivedAmount = _receiveToken(token, amountIn);
+        if (sourceType != INutboxRouter.SourceType.V2_PAIR && receivedAmount != amountIn) {
+            revert UnsupportedInputToken();
+        }
         uint256 swapTokenAmount;
         uint256 nutboxTokenFee;
-        (swapTokenAmount, nutboxTokenFee) = _tokenFeeAmounts(amountIn, community);
+        (swapTokenAmount, nutboxTokenFee) = _tokenFeeAmounts(receivedAmount, community);
         uint256 quoteOut = _executeFirstHop(sourceType, sourceData, token, quoteToken, swapTokenAmount, 0, deadline);
         uint256 grossNativeOut = _nativeForSell(quoteToken, quoteOut, deadline);
 
@@ -485,7 +531,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         payable(recipient).sendValue(nativeOut);
         _accrueNutboxTokenFee(token, community, nutboxTokenFee);
 
-        emit Trade(msg.sender, sellsman, false, amountIn, grossNativeOut, tagaiFee, sellsmanFee);
+        emit Trade(msg.sender, sellsman, false, receivedAmount, grossNativeOut, tagaiFee, sellsmanFee);
         emit ImportedTokenTrade(
             msg.sender,
             token,
@@ -494,7 +540,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
             quoteToken,
             sourceType,
             keccak256(sourceData),
-            amountIn,
+            receivedAmount,
             grossNativeOut,
             nativeOut,
             tagaiFee,
@@ -667,14 +713,11 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
-        uint256[] memory amounts =
-            IImportedV2Router(source.router).swapExactTokensForTokens(amountIn, 0, path, address(this), deadline);
+        IImportedV2Router(source.router)
+            .swapExactTokensForTokensSupportingFeeOnTransferTokens(amountIn, 0, path, address(this), deadline);
         IERC20(tokenIn).forceApprove(source.router, 0);
-        if (amounts.length != 2 || amounts[0] != amountIn) revert InvalidSwapOutput();
-        amountOut = amounts[1];
-        if (amountOut == 0 || outputToken.balanceOf(address(this)) - balanceBefore != amountOut) {
-            revert InvalidSwapOutput();
-        }
+        amountOut = outputToken.balanceOf(address(this)) - balanceBefore;
+        if (amountOut == 0) revert InvalidSwapOutput();
     }
 
     function _swapV3(address tokenIn, address tokenOut, uint256 amountIn, bytes memory sourceData)
@@ -689,22 +732,19 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         IERC20 outputToken = IERC20(tokenOut);
         uint256 balanceBefore = outputToken.balanceOf(address(this));
         IERC20(tokenIn).forceApprove(source.router, amountIn);
-        amountOut = IImportedPancakeV3Router(source.router)
-            .exactInputSingle(
-                IImportedPancakeV3Router.ExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                fee: fee,
-                recipient: address(this),
-                amountIn: amountIn,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            })
-            );
+        IImportedPancakeV3Router.ExactInputSingleParams memory params = IImportedPancakeV3Router.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: fee,
+            recipient: address(this),
+            amountIn: amountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        IImportedPancakeV3Router(source.router).exactInputSingle(params);
         IERC20(tokenIn).forceApprove(source.router, 0);
-        if (amountOut == 0 || outputToken.balanceOf(address(this)) - balanceBefore != amountOut) {
-            revert InvalidSwapOutput();
-        }
+        amountOut = outputToken.balanceOf(address(this)) - balanceBefore;
+        if (amountOut == 0) revert InvalidSwapOutput();
     }
 
     function _swapPancakeV4(address tokenIn, address tokenOut, uint256 amountIn, bytes memory sourceData)
@@ -781,16 +821,21 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         if (block.timestamp > deadline) revert DeadlineExpired();
     }
 
-    function _receiveToken(address token, uint256 amount) internal {
+    function _receiveToken(address token, uint256 amount) internal returns (uint256 receivedAmount) {
         uint256 balanceBefore = IERC20(token).balanceOf(address(this));
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        if (IERC20(token).balanceOf(address(this)) - balanceBefore != amount) revert UnsupportedInputToken();
+        receivedAmount = IERC20(token).balanceOf(address(this)) - balanceBefore;
+        if (receivedAmount == 0) revert UnsupportedInputToken();
     }
 
-    function _deliverToken(address token, uint256 amount, address recipient) internal {
+    function _deliverToken(address token, uint256 amount, address recipient, bool allowFeeOnTransfer)
+        internal
+        returns (uint256 deliveredAmount)
+    {
         uint256 balanceBefore = IERC20(token).balanceOf(recipient);
         IERC20(token).safeTransfer(recipient, amount);
-        if (IERC20(token).balanceOf(recipient) - balanceBefore != amount) revert InvalidSwapOutput();
+        deliveredAmount = IERC20(token).balanceOf(recipient) - balanceBefore;
+        if (deliveredAmount == 0 || (!allowFeeOnTransfer && deliveredAmount != amount)) revert InvalidSwapOutput();
     }
 
     function _feeAmounts(uint256 nativeAmount)

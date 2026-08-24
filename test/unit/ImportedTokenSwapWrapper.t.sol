@@ -159,6 +159,21 @@ contract ImportedV2RouterMock {
         amounts[0] = amountIn;
         amounts[1] = amountOut;
     }
+
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address recipient,
+        uint256
+    ) external {
+        uint256 inputBalanceBefore = IERC20(path[0]).balanceOf(address(this));
+        require(IERC20(path[0]).transferFrom(msg.sender, address(this), amountIn), "transfer failed");
+        uint256 actualAmountIn = IERC20(path[0]).balanceOf(address(this)) - inputBalanceBefore;
+        uint256 amountOut = actualAmountIn * 2;
+        require(amountOut >= amountOutMin, "slippage");
+        ImportedTestToken(path[1]).mint(recipient, amountOut);
+    }
 }
 
 contract ImportedV3FactoryMock {
@@ -204,6 +219,12 @@ contract ImportedV3PoolMock {
 }
 
 contract ImportedV3RouterMock {
+    bool public transferOutput;
+
+    function setTransferOutput(bool transferOutput_) external {
+        transferOutput = transferOutput_;
+    }
+
     function exactInputSingle(IImportedPancakeV3Router.ExactInputSingleParams calldata params)
         external
         payable
@@ -212,7 +233,11 @@ contract ImportedV3RouterMock {
         require(IERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn), "transfer failed");
         amountOut = params.amountIn * 2;
         require(amountOut >= params.amountOutMinimum, "slippage");
-        ImportedTestToken(params.tokenOut).mint(params.recipient, amountOut);
+        if (transferOutput) {
+            require(IERC20(params.tokenOut).transfer(params.recipient, amountOut), "output transfer failed");
+        } else {
+            ImportedTestToken(params.tokenOut).mint(params.recipient, amountOut);
+        }
     }
 }
 
@@ -567,6 +592,81 @@ contract ImportedTokenSwapWrapperTest is Test {
         vm.prank(configuredRegistrar);
         vm.expectRevert(ImportedTokenSwapWrapper.MarketAlreadyRegistered.selector);
         wrapper.registerImportedToken(address(token), address(community), deployer);
+    }
+
+    function test_ownerCanUpdateImportedMarketCommunityAndDeployer() public {
+        address initialDeployer = makeAddr("initialDeployer");
+        (, ImportedCommunityMock initialCommunity,) = _registerV2Market(initialDeployer);
+        ImportedCalculatorMock newCalculator = new ImportedCalculatorMock(address(token));
+        ImportedCommunityMock newCommunity = new ImportedCommunityMock(address(newCalculator));
+        address newDeployer = makeAddr("newDeployer");
+
+        vm.warp(block.timestamp + 123);
+        wrapper.updateImportedMarket(address(token), address(newCommunity), newDeployer);
+
+        (bool registered, address storedCommunity, address storedDeployer) = wrapper.getImportedMarket(address(token));
+        assertTrue(registered);
+        assertEq(storedCommunity, address(newCommunity));
+        assertEq(storedDeployer, newDeployer);
+        assertEq(wrapper.lastNutboxInjectionAt(address(token)), block.timestamp);
+        assertNotEq(storedCommunity, address(initialCommunity));
+    }
+
+    function test_updateImportedMarketIsOwnerOnlyAndValidatesBinding() public {
+        address deployer = makeAddr("deployer");
+        (, ImportedCommunityMock community,) = _registerV2Market(deployer);
+
+        vm.prank(makeAddr("notOwner"));
+        vm.expectRevert("Ownable: caller is not the owner");
+        wrapper.updateImportedMarket(address(token), address(community), deployer);
+
+        ImportedTestToken unregisteredToken = new ImportedTestToken("Unregistered", "NONE");
+        vm.expectRevert(ImportedTokenSwapWrapper.MarketNotRegistered.selector);
+        wrapper.updateImportedMarket(address(unregisteredToken), address(community), deployer);
+
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidMarket.selector);
+        wrapper.updateImportedMarket(address(token), makeAddr("notACommunityContract"), deployer);
+
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidMarket.selector);
+        wrapper.updateImportedMarket(address(token), address(community), address(0));
+    }
+
+    function test_updateDeployerAllowsPendingButCommunityChangeRequiresFlush() public {
+        address initialDeployer = makeAddr("initialDeployer");
+        (bytes memory sourceData, ImportedCommunityMock initialCommunity,) = _registerV2Market(initialDeployer);
+        vm.prank(buyer);
+        wrapper.buyToken{value: 1 ether}(
+            address(token), INutboxRouter.SourceType.V2_PAIR, sourceData, 0, buyer, block.timestamp + 1, address(0)
+        );
+
+        uint256 pending = wrapper.pendingNutboxInjection(address(token));
+        uint256 previousInjectionAt = wrapper.lastNutboxInjectionAt(address(token));
+        address newDeployer = makeAddr("newDeployer");
+        wrapper.updateImportedMarket(address(token), address(initialCommunity), newDeployer);
+
+        (, address storedCommunity, address storedDeployer) = wrapper.getImportedMarket(address(token));
+        assertEq(storedCommunity, address(initialCommunity));
+        assertEq(storedDeployer, newDeployer);
+        assertEq(wrapper.pendingNutboxInjection(address(token)), pending);
+        assertEq(wrapper.lastNutboxInjectionAt(address(token)), previousInjectionAt);
+
+        ImportedCalculatorMock newCalculator = new ImportedCalculatorMock(address(token));
+        ImportedCommunityMock newCommunity = new ImportedCommunityMock(address(newCalculator));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ImportedTokenSwapWrapper.PendingNutboxInjectionExists.selector, address(token), pending
+            )
+        );
+        wrapper.updateImportedMarket(address(token), address(newCommunity), newDeployer);
+
+        vm.warp(block.timestamp + 10 minutes + 1);
+        assertEq(wrapper.flushNutboxInjection(address(token)), pending);
+        assertEq(wrapper.pendingNutboxInjection(address(token)), 0);
+
+        wrapper.updateImportedMarket(address(token), address(newCommunity), newDeployer);
+        (, storedCommunity,) = wrapper.getImportedMarket(address(token));
+        assertEq(storedCommunity, address(newCommunity));
+        assertEq(wrapper.lastNutboxInjectionAt(address(token)), block.timestamp);
     }
 
     function test_registeredDeployerWithIPShareUsesValueCaptureByDefault() public {
@@ -1095,7 +1195,28 @@ contract ImportedTokenSwapWrapperTest is Test {
         assertTrue(foundCanonical);
     }
 
-    function test_sellRejectsFeeOnTransferImportedToken() public {
+    function test_v2BuyReturnsActualFeeOnTransferAmountDelivered() public {
+        ImportedFeeOnTransferToken taxedToken = new ImportedFeeOnTransferToken();
+        (ImportedV2PairMock pair,,) = _createV2Pair(address(taxedToken), address(quote));
+        bytes memory sourceData =
+            abi.encode(ImportedTokenSwapWrapper.V2Source({router: address(v2Router), pair: address(pair)}));
+
+        vm.prank(buyer);
+        uint256 tokenOut = wrapper.buyToken{value: 1 ether}(
+            address(taxedToken),
+            INutboxRouter.SourceType.V2_PAIR,
+            sourceData,
+            1.97208 ether,
+            buyer,
+            block.timestamp + 1,
+            sellsman
+        );
+
+        assertEq(tokenOut, 1.97208 ether);
+        assertEq(taxedToken.balanceOf(buyer), tokenOut);
+    }
+
+    function test_v2SellUsesActualFeeOnTransferAmounts() public {
         ImportedFeeOnTransferToken taxedToken = new ImportedFeeOnTransferToken();
         (ImportedV2PairMock pair,,) = _createV2Pair(address(taxedToken), address(quote));
         bytes memory sourceData =
@@ -1104,11 +1225,72 @@ contract ImportedTokenSwapWrapperTest is Test {
         vm.prank(seller);
         taxedToken.approve(address(wrapper), 10 ether);
 
+        uint256 sellerBalanceBefore = seller.balance;
+        vm.prank(seller);
+        uint256 nativeOut = wrapper.sellToken(
+            address(taxedToken),
+            INutboxRouter.SourceType.V2_PAIR,
+            sourceData,
+            10 ether,
+            19.523592 ether,
+            seller,
+            block.timestamp + 1,
+            sellsman
+        );
+
+        assertEq(nativeOut, 19.523592 ether);
+        assertEq(seller.balance - sellerBalanceBefore, nativeOut);
+    }
+
+    function test_registeredV2FeeOnTransferSellAccruesFeeFromActualReceivedAmount() public {
+        ImportedFeeOnTransferToken taxedToken = new ImportedFeeOnTransferToken();
+        (ImportedV2PairMock pair,,) = _createV2Pair(address(taxedToken), address(quote));
+        bytes memory sourceData =
+            abi.encode(ImportedTokenSwapWrapper.V2Source({router: address(v2Router), pair: address(pair)}));
+        ImportedCalculatorMock calculator = new ImportedCalculatorMock(address(taxedToken));
+        ImportedCommunityMock community = new ImportedCommunityMock(address(calculator));
+        wrapper.registerImportedToken(address(taxedToken), address(community), makeAddr("taxTokenDeployer"));
+        taxedToken.mint(seller, 10 ether);
+        vm.prank(seller);
+        taxedToken.approve(address(wrapper), 10 ether);
+
+        vm.prank(seller);
+        uint256 nativeOut = wrapper.sellToken(
+            address(taxedToken),
+            INutboxRouter.SourceType.V2_PAIR,
+            sourceData,
+            10 ether,
+            19.484544816 ether,
+            seller,
+            block.timestamp + 1,
+            feeAddress
+        );
+
+        assertEq(nativeOut, 19.484544816 ether);
+        assertEq(wrapper.pendingNutboxInjection(address(taxedToken)), 0.0198 ether);
+        assertEq(taxedToken.balanceOf(address(wrapper)), 0.0198 ether);
+    }
+
+    function test_v3SellStillRejectsFeeOnTransferImportedToken() public {
+        ImportedFeeOnTransferToken taxedToken = new ImportedFeeOnTransferToken();
+        (address token0, address token1) = _sort(address(taxedToken), address(quote));
+        ImportedV3PoolMock pool = new ImportedV3PoolMock(address(v3Factory), token0, token1, 500);
+        pool.setState(Q96, 1_000 ether);
+        v3Factory.setPool(address(taxedToken), address(quote), 500, address(pool));
+        bytes memory sourceData = abi.encode(
+            ImportedTokenSwapWrapper.V3Source({
+                router: address(v3Router), quoter: address(v3Quoter), pool: address(pool)
+            })
+        );
+        taxedToken.mint(seller, 10 ether);
+        vm.prank(seller);
+        taxedToken.approve(address(wrapper), 10 ether);
+
         vm.prank(seller);
         vm.expectRevert(ImportedTokenSwapWrapper.UnsupportedInputToken.selector);
         wrapper.sellToken(
             address(taxedToken),
-            INutboxRouter.SourceType.V2_PAIR,
+            INutboxRouter.SourceType.V3_POOL,
             sourceData,
             10 ether,
             0,
@@ -1116,6 +1298,47 @@ contract ImportedTokenSwapWrapperTest is Test {
             block.timestamp + 1,
             sellsman
         );
+    }
+
+    function test_v3BuyUsesFinalFeeOnTransferAmountForSlippageProtection() public {
+        ImportedFeeOnTransferToken taxedToken = new ImportedFeeOnTransferToken();
+        (address token0, address token1) = _sort(address(taxedToken), address(quote));
+        ImportedV3PoolMock pool = new ImportedV3PoolMock(address(v3Factory), token0, token1, 500);
+        pool.setState(Q96, 1_000 ether);
+        v3Factory.setPool(address(taxedToken), address(quote), 500, address(pool));
+        v3Router.setTransferOutput(true);
+        taxedToken.mint(address(v3Router), 100 ether);
+        bytes memory sourceData = abi.encode(
+            ImportedTokenSwapWrapper.V3Source({
+                router: address(v3Router), quoter: address(v3Quoter), pool: address(pool)
+            })
+        );
+
+        vm.prank(buyer);
+        vm.expectRevert(ImportedTokenSwapWrapper.SlippageExceeded.selector);
+        wrapper.buyToken{value: 1 ether}(
+            address(taxedToken),
+            INutboxRouter.SourceType.V3_POOL,
+            sourceData,
+            1.9523592 ether + 1,
+            buyer,
+            block.timestamp + 1,
+            sellsman
+        );
+
+        vm.prank(buyer);
+        uint256 tokenOut = wrapper.buyToken{value: 1 ether}(
+            address(taxedToken),
+            INutboxRouter.SourceType.V3_POOL,
+            sourceData,
+            1.9523592 ether,
+            buyer,
+            block.timestamp + 1,
+            sellsman
+        );
+
+        assertEq(tokenOut, 1.9523592 ether);
+        assertEq(taxedToken.balanceOf(buyer), tokenOut);
     }
 
     function test_runtimeCodeSizeStaysBelowEip170Limit() public view {

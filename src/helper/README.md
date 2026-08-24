@@ -101,6 +101,20 @@ function getImportedMarket(address token)
 
 同一 token 只能登记一次。
 
+登记后如需人工修正绑定，Wrapper owner 可以调用：
+
+```solidity
+function updateImportedMarket(
+    address token,
+    address community,
+    address deployer
+) external;
+```
+
+只修改 deployer 时不会影响该 token 已累计的 Nutbox 奖励。修改 Community 时要求
+`pendingNutboxInjection(token) == 0`，防止把原 Community 已累计但尚未注入的奖励转给新
+Community；切换成功后，该 token 的十分钟注入周期从当前时间重新计算。
+
 ## 每笔交易的 DEX 信息
 
 报价和交易调用都提交本次使用的 `sourceType/sourceData`。Wrapper 直接使用该信息，不读取或保存固定池。
@@ -191,12 +205,15 @@ function quoteSell(
 - 只有已登记 token 才收取 Nutbox token fee。
 - 非 native quoteToken 使用 NutboxRouter 完成 bridge 报价。
 - 前端通过 `eth_call/staticCall` 调用报价方法。
+- V2 税币以及 V3 买入税币的报价是池子给出的税前理论值，无法预知代币合约的动态转账税；实际买入按最终到账余额差结算，前端滑点必须额外覆盖可能的多段转账税。
 
-前端最终滑点保护值：
+普通代币的前端最终滑点保护值：
 
 ```text
 minimumFinalOut = quotedFinalOut × (10000 - slippageBps) / 10000
 ```
+
+V2 fee-on-transfer token 应在 `slippageBps` 中同时覆盖价格影响、池费和代币可能在多段转账中收取的税。V3 允许税币作为买入输出，并按用户最终到账量检查滑点；V3 税币卖出以及 Pancake Infinity CL 税币仍不支持。
 
 ## 买入
 
@@ -310,6 +327,22 @@ setRegistrar(importHelperAddress);
 
 部署脚本 `script/DeployImportHelper.s.sol` 会部署 Helper 并调用 `setRegistrar`。执行脚本的钱包必须是 Wrapper owner。
 
+BSC 上替换 Wrapper 时使用 `script/DeployBSCImportedTokenSwapWrapper.s.sol`。该脚本会在同一批交易中：
+
+1. 部署新的 Wrapper。
+2. 部署指向新 Wrapper 的 ImportHelper。
+3. 将新 Helper 设置为 registrar。
+4. 从旧 Wrapper 只读并校验牛来、Bicat、QQQB 的 Community/deployer 绑定。
+5. 将这三个历史绑定登记到新 Wrapper；不会重建 Community 或 SocialCuration Pool。
+6. 根据显式的 `IMPORTED_WRAPPER_OWNER` 发起两步 ownership 交接。
+
+旧 Wrapper 的 `pendingNutboxInjection` 不会也不能直接复制到新 Wrapper。切流前应记录旧
+Wrapper 的 pending 数值，并在满足十分钟间隔后调用旧 Wrapper 的
+`flushNutboxInjection(token)`；在全部旧 pending 结算前不要丢弃旧 Wrapper 地址。
+
+脚本不会自动改写 `deployments/56/version11.json`。只有广播交易全部确认且链上校验通过后，
+才应记录新的 Wrapper、Helper、交易哈希和区块号。
+
 ## 主要事件
 
 ImportHelper：
@@ -320,6 +353,7 @@ ImportHelper：
 Wrapper：
 
 - `ImportedMarketRegistered`
+- `ImportedMarketUpdated`
 - `ImportedTokenTrade`
 - `Trade`
 - `NutboxTokenFeeAccrued`
@@ -339,6 +373,7 @@ forge test --match-path 'test/unit/Import*' -vv
 - ImportHelper 固定 Calculator、设置 devFund 和登记 Community。
 - 复用已有 Community 时的 Factory、token、Calculator 验证和零费用导入。
 - Wrapper registrar 权限与重复登记保护。
+- Wrapper owner 人工修正 Community/deployer，以及 Community 切换时的 pending 奖励保护。
 - ImportHelper 在创建 Community 前拒绝已经绑定 Community 的 token。
 - 已登记 token 使用不同外部池并向同一 Community 累积费用。
 - V2、V3、Pancake Infinity CL 的报价和双向交易。
@@ -346,4 +381,4 @@ forge test --match-path 'test/unit/Import*' -vv
 - 最终输出滑点保护。
 - IPShare valueCapture 和直接转账。
 - 十分钟批量注入、主动 flush 和失败保留。
-- fee-on-transfer 输入拒绝、callback 防护和 EIP-170 code-size 检查。
+- V2 fee-on-transfer 买卖、V3 fee-on-transfer 买入按实际到账结算、V3 fee-on-transfer 卖出拒绝、callback 防护和 EIP-170 code-size 检查。
