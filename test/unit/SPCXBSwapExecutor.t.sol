@@ -2,12 +2,25 @@
 pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {SPCXBSwapExecutor, ISPCXBPancakeV3SmartRouter} from "../../src/helper/SPCXBSwapExecutor.sol";
 
-contract SPCXBExecutorTokenMock {
-    function marker() external pure returns (bool) {
-        return true;
+contract SPCXBExecutorTokenMock is ERC20 {
+    constructor() ERC20("Mock", "MOCK") {}
+
+    function mint(address recipient, uint256 amount) external {
+        _mint(recipient, amount);
+    }
+}
+
+contract SPCXBExecutorWrappedNativeMock is SPCXBExecutorTokenMock {
+    receive() external payable {}
+
+    function withdraw(uint256 amount) external {
+        _burn(msg.sender, amount);
+        (bool ok,) = payable(msg.sender).call{value: amount}("");
+        require(ok, "withdraw failed");
     }
 }
 
@@ -37,6 +50,13 @@ contract SPCXBExecutorRouterMock {
     uint256 public lastAmountOutMinimum;
     uint256 public output = 5 ether;
     bool public shouldRevert;
+    SPCXBExecutorTokenMock public sellToken;
+    SPCXBExecutorTokenMock public wrappedNative;
+
+    function setSellTokens(SPCXBExecutorTokenMock sellToken_, SPCXBExecutorTokenMock wrappedNative_) external {
+        sellToken = sellToken_;
+        wrappedNative = wrappedNative_;
+    }
 
     function setOutput(uint256 value) external {
         output = value;
@@ -52,7 +72,12 @@ contract SPCXBExecutorRouterMock {
         returns (uint256 amountOut)
     {
         if (shouldRevert) revert("swap failed");
-        require(msg.value == params.amountIn, "value mismatch");
+        if (msg.value == 0) {
+            require(sellToken.transferFrom(msg.sender, address(this), params.amountIn), "transfer failed");
+            wrappedNative.mint(params.recipient, output);
+        } else {
+            require(msg.value == params.amountIn, "value mismatch");
+        }
         lastPath = params.path;
         lastRecipient = params.recipient;
         lastAmountIn = params.amountIn;
@@ -64,7 +89,7 @@ contract SPCXBExecutorRouterMock {
 contract SPCXBSwapExecutorTest is Test {
     SPCXBExecutorIPShareMock private ipshare;
     SPCXBExecutorRouterMock private router;
-    SPCXBExecutorTokenMock private wbnb;
+    SPCXBExecutorWrappedNativeMock private wbnb;
     SPCXBExecutorTokenMock private usdt;
     SPCXBExecutorTokenMock private spcxb;
     SPCXBSwapExecutor private executor;
@@ -77,14 +102,16 @@ contract SPCXBSwapExecutorTest is Test {
     function setUp() public {
         ipshare = new SPCXBExecutorIPShareMock();
         router = new SPCXBExecutorRouterMock();
-        wbnb = new SPCXBExecutorTokenMock();
+        wbnb = new SPCXBExecutorWrappedNativeMock();
         usdt = new SPCXBExecutorTokenMock();
         spcxb = new SPCXBExecutorTokenMock();
         executor = new SPCXBSwapExecutor(
             address(router), address(ipshare), address(wbnb), address(usdt), address(spcxb), feeAddress
         );
+        router.setSellTokens(spcxb, wbnb);
         ipshare.setCreated(creator, true);
         vm.deal(buyer, 10 ether);
+        vm.deal(address(wbnb), 10 ether);
     }
 
     function test_buyPreservesCreatorAndTagAIFeesThenUsesDeepRoute() public {
@@ -135,6 +162,36 @@ contract SPCXBSwapExecutorTest is Test {
         assertEq(feeAddress.balance, 0);
     }
 
+    function test_sellUsesReverseDeepRouteAndPreservesBothFees() public {
+        router.setOutput(1 ether);
+        spcxb.mint(buyer, 10 ether);
+        vm.prank(buyer);
+        spcxb.approve(address(executor), 10 ether);
+
+        vm.prank(buyer);
+        uint256 nativeOut = executor.sellSpcxb(_sellPath(100), 10 ether, 0.99 ether, recipient, creator);
+
+        assertEq(nativeOut, 0.996 ether);
+        assertEq(recipient.balance, 0.996 ether);
+        assertEq(ipshare.captured(creator), 0.002 ether);
+        assertEq(feeAddress.balance, 0.002 ether);
+        assertEq(spcxb.balanceOf(address(router)), 10 ether);
+        assertEq(address(executor).balance, 0);
+        assertEq(router.lastPath(), _sellPath(100));
+        assertEq(router.lastRecipient(), address(executor));
+        assertEq(router.lastAmountIn(), 10 ether);
+        assertEq(router.lastAmountOutMinimum(), 1);
+    }
+
+    function test_sellRejectsForwardBuyPath() public {
+        spcxb.mint(buyer, 1 ether);
+        vm.prank(buyer);
+        spcxb.approve(address(executor), 1 ether);
+        vm.prank(buyer);
+        vm.expectRevert(SPCXBSwapExecutor.InvalidRoute.selector);
+        executor.sellSpcxb(_path(100), 1 ether, 0, recipient, creator);
+    }
+
     function test_ownerCanUpdateFeeRatios() public {
         executor.setFeeRatios(30, 40);
         (uint256 swapAmount, uint256 creatorFee, uint256 tagaiFee) = executor.previewFees(1 ether);
@@ -151,5 +208,9 @@ contract SPCXBSwapExecutorTest is Test {
 
     function _path(uint24 firstHopFee) private view returns (bytes memory) {
         return abi.encodePacked(address(wbnb), firstHopFee, address(usdt), uint24(2_500), address(spcxb));
+    }
+
+    function _sellPath(uint24 secondHopFee) private view returns (bytes memory) {
+        return abi.encodePacked(address(spcxb), uint24(2_500), address(usdt), secondHopFee, address(wbnb));
     }
 }

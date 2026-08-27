@@ -4,6 +4,8 @@ pragma solidity 0.8.26;
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import "../interfaces/IIPShare.sol";
 
@@ -18,15 +20,22 @@ interface ISPCXBPancakeV3SmartRouter {
     function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
 }
 
+interface ISPCXBWrappedNative {
+    function withdraw(uint256 amount) external;
+}
+
 /**
  * @title SPCXBSwapExecutor
- * @notice Fee-preserving BNB -> USDT -> SPCXB executor for TagAI Blinks.
+ * @notice Fee-preserving bidirectional BNB <-> USDT <-> SPCXB executor for TagAI.
  * @dev The route is restricted to the configured assets and Pancake V3 fee tiers.
  *      Creator fees are atomically injected through IPShare.valueCapture; the
- *      remaining BNB is sent directly to Pancake SmartRouter. This contract is
- *      intentionally independent from ImportedTokenSwapWrapper.
+ *      Buy and sell flows share the same deep-liquidity route and fee rules for
+ *      Blinks, web, PWA, and App. This contract is intentionally independent
+ *      from ImportedTokenSwapWrapper.
  */
 contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant MAX_TOTAL_FEE_BPS = 2_000;
     uint24 public constant SPCXB_POOL_FEE = 2_500;
@@ -53,6 +62,17 @@ contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
         uint256 creatorFee,
         uint256 tagaiFee,
         uint24 firstHopFee
+    );
+    event SPCXBSold(
+        address indexed seller,
+        address indexed recipient,
+        address indexed creator,
+        uint256 tokenAmount,
+        uint256 grossNativeAmount,
+        uint256 netNativeAmount,
+        uint256 creatorFee,
+        uint256 tagaiFee,
+        uint24 secondHopFee
     );
 
     error InvalidAddress();
@@ -81,6 +101,10 @@ contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
         usdt = usdt_;
         spcxb = spcxb_;
         feeAddress = feeAddress_;
+    }
+
+    receive() external payable {
+        if (msg.sender != wrappedNative) revert InvalidAddress();
     }
 
     function setFeeAddress(address newFeeAddress) external onlyOwner {
@@ -114,7 +138,11 @@ contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
     }
 
     function validatePath(bytes calldata path) external view returns (uint24 firstHopFee) {
-        return _validatePath(path);
+        return _validateBuyPath(path);
+    }
+
+    function validateSellPath(bytes calldata path) external view returns (uint24 secondHopFee) {
+        return _validateSellPath(path);
     }
 
     function buySpcxb(bytes calldata path, uint256 minimumTokenOut, address recipient, address creator)
@@ -125,18 +153,12 @@ contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
         returns (uint256 tokenOut)
     {
         if (msg.value == 0) revert InvalidAmount();
-        if (recipient == address(0) || creator == address(0)) revert InvalidAddress();
-        uint24 firstHopFee = _validatePath(path);
+        if (recipient == address(0)) revert InvalidAddress();
+        creator = _resolveCreator(creator);
+        uint24 firstHopFee = _validateBuyPath(path);
 
         (uint256 swapAmount, uint256 creatorFee, uint256 tagaiFee) = _feeAmounts(msg.value);
-        if (creatorFee != 0) {
-            if (creator != feeAddress && ipshare.ipshareCreated(creator)) {
-                ipshare.valueCapture{value: creatorFee}(creator);
-            } else if (!_trySendNative(creator, creatorFee)) {
-                _sendNative(feeAddress, creatorFee);
-            }
-        }
-        if (tagaiFee != 0) _sendNative(feeAddress, tagaiFee);
+        _distributeFees(creator, creatorFee, tagaiFee);
 
         tokenOut = smartRouter.exactInput{value: swapAmount}(
             ISPCXBPancakeV3SmartRouter.ExactInputParams({
@@ -150,6 +172,52 @@ contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
         );
     }
 
+    function sellSpcxb(
+        bytes calldata path,
+        uint256 amountIn,
+        uint256 minimumNativeOut,
+        address recipient,
+        address creator
+    ) external nonReentrant whenNotPaused returns (uint256 nativeOut) {
+        if (amountIn == 0) revert InvalidAmount();
+        if (recipient == address(0)) revert InvalidAddress();
+        creator = _resolveCreator(creator);
+        uint24 secondHopFee = _validateSellPath(path);
+
+        IERC20 token = IERC20(spcxb);
+        uint256 balanceBefore = token.balanceOf(address(this));
+        token.safeTransferFrom(msg.sender, address(this), amountIn);
+        uint256 receivedAmount = token.balanceOf(address(this)) - balanceBefore;
+        if (receivedAmount == 0) revert InvalidAmount();
+        token.forceApprove(address(smartRouter), receivedAmount);
+
+        uint256 grossNativeOut = smartRouter.exactInput(
+            ISPCXBPancakeV3SmartRouter.ExactInputParams({
+                path: path, recipient: address(this), amountIn: receivedAmount, amountOutMinimum: 1
+            })
+        );
+        ISPCXBWrappedNative(wrappedNative).withdraw(grossNativeOut);
+
+        uint256 creatorFee;
+        uint256 tagaiFee;
+        (nativeOut, creatorFee, tagaiFee) = _feeAmounts(grossNativeOut);
+        if (nativeOut < minimumNativeOut) revert SlippageExceeded();
+        _distributeFees(creator, creatorFee, tagaiFee);
+        _sendNative(recipient, nativeOut);
+
+        emit SPCXBSold(
+            msg.sender,
+            recipient,
+            creator,
+            receivedAmount,
+            grossNativeOut,
+            nativeOut,
+            creatorFee,
+            tagaiFee,
+            secondHopFee
+        );
+    }
+
     function _feeAmounts(uint256 nativeAmount)
         internal
         view
@@ -160,7 +228,7 @@ contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
         swapAmount = nativeAmount - creatorFee - tagaiFee;
     }
 
-    function _validatePath(bytes calldata path) internal view returns (uint24 firstHopFee) {
+    function _validateBuyPath(bytes calldata path) internal view returns (uint24 firstHopFee) {
         // address + uint24 + address + uint24 + address
         if (path.length != 66) revert InvalidRoute();
         address tokenIn;
@@ -180,6 +248,26 @@ contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
         ) revert InvalidRoute();
     }
 
+    function _validateSellPath(bytes calldata path) internal view returns (uint24 secondHopFee) {
+        // address + uint24 + address + uint24 + address
+        if (path.length != 66) revert InvalidRoute();
+        address tokenIn;
+        address intermediate;
+        address tokenOut;
+        uint24 firstHopFee;
+        assembly ("memory-safe") {
+            tokenIn := shr(96, calldataload(path.offset))
+            firstHopFee := shr(232, calldataload(add(path.offset, 20)))
+            intermediate := shr(96, calldataload(add(path.offset, 23)))
+            secondHopFee := shr(232, calldataload(add(path.offset, 43)))
+            tokenOut := shr(96, calldataload(add(path.offset, 46)))
+        }
+        if (
+            tokenIn != spcxb || intermediate != usdt || tokenOut != wrappedNative || firstHopFee != SPCXB_POOL_FEE
+                || !_allowedFirstHopFee(secondHopFee)
+        ) revert InvalidRoute();
+    }
+
     function _allowedFirstHopFee(uint24 fee) private pure returns (bool) {
         return fee == 100 || fee == 500 || fee == 2_500 || fee == 10_000;
     }
@@ -187,6 +275,21 @@ contract SPCXBSwapExecutor is Ownable2Step, Pausable, ReentrancyGuard {
     function _sendNative(address recipient, uint256 amount) private {
         (bool ok,) = payable(recipient).call{value: amount}("");
         if (!ok) revert NativeTransferFailed();
+    }
+
+    function _resolveCreator(address creator) private view returns (address) {
+        return creator == address(0) || creator == address(this) ? feeAddress : creator;
+    }
+
+    function _distributeFees(address creator, uint256 creatorFee, uint256 tagaiFee) private {
+        if (creatorFee != 0) {
+            if (creator != feeAddress && ipshare.ipshareCreated(creator)) {
+                ipshare.valueCapture{value: creatorFee}(creator);
+            } else if (!_trySendNative(creator, creatorFee)) {
+                _sendNative(feeAddress, creatorFee);
+            }
+        }
+        if (tagaiFee != 0) _sendNative(feeAddress, tagaiFee);
     }
 
     function _trySendNative(address recipient, uint256 amount) private returns (bool ok) {

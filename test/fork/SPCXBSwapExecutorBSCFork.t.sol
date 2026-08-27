@@ -32,4 +32,26 @@ contract SPCXBSwapExecutorBSCForkTest is Test {
         assertEq(feeAddress.balance, amountIn * 20 / 10_000);
         assertEq(address(executor).balance, 0);
     }
+
+    function test_bscReverseDeepRouteReturnsBnbAndPaysFees() public {
+        require(block.chainid == 56, "BSC fork required");
+        address feeAddress = makeAddr("sellFeeAddress");
+        address seller = makeAddr("seller");
+        SPCXBSwapExecutor executor = new SPCXBSwapExecutor(SMART_ROUTER, IPSHARE, WBNB, USDT, SPCXB, feeAddress);
+        bytes memory path = abi.encodePacked(SPCXB, uint24(2_500), USDT, uint24(100), WBNB);
+        uint256 amountIn = 0.01 ether;
+        deal(SPCXB, seller, amountIn);
+        vm.prank(seller);
+        IERC20(SPCXB).approve(address(executor), amountIn);
+        uint256 balanceBefore = seller.balance;
+
+        vm.prank(seller);
+        uint256 nativeOut = executor.sellSpcxb(path, amountIn, 1, seller, EXISTING_IPSHARE_CREATOR);
+
+        assertGt(nativeOut, 0);
+        assertEq(seller.balance - balanceBefore, nativeOut);
+        assertGt(feeAddress.balance, 0);
+        assertEq(IERC20(SPCXB).balanceOf(seller), 0);
+        assertEq(address(executor).balance, 0);
+    }
 }
