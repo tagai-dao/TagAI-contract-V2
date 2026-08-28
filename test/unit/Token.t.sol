@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IToken} from "../../src/interfaces/IToken.sol";
 import {Token} from "../../src/pump/Token.sol";
+import {IBondingCurve} from "../../src/interfaces/IBondingCurve.sol";
 import {V4PumpTestBase} from "../helpers/V4PumpTestBase.sol";
 
 /**
@@ -179,5 +180,40 @@ contract TokenTest is V4PumpTestBase {
 
     function test_NUTBOX_ALLOCATION_isFifteenPercent() public onlyReady {
         assertEq(token.NUTBOX_ALLOCATION(), 150_000_000 ether);
+    }
+
+    // ── P1T2: anti-snipe 边界与禁窗上市 ───────────────────────────────────────────
+
+    function test_publicFirstBuy_paysAntiSnipeFee() public onlyReady {
+        // 窗口内公开第一笔买入：sellsman 费率高于稳态 feeRatio[1]
+        (uint256 tip, uint256 sellsman) = token.getBuyFeeRatios();
+        uint256[2] memory ratio = pump.getFeeRatio();
+        assertEq(tip, ratio[0]);
+        assertGt(sellsman, ratio[1]);
+    }
+
+    function test_pumpPremineUsesNormalFee() public onlyReady {
+        // Pump 捆绑预购走普通 feeRatio：创建时附带超过 fixedFee 的 ETH，预购到账量应与净买入一致。
+        uint256 totalFixedFee = pump.createFee();
+        uint256 premineEth = 0.05 ether;
+        vm.deal(creator, premineEth + totalFixedFee + 1 ether);
+        vm.prank(creator, creator);
+        address tokenAddr = pump.createToken{value: totalFixedFee + premineEth}(
+            "PREMINE",
+            keccak256("premine")
+        );
+        Token t = Token(payable(tokenAddr));
+        // 预购按 feeRatio[0]/feeRatio[1] 扣费；sellsmanFee 在窗口内走 valueCapture（community 未绑定）
+        uint256 netBuy = premineEth - (premineEth * pump.getFeeRatio()[0]) / 1e4 - (premineEth * pump.getFeeRatio()[1]) / 1e4;
+        uint256 expectedTokens = IBondingCurve(address(pump)).getBuyAmountByValue(0, netBuy);
+        assertEq(IERC20(tokenAddr).balanceOf(creator), expectedTokens);
+    }
+
+    function test_listingDisabledDuringAntiSnipeWindow() public onlyReady {
+        // 窗口内把曲线买满应 revert ListingDisabledDuringAntiSnipe，而不是上市
+        vm.deal(buyer, 100_000 ether);
+        vm.prank(buyer, buyer);
+        vm.expectRevert(IToken.ListingDisabledDuringAntiSnipe.selector);
+        token.buyToken{value: 90_000 ether}(0, creator, 0);
     }
 }

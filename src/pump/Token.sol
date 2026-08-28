@@ -9,6 +9,7 @@ import "../interfaces/IIPShare.sol";
 import "../interfaces/IPump.sol";
 import "../interfaces/IBondingCurve.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
+import "../interfaces/ICommunity.sol";
 import "../utils/CurrencySettler.sol";
 
 // Uniswap v4
@@ -26,6 +27,7 @@ interface ITipTagSwapHook {
 
 error OnlyPump();
 error NutboxAddressesAlreadySet();
+error ListingDisabledDuringAntiSnipe();
 
 contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
@@ -59,9 +61,6 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     address public nutboxCommunity;
     address public nutboxSocialPool;
 
-    /// @dev Set by Pump immediately before the deployer's bundled pre-buy; bypasses anti-snipe once.
-    bool private antiSnipeBypassArmed;
-
     // Uniswap v4 pool info
     IPoolManager public poolManager;
     PoolId public v4PoolId;
@@ -83,7 +82,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     function _buyTokenDirect() private {
         address sellsman = _checkBondingCurveState(address(0));
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatios();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (buyFunds * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (buyFunds * sellsmanFeePercent) / divisor;
@@ -137,10 +136,10 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         poolManager = IPoolManager(IPump(manager_).getPoolManager());
     }
 
-    /// @notice Arms a one-time anti-snipe bypass for the deployer's bundled pre-buy in `createToken`.
+    /// @notice Legacy no-op kept for Pump ABI compatibility until Pump drops the call.
+    /// @dev V11 用 `_isPumpPremine()` 判定预购，不再需要 armed 标志。
     function armAntiSnipeBypass() external {
         if (msg.sender != manager) revert OnlyPump();
-        antiSnipeBypassArmed = true;
     }
 
     /// @notice Records Nutbox `Community` and SocialCuration pool; callable once by Pump only.
@@ -160,7 +159,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     ) public payable nonReentrant returns (uint256) {
         require(msg.sender != address(poolManager), "can't buy token from pool");
         sellsman = _checkBondingCurveState(sellsman);
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatios();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (msg.value * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (msg.value * sellsmanFeePercent) / divisor;
@@ -253,25 +252,23 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     /**
      * Get current buy fee ratios (basis points, e.g. 100 = 1%).
-     * 1. Within 15s after creation: tiptag = feeRatio[0]; sellsman decays quadratically from 80% to feeRatio[1].
-     * 2. After 15s: uses Pump's configured feeRatio.
-     * @dev Deployer's bundled pre-buy in `createToken` uses normal fees via `armAntiSnipeBypass` (not visible here).
+     * 1. Pump 预购（Community 未绑定）用 Pump 的 feeRatio。
+     * 2. 公开买入在 15s 窗口内用 anti-snipe 费率（含第一笔）。
+     * 3. 15s 后用 Pump 配置的 feeRatio。
      */
     function getBuyFeeRatios() external view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        return _getBuyFeeRatiosView();
+        return _getBuyFeeRatiosView(false);
     }
 
-    function _getBuyFeeRatios() private returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        if (antiSnipeBypassArmed) {
-            antiSnipeBypassArmed = false;
-            uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
+    function _getBuyFeeRatiosView(bool pumpPremine)
+        private
+        view
+        returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent)
+    {
+        uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
+        if (pumpPremine) {
             return (feeRatio[0], feeRatio[1]);
         }
-        return _getBuyFeeRatiosView();
-    }
-
-    function _getBuyFeeRatiosView() private view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
         uint256 elapsed = block.timestamp - createdAt;
         if (elapsed >= ANTI_SNIPE_WINDOW) {
             return (feeRatio[0], feeRatio[1]);
@@ -309,7 +306,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     /// @notice Handles sellsman fee: during anti-snipe window, injects into Calculator; otherwise sends to IPShare.
     function _handleSellsmanFee(uint256 sellsmanFee, address feeRecipient) private {
-        if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
+        if (_inAntiSnipeWindow()) {
             _antiSnipeInject(sellsmanFee);
         } else {
             _tryValueCapture(feeRecipient, sellsmanFee);
@@ -318,24 +315,31 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     /// @notice During anti-snipe window, use sellsman ETH to buy tokens on bonding curve and inject into Calculator.
     function _antiSnipeInject(uint256 sellsmanEth) private {
-        // Use sellsman ETH to buy tokens on the bonding curve
+        // Pump 预购发生在 Community 绑定前，此时没有 canonical calculator，走 IPShare valueCapture。
+        if (nutboxCommunity == address(0)) {
+            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            return;
+        }
+
         uint256 tokensPurchased = bondingCurve.getBuyAmountByValue(bondingCurveSupply, sellsmanEth);
         uint256 remaining = bondingCurveTotalAmount - bondingCurveSupply;
-        if (tokensPurchased > remaining) {
-            tokensPurchased = remaining;
+        if (tokensPurchased >= remaining) revert ListingDisabledDuringAntiSnipe();
+        if (tokensPurchased == 0) {
+            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            return;
         }
         bondingCurveSupply += tokensPurchased;
 
-        // Get calculator address and inject
-        address calculator = IPump(manager).getCalculator();
+        // Community 的 calculator 在其整个生命周期内是 canonical 的。
+        address calculator = ICommunity(nutboxCommunity).rewardCalculator();
 
-        // Approve calculator to pull tokens (inject does transferFrom(msg.sender=Token, community, amount))
         _approve(address(this), calculator, tokensPurchased);
 
         try IHourlyTickCalculator(calculator).inject(nutboxCommunity, tokensPurchased) {
             emit AntiSnipeInjected(address(this), nutboxCommunity, sellsmanEth, tokensPurchased);
         } catch {
-            // Fallback: revert the supply change and try IPShare valueCapture
+            // 失败外部调用会回滚其 transferFrom，但本帧的 approve 不会回滚，先撤销再回退。
+            _approve(address(this), calculator, 0);
             bondingCurveSupply -= tokensPurchased;
             _tryValueCapture(ipshareSubject, sellsmanEth);
         }
@@ -347,6 +351,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         uint256 sellsmanFeePercent,
         address sellsman
     ) private returns (uint256) {
+        if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
+
         uint256 priceBeforeFee = bondingCurve.getPrice(bondingCurveSupply, actualAmount);
         uint256 usedEth = (priceBeforeFee * divisor) / (divisor - tiptagFeePercent - sellsmanFeePercent);
         if (usedEth > msg.value) revert InsufficientFund();
@@ -383,14 +389,25 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     /// @notice 动态交易期（15s 内）费用固定归部署者，防止 MEV 攻击者通过传入自己为 sellsman 回收费用
     function _getFeeRecipient(address sellsman) private view returns (address) {
-        if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
+        if (_inAntiSnipeWindow()) {
             return ipshareSubject;
         }
         return sellsman;
     }
 
+    /// @dev Pump 捆绑预购：msg.sender 是 Pump，且 Community 尚未绑定、曲线尚未售出。
+    function _isPumpPremine() private view returns (bool) {
+        return msg.sender == manager && nutboxCommunity == address(0) && bondingCurveSupply == 0;
+    }
+
+    /// @dev 上市前的 15 秒 anti-snipe 窗口。
+    function _inAntiSnipeWindow() private view returns (bool) {
+        return block.timestamp - createdAt < ANTI_SNIPE_WINDOW;
+    }
+
     /********************************** to dex (Uniswap v4) ********************************/
     function _makeLiquidityPool() private {
+        if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
         require(address(this).balance >= LISTING_ETH_BUDGET, "Insufficient ETH for listing");
         require(balanceOf(address(this)) >= LISTING_TOKEN_AMOUNT + NUTBOX_ALLOCATION, "Insufficient token for listing");
 

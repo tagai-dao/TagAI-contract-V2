@@ -18,6 +18,8 @@ interface IToken {
     error RefundFail();
     error CostFeeFail();
     error DustIssue();
+    /// @dev 上市动作（曲线买满 / LP 注入）在 anti-snipe 窗口内被禁止。
+    error ListingDisabledDuringAntiSnipe();
 
     // ─── Events ──────────────────────────────────────────────────────────────────
 
