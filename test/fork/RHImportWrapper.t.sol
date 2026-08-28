@@ -193,10 +193,12 @@ contract RHImportWrapper is Test {
         ipshare = new IPShare(feeRecipient);
         ipshare.adminStartTrade();
 
+        // 第 2 期：Wrapper 先部署，Helper 构造传入 pump(0)+wrapper，再回填 importHelper。
+        wrapper = new TagAISwapWrapper(address(0), address(ipshare), WETH, feeRecipient);
         importHelper = new ImportHelper(
-            address(communityFactory), address(scf), address(committee), address(ipshare)
+            address(communityFactory), address(scf), address(committee), address(ipshare), address(0), address(wrapper)
         );
-        wrapper = new TagAISwapWrapper(address(importHelper), address(ipshare), WETH, feeRecipient);
+        wrapper.adminSetImportHelper(address(importHelper));
 
         v4LiquidityRouter = new PoolModifyLiquidityTest(IPoolManager(V4_PM));
     }

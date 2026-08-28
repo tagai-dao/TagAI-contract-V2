@@ -183,11 +183,18 @@ contract DeployRHScript is Script {
         pump.adminSetHookAddress(a.hook);
         console.log("(5) Pump.hookAddress set");
 
-        a.importHelper = address(new ImportHelper(a.communityFactory, a.scf, a.committee, a.ipshare));
-        console.log("(6) ImportHelper:", a.importHelper);
+        // 第 2 期：ImportHelper 构造需要 Pump + Wrapper，故 Wrapper 先于 Helper 部署。
+        // Wrapper 的 importHelper 暂置 0，Helper 部署后通过 adminSetImportHelper 回填。
+        a.wrapper = address(new TagAISwapWrapper(address(0), a.ipshare, a.weth, deployer));
+        console.log("(6) TagAISwapWrapper:", a.wrapper);
 
-        a.wrapper = address(new TagAISwapWrapper(a.importHelper, a.ipshare, a.weth, deployer));
-        console.log("(7) TagAISwapWrapper:", a.wrapper);
+        a.importHelper =
+            address(new ImportHelper(a.communityFactory, a.scf, a.committee, a.ipshare, a.pump, a.wrapper));
+        console.log("(7) ImportHelper:", a.importHelper);
+
+        // Wrapper 的 importHelper 指向刚部署的 Helper（sellsman 回退用）。
+        TagAISwapWrapper(payable(a.wrapper)).adminSetImportHelper(a.importHelper);
+        console.log("(8) Wrapper.importHelper set");
     }
 
     function _logWhitelist(Addrs memory a) internal view {

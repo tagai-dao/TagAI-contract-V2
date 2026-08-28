@@ -27,6 +27,8 @@ contract DeployRHImportWrapperScript is Script {
     address internal constant TN_IPSHARE = 0x33a1F7760f48c53E811aFaCa931B27124cafdC19;
     // Uniswap WETH9 on RH testnet
     address internal constant TN_WETH = 0x37E402B8081eFcE1D82A09a066512278006e4691;
+    // 已部署的 Pump（testnet）——用于拒绝 Pump 代币导入。
+    address internal constant TN_PUMP = 0x8c701E56A178A9cEd02D731e057Af6E709A66A9e;
 
     address internal constant MN_WETH = 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73;
 
@@ -47,6 +49,7 @@ contract DeployRHImportWrapperScript is Script {
         address ipshare = vm.envOr("RH_IPSHARE", TN_IPSHARE);
         address weth = vm.envOr("RH_WETH", _defaultWeth());
         address feeAddress = vm.envOr("RH_FEE_ADDRESS", deployer);
+        address pump = vm.envOr("RH_PUMP", _defaultPump());
 
         console.log("=== Deploy ImportHelper + TagAISwapWrapper ===");
         console.log("Chain:", block.chainid);
@@ -57,6 +60,7 @@ contract DeployRHImportWrapperScript is Script {
         console.log("IPShare:", ipshare);
         console.log("WETH:", weth);
         console.log("feeAddress:", feeAddress);
+        console.log("Pump:", pump);
 
         require(communityFactory.code.length > 0, "CommunityFactory missing");
         require(scf.code.length > 0, "SCF missing");
@@ -66,11 +70,16 @@ contract DeployRHImportWrapperScript is Script {
 
         vm.startBroadcast(pk);
 
-        ImportHelper importHelper = new ImportHelper(communityFactory, scf, committee, ipshare);
+        // 第 2 期：Wrapper 先部署（importHelper 暂置 0），Helper 构造传入 pump + wrapper，再回填。
+        TagAISwapWrapper wrapper = new TagAISwapWrapper(address(0), ipshare, weth, feeAddress);
+        console.log("TagAISwapWrapper:", address(wrapper));
+
+        ImportHelper importHelper =
+            new ImportHelper(communityFactory, scf, committee, ipshare, pump, address(wrapper));
         console.log("ImportHelper:", address(importHelper));
 
-        TagAISwapWrapper wrapper = new TagAISwapWrapper(address(importHelper), ipshare, weth, feeAddress);
-        console.log("TagAISwapWrapper:", address(wrapper));
+        wrapper.adminSetImportHelper(address(importHelper));
+        console.log("Wrapper.importHelper set");
 
         vm.stopBroadcast();
 
@@ -82,6 +91,11 @@ contract DeployRHImportWrapperScript is Script {
         if (block.chainid == RH_MAINNET_CHAIN_ID) return MN_WETH;
         if (block.chainid == RH_TESTNET_CHAIN_ID) return TN_WETH;
         revert("unsupported chain: use FOUNDRY_PROFILE=rh_testnet|rh_mainnet");
+    }
+
+    /// @dev 已部署的 Pump 地址（testnet）；mainnet 暂无，返回 address(0) 跳过 Pump 拒绝。
+    function _defaultPump() internal pure returns (address) {
+        return TN_PUMP;
     }
 
     /// @dev 只更新 ImportHelper / TagAISwapWrapper / WETH 字段，保留其余已部署地址。

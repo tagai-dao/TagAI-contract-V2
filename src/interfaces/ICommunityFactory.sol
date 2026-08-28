@@ -15,4 +15,7 @@ interface ICommunityFactory {
         address rewardCalculator,
         bytes calldata distributionPolicy
     ) external payable returns (address community);
+
+    /// @dev 是否由本工厂创建的 Community（复用 Community 导入时校验）。
+    function createdCommunity(address community) external view returns (bool);
 }

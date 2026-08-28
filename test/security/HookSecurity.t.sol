@@ -89,8 +89,9 @@ contract HookSecurityTest is V4ListedTokenTestBase {
     }
 
     function test_registerPool_canBeCalledOnceByLegitToken() public onlyReady {
-        (address community,,) = hook.tokenInfo(address(token));
+        (address community, address calc) = hook.tokenInfo(address(token));
         assertTrue(community != address(0));
+        assertTrue(calc != address(0));
     }
 
     function test_assetCustody_directTransferRequest_doesNothing() public onlyReady {
@@ -113,16 +114,28 @@ contract HookSecurityTest is V4ListedTokenTestBase {
 
     function test_assetCustody_balanceOnlyDecreasesViaInject() public onlyReady {
         uint256 hookTokenBalanceBefore = IERC20(address(token)).balanceOf(address(hook));
+        uint256 injectedBefore = calculator.totalInjected(token.nutboxCommunity());
 
-        _simulateHookBuy(token, 20_000 ether);
-        assertEq(IERC20(address(token)).balanceOf(address(hook)), hookTokenBalanceBefore);
+        // 同期 accumulate：hook 余额因 token fee 增加，不注入。
+        uint256 gross1 = _simulateHookBuy(token, 0.5 ether);
+        uint256 fee1 = (gross1 * 30) / 10000;
+        assertEq(
+            IERC20(address(token)).balanceOf(address(hook)),
+            hookTokenBalanceBefore + fee1,
+            "same period: hook balance only grows by token fee"
+        );
+        assertEq(calculator.totalInjected(token.nutboxCommunity()), injectedBefore, "no inject same period");
 
         _warpNextHookPeriod();
-        _simulateHookBuy(token, 20_000 ether);
+        // 结算期买入：触发上期结算注入，hook 余额减少注入量、增加本次 token fee。
+        uint256 gross2 = _simulateHookBuy(token, 0.01 ether);
+        uint256 fee2 = (gross2 * 30) / 10000;
+        uint256 expectedInject = _expectedHookSettleInject(gross1);
 
         uint256 hookTokenBalanceAfter = IERC20(address(token)).balanceOf(address(hook));
-        uint256 expectedInject = 20_000 ether * HOOK_TIER0_RATIO_PPM / HOOK_RATIO_SCALE;
-        assertEq(hookTokenBalanceBefore - hookTokenBalanceAfter, expectedInject);
+        // hook 余额变化 == 累计 token fee - 注入量；即余额减少仅由注入造成。
+        assertEq(hookTokenBalanceAfter, hookTokenBalanceBefore + fee1 + fee2 - expectedInject, "balance delta = fees - inject");
+        assertEq(calculator.totalInjected(token.nutboxCommunity()) - injectedBefore, expectedInject, "inject amount matches");
     }
 
     function test_reentrancy_protectedDuringRegisterPool() public onlyReady {

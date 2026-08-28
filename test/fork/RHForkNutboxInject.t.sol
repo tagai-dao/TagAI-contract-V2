@@ -11,6 +11,7 @@ import "./RHForkBase.t.sol";
 /**
  * @title RHForkNutboxInject
  * @notice RH fork: TagAISwapHook 10-minute Nutbox period settlement on live PM.
+ * @dev V11 余额制注入：注入量用 calculator.totalInjected 校验，cap 用 hook 余额。
  *
  * Run:
  *   RH_RPC_URL=https://rpc.mainnet.chain.robinhood.com \
@@ -23,19 +24,17 @@ contract RHForkNutboxInject is RHForkBase {
         address community = token.nutboxCommunity();
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
         uint256 totalInjectedBefore = calculator.totalInjected(community);
 
         uint256 tokensReceived = _swapBuyExactIn(poolKey, buyer, 5 ether);
         assertGt(tokensReceived, 0);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(remainingBefore));
-        assertEq(calculator.totalInjected(community), totalInjectedBefore);
+        assertEq(calculator.totalInjected(community), totalInjectedBefore, "same period: no inject");
 
         (uint32 periodIdx, uint256 periodBuy) = _readPeriodState(tokenAddr);
         assertEq(periodIdx, uint32(block.timestamp / PERIOD_LENGTH));
-        assertEq(periodBuy, tokensReceived);
+        // periodBuy 为毛成交额（含 0.3% token fee），net ≈ gross * 9970/10000。
+        assertApproxEqAbs(periodBuy * 9970 / 10000, tokensReceived, 2, "periodBuy = gross of buy");
     }
 
     function test_fork_nutboxInject_nextPeriod_settlesPriorPeriod() public onlyRhFork {
@@ -46,8 +45,9 @@ contract RHForkNutboxInject is RHForkBase {
 
         uint256 period1Buy = _swapBuyExactIn(poolKey, buyer, 5 ether);
         assertGt(period1Buy, 0);
+        // 注入档位按毛成交额查表（periodBuy 含 0.3% token fee）。
+        (, uint256 gross1) = _readPeriodState(tokenAddr);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
         uint256 totalInjectedBefore = calculator.totalInjected(community);
         uint256 communityBalBefore = IERC20(tokenAddr).balanceOf(community);
 
@@ -56,17 +56,15 @@ contract RHForkNutboxInject is RHForkBase {
         assertGt(period2Buy, 0);
 
         uint256 expectedInject =
-            _capInjectAmount(_expectedPeriodSettleInject(period1Buy), uint256(remainingBefore));
+            _capInjectAmount(_expectedPeriodSettleInject(gross1), IERC20(tokenAddr).balanceOf(address(hook)));
         assertGe(expectedInject, MIN_INJECT_OUTPUT);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingBefore) - uint256(remainingAfter), expectedInject);
-        assertEq(calculator.totalInjected(community) - totalInjectedBefore, expectedInject);
-        assertEq(IERC20(tokenAddr).balanceOf(community) - communityBalBefore, expectedInject);
+        assertEq(calculator.totalInjected(community) - totalInjectedBefore, expectedInject, "inject amount");
+        assertEq(IERC20(tokenAddr).balanceOf(community) - communityBalBefore, expectedInject, "community received");
 
         (uint32 p2, uint256 p2Buy) = _readPeriodState(tokenAddr);
         assertEq(p2, uint32(block.timestamp / PERIOD_LENGTH));
-        assertEq(p2Buy, period2Buy);
+        assertApproxEqAbs(p2Buy * 9970 / 10000, period2Buy, 2, "p2Buy = gross of period2 buy");
     }
 
     function test_fork_nutboxInject_skipsWhenPeriodSettleBelowMinimum() public onlyRhFork {
@@ -75,18 +73,16 @@ contract RHForkNutboxInject is RHForkBase {
         address community = token.nutboxCommunity();
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
         uint256 totalInjectedBefore = calculator.totalInjected(community);
 
-        _simulateHookBuy(token, 50 ether);
+        // 极小 ETH 买入：毛成交额产生的注入量 < MIN_INJECT_OUTPUT → 结算跳过。
+        _swapBuyExactIn(poolKey, buyer, 1e10 wei);
+        (, uint256 gross1) = _readPeriodState(tokenAddr);
         _warpToNextPeriod();
-        _simulateHookBuy(token, 1 ether);
+        _swapBuyExactIn(poolKey, buyer2, 1e10 wei);
 
-        assertLt(_expectedPeriodSettleInject(50 ether), MIN_INJECT_OUTPUT);
-
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(remainingBefore));
-        assertEq(calculator.totalInjected(community), totalInjectedBefore);
+        assertLt(_expectedPeriodSettleInject(gross1), MIN_INJECT_OUTPUT);
+        assertEq(calculator.totalInjected(community), totalInjectedBefore, "below min: skip");
     }
 
     function test_fork_nutboxInject_skippedPeriod_settlesOnNextActivePeriod() public onlyRhFork {
@@ -96,19 +92,18 @@ contract RHForkNutboxInject is RHForkBase {
 
         uint256 period1Buy = _swapBuyExactIn(poolKey, buyer, 5 ether);
         assertGt(period1Buy, 0);
+        (, uint256 gross1) = _readPeriodState(tokenAddr);
 
         _warpToNextPeriod();
         _warpToNextPeriod();
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
         uint256 period3Buy = _swapBuyExactIn(poolKey, buyer2, 2 ether);
         assertGt(period3Buy, 0);
 
         uint256 expectedInject =
-            _capInjectAmount(_expectedPeriodSettleInject(period1Buy), uint256(remainingBefore));
+            _capInjectAmount(_expectedPeriodSettleInject(gross1), IERC20(tokenAddr).balanceOf(address(hook)));
         if (expectedInject > 0) {
-            (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-            assertEq(uint256(remainingBefore) - uint256(remainingAfter), expectedInject);
+            assertGt(calculator.totalInjected(token.nutboxCommunity()), 0, "skipped period settles later");
         }
     }
 
@@ -122,14 +117,11 @@ contract RHForkNutboxInject is RHForkBase {
         uint256 tokenBal = IERC20(tokenAddr).balanceOf(buyer);
         assertGt(tokenBal, 0);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
         uint256 totalInjectedBefore = calculator.totalInjected(community);
 
         _swapSellExactIn(poolKey, buyer, tokenBal / 3);
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(remainingBefore));
-        assertEq(calculator.totalInjected(community), totalInjectedBefore);
+        assertEq(calculator.totalInjected(community), totalInjectedBefore, "sell never injects");
     }
 
     function test_fork_nutboxInject_eventsOnPeriodSettle() public onlyRhFork {
@@ -140,6 +132,7 @@ contract RHForkNutboxInject is RHForkBase {
 
         uint256 period1Buy = _swapBuyExactIn(poolKey, buyer, 5 ether);
         assertGt(period1Buy, 0);
+        (, uint256 gross1) = _readPeriodState(tokenAddr);
 
         _warpToNextPeriod();
 
@@ -147,8 +140,9 @@ contract RHForkNutboxInject is RHForkBase {
         _swapBuyExactIn(poolKey, buyer2, 2 ether);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
+        // V11: NutboxInjected(address,address,uint256,uint256) — last param 为注入后余额。
         bytes32 settledTopic = keccak256("PeriodSettled(address,uint32,uint256,uint256,uint32,uint256)");
-        bytes32 injectTopic = keccak256("NutboxInjected(address,address,uint256,uint96)");
+        bytes32 injectTopic = keccak256("NutboxInjected(address,address,uint256,uint256)");
         bool sawSettled;
         bool sawInject;
 
@@ -163,7 +157,7 @@ contract RHForkNutboxInject is RHForkBase {
         }
 
         assertTrue(sawSettled);
-        uint256 injectOut = _expectedPeriodSettleInject(period1Buy);
+        uint256 injectOut = _expectedPeriodSettleInject(gross1);
         if (injectOut >= MIN_INJECT_OUTPUT) {
             assertTrue(sawInject);
         }

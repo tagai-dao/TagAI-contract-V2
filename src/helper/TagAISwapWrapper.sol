@@ -34,6 +34,16 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
     uint16 public sellsmanRatio = 100;
     uint16 public tagaiRatio = 100;
 
+    /// @dev 导入代币市场登记（由 ImportHelper 调用 registerImportedToken 写入）。
+    struct ImportedMarket {
+        bool registered;
+        address community;
+        address deployer;
+    }
+    mapping(address => ImportedMarket) private _importedMarkets;
+
+    event ImportedMarketRegistered(address indexed token, address indexed community, address indexed deployer);
+
     /// @dev Transient PoolManager for the in-flight V4 unlock callback.
     IPoolManager private _activePoolManager;
 
@@ -54,9 +64,11 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
     error Slippage();
     error InvalidPoolKey();
     error OnlyPoolManager();
+    error UnauthorizedRegistrar();
+    error MarketAlreadyRegistered();
 
     constructor(address importHelper_, address ipshare_, address weth_, address feeAddress_) {
-        require(importHelper_ != address(0), "zero importHelper");
+        // importHelper 可在部署后通过 adminSetImportHelper 设置（解决与 ImportHelper 的循环依赖）。
         require(ipshare_ != address(0), "zero ipshare");
         require(weth_ != address(0), "zero weth");
         require(feeAddress_ != address(0), "zero feeAddress");
@@ -96,6 +108,32 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         ipshare = ipshare_;
     }
 
+    // ─── 导入代币市场登记 ───────────────────────────────────────────────────────
+
+    /// @dev 仅 ImportHelper 可登记（registrar）。重复登记 revert。
+    function registerImportedToken(address token, address community, address deployer) external {
+        if (msg.sender != importHelper) revert UnauthorizedRegistrar();
+        if (token == address(0)) revert InvalidPath();
+        ImportedMarket storage m = _importedMarkets[token];
+        if (m.registered) revert MarketAlreadyRegistered();
+        _importedMarkets[token] = ImportedMarket({registered: true, community: community, deployer: deployer});
+        emit ImportedMarketRegistered(token, community, deployer);
+    }
+
+    function getImportedMarket(address token)
+        external
+        view
+        returns (bool registered, address community, address deployer)
+    {
+        ImportedMarket memory m = _importedMarkets[token];
+        return (m.registered, m.community, m.deployer);
+    }
+
+    /// @dev 已登记代币绑定的 community（内部用，未登记返回 address(0)）。
+    function _importedCommunity(address token) internal view returns (address) {
+        return _importedMarkets[token].community;
+    }
+
     // ─── Sellsman resolution ─────────────────────────────────────────────────────
 
     /// @dev 1) valid IPShare subject arg → 2) ImportHelper.importerOf(token) → 3) feeAddress
@@ -103,9 +141,11 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         if (sellsman != address(0) && IIPShare(ipshare).ipshareCreated(sellsman)) {
             return sellsman;
         }
-        address importer = IImportHelper(importHelper).importerOf(token);
-        if (importer != address(0)) {
-            return importer;
+        if (importHelper != address(0)) {
+            address importer = IImportHelper(importHelper).importerOf(token);
+            if (importer != address(0)) {
+                return importer;
+            }
         }
         return feeAddress;
     }

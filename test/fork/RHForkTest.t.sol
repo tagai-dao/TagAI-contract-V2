@@ -16,6 +16,7 @@ import "./RHForkBase.t.sol";
 /**
  * @title RHForkTest
  * @notice RH mainnet fork integration tests against live Uniswap v4 PoolManager.
+ * @dev V11 余额制注入：注入量用 calculator.totalInjected 校验，cap 用 hook 余额。
  *
  * Run:
  *   RH_RPC_URL=https://rpc.mainnet.chain.robinhood.com \
@@ -23,6 +24,10 @@ import "./RHForkBase.t.sol";
  */
 contract RHForkTest is RHForkBase {
     using PoolIdLibrary for PoolKey;
+
+    function _injected(address tokenAddr) internal view returns (uint256) {
+        return calculator.totalInjected(Token(payable(tokenAddr)).nutboxCommunity());
+    }
 
     function test_fork_listingOnRealPM() public onlyRhFork {
         Token token = _createAndListToken("FORKLIST");
@@ -39,9 +44,7 @@ contract RHForkTest is RHForkBase {
         assertLt(tick, LISTING_TICK_UPPER);
 
         assertEq(hook.poolToken(poolId), address(token));
-        (, uint96 remaining,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remaining), NUTBOX_ALLOCATION);
-        assertEq(IERC20(address(token)).balanceOf(address(hook)), NUTBOX_ALLOCATION);
+        assertEq(IERC20(address(token)).balanceOf(address(hook)), NUTBOX_ALLOCATION, "hook holds nutbox allocation");
 
         assertTrue(ICommittee(address(committee)).verifyContract(address(calculator)));
         assertGt(RH_POOL_MANAGER.code.length, 0);
@@ -52,7 +55,6 @@ contract RHForkTest is RHForkBase {
         address tokenAddr = address(token);
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
         uint256 feeReceiverBalBefore = feeRecipient.balance;
         uint256 buyerTokenBefore = IERC20(tokenAddr).balanceOf(buyer);
 
@@ -74,21 +76,24 @@ contract RHForkTest is RHForkBase {
         assertGt(tokensReceived, 0);
         assertGt(feeRecipient.balance, feeReceiverBalBefore, "platform fee collected");
 
-        (, uint96 remainingAfterFirstBuy,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfterFirstBuy), uint256(remainingBefore), "same period: no inject");
+        // Hook 累计的是毛成交额（含 0.3% token fee），用 periodState 读取作为注入档位输入。
+        (, uint256 grossVolume) = _readPeriodState(tokenAddr);
+
+        uint256 injected0 = _injected(tokenAddr);
+        assertEq(_injected(tokenAddr), injected0, "same period: no inject");
 
         _warpToNextPeriod();
         _swapBuyExactIn(poolKey, buyer2, 2 ether);
 
-        uint256 expectedInject =
-            _capInjectAmount(_expectedPeriodSettleInject(tokensReceived), uint256(remainingBefore));
+        uint256 expectedInject = _capInjectAmount(
+            _expectedPeriodSettleInject(grossVolume),
+            IERC20(tokenAddr).balanceOf(address(hook))
+        );
 
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
         if (expectedInject > 0) {
-            assertEq(uint256(remainingBefore) - uint256(remainingAfter), expectedInject);
-            assertGt(calculator.totalInjected(token.nutboxCommunity()), 0);
+            assertEq(_injected(tokenAddr) - injected0, expectedInject, "inject on next-period first buy");
         } else {
-            assertEq(uint256(remainingAfter), uint256(remainingBefore));
+            assertEq(_injected(tokenAddr), injected0, "below min: skip");
         }
     }
 
@@ -101,11 +106,9 @@ contract RHForkTest is RHForkBase {
         uint256 tokenBal = IERC20(tokenAddr).balanceOf(buyer);
         assertGt(tokenBal, 0);
 
-        (, uint96 remainingBefore,) = hook.tokenInfo(tokenAddr);
+        uint256 injectedBefore = _injected(tokenAddr);
         _swapSellExactIn(poolKey, buyer, tokenBal / 2);
-
-        (, uint96 remainingAfter,) = hook.tokenInfo(tokenAddr);
-        assertEq(uint256(remainingAfter), uint256(remainingBefore));
+        assertEq(_injected(tokenAddr), injectedBefore, "sell never injects");
     }
 
     function test_fork_fullLifecycle_listAndSwapBothDirections() public onlyRhFork {

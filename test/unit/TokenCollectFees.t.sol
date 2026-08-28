@@ -81,7 +81,7 @@ contract TokenCollectFeesTest is V4ListedTokenTestBase {
         fresh.collectFees();
     }
 
-    /// @dev 通过 swapRouter 用 ETH 买入 token（zeroForOne=true）。
+    /// @dev 通过 swapRouter 用 ETH 买入 token（zeroForOne=true，exact-in ETH）。
     function _swapBuy(PoolKey memory pk, address actor, uint256 ethIn) internal {
         uint256 tokBefore = IERC20(address(token)).balanceOf(actor);
         vm.startPrank(actor);
@@ -90,8 +90,8 @@ contract TokenCollectFeesTest is V4ListedTokenTestBase {
             pk,
             IPoolManager.SwapParams({
                 zeroForOne: true,
-                amountSpecified: int256(ethIn),
-                sqrtPriceLimitX96: TickMath.getSqrtPriceAtTick(LISTING_TICK_LOWER)
+                amountSpecified: -int256(ethIn),
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
             }),
             PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
             bytes("")

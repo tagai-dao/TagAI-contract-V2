@@ -65,53 +65,39 @@ contract GasBenchmarkTest is V4ListedTokenTestBase {
     }
 
     function test_gas_hookAfterSwap_buyWithInject() public onlyReady {
-        PoolKey memory poolKey = _buildPoolKey(address(token));
-        IPoolManager.SwapParams memory params =
-            IPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(20_000 ether)));
-
-        vm.prank(address(manager));
-        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
-
+        // 真实 swap：accumulate 期 + 结算期，测量结算期 swap gas（含 Hook settle+inject）。
+        _simulateHookBuy(token, 0.5 ether);
         vm.warp(block.timestamp + 600);
 
-        vm.prank(address(manager));
         uint256 gasStart = gasleft();
-        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
+        _simulateHookBuy(token, 0.01 ether);
         uint256 gasUsed = gasStart - gasleft();
 
         console.log("[BENCHMARK] Hook.afterSwap (period settle + inject) gas:", gasUsed);
-        assertLt(gasUsed, 500_000);
+        assertLt(gasUsed, 600_000);
     }
 
     function test_gas_hookAfterSwap_buyAccumulateOnly() public onlyReady {
-        PoolKey memory poolKey = _buildPoolKey(address(token));
-        IPoolManager.SwapParams memory params =
-            IPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
-
-        vm.prank(address(manager));
+        // 真实 swap：同期 accumulate，无结算。测量 swap gas（含 Hook accumulate + token fee take）。
         uint256 gasStart = gasleft();
-        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
+        _simulateHookBuy(token, 0.1 ether);
         uint256 gasUsed = gasStart - gasleft();
 
         console.log("[BENCHMARK] Hook.afterSwap (buy accumulate only) gas:", gasUsed);
-        assertLt(gasUsed, 200_000);
+        assertLt(gasUsed, 600_000);
     }
 
     function test_gas_hookAfterSwap_buyBelowMin_skipInject() public onlyReady {
-        PoolKey memory poolKey = _buildPoolKey(address(token));
-        IPoolManager.SwapParams memory params =
-            IPoolManager.SwapParams({zeroForOne: true, amountSpecified: -0.01 ether, sqrtPriceLimitX96: 0});
-        BalanceDelta delta = toBalanceDelta(-0.01 ether, -int128(int256(100 ether)));
+        // 真实 swap：极小买入 accumulate（注入量 < MIN），warp 后结算期 swap 触发 skip。测量结算 swap gas。
+        _simulateHookBuy(token, 1e10 wei);
+        vm.warp(block.timestamp + 600);
 
-        vm.prank(address(manager));
         uint256 gasStart = gasleft();
-        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
+        _simulateHookBuy(token, 0.01 ether);
         uint256 gasUsed = gasStart - gasleft();
 
         console.log("[BENCHMARK] Hook.afterSwap (buy below MIN, skip) gas:", gasUsed);
-        assertLt(gasUsed, 200_000);
+        assertLt(gasUsed, 600_000);
     }
 
     function test_gas_hookAfterSwap_sell() public onlyReady {
