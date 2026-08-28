@@ -13,6 +13,8 @@ import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 
 import "../interfaces/IImportHelper.sol";
 import "../interfaces/IIPShare.sol";
+import "../interfaces/ICommunity.sol";
+import "../interfaces/IHourlyTickCalculator.sol";
 import "../interfaces/IUniswapV2Router02.sol";
 import "../interfaces/IUniswapV3SwapRouter.sol";
 import "../interfaces/IWETH.sol";
@@ -134,6 +136,75 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         return _importedMarkets[token].community;
     }
 
+    // ─── 导入代币 Nutbox token 侧 fee + 10 分钟注入 ─────────────────────────────
+
+    /// @dev 已登记代币交易时从 token 侧抽 0.2% 累计注入 Nutbox（与 main 导入对齐）。
+    uint16 public nutboxTokenRatio = 20; // 20 bps = 0.2%
+    uint256 public constant NUTBOX_INJECTION_INTERVAL = 600; // 10 分钟
+    uint256 public constant BPS_DENOMINATOR = 10_000;
+
+    mapping(address => uint256) public pendingNutboxInjection;
+    mapping(address => uint256) public lastNutboxInjectionAt;
+
+    event NutboxTokenFeeAccrued(address indexed token, address indexed community, uint256 amount, uint256 pendingAmount);
+    event NutboxTokenFeeInjected(address indexed token, address indexed community, uint256 amount);
+    event NutboxTokenFeeInjectionFailed(address indexed token, address indexed community, uint256 amount, bytes reason);
+    event FeeRatiosChanged(uint16 sellsmanRatio, uint16 tagaiRatio, uint16 nutboxTokenRatio);
+
+    /// @dev 三参数费率设置（sellsman / tagai / nutboxToken）。
+    function adminSetFeeRatios(uint16 sellsmanRatio_, uint16 tagaiRatio_, uint16 nutboxTokenRatio_)
+        external
+        onlyOwner
+    {
+        require(sellsmanRatio_ < 1000 && tagaiRatio_ < 1000, "fee ratio too high");
+        require(nutboxTokenRatio_ < 1000, "nutbox ratio too high");
+        sellsmanRatio = sellsmanRatio_;
+        tagaiRatio = tagaiRatio_;
+        nutboxTokenRatio = nutboxTokenRatio_;
+        emit FeeRatiosChanged(sellsmanRatio_, tagaiRatio_, nutboxTokenRatio_);
+    }
+
+    /// @dev 已登记代币：从毛 token 量扣 nutboxTokenRatio 累计到 pending；未登记：原样返回。
+    function _chargeNutboxTokenFee(address token, uint256 grossAmount) internal returns (uint256 netAmount) {
+        address community = _importedCommunity(token);
+        if (community == address(0) || nutboxTokenRatio == 0 || grossAmount == 0) return grossAmount;
+        uint256 fee = (grossAmount * nutboxTokenRatio) / BPS_DENOMINATOR;
+        if (fee == 0) return grossAmount;
+        pendingNutboxInjection[token] += fee;
+        emit NutboxTokenFeeAccrued(token, community, fee, pendingNutboxInjection[token]);
+        return grossAmount - fee;
+    }
+
+    /// @dev 10 分钟结算窗口到则尝试把 pending 注入 community 的 rewardCalculator；失败保留 pending，不阻断交易。
+    function _trySettleNutboxInjection(address token) internal {
+        address community = _importedCommunity(token);
+        if (community == address(0)) return;
+        uint256 pending = pendingNutboxInjection[token];
+        if (pending == 0) return;
+        if (block.timestamp < lastNutboxInjectionAt[token] + NUTBOX_INJECTION_INTERVAL) return;
+
+        address calc = ICommunity(community).rewardCalculator();
+        if (calc == address(0)) return;
+
+        // calculator.inject 通过 safeTransferFrom 从本合约拉 token，需先 approve。
+        IERC20(token).approve(calc, pending);
+        try IHourlyTickCalculator(calc).inject(community, pending) {
+            pendingNutboxInjection[token] = 0;
+            lastNutboxInjectionAt[token] = block.timestamp;
+            emit NutboxTokenFeeInjected(token, community, pending);
+        } catch (bytes memory reason) {
+            // 失败：保留 pending，回滚 approve，交易继续。
+            IERC20(token).approve(calc, 0);
+            emit NutboxTokenFeeInjectionFailed(token, community, pending, reason);
+        }
+    }
+
+    /// @notice 手动触发注入（同样受 10 分钟窗口限制）。返回实际注入量。
+    function flushNutboxInjection(address token) external nonReentrant returns (uint256) {
+        _trySettleNutboxInjection(token);
+        return pendingNutboxInjection[token];
+    }
+
     // ─── Sellsman resolution ─────────────────────────────────────────────────────
 
     /// @dev 1) valid IPShare subject arg → 2) ImportHelper.importerOf(token) → 3) feeAddress
@@ -190,9 +261,18 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         address token = path[1];
         sellsman = _resolveSellsman(token, sellsman);
 
+        _trySettleNutboxInjection(token);
+
         uint256 buyFund = _takeFeesFromEth(msg.value, sellsman);
 
-        IUniswapV2Router02(router).swapExactETHForTokens{value: buyFund}(amountOutMin, path, to, deadline);
+        // token 先进 Wrapper，扣 0.2% Nutbox fee 后净额转用户（已登记代币）。
+        uint256 balBefore = IERC20(token).balanceOf(address(this));
+        IUniswapV2Router02(router).swapExactETHForTokens{value: buyFund}(amountOutMin, path, address(this), deadline);
+        uint256 gross = IERC20(token).balanceOf(address(this)) - balBefore;
+        uint256 net = _chargeNutboxTokenFee(token, gross);
+        if (net > 0) {
+            if (!IERC20(token).transfer(to, net)) revert TransferFailed();
+        }
     }
 
     function sellToken(
@@ -208,12 +288,16 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         address token = path[0];
         sellsman = _resolveSellsman(token, sellsman);
 
+        _trySettleNutboxInjection(token);
+
         IERC20 erc20 = IERC20(token);
         if (!erc20.transferFrom(msg.sender, address(this), amountIn)) revert TransferFailed();
-        if (!erc20.approve(router, amountIn)) revert ApproveFailed();
+        // 已登记代币：从卖出 token 扣 0.2% Nutbox fee，剩余进 swap。
+        uint256 swapIn = _chargeNutboxTokenFee(token, amountIn);
+        if (!erc20.approve(router, swapIn)) revert ApproveFailed();
 
         uint256[] memory amounts = IUniswapV2Router02(router).swapExactTokensForETH(
-            amountIn, amountOutMin, path, address(this), deadline
+            swapIn, amountOutMin, path, address(this), deadline
         );
         // Best-effort allowance reset.
         erc20.approve(router, 0);
@@ -240,13 +324,16 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
     ) external payable nonReentrant {
         deadline; // unused — SwapRouter02 ExactInputSingleParams has no deadline
         sellsman = _resolveSellsman(token, sellsman);
+        _trySettleNutboxInjection(token);
         uint256 buyFund = _takeFeesFromEth(msg.value, sellsman);
 
+        // token 先进 Wrapper，扣 0.2% 后净额转用户。
+        uint256 balBefore = IERC20(token).balanceOf(address(this));
         IUniswapV3SwapRouter.ExactInputSingleParams memory params = IUniswapV3SwapRouter.ExactInputSingleParams({
             tokenIn: WETH,
             tokenOut: token,
             fee: poolFee,
-            recipient: to,
+            recipient: address(this),
             amountIn: buyFund,
             amountOutMinimum: amountOutMin,
             sqrtPriceLimitX96: 0
@@ -256,6 +343,11 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         if (address(this).balance > 0) {
             (bool ok,) = to.call{value: address(this).balance}("");
             if (!ok) revert TransferToFailed();
+        }
+        uint256 gross = IERC20(token).balanceOf(address(this)) - balBefore;
+        uint256 net = _chargeNutboxTokenFee(token, gross);
+        if (net > 0) {
+            if (!IERC20(token).transfer(to, net)) revert TransferFailed();
         }
     }
 
@@ -280,14 +372,16 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
 
         IERC20 erc20 = IERC20(token);
         if (!erc20.transferFrom(msg.sender, address(this), amountIn)) revert TransferFailed();
-        if (!erc20.approve(router, amountIn)) revert ApproveFailed();
+        // 已登记代币：从卖出 token 扣 0.2% Nutbox fee，剩余进 swap。
+        uint256 swapIn = _chargeNutboxTokenFee(token, amountIn);
+        if (!erc20.approve(router, swapIn)) revert ApproveFailed();
 
         IUniswapV3SwapRouter.ExactInputSingleParams memory params = IUniswapV3SwapRouter.ExactInputSingleParams({
             tokenIn: token,
             tokenOut: WETH,
             fee: poolFee,
             recipient: address(this),
-            amountIn: amountIn,
+            amountIn: swapIn,
             amountOutMinimum: amountOutMin,
             sqrtPriceLimitX96: 0
         });
@@ -318,6 +412,7 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
     ) external payable nonReentrant {
         (bool ethIsCurrency0, bool ethIsNative, address token) = _parseEthPool(poolKey);
         sellsman = _resolveSellsman(token, sellsman);
+        _trySettleNutboxInjection(token);
         uint256 buyFund = _takeFeesFromEth(msg.value, sellsman);
 
         // If the ETH leg is WETH (not native), wrap before unlock settle.
@@ -331,9 +426,11 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
                 zeroForOne ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1;
         }
 
+        // token 先 take 到 Wrapper，扣 0.2% 后净额转用户。
+        uint256 balBefore = IERC20(token).balanceOf(address(this));
         V4CallbackData memory cb = V4CallbackData({
             payer: address(this),
-            recipient: to,
+            recipient: address(this),
             key: poolKey,
             params: IPoolManager.SwapParams({
                 zeroForOne: zeroForOne,
@@ -348,6 +445,12 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         _activePoolManager = poolManager;
         poolManager.unlock(abi.encode(cb));
         _activePoolManager = IPoolManager(address(0));
+
+        uint256 gross = IERC20(token).balanceOf(address(this)) - balBefore;
+        uint256 net = _chargeNutboxTokenFee(token, gross);
+        if (net > 0) {
+            if (!IERC20(token).transfer(to, net)) revert TransferFailed();
+        }
     }
 
     /// @notice Exact-in token → ETH via PoolManager. `poolKey.hooks` may be zero for generic pools.
@@ -362,6 +465,7 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
     ) external nonReentrant {
         (bool ethIsCurrency0, bool ethIsNative, address token) = _parseEthPool(poolKey);
         sellsman = _resolveSellsman(token, sellsman);
+        _trySettleNutboxInjection(token);
 
         // Snapshot balances so donated/residual ETH/WETH cannot inflate sell fees.
         uint256 ethBefore = address(this).balance;
@@ -369,6 +473,8 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
 
         IERC20 erc20 = IERC20(token);
         if (!erc20.transferFrom(msg.sender, address(this), amountIn)) revert TransferFailed();
+        // 已登记代币：从卖出 token 扣 0.2% Nutbox fee，剩余进 swap。
+        uint256 swapIn = _chargeNutboxTokenFee(token, amountIn);
 
         // Selling token for ETH: zeroForOne is true when token is currency0.
         bool zeroForOne = !ethIsCurrency0;
@@ -383,7 +489,7 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
             key: poolKey,
             params: IPoolManager.SwapParams({
                 zeroForOne: zeroForOne,
-                amountSpecified: -int256(amountIn),
+                amountSpecified: -int256(swapIn),
                 sqrtPriceLimitX96: sqrtPriceLimitX96
             }),
             amountOutMin: amountOutMin,

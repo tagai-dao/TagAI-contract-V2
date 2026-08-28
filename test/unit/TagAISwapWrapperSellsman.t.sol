@@ -31,11 +31,14 @@ contract MockIPShare {
     }
 }
 
-/// @dev Captures ETH sent into swapExactETHForTokens (post-fee buy fund).
+/// @dev Captures ETH sent into swapExactETHForTokens (post-fee buy fund); mints tokens to recipient.
 contract MockV2Router is IUniswapV2Router02 {
     uint256 public lastValue;
     address public lastTo;
     address[] public lastPath;
+    MockERC20 public tokenContract;
+
+    function setToken(MockERC20 t) external { tokenContract = t; }
 
     function addLiquidityETH(address, uint, uint, uint, address, uint)
         external
@@ -60,9 +63,12 @@ contract MockV2Router is IUniswapV2Router02 {
         for (uint256 i; i < path.length; ++i) {
             lastPath.push(path[i]);
         }
+        // 给 recipient 铸造 token（模拟买入输出）。
+        uint256 out = msg.value * 1000;
+        tokenContract.mint(to, out);
         amounts = new uint[](2);
         amounts[0] = msg.value;
-        amounts[1] = 0;
+        amounts[1] = out;
     }
 
     function swapExactTokensForETH(uint, uint, address[] calldata, address, uint)
@@ -135,13 +141,19 @@ contract MockV3Router is IUniswapV3SwapRouter {
     function refundETH() external payable {}
 }
 
-/// @dev Minimal ERC20 with mint/approve for sell path.
+/// @dev Minimal ERC20 with mint/approve/transfer for sell & buy paths.
 contract MockERC20 {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
     function mint(address to, uint256 amount) external {
         balanceOf[to] += amount;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
     }
 
     function transferFrom(address from, address to, uint256 amount) external returns (bool) {
@@ -171,6 +183,7 @@ contract TagAISwapWrapperSellsman is Test {
     MockWETH public mockWeth;
     MockV3Router public v3Router;
     MockERC20 public sellToken;
+    MockERC20 public buyTokenContract;
 
     address public weth;
     address public feeAddress;
@@ -184,9 +197,7 @@ contract TagAISwapWrapperSellsman is Test {
     uint16 public constant TAGAI_BPS = 100; // 1%
 
     function setUp() public {
-        weth = makeAddr("weth");
         feeAddress = makeAddr("feeAddress");
-        token = makeAddr("token");
         buyer = makeAddr("buyer");
         seller = makeAddr("seller");
         validSellsman = makeAddr("validSellsman");
@@ -199,6 +210,9 @@ contract TagAISwapWrapperSellsman is Test {
         weth = address(mockWeth);
         v3Router = new MockV3Router(mockWeth);
         sellToken = new MockERC20();
+        buyTokenContract = new MockERC20();
+        token = address(buyTokenContract);
+        router.setToken(buyTokenContract);
 
         wrapper = new TagAISwapWrapper(
             address(importHelper),
@@ -245,7 +259,9 @@ contract TagAISwapWrapperSellsman is Test {
         assertEq(validSellsman.balance, expectedSellsmanFee, "sellsman fee");
         assertEq(feeAddress.balance, expectedTagaiFee, "tagai fee");
         assertEq(router.lastValue(), value - expectedSellsmanFee - expectedTagaiFee, "buy fund");
-        assertEq(router.lastTo(), buyer);
+        // token 先进 Wrapper（抽 0.2% Nutbox fee 后转用户）；未登记代币净额=毛额。
+        assertEq(router.lastTo(), address(wrapper), "router recipient is wrapper");
+        assertEq(buyTokenContract.balanceOf(buyer), (value - expectedSellsmanFee - expectedTagaiFee) * 1000, "buyer gets net tokens");
     }
 
     /// @dev Zero sellsman + importerOf set → fee goes to importer.
