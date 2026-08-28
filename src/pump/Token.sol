@@ -136,12 +136,6 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         poolManager = IPoolManager(IPump(manager_).getPoolManager());
     }
 
-    /// @notice Legacy no-op kept for Pump ABI compatibility until Pump drops the call.
-    /// @dev V11 用 `_isPumpPremine()` 判定预购，不再需要 armed 标志。
-    function armAntiSnipeBypass() external {
-        if (msg.sender != manager) revert OnlyPump();
-    }
-
     /// @notice Records Nutbox `Community` and SocialCuration pool; callable once by Pump only.
     function setNutboxAddresses(address community, address pool) external {
         if (msg.sender != manager) revert OnlyPump();

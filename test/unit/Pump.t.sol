@@ -2,6 +2,8 @@
 pragma solidity ^0.8.26;
 
 import {Pump} from "../../src/pump/Pump.sol";
+import {Token} from "../../src/pump/Token.sol";
+import {Community} from "../../src/nutbox/Community.sol";
 import {NutboxDeployConfigLib} from "../../src/pump/NutboxDeployConfig.sol";
 import {V4PumpTestBase} from "../helpers/V4PumpTestBase.sol";
 
@@ -98,6 +100,17 @@ contract PumpTest is V4PumpTestBase {
         address tokenAddr = pump.createToken{value: 0.005 ether}("TEST", bytes32(uint256(1)));
         assertTrue(pump.createdTokens(tokenAddr));
         assertTrue(tokenAddr != address(0));
+    }
+
+    // ─── P1T3: devFund 交接给 creator ───
+
+    function test_createToken_setsCommunityDevFundToCreator() public onlyReady {
+        _ensureCreatorIPShare();
+        vm.prank(creator, creator);
+        address tokenAddr = pump.createToken{value: 0.005 ether}("DEVFUND", bytes32(uint256(42)));
+        address community = Token(payable(tokenAddr)).nutboxCommunity();
+        assertEq(Community(community).devFund(), creator);
+        assertEq(Community(community).owner(), creator);
     }
 
     function test_createToken_revertsIfTickAlreadyExists() public onlyReady {
