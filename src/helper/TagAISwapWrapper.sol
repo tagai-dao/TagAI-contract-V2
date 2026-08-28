@@ -292,9 +292,12 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         _trySettleNutboxInjection(token);
 
         IERC20 erc20 = IERC20(token);
+        // 按余额差结算输入（支持 fee-on-transfer 代币）。
+        uint256 balBefore = IERC20(token).balanceOf(address(this));
         if (!erc20.transferFrom(msg.sender, address(this), amountIn)) revert TransferFailed();
+        uint256 actualReceived = IERC20(token).balanceOf(address(this)) - balBefore;
         // 已登记代币：从卖出 token 扣 0.2% Nutbox fee，剩余进 swap。
-        uint256 swapIn = _chargeNutboxTokenFee(token, amountIn);
+        uint256 swapIn = _chargeNutboxTokenFee(token, actualReceived);
         if (!erc20.approve(router, swapIn)) revert ApproveFailed();
 
         uint256[] memory amounts = IUniswapV2Router02(router).swapExactTokensForETH(
@@ -432,9 +435,12 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         uint256 wethBefore = IERC20(WETH).balanceOf(address(this));
 
         IERC20 erc20 = IERC20(token);
+        // 按余额差结算输入（支持 fee-on-transfer）。
+        uint256 tokenBalBefore = IERC20(token).balanceOf(address(this));
         if (!erc20.transferFrom(msg.sender, address(this), amountIn)) revert TransferFailed();
+        uint256 actualReceived = IERC20(token).balanceOf(address(this)) - tokenBalBefore;
         // 已登记代币：从卖出 token 扣 0.2% Nutbox fee，剩余进 swap。
-        uint256 swapIn = _chargeNutboxTokenFee(token, amountIn);
+        uint256 swapIn = _chargeNutboxTokenFee(token, actualReceived);
         if (!erc20.approve(router, swapIn)) revert ApproveFailed();
 
         IUniswapV3SwapRouter.ExactInputSingleParams memory params = IUniswapV3SwapRouter.ExactInputSingleParams({
@@ -533,9 +539,12 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         uint256 wethBefore = ethIsNative ? 0 : IERC20(WETH).balanceOf(address(this));
 
         IERC20 erc20 = IERC20(token);
+        // 按余额差结算输入（支持 fee-on-transfer）。
+        uint256 tokenBalBefore = IERC20(token).balanceOf(address(this));
         if (!erc20.transferFrom(msg.sender, address(this), amountIn)) revert TransferFailed();
+        uint256 actualReceived = IERC20(token).balanceOf(address(this)) - tokenBalBefore;
         // 已登记代币：从卖出 token 扣 0.2% Nutbox fee，剩余进 swap。
-        uint256 swapIn = _chargeNutboxTokenFee(token, amountIn);
+        uint256 swapIn = _chargeNutboxTokenFee(token, actualReceived);
 
         // Selling token for ETH: zeroForOne is true when token is currency0.
         bool zeroForOne = !ethIsCurrency0;

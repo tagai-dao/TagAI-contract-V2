@@ -66,6 +66,29 @@ contract MockERC20 {
     }
 }
 
+/// @dev Fee-on-transfer ERC20：每次 transfer/transferFrom 扣 1% 转账税。
+contract FeeOnTransferERC20 {
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+    uint256 public constant FEE_BPS = 100; // 1%
+    function mint(address to, uint256 amt) external { balanceOf[to] += amt; totalSupply += amt; }
+    function transfer(address to, uint256 amt) external returns (bool) { return _move(msg.sender, to, amt); }
+    function transferFrom(address from, address to, uint256 amt) external returns (bool) {
+        allowance[from][msg.sender] -= amt;
+        return _move(from, to, amt);
+    }
+    function approve(address spender, uint256 amt) external returns (bool) { allowance[msg.sender][spender] = amt; return true; }
+    function _move(address from, address to, uint256 amt) internal returns (bool) {
+        uint256 tax = (amt * FEE_BPS) / 10_000;
+        balanceOf[from] -= amt;
+        balanceOf[to] += amt - tax;
+        // tax 留在 from（销毁式简化）
+        return true;
+    }
+}
+
 /// @dev Mock V2 Router：买入时按 rate 给 recipient 铸币；卖出时按 rate 给 wrapper 发 ETH。
 contract MockV2Router is IUniswapV2Router02 {
     MockERC20 public _token;
@@ -322,5 +345,43 @@ contract TagAISwapWrapperNutboxFee is Test {
         wrapper.quoteBuyV3(address(0), 0, address(token), address(router), 3000);
         vm.expectRevert(TagAISwapWrapper.UnsupportedQuote.selector);
         wrapper.quoteSellV3(0, address(token), address(router), 3000);
+    }
+
+    // ─── Fee-on-transfer（V2 路径，按余额差结算）────────────────────────────
+
+    /// @dev 卖出 fee-on-transfer 代币：wrapper 按实际到账（扣转账税后）抽 0.2% Nutbox fee，交易成功。
+    function test_sell_feeOnTransferToken_settlesByBalanceDelta() public {
+        FeeOnTransferERC20 fotToken = new FeeOnTransferERC20();
+        MockV2Router fotRouter = new MockV2Router(MockERC20(address(0)), 1000);
+        // router 拉取 token 时也按 fee-on-transfer；用真实 token 引用。
+        // 重新部署一个绑定 fotToken 的 router：MockV2Router 构造需要 MockERC20，改用 setToken。
+        fotRouter = new MockV2Router(MockERC20(address(fotToken)), 1000);
+        // 注册 fotToken
+        vm.prank(address(importHelper));
+        wrapper.registerImportedToken(address(fotToken), address(community), buyer);
+
+        uint256 amountIn = 1000 ether;
+        fotToken.mint(buyer, amountIn);
+        uint256 expectedReceived = amountIn - (amountIn * FeeOnTransferERC20(address(fotToken)).FEE_BPS()) / 10_000;
+        uint256 expectedNutboxFee = (expectedReceived * uint256(NUTBOX_BPS)) / 10_000;
+        uint256 expectedSwapIn = expectedReceived - expectedNutboxFee;
+
+        address[] memory sellPath = new address[](2);
+        sellPath[0] = address(fotToken);
+        sellPath[1] = address(weth);
+
+        // router 需持有 ETH 以支付卖出所得。
+        vm.deal(address(fotRouter), 10 ether);
+        uint256 ethBefore = buyer.balance;
+        vm.startPrank(buyer);
+        fotToken.approve(address(wrapper), amountIn);
+        wrapper.sellToken(amountIn, 0, sellPath, buyer, block.timestamp + 1, address(0), address(fotRouter));
+        vm.stopPrank();
+
+        // wrapper 累计的 Nutbox fee 基于实际到账（扣转账税后）的 0.2%。
+        assertEq(wrapper.pendingNutboxInjection(address(fotToken)), expectedNutboxFee, "nutbox fee on actual received");
+        // wrapper 不残留 swapIn（router 已拉走）。
+        assertEq(fotToken.balanceOf(address(wrapper)), expectedNutboxFee, "wrapper holds only nutbox fee");
+        assertGt(buyer.balance, ethBefore, "seller received eth");
     }
 }
