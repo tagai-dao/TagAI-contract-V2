@@ -88,7 +88,8 @@ contract MockV2Router is IUniswapV2Router02 {
     function WETH() external pure returns (address) { return address(0); }
     function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts) {
         amounts = new uint[](path.length); amounts[0] = amountIn;
-        amounts[1] = amountIn * _rate;
+        // path[0] 是 token（卖出）→ 除以 rate；path[0] 是 WETH（买入）→ 乘以 rate。
+        amounts[1] = path[0] == address(_token) ? amountIn / _rate : amountIn * _rate;
     }
 }
 
@@ -260,5 +261,66 @@ contract TagAISwapWrapperNutboxFee is Test {
         remaining = wrapper.flushNutboxInjection(address(token));
         assertEq(remaining, 0, "pending cleared after interval");
         assertEq(calculator.totalInjected(), pending, "injected");
+    }
+
+    // ─── 报价（V2）──────────────────────────────────────────────────────────
+
+    /// @dev 未登记代币 quoteBuy：仅扣 ETH 费（此处 ETH 费=0），与真实买入一致。
+    function test_quoteBuy_unregistered_matchesSwap() public {
+        uint256 ethIn = 1 ether;
+        uint256 q = wrapper.quoteBuy(ethIn, _buyPath(), address(router));
+        // ETH 费=0 → buyFund=1e18 → gross=1000e18；未登记 → net=gross。
+        assertEq(q, 1000 ether, "quote == gross (no fees)");
+
+        // 真实买入核对
+        uint256 balBefore = token.balanceOf(buyer);
+        vm.prank(buyer);
+        wrapper.buyToken{value: ethIn}(address(0), 0, _buyPath(), buyer, block.timestamp + 1, address(router));
+        assertEq(token.balanceOf(buyer) - balBefore, q, "quote matches actual net");
+    }
+
+    /// @dev 已登记代币 quoteBuy：扣 0.2% token fee。
+    function test_quoteBuy_registered_deductsTokenFee() public {
+        _register(address(token), address(community));
+        uint256 ethIn = 1 ether;
+        uint256 q = wrapper.quoteBuy(ethIn, _buyPath(), address(router));
+        uint256 expected = 1000 ether - (uint256(1000 ether) * uint256(NUTBOX_BPS)) / 10_000;
+        assertEq(q, expected, "quote deducts 0.2%");
+
+        uint256 balBefore = token.balanceOf(buyer);
+        vm.prank(buyer);
+        wrapper.buyToken{value: ethIn}(address(0), 0, _buyPath(), buyer, block.timestamp + 1, address(router));
+        assertEq(token.balanceOf(buyer) - balBefore, q, "quote matches actual net");
+    }
+
+    /// @dev 已登记代币 quoteSell：扣 0.2% token fee + ETH 费（此处 ETH 费=0）。
+    function test_quoteSell_registered_deductsTokenFee() public {
+        _register(address(token), address(community));
+        // 先给用户 token
+        vm.prank(buyer);
+        wrapper.buyToken{value: 1 ether}(address(0), 0, _buyPath(), buyer, block.timestamp + 1, address(router));
+        uint256 userBal = token.balanceOf(buyer);
+        uint256 sellAmt = userBal / 2;
+
+        uint256 q = wrapper.quoteSell(sellAmt, _sellPath(), address(router));
+        // swapIn = sellAmt - 0.2%；ethOut = swapIn / 1000；ETH 费=0。
+        uint256 swapIn = sellAmt - (sellAmt * uint256(NUTBOX_BPS)) / 10_000;
+        uint256 expected = swapIn / 1000;
+        assertEq(q, expected, "quote sell net eth");
+
+        uint256 ethBefore = buyer.balance;
+        vm.startPrank(buyer);
+        token.approve(address(wrapper), sellAmt);
+        wrapper.sellToken(sellAmt, 0, _sellPath(), buyer, block.timestamp + 1, address(0), address(router));
+        vm.stopPrank();
+        assertEq(buyer.balance - ethBefore, q, "quote matches actual net eth");
+    }
+
+    /// @dev V3/V4 报价暂不支持。
+    function test_quoteV3_unsupported() public {
+        vm.expectRevert(TagAISwapWrapper.UnsupportedQuote.selector);
+        wrapper.quoteBuyV3(address(0), 0, address(token), address(router), 3000);
+        vm.expectRevert(TagAISwapWrapper.UnsupportedQuote.selector);
+        wrapper.quoteSellV3(0, address(token), address(router), 3000);
     }
 }

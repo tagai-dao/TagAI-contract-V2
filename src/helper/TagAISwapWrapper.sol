@@ -68,6 +68,7 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
     error OnlyPoolManager();
     error UnauthorizedRegistrar();
     error MarketAlreadyRegistered();
+    error UnsupportedQuote();
 
     constructor(address importHelper_, address ipshare_, address weth_, address feeAddress_) {
         // importHelper 可在部署后通过 adminSetImportHelper 设置（解决与 ImportHelper 的循环依赖）。
@@ -308,7 +309,67 @@ contract TagAISwapWrapper is Ownable, ReentrancyGuard, IUnlockCallback {
         if (!ok) revert TransferToFailed();
     }
 
-    // ─── V3 (SwapRouter02 ABI — no deadline in ExactInputSingleParams) ───────────
+    // ─── 报价（V2；V3/V4 暂不支持，前端用独立 quoter） ────────────────────────────
+
+    /// @notice V2 买入报价：返回用户实际到账 token（扣 ETH 费 + token 侧 Nutbox fee 后）。
+    /// @dev 与真实 buyToken 同向：先扣 ETH 侧 sellsman+tagai 费得 buyFund，再 getAmountsOut，
+    ///      再扣已登记代币的 0.2% token fee。
+    function quoteBuy(uint256 ethIn, address[] calldata path, address router)
+        external
+        view
+        returns (uint256 netTokenOut)
+    {
+        if (path.length < 2 || path[0] != WETH) revert InvalidPath();
+        address token = path[1];
+        // ETH 侧费（与 _takeFeesFromEth 一致）。
+        uint256 ethFee = (ethIn * (uint256(sellsmanRatio) + uint256(tagaiRatio))) / BPS_DENOMINATOR;
+        uint256 buyFund = ethIn - ethFee;
+        uint256[] memory amounts = IUniswapV2Router02(router).getAmountsOut(buyFund, path);
+        uint256 grossTokenOut = amounts[amounts.length - 1];
+        // 已登记代币扣 0.2% token fee。
+        if (_importedCommunity(token) != address(0) && nutboxTokenRatio > 0) {
+            uint256 tokenFee = (grossTokenOut * nutboxTokenRatio) / BPS_DENOMINATOR;
+            netTokenOut = grossTokenOut - tokenFee;
+        } else {
+            netTokenOut = grossTokenOut;
+        }
+    }
+
+    /// @notice V2 卖出报价：返回用户实际到账 ETH（扣 token 侧 Nutbox fee + ETH 费后）。
+    /// @dev 与真实 sellToken 同向：先扣已登记代币 0.2% token fee 得 swapIn，再 getAmountsOut，
+    ///      再扣 ETH 侧 sellsman+tagai 费。
+    function quoteSell(uint256 amountIn, address[] calldata path, address router)
+        external
+        view
+        returns (uint256 netEthOut)
+    {
+        if (path.length < 2 || path[path.length - 1] != WETH) revert InvalidPath();
+        address token = path[0];
+        // 已登记代币扣 0.2% token fee。
+        uint256 swapIn = amountIn;
+        if (_importedCommunity(token) != address(0) && nutboxTokenRatio > 0) {
+            uint256 tokenFee = (amountIn * nutboxTokenRatio) / BPS_DENOMINATOR;
+            swapIn = amountIn - tokenFee;
+        }
+        uint256[] memory amounts = IUniswapV2Router02(router).getAmountsOut(swapIn, path);
+        uint256 grossEthOut = amounts[amounts.length - 1];
+        uint256 ethFee = (grossEthOut * (uint256(sellsmanRatio) + uint256(tagaiRatio))) / BPS_DENOMINATOR;
+        netEthOut = grossEthOut - ethFee;
+    }
+
+    /// @dev V3/V4 报价第 2 期暂不支持（前端用独立 quoter）。
+    function quoteBuyV3(address, uint256, address, address, uint24) external pure returns (uint256) {
+        revert UnsupportedQuote();
+    }
+    function quoteSellV3(uint256, address, address, uint24) external pure returns (uint256) {
+        revert UnsupportedQuote();
+    }
+    function quoteBuyV4(PoolKey calldata, IPoolManager, uint160) external pure returns (uint256) {
+        revert UnsupportedQuote();
+    }
+    function quoteSellV4(uint256, PoolKey calldata, IPoolManager, uint160) external pure returns (uint256) {
+        revert UnsupportedQuote();
+    }
 
     /// @notice ETH → token via Uniswap V3 SwapRouter02.
     /// @dev `deadline` is kept for call-site ABI stability but is unused: Router02 has no
