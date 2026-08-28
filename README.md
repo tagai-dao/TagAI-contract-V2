@@ -4,6 +4,8 @@ Smart contracts for **TagAI (TipTag)** on BSC — **Pump Version 9 (V9)** for ne
 
 > **Earlier Pump versions (V1–V8)** live in the legacy Hardhat repo: [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract). This repository is the Foundry-based **V9 / V10** deployment and supersedes V8 on BSC mainnet for new community tokens (and for external-token Nutbox imports that previously went through Pump6).
 
+> **Standalone Hook releases** (beginning with SPCXB / XSpace Store V1) are tracked in [`HOOKS_CHANGELOG.md`](HOOKS_CHANGELOG.md), including immutable release commits, tags, deployed addresses, fee rules, scripts, and tests.
+
 ## What It Solves
 
 - **Creators**: Launch community tokens, bind IPShare, and earn ongoing value from trading and social activity
