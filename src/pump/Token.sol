@@ -64,7 +64,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     // Uniswap v4 pool info
     IPoolManager public poolManager;
     PoolId public v4PoolId;
-    // fee=0：池子本身不收 swap fee，全部由 TipTagSwapHook 收取
+    /// @notice Hook permanently bound to this token's listing pool.
+    /// @dev 上市时快照，后续 Pump hook 升级不会改变该池的身份或费率目的地。
+    address public listingHook;
+    /// @dev V4 中 tickSpacing 与 fee 完全解耦。fee=3000 设 0.3% 原生 LP 费；TipTagSwapHook 在其上再收 swap 费。
+    /// tickSpacing=60 只控制价格 tick 粒度（与费率档无关）。
+    uint24 public constant LISTING_LP_FEE = 3000;
+    /// @dev 领取 LP 费的 permissionless 调用者奖励 0.5%。
+    uint256 public constant COLLECT_CALLER_REWARD_BPS = 50;
     int24 public constant TICK_SPACING = 60;
     // RH listing LP: 双边 ~200M + ~4.8 ETH；tickLower=MIN；tickUpper 校准使池外 800M 卖压抽干池内 ETH。
     // 离线标定：ListingParamsCalc.test_solveRH_listingConstants
@@ -74,6 +81,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     int24 private constant LISTING_TICK_LOWER = -887220;
     int24 private constant LISTING_TICK_UPPER = 205740;
     uint128 private constant LISTING_LIQUIDITY_DELTA = 34553395272273650725680;
+
+    /// @dev unlock callback op codes — seed listing LP vs collect fees。
+    uint8 private constant UNLOCK_OP_SEED = 0;
+    uint8 private constant UNLOCK_OP_COLLECT = 1;
+
+    /// @dev collect callback 写入，collectFees 读后清零。
+    uint256 private _collectEthAmount;
+    uint256 private _collectTokenAmount;
 
     receive() external payable nonReentrant {
         if (listed) revert TokenListed();
@@ -410,14 +425,10 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         require(hookAddr != address(0), "Hook not set");
         _transfer(address(this), hookAddr, NUTBOX_ALLOCATION);
 
-        // currency0 = native ETH, currency1 = this token (address sort order)
-        PoolKey memory poolKey = PoolKey({
-            currency0: CurrencyLibrary.ADDRESS_ZERO,
-            currency1: Currency.wrap(address(this)),
-            fee: 0,
-            tickSpacing: TICK_SPACING,
-            hooks: IHooks(hookAddr)
-        });
+        // 永久绑定上市 hook，后续 Pump hook 升级不影响该池。
+        listingHook = hookAddr;
+
+        PoolKey memory poolKey = _listingPoolKey();
 
         uint160 sqrtPriceX96 = INITIAL_SQRT_PRICE_X96;
         int24 tickLower = LISTING_TICK_LOWER;
@@ -430,7 +441,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         ITipTagSwapHook(hookAddr).registerPool(poolId, address(this));
 
         // Add bounded-range liquidity inside unlock callback
-        poolManager.unlock(abi.encode(poolKey, tickLower, tickUpper));
+        poolManager.unlock(abi.encode(UNLOCK_OP_SEED, poolKey, tickLower, tickUpper, address(0)));
 
         // After LP is settled, send all remaining ETH to platform. Remaining token stays in this contract.
         address tiptagFeeAddress = IPump(manager).getFeeReceiver();
@@ -444,15 +455,87 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         emit TokenListedToDex(address(this), PoolId.unwrap(poolId), sqrtPriceX96);
     }
 
-    /// @notice IUnlockCallback — 双边 LP：~200M token + ~4.8 ETH 进池。
+    /// @notice IUnlockCallback — seed listing LP 或 collect 已累积的 LP 费（liquidityDelta=0）。
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(poolManager), "Only PoolManager");
 
-        (PoolKey memory poolKey, int24 tickLower, int24 tickUpper) = abi.decode(data, (PoolKey, int24, int24));
+        (uint8 op, PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) =
+            abi.decode(data, (uint8, PoolKey, int24, int24, address));
 
-        _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+        if (op == UNLOCK_OP_SEED) {
+            _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+        } else if (op == UNLOCK_OP_COLLECT) {
+            _collectListingFees(poolKey, tickLower, tickUpper, collector);
+        } else {
+            revert("Invalid unlock op");
+        }
 
         return "";
+    }
+
+    /// @dev 从上市时快照的 listingHook 重建不可变 PoolKey，禁止再读 Pump.getHookAddress()。
+    function _listingPoolKey() private view returns (PoolKey memory) {
+        return PoolKey({
+            currency0: CurrencyLibrary.ADDRESS_ZERO,
+            currency1: Currency.wrap(address(this)),
+            fee: LISTING_LP_FEE,
+            tickSpacing: TICK_SPACING,
+            hooks: IHooks(listingHook)
+        });
+    }
+
+    /// @notice Permissionless：领取上市 LP 费、奖励调用者、BNB→平台、Token→Hook。
+    function collectFees() external nonReentrant returns (uint256 ethAmount, uint256 tokenAmount) {
+        if (!listed) revert TokenNotListed();
+
+        poolManager.unlock(
+            abi.encode(UNLOCK_OP_COLLECT, _listingPoolKey(), LISTING_TICK_LOWER, LISTING_TICK_UPPER, msg.sender)
+        );
+
+        ethAmount = _collectEthAmount;
+        tokenAmount = _collectTokenAmount;
+        _collectEthAmount = 0;
+        _collectTokenAmount = 0;
+
+        uint256 callerReward = (ethAmount * COLLECT_CALLER_REWARD_BPS) / divisor;
+        emit ListingFeesCollected(msg.sender, ethAmount, tokenAmount, callerReward);
+    }
+
+    /// @dev 通过 modifyLiquidity(0) 领取上市 LP 费；用 feesAccrued 计费，不要把本金 delta 当手续费。
+    function _collectListingFees(PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) private {
+        IPoolManager.ModifyLiquidityParams memory params = IPoolManager.ModifyLiquidityParams({
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            liquidityDelta: 0,
+            salt: bytes32(0)
+        });
+
+        (, BalanceDelta feeDelta) = poolManager.modifyLiquidity(poolKey, params, "");
+
+        int128 ethFee = feeDelta.amount0();
+        int128 tokenFee = feeDelta.amount1();
+
+        uint256 ethAmount;
+        uint256 tokenAmount;
+
+        if (ethFee > 0) {
+            ethAmount = uint256(uint128(ethFee));
+            uint256 callerReward = (ethAmount * COLLECT_CALLER_REWARD_BPS) / divisor;
+            address feeReceiver = IPump(manager).getFeeReceiver();
+            // 直接从 PoolManager take 到目标，Token 不持有领取的 BNB。
+            if (callerReward != 0) {
+                CurrencySettler.take(poolKey.currency0, poolManager, collector, callerReward, false);
+            }
+            CurrencySettler.take(poolKey.currency0, poolManager, feeReceiver, ethAmount - callerReward, false);
+        }
+
+        if (tokenFee > 0) {
+            tokenAmount = uint256(uint128(tokenFee));
+            CurrencySettler.take(poolKey.currency1, poolManager, listingHook, tokenAmount, false);
+        }
+
+        _collectEthAmount = ethAmount;
+        _collectTokenAmount = tokenAmount;
     }
 
     /// @dev modifyLiquidity + settle open deltas against PoolManager.

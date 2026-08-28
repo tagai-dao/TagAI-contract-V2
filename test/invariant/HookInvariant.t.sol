@@ -51,7 +51,7 @@ contract AttackerHandler is Test {
         return PoolKey({
             currency0: CurrencyLibrary.ADDRESS_ZERO,
             currency1: Currency.wrap(address(0)),
-            fee: 0,
+            fee: 3000,
             tickSpacing: 60,
             hooks: IHooks(address(0))
         });

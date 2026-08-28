@@ -74,7 +74,7 @@ contract HookSecurityTest is V4ListedTokenTestBase {
         PoolKey memory poolKey = PoolKey({
             currency0: CurrencyLibrary.ADDRESS_ZERO,
             currency1: Currency.wrap(fakeToken),
-            fee: 0,
+            fee: 3000,
             tickSpacing: 60,
             hooks: IHooks(address(hook))
         });

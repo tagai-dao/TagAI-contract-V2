@@ -48,6 +48,14 @@ interface IToken {
         address indexed newSubject
     );
 
+    /// @notice 领取上市 LP 费时发出；callerReward 为给调用者的 BNB 奖励。
+    event ListingFeesCollected(
+        address indexed collector,
+        uint256 ethAmount,
+        uint256 tokenAmount,
+        uint256 callerReward
+    );
+
     // ─── View Functions ──────────────────────────────────────────────────────────
 
     function nutboxCommunity() external view returns (address);
@@ -61,4 +69,10 @@ interface IToken {
     function getIPShare() external view returns (address);
 
     function ipshareSubject() external view returns (address);
+
+    /// @notice 上市时永久绑定的 hook 地址。
+    function listingHook() external view returns (address);
+
+    /// @notice Permissionless 领取上市 LP 费。返回 BNB 与 Token 领取量。
+    function collectFees() external returns (uint256 ethAmount, uint256 tokenAmount);
 }
