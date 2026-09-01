@@ -87,7 +87,6 @@ Robinhood Chain 固定基础设施：
 | pTEAM 首次可执行时间               | `listTime + 24 hours` |
 | Distributor epoch           | `8 hours`             |
 | Bond vest                   | `2 days`              |
-| pTEAM vest                  | `30 days`             |
 | PremiumSeller 最小执行间隔        | `1 hour`              |
 
 
@@ -911,19 +910,19 @@ TEAM_STRIKE
 
 Strike 在创建/Listing 后永久不变，不随 anchor 正常上涨或 generation 向下重启改变。
 
-### 17.2 归属和额度
+### 17.2 额度
 
-pTEAM 从 `listTime` 起30天线性归属，采用 NetNet 的动态15%上限：
+本协议不使用 NetNet 的30天线性归属。行权 Token 只进入 IndexBondDesk，没有撤回路径，不能进入团队钱包或任何交易池；每一枚最终被用户认购的 Token 都有 Desk 单价对应的 USDG 进入协议（strike 进 BurnNet，其余进 BurnNet 补差和指数购买）。因此不需要再用日历归属来限制抛压。
+
+额度以 `totalSupply` 为基数，采用动态10%上限；上限随总供应量上升，永不到期：
 
 ```text
 maxCumulativeExercise
-= vestedFraction × 15% × circulatingSupply
+= 10% × totalSupply
 
 exercisableNow
 = max(maxCumulativeExercise - alreadyExercised, 0)
 ```
-
-本协议的 `circulatingSupply = totalSupply`。
 
 额外限制：
 
@@ -931,6 +930,8 @@ exercisableNow
 - TWAP 有效且 `TWAP >= 1.2 × anchor`；
 - 不在 anchor 向下重启后的 mint 冻结期；
 - IndexBondDesk 未售 Token inventory 不超过当前总供应量的 `0.5%`。
+
+0.5% 库存上限是去掉日历归属后的瞬时节流：行权当下 BurnNet 只收到 strike，市价级 USDG 要等用户认购才到账。没有用户接盘时，未售库存不能超过总供应量的0.5%。
 
 ### 17.3 行权
 
@@ -1003,7 +1004,7 @@ S + max(A - S, 0) >= A
 | Distributor    | `TWAP > max(initialAnchor, currentAnchor)`，且储备快照有效 | Staking/质押者         | 每8小时最高总供应量0.45%；新 mint 后不得超过当时的 `37.5M + effectiveEligibleTradeFeeUSDG / initialAnchor + actualBurn` |
 | BondDepository | 有效 TWAP、用户支付 USDG                                  | Bond vesting escrow | 每8小时0.25%；滚动30天5%                                                                                    |
 | PremiumSeller  | `TWAP > 2 × anchor`                                | 卖入官方池               | 每次基础 POL 当前 Token inventory 的0.25%；间隔1小时                                                             |
-| pTEAM          | 上市24小时后、30天归属、`TWAP >= 1.2 × anchor`               | IndexBondDesk       | 动态15%；Desk 未售库存不超过总供应量0.5%                                                                           |
+| pTEAM          | 上市24小时后、`TWAP >= 1.2 × anchor`                         | IndexBondDesk       | 动态10% × totalSupply；无30天归属；Desk 未售库存不超过总供应量0.5%                                                     |
 
 
 所有模块同时受 Treasury 的24小时 downward-reset freeze 和 post-reset TWAP 要求约束。
@@ -1233,7 +1234,7 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 14. Distributor 在 `TWAP <= max(initialAnchor, currentAnchor)` 时零排放、`37.5M + eligibleTradeFeeReserve/initialAnchor + actualBurn` 约束、anchor 上下调整时 reserve credit 保持不变、饱和归零，以及 `warmup=0` 的 epoch 快照进入/退出边界；
 15. Bond epoch/30天双上限；
 16. PremiumSeller clip 只使用永久基础 POL；
-17. pTEAM 动态15%、24小时启动限制和0.5% Desk inventory；
+17. pTEAM 动态10% × totalSupply、无30天归属、24小时启动限制和0.5% Desk inventory；
 18. 恶意创建者收款合约不能阻塞 swap；
 19. 恶意/未注册指数不能用于创建 Token；
 20. 共享 Hook 中不同 poolId 的 Pending/Active/储备快照、资金和 Oracle 状态不能串账；
