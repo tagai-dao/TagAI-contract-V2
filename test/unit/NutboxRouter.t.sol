@@ -170,7 +170,13 @@ contract RouterPancakeV3RouterMock {
 }
 
 contract RouterUniswapV4ManagerMock {
+    // Uniswap v4 Lock.IS_UNLOCKED_SLOT = keccak256("Unlocked") - 1
+    bytes32 private constant IS_UNLOCKED_SLOT = 0xc090fc4683624cfc3884e9d8de5eca132f2d0ec062aff75d43c0465d5ceeab23;
+
     mapping(bytes32 => bytes32) private values;
+    bytes32 private unlockedFlag;
+
+    error AlreadyUnlocked();
 
     function setPool(bytes32 poolId, uint160 sqrtPriceX96, uint128 liquidity) external {
         bytes32 stateSlot = keccak256(abi.encodePacked(poolId, bytes32(uint256(6))));
@@ -178,11 +184,20 @@ contract RouterUniswapV4ManagerMock {
         values[bytes32(uint256(stateSlot) + 3)] = bytes32(uint256(liquidity));
     }
 
+    function setUnlocked(bool unlocked) external {
+        unlockedFlag = unlocked ? bytes32(uint256(1)) : bytes32(0);
+    }
+
     function extsload(bytes32 slot) external view returns (bytes32) {
         return values[slot];
     }
 
+    function exttload(bytes32 slot) external view returns (bytes32) {
+        return slot == IS_UNLOCKED_SLOT ? unlockedFlag : bytes32(0);
+    }
+
     function unlock(bytes calldata data) external returns (bytes memory) {
+        if (unlockedFlag != bytes32(0)) revert AlreadyUnlocked();
         return RouterTestUnlockCallback(msg.sender).unlockCallback(data);
     }
 
@@ -571,6 +586,38 @@ contract NutboxRouterTest is Test {
         assertEq(address(router).balance, 0);
     }
 
+    function test_SwapUniswapV4WhileAlreadyUnlocked() public {
+        INutboxRouter.UniswapV4Source memory source = INutboxRouter.UniswapV4Source({
+            poolManager: address(uniswapV4Manager),
+            currency0: address(0),
+            currency1: address(baseToken),
+            fee: 3_000,
+            tickSpacing: 60,
+            hooks: address(0)
+        });
+        bytes32 poolId =
+            keccak256(abi.encode(source.currency0, source.currency1, source.fee, source.tickSpacing, source.hooks));
+        uniswapV4Manager.setPool(poolId, Q96, 1 ether);
+        bytes32 v4PoolId = router.addPricePool(INutboxRouter.SourceType.UNISWAP_V4, abi.encode(source));
+        router.addRoute(address(baseToken), address(wrappedNative), _singlePool(v4PoolId));
+
+        address trader = makeAddr("nestedUniV4Trader");
+        address recipient = makeAddr("nestedUniV4Recipient");
+        vm.deal(trader, 2 ether);
+
+        // Simulate BasketHook/Executor already holding PoolManager.unlock.
+        uniswapV4Manager.setUnlocked(true);
+        vm.prank(trader);
+        uint256 nestedOut = router.swapExactInput{value: 1 ether}(
+            address(0), address(baseToken), 1 ether, 2 ether, recipient, block.timestamp
+        );
+        assertEq(nestedOut, 2 ether, "active PoolManager unlock path failed");
+        assertEq(baseToken.balanceOf(recipient), 2 ether);
+        uniswapV4Manager.setUnlocked(false);
+        assertEq(address(router).balance, 0);
+        assertEq(wrappedNative.balanceOf(address(router)), 0);
+    }
+
     function test_PancakeV4NativeRoute() public {
         INutboxRouter.PancakeV4CLSource memory source = INutboxRouter.PancakeV4CLSource({
             currency0: address(0),
@@ -881,9 +928,15 @@ contract NutboxRouterTest is Test {
         return tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
     }
 
-    // ─── RH 适配（方案 B）：V3 router=0 禁用 V3 路径 ────────────────────────────
+    // ─── V3 执行器可选：0 禁用成交；非 0 启用 Uniswap V3 池 swap ────────────────
 
-    /// @dev V3 router 置 0 时构造成功，pancakeV3Factory 保持 0，V3 source revert。
+    /// @dev 默认测试 Router 带非零 V3 执行器，V3 池可成交（RH 主网配置）。
+    function test_RH_V3RouterNonZero_EnablesV3Factory() public view {
+        assertTrue(router.pancakeV3Router() != address(0), "v3 router set");
+        assertEq(router.pancakeV3Factory(), address(v3Factory), "v3 factory bound");
+    }
+
+    /// @dev V3 router 置 0 时构造成功，pancakeV3Factory 保持 0，V3 swap revert。
     function test_RH_V3RouterZero_DisablesV3Path() public {
         address[] memory v2Factories = new address[](1);
         v2Factories[0] = address(v2Factory);
@@ -895,7 +948,7 @@ contract NutboxRouterTest is Test {
         uniswapV4Managers[0] = address(uniswapV4Manager);
         NutboxRouter rhRouter = new NutboxRouter(
             address(wrappedNative),
-            address(0), // 方案 B：V3 router 禁用
+            address(0), // V3 执行器置 0 时仍可构造，仅禁用 V3 成交
             v2Routers,
             v2Factories,
             v3Factories,

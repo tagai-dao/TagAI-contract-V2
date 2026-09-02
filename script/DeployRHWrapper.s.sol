@@ -16,18 +16,22 @@ import {TagAISwapWrapper} from "../src/helper/TagAISwapWrapper.sol";
  *     --rpc-url https://rpc.mainnet.chain.robinhood.com \
  *     --broadcast --slow --gas-estimate-multiplier 300 -vvv
  *
- * 成功后把日志里的 TagAISwapWrapper 地址写入 deployments/4663/addresses.json。
+ * 成功后把日志里的 TagAISwapWrapper 地址写入 deployments/4663/version11.json。
  */
 contract DeployRHWrapperScript is Script {
     uint256 internal constant RH_MAINNET_CHAIN_ID = 4663;
 
-    // deployments/4663/addresses.json
+    // deployments/4663/version11.json
     address internal constant MN_IMPORT_HELPER = 0xEC774DB6800B00BA1e87f0799cb29dEc21ACB4A9;
     address internal constant MN_IPSHARE = 0x8A7b0d80FA92699CE3e5bB2c8fE404D6733796d1;
     address internal constant MN_WETH = 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73;
     address internal constant MN_FEE_DEFAULT = 0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048;
 
     function run() external {
+        require(
+            block.chainid != RH_MAINNET_CHAIN_ID,
+            "standalone Wrapper deploy disabled: ImportHelper pins its Wrapper; deploy both atomically"
+        );
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(pk);
 
@@ -61,6 +65,6 @@ contract DeployRHWrapperScript is Script {
 
         console.log("TagAISwapWrapper:", address(wrapper));
         console.log("feeAddress (constructor):", feeAddress);
-        console.log("=== Done - update deployments/4663/addresses.json manually if needed ===");
+        console.log("=== Done - update deployments/4663/version11.json manually if needed ===");
     }
 }

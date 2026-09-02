@@ -34,6 +34,11 @@ interface ICommunityFactoryTemplate {
  * @title DeployRH
  * @notice Robinhood Chain: Nutbox 全栈 + Pump + Hook + ImportHelper + TagAISwapWrapper。
  *
+ * 本脚本只部署 Nutbox + Pump + Hook + Import + Wrapper。第 3 期的 NutboxRouter 与 Index Broker NFT
+ * 有独立部署脚本，统一发布时按总计划顺序手动执行：
+ *   - `script/DeployRHNutboxRouter.s.sol`
+ *   - `script/DeployRHIndexBrokerNFT.s.sol`
+ *
  *   make deploy-rh-testnet / make deploy-rh-mainnet
  *
  * Optional: RH_POOL_MANAGER, RH_WETH (testnet default known WETH9)
@@ -78,6 +83,7 @@ contract DeployRHScript is Script {
     }
 
     function run() external {
+        require(block.chainid != RH_MAINNET_CHAIN_ID, "RH mainnet full-stack deploy disabled; use incremental v11 scripts");
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(pk);
 
@@ -186,6 +192,7 @@ contract DeployRHScript is Script {
         // 第 2 期：ImportHelper 构造需要 Pump + Wrapper，故 Wrapper 先于 Helper 部署。
         // Wrapper 的 importHelper 暂置 0，Helper 部署后通过 adminSetImportHelper 回填。
         a.wrapper = address(new TagAISwapWrapper(address(0), a.ipshare, a.weth, deployer));
+        TagAISwapWrapper(payable(a.wrapper)).adminSetV4PoolManager(a.poolManager, true);
         console.log("(6) TagAISwapWrapper:", a.wrapper);
 
         a.importHelper =
@@ -277,9 +284,14 @@ contract DeployRHScript is Script {
     function _writeAddresses(uint256 chainId, address deployer, Addrs memory a) internal {
         string memory chainIdStr = vm.toString(chainId);
         string memory dir = string.concat("deployments/", chainIdStr);
-        string memory path = string.concat(dir, "/addresses.json");
+        // V11 起地址写入 version11.json（与 main 分支风格一致）；version9.json 保留历史快照。
+        string memory path = string.concat(dir, "/version11.json");
+        string memory prevPath = string.concat(dir, "/version9.json");
 
-        string memory json = string.concat("{\n  \"chainId\": ", chainIdStr, ",\n");
+        string memory json = string.concat("{\n  \"version\": 11,\n");
+        json = string.concat(json, '  "status": "production",\n');
+        json = string.concat(json, '  "sourceVersion": 9,\n');
+        json = string.concat(json, '  "chainId": ', chainIdStr, ",\n");
         json = string.concat(json, '  "deployer": "', vm.toString(deployer), '",\n');
         json = string.concat(json, '  "Committee": "', vm.toString(a.committee), '",\n');
         json = string.concat(json, '  "CommunityFactory": "', vm.toString(a.communityFactory), '",\n');
@@ -298,6 +310,16 @@ contract DeployRHScript is Script {
         json = string.concat(json, '  "IPShare": "', vm.toString(a.ipshare), '",\n');
         json = string.concat(json, '  "PoolManager": "', vm.toString(a.poolManager), '",\n');
         json = string.concat(json, '  "WETH": "', vm.toString(a.weth), '",\n');
+        // Previous* 指针：指向 version9.json 中被本次 V11 替换的旧地址（无历史文件则为 0）。
+        json = string.concat(json, '  "PreviousPump": "', vm.toString(_prevAddr(prevPath, "Pump")), '",\n');
+        json = string.concat(
+            json, '  "PreviousTokenImplementation": "', vm.toString(_prevAddr(prevPath, "TokenImplementation")), '",\n'
+        );
+        json = string.concat(json, '  "PreviousTagAISwapHook": "', vm.toString(_prevAddr(prevPath, "TagAISwapHook")), '",\n');
+        json = string.concat(json, '  "PreviousImportHelper": "', vm.toString(_prevAddr(prevPath, "ImportHelper")), '",\n');
+        json = string.concat(
+            json, '  "PreviousTagAISwapWrapper": "', vm.toString(_prevAddr(prevPath, "TagAISwapWrapper")), '",\n'
+        );
         json = string.concat(json, '  "Pump": "', vm.toString(a.pump), '",\n');
         json = string.concat(json, '  "TokenImplementation": "', vm.toString(a.tokenImplementation), '",\n');
         json = string.concat(json, '  "TagAISwapHook": "', vm.toString(a.hook), '",\n');
@@ -307,5 +329,15 @@ contract DeployRHScript is Script {
         try vm.createDir(dir, true) {} catch {}
         vm.writeFile(path, json);
         console.log("Addresses written to:", path);
+    }
+
+    /// @dev 从上一版本 JSON 读取某个合约地址，文件缺失或键不存在返回 address(0)。
+    function _prevAddr(string memory prevPath, string memory key) internal view returns (address) {
+        if (!vm.exists(prevPath)) return address(0);
+        try vm.parseJsonAddress(vm.readFile(prevPath), string.concat(".", key)) returns (address addr) {
+            return addr;
+        } catch {
+            return address(0);
+        }
     }
 }

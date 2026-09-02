@@ -17,6 +17,7 @@ import {
     BalanceDeltaLibrary as UniswapV4BalanceDeltaLibrary
 } from "v4-core/src/types/BalanceDelta.sol";
 import {TickMath as UniswapV4TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {TransientStateLibrary} from "v4-core/src/libraries/TransientStateLibrary.sol";
 
 import {ICLPoolManager as IPancakeV4CLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
 import {IPoolManager as IPancakeV4PoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
@@ -184,9 +185,8 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         _configurePancakeV4Vaults(pancakeV4CLManagers_);
         _configureV2Routers(v2Routers_);
 
-        // RH 适配（方案 B）：pancakeV3Router_ == address(0) 时禁用 V3 指数回购路径
-        //（_swapV3 因 pancakeV3Factory==0 自然 revert UnsupportedSwapSource）。
-        // NFT AMM 社区币定价仍可用 Uniswap V4 官方池。
+        // pancakeV3Router_ 是 Uniswap/Pancake V3 *池* 的成交执行器，不是 Router 产品版本。
+        // 传入 address(0) 时禁用 V3 池成交（仍可登记/询价）；RH 主网传入 SwapRouter02。
         if (pancakeV3Router_ != address(0)) {
             INutboxPancakeV3Router router = INutboxPancakeV3Router(pancakeV3Router_);
             address factory = router.factory();
@@ -447,33 +447,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         (UniswapV4Source memory source, bool zeroForOne, uint256 amountIn) =
             abi.decode(data, (UniswapV4Source, bool, uint256));
         if (source.poolManager != msg.sender) revert InvalidCallback();
-
-        UniswapV4PoolKey memory key = UniswapV4PoolKey({
-            currency0: UniswapV4Currency.wrap(source.currency0),
-            currency1: UniswapV4Currency.wrap(source.currency1),
-            fee: source.fee,
-            tickSpacing: source.tickSpacing,
-            hooks: IUniswapV4Hooks(source.hooks)
-        });
-        IUniswapV4PoolManager manager = IUniswapV4PoolManager(msg.sender);
-        UniswapV4BalanceDelta delta = manager.swap(
-            key,
-            IUniswapV4PoolManager.SwapParams({
-                zeroForOne: zeroForOne,
-                amountSpecified: -int256(amountIn),
-                sqrtPriceLimitX96: zeroForOne
-                    ? UniswapV4TickMath.MIN_SQRT_PRICE + 1
-                    : UniswapV4TickMath.MAX_SQRT_PRICE - 1
-            }),
-            ""
-        );
-
-        uint256 amountOut = _validateUniswapV4Delta(delta, zeroForOne, amountIn);
-        UniswapV4Currency input = zeroForOne ? key.currency0 : key.currency1;
-        UniswapV4Currency output = zeroForOne ? key.currency1 : key.currency0;
-        _settleUniswapV4(manager, input, amountIn);
-        manager.take(output, address(this), amountOut);
-        return abi.encode(amountOut);
+        return abi.encode(_executeUniswapV4Swap(source, zeroForOne, amountIn, IUniswapV4PoolManager(msg.sender)));
     }
 
     function lockAcquired(bytes calldata data) external override returns (bytes memory) {
@@ -649,14 +623,50 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         UniswapV4Source memory source = abi.decode(sourceData, (UniswapV4Source));
         if (!allowedUniswapV4Manager[source.poolManager]) revert InvalidSource();
         bool zeroForOne = _validateV4Direction(tokenIn, tokenOut, source.currency0, source.currency1);
+        IUniswapV4PoolManager manager = IUniswapV4PoolManager(source.poolManager);
         _prepareV4NativeInput(tokenIn, amountIn);
         uint256 balanceBefore = _assetBalance(tokenOut);
-        _activeCallback = source.poolManager;
-        amountOut = abi.decode(
-            IUniswapV4PoolManager(source.poolManager).unlock(abi.encode(source, zeroForOne, amountIn)), (uint256)
-        );
-        _activeCallback = address(0);
+        // Uniswap V4 reverts AlreadyUnlocked on nested unlock. When BasketHook/Executor
+        // already holds the lock (RH), reuse it — same pattern as Pancake Vault.getLocker().
+        if (TransientStateLibrary.isUnlocked(manager)) {
+            amountOut = _executeUniswapV4Swap(source, zeroForOne, amountIn, manager);
+        } else {
+            _activeCallback = source.poolManager;
+            amountOut = abi.decode(manager.unlock(abi.encode(source, zeroForOne, amountIn)), (uint256));
+            _activeCallback = address(0);
+        }
         _verifyAndWrapV4Output(tokenOut, amountOut, balanceBefore);
+    }
+
+    function _executeUniswapV4Swap(
+        UniswapV4Source memory source,
+        bool zeroForOne,
+        uint256 amountIn,
+        IUniswapV4PoolManager manager
+    ) internal returns (uint256 amountOut) {
+        UniswapV4PoolKey memory key = UniswapV4PoolKey({
+            currency0: UniswapV4Currency.wrap(source.currency0),
+            currency1: UniswapV4Currency.wrap(source.currency1),
+            fee: source.fee,
+            tickSpacing: source.tickSpacing,
+            hooks: IUniswapV4Hooks(source.hooks)
+        });
+        UniswapV4BalanceDelta delta = manager.swap(
+            key,
+            IUniswapV4PoolManager.SwapParams({
+                zeroForOne: zeroForOne,
+                amountSpecified: -int256(amountIn),
+                sqrtPriceLimitX96: zeroForOne
+                    ? UniswapV4TickMath.MIN_SQRT_PRICE + 1
+                    : UniswapV4TickMath.MAX_SQRT_PRICE - 1
+            }),
+            ""
+        );
+        amountOut = _validateUniswapV4Delta(delta, zeroForOne, amountIn);
+        UniswapV4Currency input = zeroForOne ? key.currency0 : key.currency1;
+        UniswapV4Currency output = zeroForOne ? key.currency1 : key.currency0;
+        _settleUniswapV4(manager, input, amountIn);
+        manager.take(output, address(this), amountOut);
     }
 
     function _swapPancakeV4(address tokenIn, address tokenOut, uint256 amountIn, bytes memory sourceData)

@@ -79,6 +79,16 @@ contract MockV2Router is IUniswapV2Router02 {
         revert("unused");
     }
 
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint,
+        uint,
+        address[] calldata,
+        address,
+        uint
+    ) external pure {
+        revert("unused");
+    }
+
     function getAmountsOut(uint amountIn, address[] calldata path)
         external
         pure

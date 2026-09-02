@@ -18,15 +18,15 @@ import {BasketTVLMiningPoolFactory} from
  *     --broadcast --slow --gas-estimate-multiplier 300 -vvv
  *
  * When run with --broadcast, the dependency and deployment addresses are added
- * to deployments/4663/addresses.json. A dry-run never changes that file.
+ * to deployments/4663/version11.json. A dry-run never changes that file.
  */
 contract DeployBasketTVLMiningFactoryScript is Script {
     uint256 internal constant RH_MAINNET_CHAIN_ID = 4663;
-    string internal constant RH_MAINNET_DEPLOYMENTS = "deployments/4663/addresses.json";
+    string internal constant RH_MAINNET_DEPLOYMENTS = "deployments/4663/version11.json";
 
     function run() external {
         require(block.chainid == RH_MAINNET_CHAIN_ID, "expected RH mainnet 4663");
-        require(vm.exists(RH_MAINNET_DEPLOYMENTS), "deployments/4663/addresses.json missing");
+        require(vm.exists(RH_MAINNET_DEPLOYMENTS), "deployments/4663/version11.json missing");
 
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(pk);
@@ -78,7 +78,7 @@ contract DeployBasketTVLMiningFactoryScript is Script {
                 childPoolTemplate
             );
         } else {
-            console.log("Dry-run: deployments/4663/addresses.json was not changed");
+            console.log("Dry-run: deployments/4663/version11.json was not changed");
         }
 
         console.log("Whitelist was NOT applied; add the factory to Committee manually");

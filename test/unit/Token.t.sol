@@ -51,7 +51,13 @@ contract TokenTest is V4PumpTestBase {
     }
 
     function test_receive_revertsWhenListed() public onlyReady {
-        vm.skip(true);
+        _fillBondingCurveUntilListed(token, buyer);
+        assertTrue(token.listed());
+
+        vm.prank(buyer, buyer);
+        (bool success, bytes memory reason) = address(token).call{value: 1 ether}("");
+        assertFalse(success);
+        assertEq(reason, abi.encodeWithSelector(IToken.TokenListed.selector));
     }
 
     function test_totalSupply_oneBillion() public onlyReady {

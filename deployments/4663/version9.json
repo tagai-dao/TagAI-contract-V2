@@ -1,4 +1,6 @@
 {
+  "version": 9,
+  "status": "production",
   "chainId": 4663,
   "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
   "Committee": "0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0",
@@ -28,6 +30,5 @@
   "feeAddress": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
   "BasketTVLMiningPoolFactory": "0xB3EBB2f53ECaAd85bbA502A557f7f838aeff88E0",
   "BasketTVLMiningPoolTemplate": "0x79F6e65044A85790E6a4D9a3FFf490EC4D3B1871",
-  "BasketStakePoolTemplate": "0xABe3ECeb8A72a46957E389d50dF62A834bc10b94",
-  "NutboxRouter": "0x7686CbaF2dFc7000eb9b0D6DE81E48c1211d2655"
+  "BasketStakePoolTemplate": "0xABe3ECeb8A72a46957E389d50dF62A834bc10b94"
 }

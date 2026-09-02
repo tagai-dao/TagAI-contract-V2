@@ -1,5 +1,14 @@
 # NutboxRouter
 
+> **RH 链适配说明**
+>
+> 本目录的 Router 已从 `main`（BSC/PancakeSwap Infinity）迁移到 RH 链，差异如下：
+> - **官方上市池走 Uniswap V4**：`uniswapV4Managers_ = [RH PoolManager]`，`pancakeV4CLManagers_ = []`（RH 不部署 Pancake Infinity CL）。
+> - **Uniswap V3 成交已启用**：构造传入 SwapRouter02 `0xCaf681a66D020601342297493863E78C959E5cb2`；`pancakeV3Router` 只是 V3 **池执行器**，不是产品版本号。Router 同时支持 V2 + V3 + Uniswap V4。
+> - **构造期写入官方股价格池**：`RHNutboxRouterConfig.initialConfig()` 含 USDG/WETH hub（V3 0.01%）及 NVDA/SPY/SPCX/GME/AAPL/TSLA/AMZN/MSFT/QQQ 最大合规池。后续用 `addPricePool` 追加。
+> - **部署脚本**：`script/DeployRHNutboxRouter.s.sol`（需 `NUTBOX_ROUTER_OWNER`）。
+> - RH 实际地址以 `deployments/<chainid>/version11.json` 为准（V9 快照见 `version9.json`）。
+
 `NutboxRouter` 是 Nutbox 平台级的共享询价与交易路由，不属于某一个 NFT、Pump 或其他 dApp。平台为每个代币对维护唯一的当前官方 DEX 池，再为任意两个端点代币设置一条默认路径；任何账户或合约都可以使用当前配置询价，或执行精确输入交易。官方池可以独立替换，所有引用它的路径会自动生效，不需要逐条更新。
 
 本目录包含完整的 Router 模块：
@@ -265,15 +274,15 @@ struct UniswapV4Source {
 
 Router 按 Uniswap V4 PoolKey 字段计算 DEX pool ID，读取 slot0 和流动性。交易时：
 
-1. Router 设置 `_activeCallback = poolManager`。
-2. 调用 `poolManager.unlock(callbackData)`。
-3. PoolManager 回调 `unlockCallback`。
-4. 回调中重建 PoolKey 并以负的 `amountSpecified` 执行 exact-input swap。
+1. 用 `TransientStateLibrary.isUnlocked(poolManager)` 判断当前是否已在 unlock 周期内。
+2. 若尚未 unlock：Router 设置 `_activeCallback = poolManager`，调用 `poolManager.unlock(callbackData)`，由 `unlockCallback` 执行下面的 swap。
+3. 若已经 unlock（例如 RH BasketHook/Executor 正在 `PoolManager.unlock` 回调中）：不再次 `unlock`（否则会 `AlreadyUnlocked`），直接在当前锁上下文执行同一套 swap。这与 Pancake Infinity `vault.getLocker() != address(0)` 的嵌套路径对称。
+4. 重建 PoolKey 并以负的 `amountSpecified` 执行 exact-input swap。
 5. 严格验证输入 delta 等于 `amountIn`，输出 delta 为正。
 6. ERC-20 输入通过 `sync + transfer + settle` 结算；原生币通过带 value 的 `settle` 结算。
 7. 使用 `take` 将输出取回 Router。
 
-`unlockCallback` 只接受当前 `_activeCallback` 且在允许名单中的 PoolManager，回调携带的 `source.poolManager` 也必须等于 `msg.sender`。
+`unlockCallback` 只接受当前 `_activeCallback` 且在允许名单中的 PoolManager，回调携带的 `source.poolManager` 也必须等于 `msg.sender`。已 unlock 的直达路径不经过 `unlockCallback`，因此也不设置 `_activeCallback`。
 
 ### 4.4 PANCAKE_V4_CL
 
@@ -519,7 +528,8 @@ function swapExactInput(
 | `_executePool` | 按 `SourceType` 分派执行器 |
 | `_swapV2` | Router02 单池 exact-input |
 | `_swapV3` | Pancake SmartRouter `exactInputSingle` |
-| `_swapUniswapV4` | 发起 PoolManager unlock 周期 |
+| `_swapUniswapV4` | 发起或复用 Uniswap V4 PoolManager unlock 周期 |
+| `_executeUniswapV4Swap` | 在有效 unlock 内完成 Uniswap V4 swap、settle 和 take |
 | `_swapPancakeV4` | 发起或复用 Infinity Vault lock 周期 |
 | `_executePancakeV4Swap` | 在有效 Vault 锁内完成 CL swap、settle 和 take |
 | `_swapWrappedNative` | BNB/WBNB 1:1 转换 |

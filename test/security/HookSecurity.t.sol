@@ -9,6 +9,38 @@ import {BalanceDelta, toBalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
 import {V4ListedTokenTestBase} from "../helpers/V4ListedTokenTestBase.sol";
+import {TagAISwapHook} from "../../src/hook/TagAISwapHook.sol";
+
+contract RegisterPoolReentrantToken {
+    TagAISwapHook internal targetHook;
+    address internal community;
+    PoolId internal reentryPoolId;
+
+    bool public reentryAttempted;
+    bool public reentrySucceeded;
+
+    function configure(TagAISwapHook hook_, address community_, PoolId reentryPoolId_) external {
+        targetHook = hook_;
+        community = community_;
+        reentryPoolId = reentryPoolId_;
+    }
+
+    function nutboxCommunity() external view returns (address) {
+        return community;
+    }
+
+    function approve(address, uint256) external returns (bool) {
+        reentryAttempted = true;
+        try targetHook.registerPool(reentryPoolId, address(this)) {
+            reentrySucceeded = true;
+        } catch {}
+        return true;
+    }
+
+    function attack(PoolId outerPoolId) external {
+        targetHook.registerPool(outerPoolId, address(this));
+    }
+}
 
 /**
  * @title HookSecurityTest
@@ -139,7 +171,20 @@ contract HookSecurityTest is V4ListedTokenTestBase {
     }
 
     function test_reentrancy_protectedDuringRegisterPool() public onlyReady {
-        vm.skip(true);
+        address originalCommunity = token.nutboxCommunity();
+        RegisterPoolReentrantToken implementation = new RegisterPoolReentrantToken();
+        vm.etch(address(token), address(implementation).code);
+
+        RegisterPoolReentrantToken malicious = RegisterPoolReentrantToken(address(token));
+        PoolId outerPoolId = PoolId.wrap(bytes32(uint256(111)));
+        PoolId reentryPoolId = PoolId.wrap(bytes32(uint256(222)));
+        malicious.configure(hook, originalCommunity, reentryPoolId);
+        malicious.attack(outerPoolId);
+
+        assertTrue(malicious.reentryAttempted());
+        assertFalse(malicious.reentrySucceeded());
+        assertEq(hook.poolToken(outerPoolId), address(token));
+        assertEq(hook.poolToken(reentryPoolId), address(0));
     }
 
     function test_doesNotTrustTxOrigin() public onlyReady {

@@ -5,29 +5,121 @@ import "forge-std/Test.sol";
 import "../../src/helper/TagAISwapWrapper.sol";
 import "../../src/interfaces/IImportHelper.sol";
 import "../../src/interfaces/IUniswapV2Router02.sol";
+import "../../src/router/INutboxRouter.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {Currency} from "v4-core/src/types/Currency.sol";
+
+/// @dev 仅实现 Wrapper quote 需要的 NutboxRouter 表面。
+contract WrapperQuoteNutboxRouterMock {
+    address public wrappedNative;
+    mapping(address => bool) public allowedV3Factory;
+    mapping(address => bool) public allowedV2Factory;
+    mapping(address => bool) public allowedUniswapV4Manager;
+    mapping(address => bool) public allowedPancakeV4CLManager;
+
+    constructor(address weth) {
+        wrappedNative = weth;
+    }
+
+    function setAllowedV3Factory(address factory, bool allowed) external {
+        allowedV3Factory[factory] = allowed;
+    }
+
+    function quote(address, address, uint256 amountIn) external pure returns (uint256) {
+        return amountIn;
+    }
+}
+
+contract WrapperQuoteV3FactoryMock {
+    mapping(bytes32 => address) private pools;
+
+    function setPool(address tokenA, address tokenB, uint24 fee, address pool) external {
+        pools[_key(tokenA, tokenB, fee)] = pool;
+    }
+
+    function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address) {
+        return pools[_key(tokenA, tokenB, fee)];
+    }
+
+    function _key(address tokenA, address tokenB, uint24 fee) private pure returns (bytes32) {
+        (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+        return keccak256(abi.encode(token0, token1, fee));
+    }
+}
+
+contract WrapperQuoteV3PoolMock {
+    address public immutable factory;
+    address public immutable token0;
+    address public immutable token1;
+    uint24 public immutable fee;
+    uint128 public liquidity;
+    uint160 private sqrtPriceX96;
+
+    constructor(address factory_, address token0_, address token1_, uint24 fee_) {
+        factory = factory_;
+        token0 = token0_;
+        token1 = token1_;
+        fee = fee_;
+    }
+
+    function setState(uint160 sqrtPriceX96_, uint128 liquidity_) external {
+        sqrtPriceX96 = sqrtPriceX96_;
+        liquidity = liquidity_;
+    }
+
+    function slot0() external view returns (uint160, int24, uint16, uint16, uint16, uint32, bool) {
+        return (sqrtPriceX96, 0, 0, 0, 0, 0, true);
+    }
+}
 
 /// @dev Mock ImportHelper：仅用于通过 registerImportedToken 的 sender 校验。
 contract MockImportHelper is IImportHelper {
     mapping(address => address) public importerOf;
-    function setImporter(address token, address importer) external { importerOf[token] = importer; }
+
+    function setImporter(address token, address importer) external {
+        importerOf[token] = importer;
+    }
 }
 
 /// @dev Mock IPShare：仅 ipshareCreated 用于 sellsman 解析。
 contract MockIPShare {
     mapping(address => bool) public created;
-    function ipshareCreated(address s) external view returns (bool) { return created[s]; }
-    function setCreated(address s, bool v) external { created[s] = v; }
+
+    function ipshareCreated(address s) external view returns (bool) {
+        return created[s];
+    }
+
+    function setCreated(address s, bool v) external {
+        created[s] = v;
+    }
 }
 
 /// @dev Mock Community：rewardCalculator() 返回 mock 计算器（无需实现完整 ICommunity）。
 contract MockCommunity {
-    address public rewardCalculator;
+    address private _rewardCalculator;
     address public _communityToken;
-    bool public _revertOnInject;
-    constructor(address calc, address token) { rewardCalculator = calc; _communityToken = token; }
-    function setRevertOnInject(bool v) external { _revertOnInject = v; }
-    function getCommunityToken() external view returns (address) { return _communityToken; }
+    bool public revertRewardCalculator;
+
+    constructor(address calc, address token) {
+        _rewardCalculator = calc;
+        _communityToken = token;
+    }
+
+    function setRevertRewardCalculator(bool value) external {
+        revertRewardCalculator = value;
+    }
+
+    function rewardCalculator() external view returns (address) {
+        require(!revertRewardCalculator, "reward calculator unavailable");
+        return _rewardCalculator;
+    }
+
+    function getCommunityToken() external view returns (address) {
+        return _communityToken;
+    }
 }
 
 /// @dev Mock Calculator：inject 时从调用者 transferFrom token 到 community；可配置 revert。
@@ -36,9 +128,19 @@ contract MockCalculator {
     address public _community;
     uint256 public totalInjected;
     bool public shouldRevert;
-    constructor(address token) { _token = token; }
-    function setCommunity(address c) external { _community = c; }
-    function setShouldRevert(bool v) external { shouldRevert = v; }
+
+    constructor(address token) {
+        _token = token;
+    }
+
+    function setCommunity(address c) external {
+        _community = c;
+    }
+
+    function setShouldRevert(bool v) external {
+        shouldRevert = v;
+    }
+
     function inject(address, uint256 amount) external {
         if (shouldRevert) revert("inject failed");
         IERC20(_token).transferFrom(msg.sender, _community, amount);
@@ -48,21 +150,56 @@ contract MockCalculator {
 
 /// @dev Mock ERC20（标准 transfer/transferFrom/approve）。
 contract MockERC20 {
-    string public name; string public symbol;
+    string public name;
+    string public symbol;
     uint8 public decimals = 18;
     uint256 public totalSupply;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
-    constructor(string memory n, string memory s) { name = n; symbol = s; }
-    function mint(address to, uint256 amt) external { balanceOf[to] += amt; totalSupply += amt; }
-    function transfer(address to, uint256 amt) external returns (bool) { return _move(msg.sender, to, amt); }
+
+    constructor(string memory n, string memory s) {
+        name = n;
+        symbol = s;
+    }
+
+    function mint(address to, uint256 amt) external {
+        balanceOf[to] += amt;
+        totalSupply += amt;
+    }
+
+    function transfer(address to, uint256 amt) external returns (bool) {
+        return _move(msg.sender, to, amt);
+    }
+
     function transferFrom(address from, address to, uint256 amt) external returns (bool) {
         allowance[from][msg.sender] -= amt;
         return _move(from, to, amt);
     }
-    function approve(address spender, uint256 amt) external returns (bool) { allowance[msg.sender][spender] = amt; return true; }
+
+    function approve(address spender, uint256 amt) public virtual returns (bool) {
+        allowance[msg.sender][spender] = amt;
+        return true;
+    }
+
     function _move(address from, address to, uint256 amt) internal returns (bool) {
-        balanceOf[from] -= amt; balanceOf[to] += amt; return true;
+        balanceOf[from] -= amt;
+        balanceOf[to] += amt;
+        return true;
+    }
+}
+
+contract SelectiveApproveRevertERC20 is MockERC20 {
+    address public blockedSpender;
+
+    constructor() MockERC20("BLOCK", "BLOCK") {}
+
+    function setBlockedSpender(address spender) external {
+        blockedSpender = spender;
+    }
+
+    function approve(address spender, uint256 amt) public override returns (bool) {
+        require(spender != blockedSpender, "approve blocked");
+        return super.approve(spender, amt);
     }
 }
 
@@ -73,13 +210,26 @@ contract FeeOnTransferERC20 {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
     uint256 public constant FEE_BPS = 100; // 1%
-    function mint(address to, uint256 amt) external { balanceOf[to] += amt; totalSupply += amt; }
-    function transfer(address to, uint256 amt) external returns (bool) { return _move(msg.sender, to, amt); }
+
+    function mint(address to, uint256 amt) external {
+        balanceOf[to] += amt;
+        totalSupply += amt;
+    }
+
+    function transfer(address to, uint256 amt) external returns (bool) {
+        return _move(msg.sender, to, amt);
+    }
+
     function transferFrom(address from, address to, uint256 amt) external returns (bool) {
         allowance[from][msg.sender] -= amt;
         return _move(from, to, amt);
     }
-    function approve(address spender, uint256 amt) external returns (bool) { allowance[msg.sender][spender] = amt; return true; }
+
+    function approve(address spender, uint256 amt) external returns (bool) {
+        allowance[msg.sender][spender] = amt;
+        return true;
+    }
+
     function _move(address from, address to, uint256 amt) internal returns (bool) {
         uint256 tax = (amt * FEE_BPS) / 10_000;
         balanceOf[from] -= amt;
@@ -93,26 +243,77 @@ contract FeeOnTransferERC20 {
 contract MockV2Router is IUniswapV2Router02 {
     MockERC20 public _token;
     uint256 public _rate; // tokens per ETH (buy) / ETH per token (sell)
-    constructor(MockERC20 token, uint256 rate) { _token = token; _rate = rate; }
-    function swapExactETHForTokens(uint, address[] calldata, address to, uint)
-        external payable returns (uint[] memory amounts) {
+
+    constructor(MockERC20 token, uint256 rate) {
+        _token = token;
+        _rate = rate;
+    }
+
+    function swapExactETHForTokens(uint256, address[] calldata, address to, uint256)
+        external
+        payable
+        returns (uint256[] memory amounts)
+    {
         uint256 out = msg.value * _rate;
         _token.mint(to, out);
-        amounts = new uint[](2); amounts[0] = msg.value; amounts[1] = out;
+        amounts = new uint256[](2);
+        amounts[0] = msg.value;
+        amounts[1] = out;
     }
-    function swapExactTokensForETH(uint amountIn, uint, address[] calldata path, address to, uint)
-        external returns (uint[] memory amounts) {
+
+    function swapExactTokensForETH(uint256 amountIn, uint256, address[] calldata path, address to, uint256)
+        external
+        returns (uint256[] memory amounts)
+    {
         // 拉入并销毁输入 token，按 rate 给 `to` 发 ETH。
         IERC20(path[0]).transferFrom(msg.sender, address(this), amountIn);
-        amounts = new uint[](2); amounts[0] = amountIn; amounts[1] = amountIn / _rate;
-        (bool ok,) = to.call{value: amounts[1]}(""); require(ok, "send eth");
+        amounts = new uint256[](2);
+        amounts[0] = amountIn;
+        amounts[1] = amountIn / _rate;
+        (bool ok,) = to.call{value: amounts[1]}("");
+        require(ok, "send eth");
     }
-    function addLiquidityETH(address, uint, uint, uint, address, uint) external payable returns (uint, uint, uint) { revert("unused"); }
-    function WETH() external pure returns (address) { return address(0); }
-    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts) {
-        amounts = new uint[](path.length); amounts[0] = amountIn;
+
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256,
+        address[] calldata path,
+        address to,
+        uint256
+    ) external {
+        uint256 beforeBalance = IERC20(path[0]).balanceOf(address(this));
+        IERC20(path[0]).transferFrom(msg.sender, address(this), amountIn);
+        uint256 actualIn = IERC20(path[0]).balanceOf(address(this)) - beforeBalance;
+        (bool ok,) = to.call{value: actualIn / _rate}("");
+        require(ok, "send eth");
+    }
+
+    function addLiquidityETH(address, uint256, uint256, uint256, address, uint256)
+        external
+        payable
+        returns (uint256, uint256, uint256)
+    {
+        revert("unused");
+    }
+
+    function WETH() external pure returns (address) {
+        return address(0);
+    }
+
+    function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts) {
+        amounts = new uint256[](path.length);
+        amounts[0] = amountIn;
         // path[0] 是 token（卖出）→ 除以 rate；path[0] 是 WETH（买入）→ 乘以 rate。
-        amounts[1] = path[0] == address(_token) ? amountIn / _rate : amountIn * _rate;
+        amounts[path.length - 1] = path[0] == address(_token) ? amountIn / _rate : amountIn * _rate;
+    }
+}
+
+contract CallerSuppliedPoolManagerMock {
+    bool public unlockCalled;
+
+    function unlock(bytes calldata) external returns (bytes memory) {
+        unlockCalled = true;
+        return bytes("");
     }
 }
 
@@ -168,6 +369,13 @@ contract TagAISwapWrapperNutboxFee is Test {
         p[1] = address(weth); // WETH leg
     }
 
+    function _multiHopBuyPath() internal view returns (address[] memory p) {
+        p = new address[](3);
+        p[0] = address(weth);
+        p[1] = address(0x1234);
+        p[2] = address(token);
+    }
+
     /// @dev 未登记代币：买卖前后 Wrapper token 余额不累积 Nutbox fee。
     function test_unregistered_noNutboxFee() public {
         uint256 wrapBefore = token.balanceOf(address(wrapper));
@@ -199,6 +407,66 @@ contract TagAISwapWrapperNutboxFee is Test {
         assertEq(token.balanceOf(buyer), gross - expectedFee, "buyer gets net");
         assertEq(token.balanceOf(address(wrapper)), expectedFee, "wrapper holds fee");
         assertEq(wrapper.pendingNutboxInjection(address(token)), pendingBefore + expectedFee, "pending accrued");
+    }
+
+    function test_v2MultiHopBuyCreditsAndChargesTheFinalToken() public {
+        _register(address(token), address(community));
+        address[] memory path = _multiHopBuyPath();
+
+        uint256 quote = wrapper.quoteBuy(1 ether, path, address(router));
+        vm.prank(buyer);
+        wrapper.buyToken{value: 1 ether}(address(0), quote, path, buyer, block.timestamp + 1, address(router));
+
+        uint256 gross = 1_000 ether;
+        uint256 fee = (gross * NUTBOX_BPS) / 10_000;
+        assertEq(token.balanceOf(buyer), gross - fee, "recipient receives final path token");
+        assertEq(token.balanceOf(address(wrapper)), fee, "only final-token fee remains");
+        assertEq(wrapper.pendingNutboxInjection(address(token)), fee, "fee belongs to final token market");
+        assertEq(wrapper.pendingNutboxInjection(path[1]), 0, "intermediate is never treated as output");
+        assertEq(quote, gross - fee, "multi-hop quote matches recipient output");
+    }
+
+    function test_v2BuyAmountOutMinProtectsFinalRecipientAmountAfterTokenFee() public {
+        _register(address(token), address(community));
+        uint256 gross = 1_000 ether;
+        uint256 net = gross - (gross * NUTBOX_BPS) / 10_000;
+
+        vm.prank(buyer);
+        vm.expectRevert(TagAISwapWrapper.Slippage.selector);
+        wrapper.buyToken{value: 1 ether}(address(0), net + 1, _buyPath(), buyer, block.timestamp + 1, address(router));
+
+        assertEq(token.balanceOf(buyer), 0, "failed final floor is atomic");
+        assertEq(wrapper.pendingNutboxInjection(address(token)), 0, "failed trade accrues no fee");
+    }
+
+    function test_v2SellAmountOutMinProtectsFinalEthAfterPlatformFees() public {
+        vm.prank(buyer);
+        wrapper.buyToken{value: 1 ether}(address(0), 0, _buyPath(), buyer, block.timestamp + 1, address(router));
+        wrapper.adminSetFeeRatios(100, 100, 0);
+
+        uint256 sellAmount = token.balanceOf(buyer) / 2;
+        uint256 grossEthOut = sellAmount / 1_000;
+        vm.startPrank(buyer);
+        token.approve(address(wrapper), sellAmount);
+        vm.expectRevert(TagAISwapWrapper.Slippage.selector);
+        wrapper.sellToken(sellAmount, grossEthOut, _sellPath(), buyer, block.timestamp + 1, address(0), address(router));
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(buyer), 1_000 ether, "failed final floor is atomic");
+    }
+
+    function test_v4RejectsCallerSuppliedUnapprovedPoolManagerBeforeUnlock() public {
+        CallerSuppliedPoolManagerMock maliciousManager = new CallerSuppliedPoolManagerMock();
+        (Currency currency0, Currency currency1) = address(weth) < address(token)
+            ? (Currency.wrap(address(weth)), Currency.wrap(address(token)))
+            : (Currency.wrap(address(token)), Currency.wrap(address(weth)));
+        PoolKey memory key = PoolKey({
+            currency0: currency0, currency1: currency1, fee: 3_000, tickSpacing: 60, hooks: IHooks(address(0))
+        });
+
+        vm.expectRevert(TagAISwapWrapper.InvalidPoolManager.selector);
+        wrapper.buyTokenV4{value: 1 ether}(address(0), 0, key, buyer, IPoolManager(address(maliciousManager)), 0);
+        assertFalse(maliciousManager.unlockCalled(), "unapproved manager must never receive control");
     }
 
     /// @dev warp 600s 后下一笔买入把 pending inject 到 calculator。
@@ -242,6 +510,45 @@ contract TagAISwapWrapperNutboxFee is Test {
         assertEq(calculator.totalInjected(), 0, "no inject on failure");
     }
 
+    function test_revertingCommunityGetterRetainsPendingWithoutBlockingTrade() public {
+        _register(address(token), address(community));
+        vm.prank(buyer);
+        wrapper.buyToken{value: 1 ether}(address(0), 0, _buyPath(), buyer, block.timestamp + 1, address(router));
+        uint256 pending = wrapper.pendingNutboxInjection(address(token));
+
+        community.setRevertRewardCalculator(true);
+        vm.warp(block.timestamp + 600);
+        vm.prank(buyer);
+        wrapper.buyToken{value: 1 ether}(address(0), 0, _buyPath(), buyer, block.timestamp + 1, address(router));
+
+        assertEq(wrapper.pendingNutboxInjection(address(token)), pending * 2, "old and new fees remain pending");
+        assertEq(token.balanceOf(buyer), 1_996 ether, "both user trades complete");
+    }
+
+    function test_revertingTokenApproveRetainsPendingWithoutBlockingBuy() public {
+        SelectiveApproveRevertERC20 guardedToken = new SelectiveApproveRevertERC20();
+        MockCalculator guardedCalculator = new MockCalculator(address(guardedToken));
+        MockCommunity guardedCommunity = new MockCommunity(address(guardedCalculator), address(guardedToken));
+        guardedCalculator.setCommunity(address(guardedCommunity));
+        MockV2Router guardedRouter = new MockV2Router(guardedToken, 1_000);
+        _register(address(guardedToken), address(guardedCommunity));
+
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(guardedToken);
+        vm.prank(buyer);
+        wrapper.buyToken{value: 1 ether}(address(0), 0, path, buyer, block.timestamp + 1, address(guardedRouter));
+        uint256 pending = wrapper.pendingNutboxInjection(address(guardedToken));
+
+        guardedToken.setBlockedSpender(address(guardedCalculator));
+        vm.warp(block.timestamp + 600);
+        vm.prank(buyer);
+        wrapper.buyToken{value: 1 ether}(address(0), 0, path, buyer, block.timestamp + 1, address(guardedRouter));
+
+        assertEq(wrapper.pendingNutboxInjection(address(guardedToken)), pending * 2, "approval failure retains fees");
+        assertEq(guardedToken.balanceOf(buyer), 1_996 ether, "approval failure does not block buys");
+    }
+
     /// @dev 已登记卖：从卖出 token 扣 0.2%，剩余进 swap。
     function test_registeredSell_chargesNutboxFee() public {
         _register(address(token), address(community));
@@ -276,13 +583,15 @@ contract TagAISwapWrapperNutboxFee is Test {
         uint256 pending = wrapper.pendingNutboxInjection(address(token));
 
         // 未到 10 分钟：flush 不注入
-        uint256 remaining = wrapper.flushNutboxInjection(address(token));
-        assertEq(remaining, pending, "still pending before interval");
+        uint256 injected = wrapper.flushNutboxInjection(address(token));
+        assertEq(injected, 0, "nothing injected before interval");
+        assertEq(wrapper.pendingNutboxInjection(address(token)), pending, "still pending before interval");
         assertEq(calculator.totalInjected(), 0);
 
         vm.warp(block.timestamp + 600);
-        remaining = wrapper.flushNutboxInjection(address(token));
-        assertEq(remaining, 0, "pending cleared after interval");
+        injected = wrapper.flushNutboxInjection(address(token));
+        assertEq(injected, pending, "returns actual injected amount");
+        assertEq(wrapper.pendingNutboxInjection(address(token)), 0, "pending cleared after interval");
         assertEq(calculator.totalInjected(), pending, "injected");
     }
 
@@ -339,12 +648,54 @@ contract TagAISwapWrapperNutboxFee is Test {
         assertEq(buyer.balance - ethBefore, q, "quote matches actual net eth");
     }
 
-    /// @dev V3/V4 报价暂不支持。
-    function test_quoteV3_unsupported() public {
+    /// @dev 未注入 NutboxRouter 时，新 ABI quoteBuy revert。
+    function test_quoteBuy_withoutNutboxRouter_reverts() public {
+        bytes memory sourceData = abi.encode(address(1), address(2));
+        vm.expectRevert(TagAISwapWrapper.UnsupportedQuote.selector);
+        wrapper.quoteBuy(address(token), INutboxRouter.SourceType.V3_POOL, sourceData, 1 ether);
+    }
+
+    /// @dev 已登记代币 + V3 源：quoteBuy 扣 0.2% token fee（ETH 费=0，WETH 池 1:1）。
+    function test_quoteBuy_v3Source_registered_deductsTokenFee() public {
+        _register(address(token), address(community));
+        (bytes memory sourceData, uint256 expectedGross) = _setupV3QuotePool();
+        uint256 q = wrapper.quoteBuy(address(token), INutboxRouter.SourceType.V3_POOL, sourceData, 1 ether);
+        uint256 expected = expectedGross - (expectedGross * uint256(NUTBOX_BPS)) / 10_000;
+        assertEq(q, expected, "v3 quote deducts 0.2%");
+    }
+
+    /// @dev 已登记代币 + V3 源：quoteSell 先扣 0.2% 再按 1:1 出 ETH。
+    function test_quoteSell_v3Source_registered_deductsTokenFee() public {
+        _register(address(token), address(community));
+        (bytes memory sourceData,) = _setupV3QuotePool();
+        uint256 sellAmt = 1000 ether;
+        uint256 q = wrapper.quoteSell(address(token), INutboxRouter.SourceType.V3_POOL, sourceData, sellAmt);
+        uint256 swapIn = sellAmt - (sellAmt * uint256(NUTBOX_BPS)) / 10_000;
+        assertEq(q, swapIn, "v3 quote sell net eth");
+    }
+
+    /// @dev 旧 quoteBuyV3 ABI 仍 revert，引导改用 SourceType 重载。
+    function test_quoteBuyV3_legacyAbi_reverts() public {
         vm.expectRevert(TagAISwapWrapper.UnsupportedQuote.selector);
         wrapper.quoteBuyV3(address(0), 0, address(token), address(router), 3000);
-        vm.expectRevert(TagAISwapWrapper.UnsupportedQuote.selector);
-        wrapper.quoteSellV3(0, address(token), address(router), 3000);
+    }
+
+    /// @dev 部署 V3 1:1 池并注入 NutboxRouter；返回 sourceData 与 1 ETH 买入的毛 token 量。
+    function _setupV3QuotePool() internal returns (bytes memory sourceData, uint256 expectedGross) {
+        WrapperQuoteV3FactoryMock factory = new WrapperQuoteV3FactoryMock();
+        (address token0, address token1) =
+            address(weth) < address(token) ? (address(weth), address(token)) : (address(token), address(weth));
+        WrapperQuoteV3PoolMock pool = new WrapperQuoteV3PoolMock(address(factory), token0, token1, 3000);
+        // sqrtPriceX96 = 2^96 → 1:1。
+        pool.setState(79228162514264337593543950336, 1e18);
+        factory.setPool(address(weth), address(token), 3000, address(pool));
+
+        WrapperQuoteNutboxRouterMock nb = new WrapperQuoteNutboxRouterMock(address(weth));
+        nb.setAllowedV3Factory(address(factory), true);
+        wrapper.adminSetNutboxRouter(address(nb));
+
+        sourceData = abi.encode(address(factory), address(pool));
+        expectedGross = 1 ether; // ETH 费=0，quote=WETH，第一跳 1:1
     }
 
     // ─── Fee-on-transfer（V2 路径，按余额差结算）────────────────────────────

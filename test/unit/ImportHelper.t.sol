@@ -167,6 +167,15 @@ contract ImportHelperTest is Test {
         address devFundBefore = Community(payable(community)).devFund();
         assertEq(devFundBefore, creator);
 
+        // Helper may hold ETH from donations/refunds, but it must never subsidize this caller's IPShare fee.
+        vm.deal(address(helper), 1 ether);
+        vm.deal(creator, IPSHARE_CREATE_FEE - 1);
+        vm.prank(creator, creator);
+        vm.expectRevert(ImportHelper.InsufficientFee.selector);
+        helper.createCommunityAndPool{value: IPSHARE_CREATE_FEE - 1}(
+            address(token), address(calculator), bytes(""), community
+        );
+
         // 复用该 community 导入同一 token。creator 此前未建 IPShare → 收 0.01 ETH IPShare 费，Community 费全额退回。
         bool needIp = !IIPShare(address(ipshare)).ipshareCreated(creator);
         uint256 expectedFee = needIp ? IPSHARE_CREATE_FEE : 0;

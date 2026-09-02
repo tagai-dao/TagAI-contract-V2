@@ -16,7 +16,9 @@ deploy-rh-testnet:
 	FOUNDRY_PROFILE=rh_testnet forge script script/DeployRH.s.sol:DeployRHScript $(RH_SCRIPT_FLAGS)
 
 deploy-rh-mainnet:
-	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployRH.s.sol:DeployRHScript $(RH_SCRIPT_FLAGS)
+	@echo "Disabled: full-stack RH mainnet deploy would replace the v9 Nutbox/IPShare stack."
+	@echo "Use the audited incremental v11 deployment sequence documented in README.md."
+	@false
 
 # Additive: NFTMiningPoolFactory only (no Committee whitelist)
 simulate-nft-mining-factory-mainnet:
@@ -54,7 +56,8 @@ simulate-rh-testnet:
 	FOUNDRY_PROFILE=rh_testnet forge script script/DeployRH.s.sol:DeployRHScript $(RH_SIM_FLAGS)
 
 simulate-rh-mainnet:
-	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployRH.s.sol:DeployRHScript $(RH_SIM_FLAGS)
+	@echo "Disabled: use the incremental v11 scripts for RH mainnet simulation."
+	@false
 
 # RH mainnet fork: ImportHelper + TagAISwapWrapper E2E (test/fork/RHImportWrapper.t.sol)
 test-rh-import-wrapper:

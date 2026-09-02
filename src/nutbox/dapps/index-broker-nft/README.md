@@ -303,7 +303,7 @@ Factory 维护 `supportedPump(address)` 注册表。构造函数传入的 `pump`
 
 ### 6.1 官方 Pump 代币
 
-官方 Pump 代币的价格源只能由合约根据该代币的 PancakeSwap V4 上市信息自动读取，创建者不能手工指定 DEX 池。
+官方 Pump 代币的价格源只能由合约根据该代币的 Uniswap V4 上市信息自动读取，创建者不能手工指定 DEX 池。
 
 创建配置要求：
 
@@ -312,7 +312,7 @@ ammConfig.pump = officialPump;
 ammConfig.priceSourceData = bytes("");
 ```
 
-`priceSourceType` 在 AMM 尚未激活时没有报价含义；激活后会被设置为 `PANCAKE_V4_CL`。
+`priceSourceType` 在 AMM 尚未激活时没有报价含义；激活后会被设置为 `UNISWAP_V4`（RH）或 `PANCAKE_V4_CL`（BSC）。
 
 根据代币是否已经上市，有两种结果：
 
@@ -881,7 +881,7 @@ amm.buyIndexWithNativeReserve(
 
 1. 读取 AMM 当前全部 BNB 余额；
 2. 将余额的 **100 BPS（1%）** 发送给执行者作为执行奖励；
-3. 其余 BNB 通过固定 Pancake V3 路径换成 Basket Router 的结算代币；
+3. 其余 native 通过固定 Uniswap V3 路径（WETH → USDG，fee=0.01%）换成 Basket Router 的结算代币（RH 上 USDG 为 **6 decimals**，`minSettlementOut` 由调用方按 6 位传入）；
 4. 根据 AMM 固化的 `indexBasketVersion`，使用该版本对应的 BasketSwapRouter 购买固定的 `indexToken`；
 5. 将买到的指数代币注入 NFT Pool，按指数挖矿权重分配。
 

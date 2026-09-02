@@ -13,6 +13,10 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../../../router/INutboxRouter.sol";
 import "../../../router/NutboxSpotPrice.sol";
 import "./IIndexBrokerNFT.sol";
+import {PoolKey as IndexBrokerUniswapV4PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {PoolId as IndexBrokerUniswapV4PoolId, PoolIdLibrary as IndexBrokerPoolIdLibrary} from "v4-core/src/types/PoolId.sol";
+import {Currency as IndexBrokerUniswapV4Currency} from "v4-core/src/types/Currency.sol";
+import {IHooks as IndexBrokerUniswapV4Hooks} from "v4-core/src/interfaces/IHooks.sol";
 
 interface IIndexBrokerPump {
     function createdTokens(address token) external view returns (bool);
@@ -20,22 +24,12 @@ interface IIndexBrokerPump {
 
 interface IIndexBrokerTagAIToken {
     function listed() external view returns (bool);
-    function clPoolManager() external view returns (address);
+    /// @dev RH Token 的 Uniswap V4 PoolManager（IPoolManager public poolManager）。
+    function poolManager() external view returns (address);
     function v4PoolId() external view returns (bytes32);
-}
-
-interface IIndexBrokerPancakeV4PoolKeyManager {
-    function poolIdToPoolKey(bytes32 poolId)
-        external
-        view
-        returns (
-            address currency0,
-            address currency1,
-            address hooks,
-            address poolManager,
-            uint24 fee,
-            bytes32 parameters
-        );
+    function listingHook() external view returns (address);
+    function LISTING_LP_FEE() external view returns (uint24);
+    function TICK_SPACING() external view returns (int24);
 }
 
 interface IIndexBrokerBasketRegistry {
@@ -220,7 +214,8 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         if (
             collection_.code.length == 0 || communityToken_.code.length == 0 || nutboxRouter_.code.length == 0
                 || basketRegistry_.code.length == 0 || basketSwapRouter_.code.length == 0
-                || indexV3Router_.code.length == 0 || indexToken_.code.length == 0
+                || indexToken_.code.length == 0
+                || (indexV3Router_ != address(0) && indexV3Router_.code.length == 0)
                 || (pump_ != address(0) && pump_.code.length == 0)
         ) {
             revert InvalidAddress();
@@ -247,22 +242,33 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         address settlement = router.settlementToken();
         address basketHook = router.basketHook();
         uint32 basketVersion = registry.basketVersion(indexToken_);
-        IIndexBrokerPancakeV3Router v3Router = IIndexBrokerPancakeV3Router(indexV3Router_);
-        address wrappedNative = v3Router.WETH9();
-        address v3Factory = v3Router.factory();
         IIndexBrokerBasketToken basket = IIndexBrokerBasketToken(indexToken_);
+        // wrappedNative 取 basket.wbnb()（V3 BasketToken 上为 weth 别名）。
+        address wrappedNative = basket.wbnb();
+
         if (
             basketVersion == 0 || settlement.code.length == 0 || basketHook.code.length == 0
-                || wrappedNative.code.length == 0 || v3Factory.code.length == 0
+                || wrappedNative.code.length == 0
                 || basket.protocolVersion() != basketVersion || basket.registry() != basketRegistry_
                 || basket.engine() != basketHook || basket.settlementToken() != settlement
                 || basket.wbnb() != wrappedNative
-                || IIndexBrokerPancakeV3Factory(v3Factory).getPool(wrappedNative, settlement, indexV3Fee_).code.length
-                    == 0
         ) revert InvalidConfig();
 
+        // indexV3Router == 0 时禁用 native 买指数；RH 主网绑定 Uniswap SwapRouter02。
+        if (indexV3Router_ != address(0)) {
+            IIndexBrokerPancakeV3Router v3Router = IIndexBrokerPancakeV3Router(indexV3Router_);
+            if (v3Router.WETH9() != wrappedNative) revert InvalidConfig();
+            address v3Factory = v3Router.factory();
+            if (v3Factory.code.length == 0) revert InvalidConfig();
+            if (IIndexBrokerPancakeV3Factory(v3Factory).getPool(wrappedNative, settlement, indexV3Fee_).code.length == 0) {
+                revert InvalidConfig();
+            }
+            indexV3Router = v3Router;
+        } else {
+            indexV3Router = IIndexBrokerPancakeV3Router(address(0));
+        }
+
         basketSwapRouter = router;
-        indexV3Router = v3Router;
         indexWrappedNative = wrappedNative;
         indexSettlementToken = settlement;
         indexV3Fee = indexV3Fee_;
@@ -291,7 +297,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     /**
      * @notice Permissionlessly activates an AMM paired with a listed official TagAI token.
      * @dev The source cannot be supplied by the caller. It is reconstructed from the
-     *      token's snapshotted Pancake V4 listing PoolKey and checked against v4PoolId.
+     *      token's snapshotted Uniswap V4 listing PoolKey and checked against v4PoolId.
      */
     function activate() external nonReentrant {
         if (pump == address(0) || !IIndexBrokerPump(pump).createdTokens(communityToken)) revert NotOfficialToken();
@@ -304,25 +310,29 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         IIndexBrokerTagAIToken token = IIndexBrokerTagAIToken(communityToken);
         if (!token.listed()) revert OfficialTokenNotListed();
 
-        address manager = token.clPoolManager();
+        address manager = token.poolManager();
         bytes32 poolId = token.v4PoolId();
         if (manager.code.length == 0 || poolId == bytes32(0)) revert InvalidOfficialPool();
-        (address currency0, address currency1, address hooks, address poolManager, uint24 fee, bytes32 parameters) =
-            IIndexBrokerPancakeV4PoolKeyManager(manager).poolIdToPoolKey(poolId);
 
-        INutboxRouter.PancakeV4CLSource memory source = INutboxRouter.PancakeV4CLSource({
-            currency0: currency0,
-            currency1: currency1,
-            hooks: hooks,
-            poolManager: poolManager,
-            fee: fee,
-            parameters: parameters
+        // RH 上市池固定 currency0 = native ETH（address(0)）、currency1 = token。
+        INutboxRouter.UniswapV4Source memory source = INutboxRouter.UniswapV4Source({
+            poolManager: manager,
+            currency0: address(0),
+            currency1: communityToken,
+            fee: token.LISTING_LP_FEE(),
+            tickSpacing: token.TICK_SPACING(),
+            hooks: token.listingHook()
         });
-        bytes32 reconstructedPoolId = keccak256(
-            abi.encode(
-                source.currency0, source.currency1, source.hooks, source.poolManager, source.fee, source.parameters
-            )
-        );
+
+        // 排序校验：用同样字段本地算 PoolKey.toId()，必须 == token.v4PoolId()。
+        IndexBrokerUniswapV4PoolKey memory key = IndexBrokerUniswapV4PoolKey({
+            currency0: IndexBrokerUniswapV4Currency.wrap(source.currency0),
+            currency1: IndexBrokerUniswapV4Currency.wrap(source.currency1),
+            fee: source.fee,
+            tickSpacing: source.tickSpacing,
+            hooks: IndexBrokerUniswapV4Hooks(source.hooks)
+        });
+        bytes32 reconstructedPoolId = IndexBrokerUniswapV4PoolId.unwrap(IndexBrokerPoolIdLibrary.toId(key));
         if (
             source.hooks == address(0) || source.poolManager != manager || reconstructedPoolId != poolId
                 || (source.currency0 != communityToken && source.currency1 != communityToken)
@@ -330,7 +340,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
             revert InvalidOfficialPool();
         }
 
-        _activate(INutboxRouter.SourceType.PANCAKE_V4_CL, abi.encode(source), true);
+        _activate(INutboxRouter.SourceType.UNISWAP_V4, abi.encode(source), true);
     }
 
     function quoteNormalNativeFee() external view whenActive returns (uint256) {
@@ -380,6 +390,8 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     {
         uint256 nativeReserve = address(this).balance;
         if (nativeReserve == 0) revert NoNativeReserve();
+        // USDG 为 6 decimals：minSettlementOut 由调用方按结算代币精度传入，合约不做 18→6 换算。
+        if (address(indexV3Router) == address(0)) revert InvalidIndexPurchase();
 
         callerReward = Math.mulDiv(nativeReserve, INDEX_PURCHASE_CALLER_BPS, BPS_DENOMINATOR);
         uint256 nativeToInvest = nativeReserve - callerReward;

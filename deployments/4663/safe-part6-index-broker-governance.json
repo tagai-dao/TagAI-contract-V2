@@ -1,0 +1,40 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1788338268000,
+  "meta": {
+    "name": "RH IndexBroker governance activation",
+    "description": "Approve the deployed IndexBroker factory in Committee and accept its ownership with the RH Safe.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "createdFromOwnerAddress": ""
+  },
+  "transactions": [
+    {
+      "to": "0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0",
+      "value": "0",
+      "data": "0x54a7d6b1000000000000000000000000678871773b07322aa927fe5057870d1356f09676",
+      "contractMethod": {
+        "inputs": [
+          { "internalType": "address", "name": "_c", "type": "address" }
+        ],
+        "name": "adminAddContract",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "_c": "0x678871773b07322aA927FE5057870D1356F09676"
+      }
+    },
+    {
+      "to": "0x678871773b07322aA927FE5057870D1356F09676",
+      "value": "0",
+      "data": "0x79ba5097",
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": {}
+    }
+  ]
+}

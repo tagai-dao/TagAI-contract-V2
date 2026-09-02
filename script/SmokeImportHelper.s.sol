@@ -20,7 +20,7 @@ import {ICommunity} from "../src/interfaces/ICommunity.sol";
  *     --gas-estimate-multiplier 300 -vvv
  */
 contract SmokeImportHelperScript is Script {
-    // deployments/46630/addresses.json
+    // deployments/46630/version11.json
     address constant IMPORT_HELPER = 0x8A7b0d80FA92699CE3e5bB2c8fE404D6733796d1;
     address constant CALCULATOR = 0xf5D8d9402A4603bD67400500E62880eee91cF12C;
     address constant SCF = 0xd52624320654FBEA5F1f988d5F4E55B74C56e67D;

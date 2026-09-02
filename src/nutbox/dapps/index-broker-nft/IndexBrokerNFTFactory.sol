@@ -160,10 +160,14 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     ) {
         require(
             communityFactory_ != address(0) && pump_.code.length > 0 && defaultRenderer_.code.length > 0
-                && ammTemplate_.code.length > 0 && nutboxRouter_.code.length > 0 && basketRegistry_.code.length > 0
-                && indexV3Router_.code.length > 0,
+                && ammTemplate_.code.length > 0 && nutboxRouter_.code.length > 0 && basketRegistry_.code.length > 0,
             "Invalid address"
         );
+        // RH 适配：indexV3Router_ == address(0) 时禁用「用 native 买指数」；
+        // RH 主网传入 Uniswap SwapRouter02，fee=100（USDG/WETH 0.01%）。
+        if (indexV3Router_ != address(0)) {
+            require(indexV3Router_.code.length > 0, "Invalid address");
+        }
         if (basketVersions_.length == 0 || basketVersions_.length != basketSwapRouters_.length) {
             revert InvalidBasketRouterConfiguration();
         }

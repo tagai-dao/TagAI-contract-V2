@@ -109,6 +109,7 @@ contract ImportHelper is IImportHelper {
 
         if (existingCommunity != address(0)) {
             _validateExistingCommunity(token, calculator, existingCommunity);
+            if (msg.value < ipshareCreateFee) revert InsufficientFee();
             if (needCreateIPShare) {
                 IIPShare(ipshare).createShare{value: ipshareCreateFee}(creator);
             }
