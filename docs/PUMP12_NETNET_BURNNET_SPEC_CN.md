@@ -93,17 +93,20 @@ Robinhood Chain 固定基础设施：
 ### 3.3 费率参数
 
 
-| 参数                    | 范围/固定值                     |
-| --------------------- | -------------------------- |
-| 创建者设置的总交易费 `f`        | `1%–10%`                   |
-| TagAI 分成              | 总手续费的 `10%`                |
-| 创建者分成 `c`             | 总手续费的 `0%–30%`             |
-| 上市后 BurnNet 分成        | 总手续费的 `90% - c`            |
-| Distributor USDG 信用来源 | 仅官方池 Hook fee 的 BurnNet 份额 |
-| Distributor USDG 折算价  | 固定 `initialAnchor`         |
+| 参数                    | 范围/固定值                        |
+| --------------------- | ----------------------------- |
+| 创建者设置的总交易费 `f`        | `1%–10%`                      |
+| TagAI 分成              | 总手续费的 `10%`                   |
+| 创建者分成 `c`             | 总手续费的 `0%–30%`                |
+| 上市后 BurnNet 分成        | 总手续费的 `90% - c`               |
+| Distributor USDG 信用来源 | 仅官方池 Hook fee 的 BurnNet 份额    |
+| Distributor USDG 折算价  | 固定 `initialAnchor`            |
+| BondDepository 折扣     | `3%`，不可变                      |
+| IndexBondDesk 折扣      | `6.5%`，不可变                    |
+| 指数仓 USDG 进墙抽成         | `1%` 给创建者，`99%` 进 BurnNet，不可变 |
 
 
-`f` 和 `c` 在 Token 创建时确定。费率和分成比例对该 Token 永久冻结；创建者只能按受控流程更换收款地址，不能提高费率或分成比例。
+`f` 和 `c` 在 Token 创建时确定。费率和分成比例对该 Token 永久冻结；创建者只能按受控流程更换收款地址，不能提高费率或分成比例。Bond 与 Desk 折扣为协议常量，创建者不能修改。
 
 ## 4. Pump9 同形 Bonding Curve
 
@@ -835,7 +838,7 @@ bondPrice
 
 固定边界：
 
-- `discount <= 3%`；
+- `discount = 3%`，不可变；
 - TWAP 无效时停止；
 - anchor 向下重启后的24小时冻结期停止；
 - 用户提供 `maxPrice` 保护；
@@ -898,21 +901,15 @@ PremiumSeller 不消耗 Distributor credit。协议不增加额外的“每天�
 
 ## 17. pTEAM 与 IndexBondDesk
 
-### 17.1 固定 Strike
+### 17.1 无 Strike
 
-采用固定初始 Anchor 方案：
+本协议取消 NetNet 的团队行权 strike。pTEAM 不是「按地板价买币」的期权，而是把额度铸进不可砸盘 Desk 的开关：团队不支付 USDG，也不能把 Token 取走。
 
-```text
-TEAM_STRIKE
-= initialAnchor
-≈ 0.000055862470929 USDG/Token
-```
-
-Strike 在创建/Listing 后永久不变，不随 anchor 正常上涨或 generation 向下重启改变。
+地板由用户认购保证。Desk 单价 `D >= 1.2 × 当前anchor`，认购时从用户付款中划出当前 anchor 进入 BurnNet，其余购买指数。因此不再需要团队预付 `initialAnchor`。
 
 ### 17.2 额度
 
-本协议不使用 NetNet 的30天线性归属。行权 Token 只进入 IndexBondDesk，没有撤回路径，不能进入团队钱包或任何交易池；每一枚最终被用户认购的 Token 都有 Desk 单价对应的 USDG 进入协议（strike 进 BurnNet，其余进 BurnNet 补差和指数购买）。因此不需要再用日历归属来限制抛压。
+本协议不使用 NetNet 的30天线性归属。行权 Token 只进入 IndexBondDesk，没有撤回路径，不能进入团队钱包或任何交易池；每一枚最终被用户认购的 Token 都有 Desk 单价对应的 USDG 进入协议（当前 anchor 进 BurnNet，其余买指数）。因此不需要再用日历归属或团队垫资来限制抛压。
 
 额度以 `totalSupply` 为基数，采用动态10%上限；上限随总供应量上升，永不到期：
 
@@ -931,14 +928,14 @@ exercisableNow
 - 不在 anchor 向下重启后的 mint 冻结期；
 - IndexBondDesk 未售 Token inventory 不超过当前总供应量的 `0.5%`。
 
-0.5% 库存上限是去掉日历归属后的瞬时节流：行权当下 BurnNet 只收到 strike，市价级 USDG 要等用户认购才到账。没有用户接盘时，未售库存不能超过总供应量的0.5%。
+0.5% 库存上限是去掉 strike 和日历归属后的瞬时节流：行权当下没有 USDG 进入 BurnNet，市价级入金要等用户认购。没有用户接盘时，未售库存不能超过总供应量的0.5%。
 
 ### 17.3 行权
 
 团队行权 `N` 枚 Token：
 
 ```text
-团队支付：N × TEAM_STRIKE USDG → BurnNet
+团队支付：0
 Treasury mint：N Token → IndexBondDesk
 ```
 
@@ -950,9 +947,9 @@ Treasury mint：N Token → IndexBondDesk
 
 ```text
 A = 认购时当前anchor
-S = TEAM_STRIKE
 D = Desk认购单价
 N = 用户认购数量
+deskDiscount = 6.5%
 ```
 
 Desk 价格：
@@ -960,41 +957,101 @@ Desk 价格：
 ```text
 D
 = max(
-    TWAP × (1 - deskDiscount),
+    TWAP × (1 - 6.5%),
     1.2 × A
   )
 ```
+
+`deskDiscount` 固定为 `6.5%`，与 NetNet Real World Bonds 启动折扣一致；不可由创建者或管理员修改。BondDepository 折扣仍为 `3%`，两套初级发行不得共用折扣参数。
 
 用户支付 `D × N` USDG 后：
 
 ```text
 BurnNet remittance
-= max(A - S, 0) × N
+= A × N
 
 Index purchase budget
-= [D - max(A - S, 0)] × N
+= (D - A) × N
 ```
 
-结合团队行权款，BurnNet 每发行一枚 pTEAM Desk Token 至少收到当前 anchor 对应资金：
+因为 `D >= 1.2 × A`，所以 `D - A >= 0.2 × A`，指数购买预算恒为正。BurnNet 每卖出一枚 Desk Token 恰好收到当前 anchor；不再依赖团队预付，向下重启后 `A` 变低时，补墙金额跟随新的当前 anchor，不回看已删除的 strike。
 
-```text
-S + max(A - S, 0) >= A
-```
+指数购买预算 `(D - A) × N` 在同一认购交易中转入该 Token **Listing 时绑定的** `IndexFund`，不得发送到创建者 EOA 或任意外部地址。第一版 IndexFund 在收款后立即购买 Token 创建时选定的 TagAI 指数 Token。购买失败时整笔认购回滚。
 
-如果 generation 向下重启后 `A < S`，用户认购款不再额外补充 BurnNet；团队此前支付的固定 strike 已经高于当前 anchor。
-
-指数购买预算在同一认购交易中，通过受支持路由购买 Token 创建时选定的 TagAI 指数 Token，并先发送到创建者指定的指数资产地址。
-
-指数资产：
+指数资产（第一版 IndexFund）：
 
 - 必须来自官方 `IndexRegistry`；
 - Index ID 在 Token 创建时固定，不能后续替换；
 - 必须有官方价格源、最小流动性和最大滑点保护；
-- 购买失败时整笔认购回滚；
-- 不计入 anchor、BurnNet 资产、协议 backing 或 Distributor credit；
-- 后续如何处置由单独机制规范决定，本规范只确定初始接收方为创建者。
+- 不计入 anchor、BurnNet 资产、协议 backing 或 Distributor credit。
 
-`deskDiscount` 默认值和不可突破的最大值需在实现 IndexBondDesk 前单独冻结，不得给创建者无限折扣权限。
+用户认购时的 `BurnNet remittance = A × N` 仍 100% 进入 BurnNet，不抽 1%。1% 只作用于 17.5 的两条变现路径。
+
+后续 IndexFund 实现可以改变「溢出 USDG 如何做收益」，但不能改变 Desk 定价、补墙金额或社区 Token 去向。见 17.6。
+
+### 17.5 指数仓 v1：创建者卖出特权、持有者分成与 1% 抽成
+
+第一版 `IndexFund`（`IndexFundV1`）按 Token/poolId 隔离，Listing 时与 Desk 一并 clone 并永久绑定。创建者只有两个操作，都不是公开入口：
+
+1. `sellIndex`：按官方登记路由把仓内指数 Token 卖成 USDG；
+2. `claimHolderFees`：领取该指数对持有者的手续费分成，并在同一笔交易内把分成换成 USDG。
+
+创建者不能提取指数 Token、不能提取包装原生币、不能提取 USDG、不能更换资金去向、不能任意 `approve`。
+
+持有者分成按 TagAI 指数/Basket 现有接口领取：`claimHolderFeesFor(vault)`。结算资产是该指数的 `weth()`，即**包装原生币**（Robinhood 为 WETH，BSC 为 WBNB），不是指数 Token，也不是 USDG。领到 vault 后必须马上经官方路由换成 USDG；WETH/WBNB 不得停留、不得发给创建者。
+
+**两条路径换到的 USDG 都进回购墙，都抽 1%。** 认购补墙 `A × N` 不抽。
+
+```text
+grossUSDG      = 本次 sellIndex，或 claimHolderFees 换汇后，实际收到的 USDG
+creatorFee     = grossUSDG × 1%
+burnNetAmount  = grossUSDG − creatorFee
+```
+
+```text
+creatorFee    → 创建者收款地址
+burnNetAmount → 该 Token 的 BurnNet pending（non-eligible）
+```
+
+`1%` 不可变。`burnNetAmount` 必须在同一笔交易内转入 BurnNet，不能停留在 vault。该笔资金不产生 Distributor credit。指数卖出和包装原生币换 USDG 都必须走官方登记路由，并受官方价格源和最大滑点约束；`minOut` 不得为 0。换汇失败则整笔操作回滚。
+
+以上两条操作是 **IndexFund v1** 的行为。未来 TagAI 接入的新实现可以提供更灵活的买入/卖出，但 1% / 99% 分账和「不能把本金或收益提到创建者钱包」对所有版本有效。
+
+### 17.6 IndexFund 可插拔：只换基金，不换整套协议
+
+把两件事拆开：
+
+```text
+IndexBondDesk   社区 Token 初级发行台（定价、货架、补墙 A、2天归属）
+IndexFund       认购溢出 USDG 的基金模块（现在买指数、以后可做创建者运营的基金）
+```
+
+`IndexBondDesk`、pTEAM、Treasury、BurnNet、Hook **不随基金策略升级**。Desk 唯一要知道的是：溢出 USDG 转给该 Token 已经绑定的 `IndexFund`，并调用固定接口 `onDeskProceeds(usdgAmount)`。购买失败或 `onDeskProceeds` revert，则整笔认购回滚。
+
+TagAI 通过 `IndexFundFactory` 管理当前实现：
+
+```text
+TagAI 可调用 setIndexFundImplementation(newImpl)
+```
+
+规则：
+
+1. Listing 时按**当时**的 current implementation clone 一个 IndexFund，写入该 Token 的 Desk，**永久绑定**；
+2. TagAI 更换实现只影响**之后新 Listing 的 Token**；
+3. 已经绑定的 Token 不能迁移、不能指向新实现、不能被 TagAI 抽走资产；
+4. 创建者不能选择或替换 IndexFund 实现。
+
+这样升级基金能力时不必重部署 Pump12 / Treasury / BurnNet / Desk。旧 Token 继续用 v1（自动买指定指数，只能卖出和领分成）；新 Token 可以使用例如「创建者决定用多少 USDG 买哪种资产、再决定卖出」的基金实现。
+
+所有 IndexFund 实现必须满足同一组不变量，否则 Factory 不得登记：
+
+- 只接受本 Token Desk 转入的溢出 USDG；
+- 任何结算为 USDG、准备进入 BurnNet 的金额：`1%` 创建者收款地址，`99%` 该 Token BurnNet pending（non-eligible）；
+- 除上述 1% 外，任何资产不能转到创建者或任意外部地址；
+- 不能 mint / 不能动社区 Token 货架 / 不能改 Desk 定价和补墙 `A`；
+- 不能给这 99% 制造 Distributor credit。
+
+第一版实现（`IndexFundV1` / 即前文 IndexAssetVault）冻结为：收款后自动购买创建时选定的一个指数，创建者只能 `sellIndex` 和 `claimHolderFees`。
 
 ## 18. 模块发行边界汇总
 
@@ -1002,9 +1059,9 @@ S + max(A - S, 0) >= A
 | 模块             | 触发条件                                               | 接收方                 | 额度                                                                                                   |
 | -------------- | -------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
 | Distributor    | `TWAP > max(initialAnchor, currentAnchor)`，且储备快照有效 | Staking/质押者         | 每8小时最高总供应量0.45%；新 mint 后不得超过当时的 `37.5M + effectiveEligibleTradeFeeUSDG / initialAnchor + actualBurn` |
-| BondDepository | 有效 TWAP、用户支付 USDG                                  | Bond vesting escrow | 每8小时0.25%；滚动30天5%                                                                                    |
+| BondDepository | 有效 TWAP、用户支付 USDG                                  | Bond vesting escrow | 折扣3%；每8小时0.25%；滚动30天5%                                                                               |
 | PremiumSeller  | `TWAP > 2 × anchor`                                | 卖入官方池               | 每次基础 POL 当前 Token inventory 的0.25%；间隔1小时                                                             |
-| pTEAM          | 上市24小时后、`TWAP >= 1.2 × anchor`                         | IndexBondDesk       | 动态10% × totalSupply；无30天归属；Desk 未售库存不超过总供应量0.5%                                                     |
+| pTEAM          | 上市24小时后、`TWAP >= 1.2 × anchor`                     | IndexBondDesk       | 无 strike；折扣6.5%；动态10% × totalSupply；Desk 未售库存不超过总供应量0.5%                                             |
 
 
 所有模块同时受 Treasury 的24小时 downward-reset freeze 和 post-reset TWAP 要求约束。
@@ -1022,6 +1079,8 @@ Pump12
 ├─ PremiumSeller
 ├─ PTeam
 ├─ IndexBondDesk
+├─ IndexFundFactory（TagAI 设置 current implementation）
+├─ IndexFund clone（每个 Token Listing 时冻结绑定）
 └─ PermanentLiquidityVault
 
 NetNetHook（平台共享，按poolId隔离）
@@ -1045,6 +1104,7 @@ NetNetHook（平台共享，按poolId隔离）
 - TWAP observations；
 - Distributor credit；
 - Index ID；
+- 该 Token 绑定的 IndexFund 地址（Listing 后不可变）；
 - 各 mint 模块累计量。
 
 ## 20. 核心会计与安全不变量
@@ -1208,6 +1268,9 @@ PremiumSold
 PTeamExercised
 DeskSubscribed
 IndexPurchased
+IndexSold
+IndexRewardClaimed
+IndexRealizedSplit
 ```
 
 `PendingUSDGAdded` 至少索引 `poolId`、Token、funder 和不可变的资金来源类型，并记录 requested amount、actual received amount 与 `eligibleForDistributor`。`ReserveSnapshotUpdated` 至少记录 `poolId`、generation、anchorVersion、固定 `initialAnchor`、Active reserve USDG 总额、Eligible trade-fee USDG 及折算 reserve credit。
@@ -1234,7 +1297,7 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 14. Distributor 在 `TWAP <= max(initialAnchor, currentAnchor)` 时零排放、`37.5M + eligibleTradeFeeReserve/initialAnchor + actualBurn` 约束、anchor 上下调整时 reserve credit 保持不变、饱和归零，以及 `warmup=0` 的 epoch 快照进入/退出边界；
 15. Bond epoch/30天双上限；
 16. PremiumSeller clip 只使用永久基础 POL；
-17. pTEAM 动态10% × totalSupply、无30天归属、24小时启动限制和0.5% Desk inventory；
+17. pTEAM 无 strike、Desk 折扣6.5%、动态10% × totalSupply、24小时启动限制和0.5% Desk inventory；Bond 折扣固定3%；创建者 `sellIndex` 与 `claimHolderFees`（包装原生币换 USDG）所得均抽 1% 给创建者、99% 进 BurnNet；认购 remittance 不抽；IndexFund Listing 时冻结，TagAI 换实现不影响旧 Token，Desk 溢出 USDG 只能进入已绑定 IndexFund；
 18. 恶意创建者收款合约不能阻塞 swap；
 19. 恶意/未注册指数不能用于创建 Token；
 20. 共享 Hook 中不同 poolId 的 Pending/Active/储备快照、资金和 Oracle 状态不能串账；
@@ -1258,7 +1321,7 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 3. Per-pool TWAP observation 数量、ring buffer 容量、checkpoint 最小间隔、最小窗口和最大窗口；
 4. BurnNet 每档精确 tick 宽度和 tick rounding；
 5. Keeper bounty 的 USDG 数量、上限和支付来源；
-6. IndexBondDesk 默认 discount 和 immutable maximum discount；
+6. IndexFund v1 指数买卖与包装原生币换 USDG 的最小流动性和最大滑点；Bond 折扣已冻结为3%，Desk 折扣已冻结为6.5%，指数/基金变现抽成已冻结为1%；IndexFundFactory 的 TagAI 权限与 realization 接口；
 7. Hook exact-input Router/PoolManager unlock、settle、take 与 returns-delta 的最终结算接口和权限位；
 8. Robinhood canonical USDG 的 SafeERC20、6-decimal rounding、代理升级、黑名单和暂停风险处理；
 9. 所有 clone/factory 的地址预测、初始化顺序和 wiring 防抢跑方案。
