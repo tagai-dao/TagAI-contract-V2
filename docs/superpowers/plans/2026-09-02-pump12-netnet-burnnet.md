@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - 首发网络 chain ID `4663`；原生 gas 为 ETH；计价资产仅 canonical USDG `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`（6 decimals）。
-- 官方 DEX 仅为 Uniswap v4 PoolManager `0x8366a39cc670b4001a1128b8f6a443a643e40951`（部署脚本必须再核验）。
+- 官方 DEX 仅为 Uniswap v4 PoolManager `0x8366a39cc670b4001a1121b8f6a443a643e40951`（部署脚本必须再核验）。
 - 只支持 exact-input；exact-output 必须 revert。
 - 不使用 Nutbox、Morpho、InverseBond、TaxCollector、RFV/NAV。
 - Treasury 是上市后唯一 minter；模块集合 Listing 时冻结。
@@ -104,14 +104,17 @@ script/DeployPump12RH.s.sol
 - Produces:
   - `UsdG.WAD = 1e18`（Token 侧 18 decimals 价格）
   - `UsdG.toWad(uint256 raw6) returns (uint256)` = `raw6 * 1e12`
-  - `UsdG.toRaw6(uint256 wad) returns (uint256)`（固定舍入方向：对外付款向下、对协议入账向上，在测试里钉死）
+  - `UsdG.toRaw6(uint256 wad) returns (uint256)`（对外付款向下）
+  - `UsdG.toRaw6Up(uint256 wad) returns (uint256)`（协议应收入账向上）
   - `Pump12` constructor 校验 `block.chainid`、USDG `decimals()==6`、`PoolManager` 有代码。
 
-- [ ] **Step 1:** 写 `UsdG.t.sol`：`1e6 raw → 1e18 wad`；`1 wad unit` 转回 raw6 的舍入边界。
-- [ ] **Step 2:** `forge test --match-contract UsdGTest` 先失败。
-- [ ] **Step 3:** 实现 `UsdG.sol` 与 `DeployPump12RH.s.sol` 的 `require(block.chainid == 4663)`（fork/模拟用 `vm.chainId`）。
-- [ ] **Step 4:** `DeployGuard` 测试：错 chainId、USDG decimals≠6、PoolManager 无代码 → revert。
-- [ ] **Step 5:** Commit `chore: add Pump12 USDG helpers and deploy guards`
+- [x] **Step 1:** 写 `UsdG.t.sol`：`1e6 raw → 1e18 wad`；`1 wad unit` 转回 raw6 的舍入边界。
+- [x] **Step 2:** `forge test --match-contract UsdGTest` 先失败。
+- [x] **Step 3:** 实现 `UsdG.sol` 与 `DeployPump12RH.s.sol` 的 `require(block.chainid == 4663)`（fork/模拟用 `vm.chainId`）。
+- [x] **Step 4:** `DeployGuard` 测试：错 chainId、USDG decimals≠6、PoolManager 无代码 → revert。
+- [x] **Step 5:** Commit `chore: add Pump12 USDG helpers and deploy guards`
+
+验证结果：本地完整回归 `293 passed, 0 failed, 38 skipped`；跳过项均为显式 fork/既有条件跳过测试。
 
 **本层完成标准：** 本地单测通过。还不接曲线。
 

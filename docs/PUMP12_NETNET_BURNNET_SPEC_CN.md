@@ -1330,7 +1330,22 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 30. 部署脚本必须拒绝非 `4663` chain ID、错误 USDG 地址、错误 decimals、无代码或非 canonical PoolManager；
 31. `pendingBefore = keeperPaid + activated + pendingAfter` 守恒，第三方应收款永不进入 Pending，且 `pendingAfter` 只能使用固定的 dust/档位约束原因枚举。
 
-## 23. 实现前仍需冻结的工程参数
+## 23. 工程参数冻结状态
+
+### 23.1 Task 0 已冻结参数
+
+| 项目 | 已冻结实现 |
+| --- | --- |
+| 首发链门禁 | `block.chainid == 4663`；非 Robinhood 主网部署失败 |
+| USDG 地址 | `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`；必须有代码且 `decimals() == 6` |
+| PoolManager 地址 | `0x8366a39cc670b4001a1121b8f6a443a643e40951`；必须有代码 |
+| 内部精度 | `WAD = 1e18`，每个 USDG raw unit 对应 `1e12` WAD units |
+| USDG → WAD | `toWad(raw6) = raw6 × 1e12`，精确换算 |
+| 对外付款 | `toRaw6(wad) = floor(wad / 1e12)`，向下舍入 |
+| 协议应收入账 | `toRaw6Up(wad) = ceil(wad / 1e12)`，向上舍入 |
+| 门禁位置 | `Pump12` 构造函数与 `DeployPump12RH.s.sol` 双重校验 canonical 地址、代码和精度 |
+
+### 23.2 后续仍需冻结参数
 
 下列项目不改变本文经济机制，但必须在编码/仿真后写成不可变常量并补充本文：
 
