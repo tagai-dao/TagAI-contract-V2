@@ -36,7 +36,7 @@ Pump12 将 TagAI 的 Bonding Curve 冷启动机制与 NetNet 的受控发行机�
 | 基础 POL                  | 上市时创建的 `250M Token + 15,000 USDG` 全域、零 LP fee、永久锁定仓位                                                                    |
 | Anchor                  | BurnNet 分层挂单和 NetNet 参数调节共同使用的参考价格                                                                                      |
 | Generation              | 使用同一个 anchor 和七档区间的一代 BurnNet 仓位                                                                                        |
-| Pending USDG            | 已归属于指定 poolId、但尚未部署进回购仓位的 USDG；必须按交易费来源与其他来源分账                                                                          |
+| Pending USDG            | 已完成 TagAI/创建者等全部分账、无第三方退款或领取权、已由 BurnNet 净拥有但尚未部署进回购仓位的 USDG；必须按交易费来源与其他来源分账                                 |
 | Active reserve USDG     | 已归属于指定 poolId、已经过有效 poke 结算并投入当前 BurnNet generation 的 USDG 储备本金；不包括 Pending USDG                                        |
 | Eligible trade-fee USDG | 上市后由官方池真实 swap 收取、完成 TagAI/创建者分成后实际划入 BurnNet 的手续费 USDG；这是唯一能产生 USDG 型 Distributor credit 的资金来源                         |
 | Reserve snapshot        | 有效 poke 在完成结算、销毁、anchor 更新和 pending 激活后，为指定 poolId 分别封存 Active reserve 总额、其中 Eligible trade-fee USDG、anchorVersion 和时间戳 |
@@ -527,11 +527,26 @@ kappa3
 结算旧仓位
 → 销毁已经结算获得的Token
 → 按规则更新/重启anchor
-→ 扣除不属于Active reserve的明确负债和keeper支付
-→ 将本次允许部署的pendingUSDG按来源分类转为activeReserveUSDG
+→ 读取pendingBefore并计算受上限约束的keeperBounty
+→ 计算deployablePendingUSDG = pendingBefore - keeperBounty
+→ 支付keeperBounty并同步更新来源子账
+→ 将可分配金额按来源分类转为activeReserveUSDG
 → 按新anchor部署仓位
 → 封存reserveSnapshotUSDG、eligibleTradeFeeReserveUSDG、anchorVersion、generation和snapshotAt
 ```
+
+`pendingUSDG` 不是 Hook 的 USDG 总余额，而是完成所有手续费分账后的 BurnNet 净资产。TagAI/创建者应收款、pTEAM 指数购买款、用户退款、PoolManager 临时 delta 和其他模块托管款必须使用独立账本或在原交易内结清，任何时候都不得先计入 Pending、再由 poke 以“明确负债”为名扣除。
+
+每次成功 poke 必须满足：
+
+```text
+pendingBefore
+= keeperBountyPaid
+ + pendingActivatedIntoPositions
+ + pendingAfter
+```
+
+`pendingAfter` 只允许来自 Uniswap v4 liquidity/tick 的确定性 rounding dust，或本文已经明确的有效档位/层级集中度约束；必须记录数额和原因。不得由 keeper 或管理员声明新的扣减项目。不存在约束时，全部 `deployablePendingUSDG` 必须进入当时仍有效的档位。
 
 `reserveSnapshotUSDG` 是本次 poke 已核验并锁定在该 poolId BurnNet 体系中的 USDG 储备本金，不是对 PoolManager 当前 spot 资产构成的即时读取。`eligibleTradeFeeReserveUSDG` 是其中由官方池交易费形成的子集，且任何时刻不得大于总储备。仓位在两个 poke 之间从 USDG 转换成 Token 时，已锁定的 Eligible 本金继续计入本期排放节流额度；结算时必须把获得的 Token 实际 burn，再更新下一份快照。该快照不是全体 Token 的 backing、兑付资产或价格托底承诺。
 
@@ -794,7 +809,8 @@ mintAmount = min(formulaReward, availableCredit)
 
 - Hook 刚收到、仍处于 Pending 状态的 USDG；
 - 未经有效 poke 封存或属于过期/错误 generation/anchorVersion 快照的交易费 USDG；
-- 平台、创建者应收款、keeper 预留和其他明确负债；
+- 平台、创建者应收款；这些资金从未进入 `pendingUSDG`；
+- 从 Pending 实际支付的 keeper bounty；其 Eligible/non-eligible 来源必须按支付前固定比例同步扣减；
 - 基础永久 POL 中的15,000 USDG；
 - BondDepository、PremiumSeller、pTEAM/IndexBondDesk 的全部 USDG 收入；
 - permissionless `addPendingUSDG`、管理员补款、直接转账和其他外部注资；
@@ -1153,10 +1169,10 @@ totalEligibleTradeFeeAccrued
  + activeEligibleLiquidUSDG
  + activeEligiblePositionPrincipalUSDG
  + consumedEligibleTradeFeeUSDG
- + eligibleUSDGSpentOnKeeperOrExplicitCost
+ + eligibleUSDGSpentOnKeeper
 ```
 
-只有官方池 Hook fee 中已经分配给 BurnNet 的份额可以增加 `totalEligibleTradeFeeAccrued`。poke 只是把 Eligible 从 Pending 搬到 Active，仓位迁移只改变其位置，任何操作都不能凭空增加该累计值。keeper 或其他明确成本若从混合资金支付，必须按支付前的固定来源比例同时减少 Eligible 与 non-eligible 子账，只有净部署的 Eligible 金额进入 reserve credit。
+只有官方池 Hook fee 中已经分配给 BurnNet 的份额可以增加 `totalEligibleTradeFeeAccrued`。poke 只是把 Eligible 从 Pending 搬到 Active，仓位迁移只改变其位置，任何操作都不能凭空增加该累计值。keeper bounty 若从混合资金支付，必须按支付前的固定来源比例同时减少 Eligible 与 non-eligible 子账，只有净部署的 Eligible 金额进入 reserve credit。不得增加“其他成本”兜底扣款。
 
 共享 Hook 不得用自身聚合 `USDG.balanceOf()` 推断任何单个 poolId 的 Pending 或 Active reserve。必须满足跨池总账：
 
@@ -1251,6 +1267,7 @@ HookFeeAccrued
 HookFeeClaimed
 PendingUSDGAdded
 PendingUSDGActivated
+PendingUSDGDeferred
 ReserveSnapshotUpdated
 AnchorUpdated
 GenerationReset
@@ -1273,7 +1290,7 @@ IndexRewardClaimed
 IndexRealizedSplit
 ```
 
-`PendingUSDGAdded` 至少索引 `poolId`、Token、funder 和不可变的资金来源类型，并记录 requested amount、actual received amount 与 `eligibleForDistributor`。`ReserveSnapshotUpdated` 至少记录 `poolId`、generation、anchorVersion、固定 `initialAnchor`、Active reserve USDG 总额、Eligible trade-fee USDG 及折算 reserve credit。
+`PendingUSDGAdded` 至少索引 `poolId`、Token、funder 和不可变的资金来源类型，并记录 requested amount、actual received amount 与 `eligibleForDistributor`。`PendingUSDGDeferred` 必须记录未部署数量和固定原因枚举，只允许 `ROUNDING_DUST` 或 `TIER_CONSTRAINT`。`ReserveSnapshotUpdated` 至少记录 `poolId`、generation、anchorVersion、固定 `initialAnchor`、Active reserve USDG 总额、Eligible trade-fee USDG 及折算 reserve credit。
 
 Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和 anchor 均应进入相应事件。回调内部事件必须记录外部 keeper，而不是 PoolManager 地址。
 
@@ -1310,7 +1327,8 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 27. 高 `TWAP / initialAnchor`、高质押集中度和创建者自交易组合下的 wash-trading 经济仿真，确认链上发行仍受 epoch rate 与 credit 双重上限约束；
 28. USDG 6 decimals 下 Curve 买卖、手续费三方分账、退款、Bond、pTEAM、reserve credit 与所有向上/向下舍入边界；
 29. Uniswap v4 exact-input 的买入 `beforeSwap` 收费、卖出 `afterSwap` 收费、Hook returns-delta 权限位和 PoolManager delta 全部结清；
-30. 部署脚本必须拒绝非 `4663` chain ID、错误 USDG 地址、错误 decimals、无代码或非 canonical PoolManager。
+30. 部署脚本必须拒绝非 `4663` chain ID、错误 USDG 地址、错误 decimals、无代码或非 canonical PoolManager；
+31. `pendingBefore = keeperPaid + activated + pendingAfter` 守恒，第三方应收款永不进入 Pending，且 `pendingAfter` 只能使用固定的 dust/档位约束原因枚举。
 
 ## 23. 实现前仍需冻结的工程参数
 
