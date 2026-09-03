@@ -1345,7 +1345,25 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 | 协议应收入账 | `toRaw6Up(wad) = ceil(wad / 1e12)`，向上舍入 |
 | 门禁位置 | `Pump12` 构造函数与 `DeployPump12RH.s.sol` 双重校验 canonical 地址、代码和精度 |
 
-### 23.2 后续仍需冻结参数
+### 23.2 Task 1 已冻结的 Curve/内盘参数
+
+| 项目 | 已冻结实现 |
+| --- | --- |
+| `aRaw` | `4_224_999_928_192`（18 位 WAD USDG/Token） |
+| `bRaw` | `290_486_728_130_769_230_769_230_769`（18 位 Token） |
+| Token 最小报价粒度 | `1e12` raw Token，即 `0.000001 Token` |
+| Curve raw6 计价 | 先对 `costWad(0, soldSupply)` 向上换算累计 raw6，再用两个累计值相减；拆单不增加 Curve reserve |
+| 内盘总费 raw6 | `floor(grossRaw × f × (10% + c))` |
+| 内盘 raw6 分账 | 创建者份额向下取整，余数归 TagAI；`tagaiFee + creatorFee == actualInnerFee` |
+| 买入 fill-to-cap | 使用能精确覆盖剩余 Curve raw6 本金的最小毛支付，多余输入原路退回 |
+
+上述整数经 Foundry 中的 Solady 实际定点运算验证：
+
+```text
+costRawUSDG(0, 750_000_000e18) == 15_000e6
+```
+
+### 23.3 后续仍需冻结参数
 
 下列项目不改变本文经济机制，但必须在编码/仿真后写成不可变常量并补充本文：
 

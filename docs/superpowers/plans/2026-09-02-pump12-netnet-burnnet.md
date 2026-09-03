@@ -146,9 +146,9 @@ script/DeployPump12RH.s.sol
 
 冻结并写回规范 §23 的本层项：`aRaw`、`bRaw`、`sqrtPriceX96`、全域 ticks、liquidity delta、Hook 权限位。
 
-- [ ] **Step 1:** `CurveMath.t.sol` 断言 `costRawUSDG(0, 750_000_000e18) == 15_000e6`。
-- [ ] **Step 2:** 实现整数 `aRaw/bRaw`（不得把规范里的人类可读近似值当部署常量）。
-- [ ] **Step 3:** Token12 内盘买卖 + 最后一笔 fill-to-cap 退款测试。
+- [x] **Step 1:** `CurveMath.t.sol` 断言 `costRawUSDG(0, 750_000_000e18) == 15_000e6`。
+- [x] **Step 2:** 实现整数 `aRaw/bRaw`（不得把规范里的人类可读近似值当部署常量）。
+- [x] **Step 3:** Token12 内盘买卖 + 最后一笔 fill-to-cap 退款测试。
 - [ ] **Step 4:** 本地 mock PoolManager 或 fork：Listing 后基础仓位 liquidity 不可减；`polTokenInventory` 用 `SqrtPriceMath` 而非 `balanceOf`。
 - [ ] **Step 5:** Hook 测试：两种 token 排序、三分账之和 = 实收 raw、创建者恶意收款合约不能让 swap revert（拉取模式）。
 - [ ] **Step 6:** `FOUNDRY_PROFILE=rh_fork forge test --match-path test/fork/pump12/RHListing.t.sol -vvv`
