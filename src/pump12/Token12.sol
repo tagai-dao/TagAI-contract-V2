@@ -27,6 +27,8 @@ contract Token12 is ERC20, ReentrancyGuard {
     error SlippageExceeded();
     error UnsupportedUsdGTransfer();
     error InsufficientCurveReserve();
+    error CurveNotComplete();
+    error AlreadyListed();
 
     event CurveTrade(
         address indexed trader,
@@ -37,6 +39,7 @@ contract Token12 is ERC20, ReentrancyGuard {
         uint256 creatorFeeRaw
     );
     event InnerFeeClaimed(address indexed recipient, bool indexed isTagAI, uint256 amountRaw);
+    event Listed(bytes32 indexed poolId, address indexed liquidityVault, uint256 initialAnchor, uint256 listTime);
 
     string private _tokenName;
     string private _tokenSymbol;
@@ -57,6 +60,10 @@ contract Token12 is ERC20, ReentrancyGuard {
     uint256 public claimableTagAI;
     uint256 public claimableCreator;
     bool public listed;
+    bytes32 public v4PoolId;
+    address public liquidityVault;
+    uint256 public initialAnchor;
+    uint256 public listTime;
 
     constructor() {
         initialized = true;
@@ -214,6 +221,27 @@ contract Token12 is ERC20, ReentrancyGuard {
         claimableCreator = 0;
         usdg.safeTransfer(creatorFeeRecipient, amountRaw);
         emit InnerFeeClaimed(creatorFeeRecipient, false, amountRaw);
+    }
+
+    function curveEndPrice() public pure returns (uint256) {
+        return CurveMath.endPriceWad();
+    }
+
+    /// @notice Pump12 在单一原子 Listing 流程内关闭曲线并迁移基础 POL。
+    function prepareListing(address vault, bytes32 poolId_) external onlyManager {
+        if (listed) revert AlreadyListed();
+        if (bondingCurveSupply != CURVE_ALLOCATION || curveReserveRaw != 15_000e6) revert CurveNotComplete();
+
+        listed = true;
+        liquidityVault = vault;
+        v4PoolId = poolId_;
+        initialAnchor = CurveMath.endPriceWad();
+        listTime = block.timestamp;
+        curveReserveRaw = 0;
+
+        _transfer(address(this), vault, BASE_POL_ALLOCATION);
+        usdg.safeTransfer(vault, 15_000e6);
+        emit Listed(poolId_, vault, initialAnchor, listTime);
     }
 
     function _innerFee(uint256 grossRaw) internal view returns (uint256) {

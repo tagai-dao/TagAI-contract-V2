@@ -14,7 +14,10 @@ chain_id = 31337
 block_gas_limit = 20000000000
 
 # Allow Deploy script to write deployments/<chainid>/addresses.json
-fs_permissions = [{ access = "read-write", path = "./deployments" }]
+fs_permissions = [
+    { access = "read-write", path = "./deployments" },
+    { access = "read", path = "./out" }
+]
 
 # RH mainnet fork tests:
 #   FOUNDRY_PROFILE=rh_fork forge test --match-path test/fork -vvv

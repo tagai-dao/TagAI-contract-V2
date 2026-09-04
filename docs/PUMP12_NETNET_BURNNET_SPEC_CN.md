@@ -1363,19 +1363,39 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 costRawUSDG(0, 750_000_000e18) == 15_000e6
 ```
 
-### 23.3 后续仍需冻结参数
+### 23.3 Task 1 已冻结的 Listing / Hook 参数
+
+Token clone 地址可能位于 USDG 地址两侧，因此 PoolKey 排序和 `sqrtPriceX96` 必须动态选择。两种合法排序均已使用本地真实 PoolManager 和 Robinhood mainnet fork 验证：
+
+| 项目 | 已冻结实现 |
+| --- | --- |
+| Pool fee | `0`；LP 不收 swap fee |
+| Tick spacing | `60` |
+| 全域 ticks | `tickLower = -887220`，`tickUpper = 887220` |
+| Base LP salt | `keccak256("PUMP12_BASE_POL_V1") = 0x93efb8155b8b006bc39ce60283032099531260218739a35783c8321339394f1d` |
+| `currency0 = Token, currency1 = USDG` | `sqrtPriceX96 = 613_698_707_936_721_051_257` |
+| `currency0 = USDG, currency1 = Token` | `sqrtPriceX96 = 10_228_311_798_945_350_854_290_092_732_258_830_324` |
+| 初始 liquidity delta | `1_936_491_673_103_708_442`；两种排序一致 |
+| Hook flags | `0x20CC`：`beforeInitialize`、`beforeSwap`、`afterSwap`、两种 swap returns-delta |
+| 买入 Hook fee | `beforeSwap` 从 exact-input USDG 毛输入扣除，只有净输入进入池子 |
+| 卖出 Hook fee | `afterSwap` 从池子 USDG 毛输出扣除，用户只取得净输出 |
+| Hook raw6 分账 | `TagAI = floor(fee × 10%)`；`creator = floor(fee × c)`；全部余数归 BurnNet |
+| Pending 分类 | Hook fee 的 BurnNet 份额同时增加 Pending 与 Eligible；`addPendingUSDG` 只增加 Pending |
+
+`250M Token + 15,000 USDG` 在全域边界的有限精度下，USDG 一侧可以完整投入；Token 一侧会留下小于 `1e-10 Token` 的确定性 rounding dust。该 dust 永久留在无提款 Vault，不属于任何可领取余额。基础仓位的 Token 库存必须通过固定 position 的实时 liquidity 和 `SqrtPriceMath` 计算。
+
+Robinhood mainnet fork 验收覆盖：创建 Token、售满 `750M`、锁入基础 POL、官方池 USDG 买入、Token 卖出、Hook 三方分账和 Pending 守恒。
+
+### 23.4 后续仍需冻结参数
 
 下列项目不改变本文经济机制，但必须在编码/仿真后写成不可变常量并补充本文：
 
-1. Curve `aRaw`、`bRaw` 的最终整数值；
-2. 上市 `sqrtPriceX96`、全域 ticks 和 liquidity delta；
-3. Per-pool TWAP observation 数量、ring buffer 容量、checkpoint 最小间隔、最小窗口和最大窗口；
-4. BurnNet 每档精确 tick 宽度和 tick rounding；
-5. Keeper bounty 的 USDG 数量、上限和支付来源；
-6. IndexFund v1 指数买卖与包装原生币换 USDG 的最小流动性和最大滑点；Bond 折扣已冻结为3%，Desk 折扣已冻结为6.5%，指数/基金变现抽成已冻结为1%；IndexFundFactory 的 TagAI 权限与 realization 接口；
-7. Hook exact-input Router/PoolManager unlock、settle、take 与 returns-delta 的最终结算接口和权限位；
-8. Robinhood canonical USDG 的 SafeERC20、6-decimal rounding、代理升级、黑名单和暂停风险处理；
-9. 所有 clone/factory 的地址预测、初始化顺序和 wiring 防抢跑方案。
+1. Per-pool TWAP observation 数量、ring buffer 容量、checkpoint 最小间隔、最小窗口和最大窗口；
+2. BurnNet 每档精确 tick 宽度和 tick rounding；
+3. Keeper bounty 的 USDG 数量、上限和支付来源；
+4. IndexFund v1 指数买卖与包装原生币换 USDG 的最小流动性和最大滑点；Bond 折扣已冻结为3%，Desk 折扣已冻结为6.5%，指数/基金变现抽成已冻结为1%；IndexFundFactory 的 TagAI 权限与 realization 接口；
+5. Robinhood canonical USDG 的代理升级、黑名单和暂停风险处理；
+6. 后续模块 clone/factory 的地址预测、初始化顺序和 wiring 防抢跑方案。
 
 以上工程参数冻结后，应新增部署参数表和主网 fork 验证结果。本规范中的经济比例、资金去向、发行权限和长期供应约束不得在实现过程中被隐式改变。
 

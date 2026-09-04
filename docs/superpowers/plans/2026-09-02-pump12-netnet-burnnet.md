@@ -149,10 +149,10 @@ script/DeployPump12RH.s.sol
 - [x] **Step 1:** `CurveMath.t.sol` 断言 `costRawUSDG(0, 750_000_000e18) == 15_000e6`。
 - [x] **Step 2:** 实现整数 `aRaw/bRaw`（不得把规范里的人类可读近似值当部署常量）。
 - [x] **Step 3:** Token12 内盘买卖 + 最后一笔 fill-to-cap 退款测试。
-- [ ] **Step 4:** 本地 mock PoolManager 或 fork：Listing 后基础仓位 liquidity 不可减；`polTokenInventory` 用 `SqrtPriceMath` 而非 `balanceOf`。
-- [ ] **Step 5:** Hook 测试：两种 token 排序、三分账之和 = 实收 raw、创建者恶意收款合约不能让 swap revert（拉取模式）。
-- [ ] **Step 6:** `FOUNDRY_PROFILE=rh_fork forge test --match-path test/fork/pump12/RHListing.t.sol -vvv`
-- [ ] **Step 7:** 把标定值写入规范 §23；Commit `feat: add Pump12 curve, listing POL, and NetNetHook fees`
+- [x] **Step 4:** 本地 mock PoolManager 或 fork：Listing 后基础仓位 liquidity 不可减；`polTokenInventory` 用 `SqrtPriceMath` 而非 `balanceOf`。
+- [x] **Step 5:** Hook 测试：两种 token 排序、三分账之和 = 实收 raw、创建者恶意收款合约不能让 swap revert（拉取模式）。
+- [x] **Step 6:** `FOUNDRY_PROFILE=rh_fork forge test --match-path test/fork/pump12/RHListing.t.sol -vvv`
+- [x] **Step 7:** 把标定值写入规范 §23；Commit `feat: add Pump12 curve, listing POL, and NetNetHook fees`
 
 **本层完成标准：** 一条 Token 可在 RH fork 上完成内盘→上市→官方池 exact-input 买卖并正确分账。BurnNet 仓位可以还是空实现（pending 只记账）。
 
