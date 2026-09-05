@@ -4,18 +4,18 @@ pragma solidity ^0.8.26;
 import {Script, console} from "forge-std/Script.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 import {ImportHelper} from "../src/helper/ImportHelper.sol";
-import {TagAISwapWrapper} from "../src/helper/TagAISwapWrapper.sol";
+import {ImportedTokenSwapWrapper} from "../src/helper/ImportedTokenSwapWrapper.sol";
 
 /**
  * @title DeployRHImportWrapper
- * @notice 仅部署 ImportHelper + TagAISwapWrapper（复用已部署的 Nutbox / IPShare）。
+ * @notice 部署 BSC-compatible ImportedTokenSwapWrapper + ImportHelper（复用 NutboxRouter / Nutbox / IPShare）。
  *
  * RH testnet (46630):
  *   FOUNDRY_PROFILE=rh_testnet forge script script/DeployRHImportWrapper.s.sol:DeployRHImportWrapperScript \
  *     --broadcast --slow --gas-estimate-multiplier 300 -vvv
  *
  * 可选覆盖（.env）:
- *   RH_COMMUNITY_FACTORY / RH_SCF / RH_COMMITTEE / RH_IPSHARE / RH_WETH / RH_FEE_ADDRESS
+ *   RH_COMMUNITY_FACTORY / RH_SCF / RH_COMMITTEE / RH_IPSHARE / RH_FEE_ADDRESS / NUTBOX_ROUTER
  */
 contract DeployRHImportWrapperScript is Script {
     uint256 internal constant RH_TESTNET_CHAIN_ID = 46630;
@@ -30,10 +30,6 @@ contract DeployRHImportWrapperScript is Script {
     address internal constant TN_WETH = 0x37E402B8081eFcE1D82A09a066512278006e4691;
     // 已部署的 Pump（testnet）——用于拒绝 Pump 代币导入。
     address internal constant TN_PUMP = 0x8c701E56A178A9cEd02D731e057Af6E709A66A9e;
-
-    address internal constant MN_WETH = 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73;
-    address internal constant MN_POOL_MANAGER = 0x8366a39CC670B4001A1121B8F6A443A643e40951;
-    address internal constant TN_POOL_MANAGER = 0x552815eF68E6eb418A3d65D0AA1043d93204F612;
 
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY");
@@ -51,18 +47,18 @@ contract DeployRHImportWrapperScript is Script {
         address scf = vm.envOr("RH_SCF", _defaultDependency("SocialCurationFactory", TN_SCF));
         address committee = vm.envOr("RH_COMMITTEE", _defaultDependency("Committee", TN_COMMITTEE));
         address ipshare = vm.envOr("RH_IPSHARE", _defaultDependency("IPShare", TN_IPSHARE));
-        address weth = vm.envOr("RH_WETH", _defaultWeth());
         address feeAddress = vm.envOr("RH_FEE_ADDRESS", _defaultFeeAddress(deployer));
         address pump = vm.envOr("RH_PUMP", _defaultPump());
+        address nutboxRouter = vm.envOr("NUTBOX_ROUTER", _defaultNutboxRouter());
 
-        console.log("=== Deploy ImportHelper + TagAISwapWrapper ===");
+        console.log("=== Deploy ImportHelper + ImportedTokenSwapWrapper ===");
         console.log("Chain:", block.chainid);
         console.log("Deployer:", deployer);
         console.log("CommunityFactory:", communityFactory);
         console.log("SCF:", scf);
         console.log("Committee:", committee);
         console.log("IPShare:", ipshare);
-        console.log("WETH:", weth);
+        console.log("NutboxRouter:", nutboxRouter);
         console.log("feeAddress:", feeAddress);
         console.log("Pump:", pump);
 
@@ -70,54 +66,35 @@ contract DeployRHImportWrapperScript is Script {
         require(scf.code.length > 0, "SCF missing");
         require(committee.code.length > 0, "Committee missing");
         require(ipshare.code.length > 0, "IPShare missing");
-        require(weth.code.length > 0, "WETH missing");
+        require(nutboxRouter.code.length > 0, "NutboxRouter missing");
 
         vm.startBroadcast(pk);
 
-        // 第 2 期：Wrapper 先部署（importHelper 暂置 0），Helper 构造传入 pump + wrapper，再回填。
-        TagAISwapWrapper wrapper = new TagAISwapWrapper(address(0), ipshare, weth, feeAddress);
-        address poolManager = vm.envOr("RH_POOL_MANAGER", _defaultPoolManager());
-        require(poolManager.code.length > 0, "PoolManager missing");
-        wrapper.adminSetV4PoolManager(poolManager, true);
-        console.log("TagAISwapWrapper:", address(wrapper));
-        console.log("Wrapper V4 PoolManager:", poolManager);
+        ImportedTokenSwapWrapper wrapper = new ImportedTokenSwapWrapper(nutboxRouter, feeAddress, ipshare);
+        console.log("ImportedTokenSwapWrapper:", address(wrapper));
 
-        ImportHelper importHelper =
-            new ImportHelper(communityFactory, scf, committee, ipshare, pump, address(wrapper));
+        ImportHelper importHelper = new ImportHelper(communityFactory, scf, committee, ipshare, pump, address(wrapper));
         console.log("ImportHelper:", address(importHelper));
 
-        wrapper.adminSetImportHelper(address(importHelper));
-        console.log("Wrapper.importHelper set");
-
-        address nutboxRouter = vm.envOr("NUTBOX_ROUTER", address(0));
-        if (nutboxRouter != address(0) && nutboxRouter.code.length > 0) {
-            wrapper.adminSetNutboxRouter(nutboxRouter);
-            console.log("Wrapper.nutboxRouter set", nutboxRouter);
-        }
+        wrapper.setRegistrar(address(importHelper));
+        console.log("Wrapper.registrar set");
 
         vm.stopBroadcast();
 
         if (
             vm.envOr("WRITE_DEPLOYMENTS", false)
-                && (vm.isContext(VmSafe.ForgeContext.ScriptBroadcast)
-                    || vm.isContext(VmSafe.ForgeContext.ScriptResume))
+                && (vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume))
         ) {
-            _patchAddresses(block.chainid, address(importHelper), address(wrapper), weth);
+            _patchAddresses(block.chainid, address(importHelper), address(wrapper), wrapper.wrappedNative());
         } else {
             console.log("Dry-run: version11.json was not changed");
         }
         console.log("=== Done ===");
     }
 
-    function _defaultWeth() internal view returns (address) {
-        if (block.chainid == RH_MAINNET_CHAIN_ID) return MN_WETH;
-        if (block.chainid == RH_TESTNET_CHAIN_ID) return TN_WETH;
-        revert("unsupported chain: use FOUNDRY_PROFILE=rh_testnet|rh_mainnet");
-    }
-
-    function _defaultPoolManager() internal view returns (address) {
-        if (block.chainid == RH_MAINNET_CHAIN_ID) return MN_POOL_MANAGER;
-        if (block.chainid == RH_TESTNET_CHAIN_ID) return TN_POOL_MANAGER;
+    function _defaultNutboxRouter() internal view returns (address) {
+        if (block.chainid == RH_MAINNET_CHAIN_ID) return _defaultDependency("NutboxRouter", address(0));
+        if (block.chainid == RH_TESTNET_CHAIN_ID) return address(0);
         revert("unsupported chain: use FOUNDRY_PROFILE=rh_testnet|rh_mainnet");
     }
 
@@ -160,7 +137,7 @@ contract DeployRHImportWrapperScript is Script {
         revert("unsupported chain: use FOUNDRY_PROFILE=rh_testnet|rh_mainnet");
     }
 
-    /// @dev 只更新 ImportHelper / TagAISwapWrapper / WETH 字段，保留其余已部署地址。
+    /// @dev 更新新旧地址字段，保留其余已部署地址。
     function _patchAddresses(uint256 chainId, address importHelper, address wrapper, address weth) internal {
         string memory path = string.concat("deployments/", vm.toString(chainId), "/version11.json");
         // 读已有 JSON 再写回关键键（简单拼接：整文件重写时合并已知常量）
@@ -173,19 +150,36 @@ contract DeployRHImportWrapperScript is Script {
                 '  "sourceVersion": 9,\n',
                 '  "chainId": 46630,\n',
                 '  "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",\n',
-                '  "Committee": "', vm.toString(TN_COMMITTEE), '",\n',
-                '  "CommunityFactory": "', vm.toString(TN_COMMUNITY_FACTORY), '",\n',
+                '  "Committee": "',
+                vm.toString(TN_COMMITTEE),
+                '",\n',
+                '  "CommunityFactory": "',
+                vm.toString(TN_COMMUNITY_FACTORY),
+                '",\n',
                 '  "HourlyTickCalculator": "0xf5D8d9402A4603bD67400500E62880eee91cF12C",\n',
-                '  "SocialCurationFactory": "', vm.toString(TN_SCF), '",\n',
+                '  "SocialCurationFactory": "',
+                vm.toString(TN_SCF),
+                '",\n',
                 '  "DFXStarScoreStakingFactory": "0xddbAba530728b5B8939d7fdDC334432490916e90",\n',
-                '  "IPShare": "', vm.toString(TN_IPSHARE), '",\n',
+                '  "IPShare": "',
+                vm.toString(TN_IPSHARE),
+                '",\n',
                 '  "PoolManager": "0x552815eF68E6eb418A3d65D0AA1043d93204F612",\n',
                 '  "Pump": "0x8c701E56A178A9cEd02D731e057Af6E709A66A9e",\n',
                 '  "TokenImplementation": "0x5Aa71794E2Fe52a0c554f5da7249Cc55B39B2b93",\n',
                 '  "TagAISwapHook": "0x644dD54B13Bdf38AFF947cA2a46EE4b9144E60cC",\n',
-                '  "WETH": "', vm.toString(weth), '",\n',
-                '  "ImportHelper": "', vm.toString(importHelper), '",\n',
-                '  "TagAISwapWrapper": "', vm.toString(wrapper), '"\n',
+                '  "WETH": "',
+                vm.toString(weth),
+                '",\n',
+                '  "ImportHelper": "',
+                vm.toString(importHelper),
+                '",\n',
+                '  "ImportedTokenSwapWrapper": "',
+                vm.toString(wrapper),
+                '",\n',
+                '  "TagAISwapWrapper": "',
+                vm.toString(wrapper),
+                '"\n',
                 "}\n"
             );
             vm.writeFile(path, json);
@@ -193,11 +187,16 @@ contract DeployRHImportWrapperScript is Script {
         } else if (chainId == RH_MAINNET_CHAIN_ID) {
             require(vm.exists(path), "version11.json missing");
             string memory json = vm.readFile(path);
+            address previousImportHelper = vm.parseJsonAddress(json, ".ImportHelper");
+            address previousWrapper = vm.parseJsonAddress(json, ".TagAISwapWrapper");
+            json = _setKey(json, "PreviousImportHelper", previousImportHelper);
+            json = _setKey(json, "PreviousTagAISwapWrapper", previousWrapper);
             json = _setKey(json, "ImportHelper", importHelper);
+            json = _setKey(json, "ImportedTokenSwapWrapper", wrapper);
             json = _setKey(json, "TagAISwapWrapper", wrapper);
             json = _setKey(json, "WETH", weth);
             vm.writeFile(path, json);
-            console.log("Patched ImportHelper/Wrapper into", path);
+            console.log("Patched ImportHelper/ImportedTokenSwapWrapper into", path);
         } else {
             console.log("Skip version11.json patch for chain", chainId);
         }
@@ -217,9 +216,10 @@ contract DeployRHImportWrapperScript is Script {
             uint256 valStart = i + 1;
             uint256 valEnd = valStart;
             while (valEnd < b.length && b[valEnd] != bytes1("\"")) valEnd++;
-            return string.concat(
-                _substring(existing, 0, valStart), vm.toString(val), _substring(existing, valEnd, b.length)
-            );
+            return
+                string.concat(
+                    _substring(existing, 0, valStart), vm.toString(val), _substring(existing, valEnd, b.length)
+                );
         }
         uint256 end = b.length;
         while (end > 0 && b[end - 1] != bytes1("}")) end--;

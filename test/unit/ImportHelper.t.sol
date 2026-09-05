@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 import "../../src/helper/ImportHelper.sol";
-import "../../src/helper/TagAISwapWrapper.sol";
+import "../../src/helper/ImportedTokenSwapWrapper.sol";
 import "../../src/pump/IPShare.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/CommunityFactory.sol";
@@ -24,10 +24,21 @@ contract ImportTestERC20 is ERC20 {
 /// @dev Mock Pump：仅 createdTokens 拒绝用。
 contract MockPump {
     mapping(address => bool) public createdTokens;
-    function markCreated(address t) external { createdTokens[t] = true; }
+
+    function markCreated(address t) external {
+        createdTokens[t] = true;
+    }
 }
 
-/// @dev 真实 TagAISwapWrapper 作为 registrar（同时验证登记回路）。
+contract ImportTestRouter {
+    address public immutable wrappedNative;
+
+    constructor(address wrappedNative_) {
+        wrappedNative = wrappedNative_;
+    }
+}
+
+/// @dev 真实 ImportedTokenSwapWrapper 作为 registrar（同时验证 BSC-compatible 登记回路）。
 contract ImportHelperTest is Test {
     Committee public committee;
     CommunityFactory public communityFactory;
@@ -35,7 +46,7 @@ contract ImportHelperTest is Test {
     SocialCurationFactory public scf;
     IPShare public ipshare;
     ImportHelper public helper;
-    TagAISwapWrapper public wrapper;
+    ImportedTokenSwapWrapper public wrapper;
     MockPump public pump;
 
     ImportTestERC20 public token;
@@ -71,8 +82,9 @@ contract ImportHelperTest is Test {
 
         pump = new MockPump();
 
-        // Wrapper 先部署（importHelper 暂置 0），Helper 构造传入 pump + wrapper，再回填。
-        wrapper = new TagAISwapWrapper(address(0), address(ipshare), makeAddr("weth"), feeRecipient);
+        ImportTestERC20 wrappedNative = new ImportTestERC20("Wrapped Ether", "WETH", 1_000_000 ether);
+        ImportTestRouter router = new ImportTestRouter(address(wrappedNative));
+        wrapper = new ImportedTokenSwapWrapper(address(router), feeRecipient, address(ipshare));
         helper = new ImportHelper(
             address(communityFactory),
             address(scf),
@@ -81,7 +93,7 @@ contract ImportHelperTest is Test {
             address(pump),
             address(wrapper)
         );
-        wrapper.adminSetImportHelper(address(helper));
+        wrapper.setRegistrar(address(helper));
 
         token = new ImportTestERC20("ImportToken", "IMP", 1_000_000 ether);
     }
@@ -183,9 +195,8 @@ contract ImportHelperTest is Test {
         uint256 balBefore = creator.balance;
 
         vm.prank(creator, creator);
-        (address c2, address pool2) = helper.createCommunityAndPool{value: 1 ether}(
-            address(token), address(calculator), bytes(""), community
-        );
+        (address c2, address pool2) =
+            helper.createCommunityAndPool{value: 1 ether}(address(token), address(calculator), bytes(""), community);
         assertEq(c2, community, "reused community");
         assertEq(pool2, address(0), "no new pool");
         assertEq(Community(payable(community)).devFund(), creator, "devFund unchanged");
