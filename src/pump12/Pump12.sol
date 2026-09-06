@@ -16,6 +16,16 @@ import {FullMath} from "v4-core/src/libraries/FullMath.sol";
 import {Token12} from "./Token12.sol";
 import {NetNetHook} from "./NetNetHook.sol";
 import {PermanentLiquidityVault} from "./PermanentLiquidityVault.sol";
+import {BurnNet} from "./burnnet/BurnNet.sol";
+import {Treasury} from "./treasury/Treasury.sol";
+import {SToken} from "./staking/SToken.sol";
+import {Staking} from "./staking/Staking.sol";
+import {Distributor} from "./distributor/Distributor.sol";
+import {BondDepository} from "./bond/BondDepository.sol";
+import {PremiumSeller} from "./premium/PremiumSeller.sol";
+import {PTeam} from "./pteam/PTeam.sol";
+import {IndexBondDesk} from "./pteam/IndexBondDesk.sol";
+import {IndexFundFactory} from "./fund/IndexFundFactory.sol";
 
 /// @title Pump12
 /// @notice Pump12 工厂；创建 Token12 并在后续阶段协调原子 Listing。
@@ -48,12 +58,38 @@ contract Pump12 is ReentrancyGuard {
     error EmptyTokenMetadata();
     error SymbolAlreadyCreated();
     error SaltAlreadyUsed();
+    error EmissionImplementationsAlreadySet();
+    error EmissionImplementationsNotSet();
+    error InvalidImplementation();
+    error PTeamImplementationsAlreadySet();
+    error PTeamImplementationsNotSet();
+    error InvalidIndexToken();
 
     event TokenCreated(address indexed token, address indexed creator, string symbol, bytes32 indexed salt);
     event HookConfigured(address indexed hook);
-    event TokenListed(
-        address indexed token, PoolId indexed poolId, address indexed liquidityVault, uint160 sqrtPriceX96
+    event EmissionImplementationsConfigured(
+        address treasury, address sToken, address staking, address distributor, address bond, address premium
     );
+    event PTeamImplementationsConfigured(address pTeam, address indexBondDesk, address indexFundFactory);
+    event TokenListed(
+        address indexed token,
+        PoolId indexed poolId,
+        address indexed liquidityVault,
+        address burnNet,
+        uint160 sqrtPriceX96
+    );
+
+    struct EmissionModules {
+        address treasury;
+        address sToken;
+        address staking;
+        address distributor;
+        address bondDepository;
+        address premiumSeller;
+        address pTeam;
+        address indexBondDesk;
+        address indexFund;
+    }
 
     struct CreateParams {
         string name;
@@ -71,10 +107,22 @@ contract Pump12 is ReentrancyGuard {
     address public immutable tagAI;
     address public immutable tokenImplementation;
     address public immutable liquidityVaultImplementation;
+    address public immutable burnNetImplementation;
     address public hook;
+    address public treasuryImplementation;
+    address public sTokenImplementation;
+    address public stakingImplementation;
+    address public distributorImplementation;
+    address public bondImplementation;
+    address public premiumImplementation;
+    address public pTeamImplementation;
+    address public indexBondDeskImplementation;
+    address public indexFundFactory;
 
     mapping(address token => bool created) public createdTokens;
     mapping(bytes32 symbolHash => bool created) public createdSymbols;
+    mapping(address token => address burnNet) public tokenBurnNet;
+    mapping(address token => EmissionModules modules) public tokenEmissionModules;
 
     constructor(address usdg_, address poolManager_) {
         if (block.chainid != RH_CHAIN_ID) revert UnsupportedChain(block.chainid);
@@ -97,6 +145,7 @@ contract Pump12 is ReentrancyGuard {
         tagAI = msg.sender;
         tokenImplementation = address(new Token12());
         liquidityVaultImplementation = address(new PermanentLiquidityVault());
+        burnNetImplementation = address(new BurnNet());
     }
 
     function createToken(CreateParams calldata params) external nonReentrant returns (address instance) {
@@ -109,6 +158,11 @@ contract Pump12 is ReentrancyGuard {
             revert InvalidAddress();
         }
         if (bytes(params.name).length == 0 || bytes(params.symbol).length == 0) revert EmptyTokenMetadata();
+        address indexFactory = indexFundFactory;
+        if (indexFactory == address(0)) revert PTeamImplementationsNotSet();
+        if (!IndexFundFactory(indexFactory).isRegisteredIndex(params.indexToken)) {
+            revert InvalidIndexToken();
+        }
 
         bytes32 symbolHash = keccak256(bytes(params.symbol));
         if (createdSymbols[symbolHash]) revert SymbolAlreadyCreated();
@@ -156,6 +210,58 @@ contract Pump12 is ReentrancyGuard {
         emit HookConfigured(hook_);
     }
 
+    /// @notice Configures immutable clone templates without embedding their bytecode in Pump12 initcode.
+    function setEmissionImplementations(
+        address treasuryImplementation_,
+        address sTokenImplementation_,
+        address stakingImplementation_,
+        address distributorImplementation_,
+        address bondImplementation_,
+        address premiumImplementation_
+    ) external {
+        if (msg.sender != tagAI) revert OnlyTagAI();
+        if (treasuryImplementation != address(0)) revert EmissionImplementationsAlreadySet();
+        if (
+            treasuryImplementation_.code.length == 0 || sTokenImplementation_.code.length == 0
+                || stakingImplementation_.code.length == 0 || distributorImplementation_.code.length == 0
+                || bondImplementation_.code.length == 0 || premiumImplementation_.code.length == 0
+        ) revert InvalidImplementation();
+        treasuryImplementation = treasuryImplementation_;
+        sTokenImplementation = sTokenImplementation_;
+        stakingImplementation = stakingImplementation_;
+        distributorImplementation = distributorImplementation_;
+        bondImplementation = bondImplementation_;
+        premiumImplementation = premiumImplementation_;
+        emit EmissionImplementationsConfigured(
+            treasuryImplementation_,
+            sTokenImplementation_,
+            stakingImplementation_,
+            distributorImplementation_,
+            bondImplementation_,
+            premiumImplementation_
+        );
+    }
+
+    function setPTeamImplementations(
+        address pTeamImplementation_,
+        address indexBondDeskImplementation_,
+        address indexFundFactory_
+    ) external {
+        if (msg.sender != tagAI) revert OnlyTagAI();
+        if (pTeamImplementation != address(0)) revert PTeamImplementationsAlreadySet();
+        if (
+            pTeamImplementation_.code.length == 0 || indexBondDeskImplementation_.code.length == 0
+                || indexFundFactory_.code.length == 0 || IndexFundFactory(indexFundFactory_).pump() != address(this)
+                || IndexFundFactory(indexFundFactory_).tagAI() != tagAI
+                || IndexFundFactory(indexFundFactory_).usdg() != usdg
+                || IndexFundFactory(indexFundFactory_).poolManager() != poolManager
+        ) revert InvalidImplementation();
+        pTeamImplementation = pTeamImplementation_;
+        indexBondDeskImplementation = indexBondDeskImplementation_;
+        indexFundFactory = indexFundFactory_;
+        emit PTeamImplementationsConfigured(pTeamImplementation_, indexBondDeskImplementation_, indexFundFactory_);
+    }
+
     /// @notice 售满后原子创建官方 v4 池，并将基础全域 POL 永久锁入无提款 Vault。
     function list(address token) external nonReentrant returns (PoolId poolId, address vaultAddress) {
         if (!createdTokens[token]) revert TokenNotCreated();
@@ -166,6 +272,8 @@ contract Pump12 is ReentrancyGuard {
         }
         address hook_ = hook;
         if (hook_ == address(0)) revert InvalidHook();
+        if (treasuryImplementation == address(0)) revert EmissionImplementationsNotSet();
+        if (pTeamImplementation == address(0)) revert PTeamImplementationsNotSet();
 
         PermanentLiquidityVault vault = PermanentLiquidityVault(Clones.clone(liquidityVaultImplementation));
         vault.initialize(IPoolManager(poolManager), address(this), token, usdg);
@@ -180,8 +288,86 @@ contract Pump12 is ReentrancyGuard {
         });
         poolId = key.toId();
 
-        NetNetHook(hook_).registerPool(key, token, vaultAddress);
-        token12.prepareListing(vaultAddress, PoolId.unwrap(poolId));
+        BurnNet burnNet = BurnNet(Clones.clone(burnNetImplementation));
+        address burnNetAddress = address(burnNet);
+        burnNet.initialize(hook_, token, usdg, poolManager, poolId, token12.curveEndPrice(), uint40(block.timestamp));
+        tokenBurnNet[token] = burnNetAddress;
+
+        Treasury treasury = Treasury(Clones.clone(treasuryImplementation));
+        SToken sToken = SToken(Clones.clone(sTokenImplementation));
+        Staking staking = Staking(Clones.clone(stakingImplementation));
+        Distributor distributor = Distributor(Clones.clone(distributorImplementation));
+        BondDepository bond = BondDepository(Clones.clone(bondImplementation));
+        PremiumSeller premium = PremiumSeller(Clones.clone(premiumImplementation));
+        PTeam pTeam = PTeam(Clones.clone(pTeamImplementation));
+        IndexBondDesk indexBondDesk = IndexBondDesk(Clones.clone(indexBondDeskImplementation));
+        address indexFund = IndexFundFactory(indexFundFactory)
+            .createFund(
+                token,
+                token12.indexToken(),
+                token12.creator(),
+                token12.creatorFeeRecipient(),
+                address(indexBondDesk),
+                burnNetAddress,
+                hook_,
+                poolId
+            );
+        EmissionModules memory modules = EmissionModules({
+            treasury: address(treasury),
+            sToken: address(sToken),
+            staking: address(staking),
+            distributor: address(distributor),
+            bondDepository: address(bond),
+            premiumSeller: address(premium),
+            pTeam: address(pTeam),
+            indexBondDesk: address(indexBondDesk),
+            indexFund: indexFund
+        });
+        tokenEmissionModules[token] = modules;
+
+        sToken.initialize(
+            address(staking), string.concat("Staked ", token12.name()), string.concat("s", token12.symbol())
+        );
+        staking.initialize(token, address(sToken), address(distributor), uint40(block.timestamp));
+        distributor.initialize(
+            address(treasury),
+            token,
+            address(sToken),
+            address(staking),
+            hook_,
+            burnNetAddress,
+            poolId,
+            token12.curveEndPrice()
+        );
+        bond.initialize(usdg, token, hook_, burnNetAddress, address(treasury), poolId, uint40(block.timestamp));
+        premium.initialize(
+            token,
+            usdg,
+            hook_,
+            burnNetAddress,
+            address(treasury),
+            vaultAddress,
+            poolManager,
+            poolId,
+            uint40(block.timestamp)
+        );
+        indexBondDesk.initialize(usdg, token, hook_, burnNetAddress, indexFund, poolId);
+        pTeam.initialize(
+            token,
+            token12.pTeamHolder(),
+            address(treasury),
+            address(indexBondDesk),
+            hook_,
+            burnNetAddress,
+            poolId,
+            uint40(block.timestamp)
+        );
+        treasury.initialize(
+            token, burnNetAddress, address(distributor), address(bond), address(premium), address(pTeam)
+        );
+
+        NetNetHook(hook_).registerPool(key, token, vaultAddress, burnNetAddress, address(premium));
+        token12.prepareListing(vaultAddress, burnNetAddress, address(treasury), PoolId.unwrap(poolId));
 
         uint256 amount0 = Currency.unwrap(currency0) == token ? BASE_POL_ALLOCATION : 15_000e6;
         uint256 amount1 = Currency.unwrap(currency1) == token ? BASE_POL_ALLOCATION : 15_000e6;
@@ -189,6 +375,6 @@ contract Pump12 is ReentrancyGuard {
         uint160 sqrtPriceX96 = uint160(FixedPointMathLib.sqrt(ratioX192));
         vault.initializeAndLock(key, sqrtPriceX96);
 
-        emit TokenListed(token, poolId, vaultAddress, sqrtPriceX96);
+        emit TokenListed(token, poolId, vaultAddress, burnNetAddress, sqrtPriceX96);
     }
 }

@@ -21,6 +21,24 @@ contract CurveTestUsdG is ERC20 {
 
 contract CurveTestPoolManager {}
 
+contract CurveTestIndexFundFactory {
+    address public immutable pump;
+    address public immutable tagAI;
+    address public immutable usdg;
+    address public immutable poolManager;
+
+    constructor(address pump_, address tagAI_, address usdg_, address poolManager_) {
+        pump = pump_;
+        tagAI = tagAI_;
+        usdg = usdg_;
+        poolManager = poolManager_;
+    }
+
+    function isRegisteredIndex(address candidate) external pure returns (bool) {
+        return candidate != address(0);
+    }
+}
+
 contract RejectUsdGReceiver {}
 
 contract Token12CurveTest is Test {
@@ -48,6 +66,11 @@ contract Token12CurveTest is Test {
 
         vm.prank(tagAI);
         pump = new Pump12(USDG, POOL_MANAGER);
+        CurveTestIndexFundFactory indexFactory = new CurveTestIndexFundFactory(address(pump), tagAI, USDG, POOL_MANAGER);
+        CurveTestPoolManager pTeamImplementation = new CurveTestPoolManager();
+        CurveTestPoolManager deskImplementation = new CurveTestPoolManager();
+        vm.prank(tagAI);
+        pump.setPTeamImplementations(address(pTeamImplementation), address(deskImplementation), address(indexFactory));
 
         vm.prank(creator);
         token = Token12(pump.createToken(_params(bytes32("salt"), "P12", 500, 2_000, creatorFeeRecipient)));
@@ -67,6 +90,15 @@ contract Token12CurveTest is Test {
         assertEq(token.tagAI(), tagAI);
         assertEq(token.indexToken(), indexToken);
         assertEq(token.pTeamHolder(), pTeamHolder);
+    }
+
+    function test_createRequiresIndexFactoryConfiguration() public {
+        vm.prank(tagAI);
+        Pump12 unconfiguredPump = new Pump12(USDG, POOL_MANAGER);
+
+        vm.expectRevert(Pump12.PTeamImplementationsNotSet.selector);
+        vm.prank(creator);
+        unconfiguredPump.createToken(_params(bytes32("unconfigured"), "UNCONFIG", 500, 2_000, creatorFeeRecipient));
     }
 
     function test_createRejectsFeeAndAddressBounds() public {

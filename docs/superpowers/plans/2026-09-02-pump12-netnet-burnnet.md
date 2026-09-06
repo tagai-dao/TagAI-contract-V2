@@ -180,11 +180,11 @@ script/DeployPump12RH.s.sol
 
 冻结：每档 tick 宽度、keeper bounty。
 
-- [ ] **Step 1:** 单测七档未成交 / 部分成交 / 穿越 / 连续重启。
-- [ ] **Step 2:** 24h mint freeze 期间 Bond/Premium/pTEAM/Desk 入口尚未存在时，先在 BurnNet 上留 `mintFrozenUntil()` view 供后层读取。
-- [ ] **Step 3:** TWAP 窗口不足、过期、同 timestamp 多次 swap 只更新最新 tick。
-- [ ] **Step 4:** RH fork 布置墙并 poke。
-- [ ] **Step 5:** Commit `feat: add Pump12 BurnNet poke, harvest, and anchor`
+- [x] **Step 1:** 单测七档未成交 / 部分成交 / 穿越 / 连续重启。
+- [x] **Step 2:** 24h mint freeze 期间 Bond/Premium/pTEAM/Desk 入口尚未存在时，先在 BurnNet 上留 `mintFrozenUntil()` view 供后层读取。
+- [x] **Step 3:** TWAP 窗口不足、过期、同 timestamp 多次 swap 只更新最新 tick。
+- [x] **Step 4:** RH fork 布置墙并 poke。
+- [x] **Step 5:** 已并入整合 Commit `feat: complete Pump12 NetNet BurnNet modules`
 
 **本层完成标准：** 手续费和 `addPendingUSDG` 能变成墙上挂单；成交 Token 被 burn；eligible 子账不会被 non-eligible 污染。
 
@@ -209,10 +209,10 @@ script/DeployPump12RH.s.sol
   - `stakingWarmupEpochs = 0`；rebase 快照语义。
   - 无质押者不 mint。
 
-- [ ] **Step 1:** credit 与零排放边界测试。
-- [ ] **Step 2:** 饱和归零、anchor 上下移动不重估同一笔 eligible 折算。
-- [ ] **Step 3:** 进入/退出 sToken 跨 epoch 边界。
-- [ ] **Step 4:** Commit `feat: add Pump12 treasury, staking, and distributor`
+- [x] **Step 1:** credit 与零排放边界测试。
+- [x] **Step 2:** 饱和归零、anchor 上下移动不重估同一笔 eligible 折算。
+- [x] **Step 3:** 进入/退出 sToken 跨 epoch 边界。
+- [x] **Step 4:** 已并入整合 Commit `feat: complete Pump12 NetNet BurnNet modules`
 
 **本层完成标准：** 只有官方池 eligible 手续费和真实 burn 能延长排放；Bond 尚未存在所以用 mock `addPendingUSDG` 证明 non-eligible 不加 credit。
 
@@ -233,9 +233,9 @@ script/DeployPump12RH.s.sol
   - PremiumSeller：`TWAP > 2 * anchor`；clip = `polTokenInventory * 0.25%`；间隔 1h；卖入官方池；所得 100% BurnNet；不吃 credit。
   - 两者在 `mintFrozenUntil` 期间 revert。
 
-- [ ] **Step 1:** Bond 折扣贴锚、额度快照不被期内增发放大。
-- [ ] **Step 2:** PremiumSeller 拒绝 `balanceOf` / BurnNet 仓位当 clip 基数。
-- [ ] **Step 3:** Commit `feat: add Pump12 bond depository and premium seller`
+- [x] **Step 1:** Bond 折扣贴锚、额度快照不被期内增发放大。
+- [x] **Step 2:** PremiumSeller 拒绝 `balanceOf` / BurnNet 仓位当 clip 基数。
+- [x] **Step 3:** 已并入整合 Commit `feat: complete Pump12 NetNet BurnNet modules`
 
 ---
 
@@ -261,12 +261,12 @@ script/DeployPump12RH.s.sol
   - `IndexFundFactory.setIndexFundImplementation(impl)` 仅 TagAI；只影响之后 Listing。
   - 已绑定 Token 不能迁移。
 
-- [ ] **Step 1:** 无 strike、10%、0.5%、1.2×、24h 门。
-- [ ] **Step 2:** 认购失败（指数买失败）整笔回滚，BurnNet 也不入账。
-- [ ] **Step 3:** 卖出/领分成 1%/99%；认购 `A*N` 不抽。
-- [ ] **Step 4:** 换 IndexFund 实现后，旧 clone 行为不变，新 Listing 用新 impl。
-- [ ] **Step 5:** RH fork 买真实 Basket、claimHolderFees → WETH → USDG。
-- [ ] **Step 6:** Commit `feat: add Pump12 pTEAM desk and pluggable IndexFund v1`
+- [x] **Step 1:** 无 strike、10%、0.5%、1.2×、24h 门。
+- [x] **Step 2:** 认购失败（指数买失败）整笔回滚，BurnNet 也不入账。
+- [x] **Step 3:** 卖出/领分成 1%/99%；认购 `A*N` 不抽。
+- [x] **Step 4:** 换 IndexFund 实现后，旧 clone 行为不变，新 Listing 用新 impl。
+- [x] **Step 5:** RH fork 买真实 Basket、claimHolderFees → WETH → USDG；真实 Robinhood 主网 fork 断言通过。
+- [x] **Step 6:** 已并入整合 Commit `feat: complete Pump12 NetNet BurnNet modules`
 
 **明确不做：** IndexFund v2（创建者自选标的）。只把 `IIndexFund` 和 Factory 留好。
 

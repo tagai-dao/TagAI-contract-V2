@@ -6,6 +6,17 @@ import {Test} from "forge-std/Test.sol";
 import {Pump12} from "../../../src/pump12/Pump12.sol";
 import {Token12} from "../../../src/pump12/Token12.sol";
 import {NetNetHook} from "../../../src/pump12/NetNetHook.sol";
+import {BurnNet} from "../../../src/pump12/burnnet/BurnNet.sol";
+import {Treasury} from "../../../src/pump12/treasury/Treasury.sol";
+import {SToken} from "../../../src/pump12/staking/SToken.sol";
+import {Staking} from "../../../src/pump12/staking/Staking.sol";
+import {Distributor} from "../../../src/pump12/distributor/Distributor.sol";
+import {BondDepository} from "../../../src/pump12/bond/BondDepository.sol";
+import {PremiumSeller} from "../../../src/pump12/premium/PremiumSeller.sol";
+import {PTeam} from "../../../src/pump12/pteam/PTeam.sol";
+import {IndexBondDesk} from "../../../src/pump12/pteam/IndexBondDesk.sol";
+import {IndexFundV1} from "../../../src/pump12/fund/IndexFundV1.sol";
+import {IndexFundFactory} from "../../../src/pump12/fund/IndexFundFactory.sol";
 import {HookMiner} from "../../../src/utils/HookMiner.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -17,11 +28,26 @@ import {Currency} from "v4-core/src/types/Currency.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 
+interface IRHBasketSwapRouter {
+    function buyExactUsdg(
+        address basket,
+        uint256 usdgIn,
+        uint256 minBasketOut,
+        bytes calldata hookData,
+        address recipient
+    ) external returns (uint256 basketOut);
+}
+
 /// @notice Pump12 在 Robinhood mainnet canonical USDG / PoolManager 上的最小闭环验收。
 contract Pump12RHListingForkTest is Test {
     uint256 internal constant RH_CHAIN_ID = 4663;
     address internal constant USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
     address internal constant POOL_MANAGER = 0x8366a39CC670B4001A1121B8F6A443A643e40951;
+    address internal constant WETH = 0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73;
+    address internal constant BASKET_REGISTRY = 0x1f997dEb6C8Ac7Bb4134Bc7c6bF23F623Cda25C6;
+    address internal constant BASKET_ROUTE_REGISTRY = 0x1aE3E64F51CCDC87Ff05E8E8242890e7964FF297;
+    address internal constant BASKET_SWAP_ROUTER = 0x9b5e6b7CC3661737e6A118e0D4f0F89fB1034653;
+    address internal constant DEFAULT_INDEX = 0x90d2cCA000Dc36fA8401632C67faFDa7D7860C07;
     uint160 internal constant HOOK_FLAGS = uint160((1 << 13) | (1 << 7) | (1 << 6) | (1 << 3) | (1 << 2));
 
     address internal tagAI = makeAddr("tagAI");
@@ -50,6 +76,39 @@ contract Pump12RHListingForkTest is Test {
         hook = _deployHook();
         vm.prank(tagAI);
         pump.setHook(address(hook));
+        Treasury treasuryImplementation = new Treasury();
+        SToken sTokenImplementation = new SToken();
+        Staking stakingImplementation = new Staking();
+        Distributor distributorImplementation = new Distributor();
+        BondDepository bondImplementation = new BondDepository();
+        PremiumSeller premiumImplementation = new PremiumSeller();
+        vm.prank(tagAI);
+        pump.setEmissionImplementations(
+            address(treasuryImplementation),
+            address(sTokenImplementation),
+            address(stakingImplementation),
+            address(distributorImplementation),
+            address(bondImplementation),
+            address(premiumImplementation)
+        );
+        IndexFundV1 indexFundImplementation = new IndexFundV1();
+        IndexFundFactory indexFundFactory = new IndexFundFactory(
+            address(pump),
+            tagAI,
+            USDG,
+            POOL_MANAGER,
+            WETH,
+            BASKET_REGISTRY,
+            BASKET_SWAP_ROUTER,
+            BASKET_ROUTE_REGISTRY,
+            address(indexFundImplementation)
+        );
+        PTeam pTeamImplementation = new PTeam();
+        IndexBondDesk indexBondDeskImplementation = new IndexBondDesk();
+        vm.prank(tagAI);
+        pump.setPTeamImplementations(
+            address(pTeamImplementation), address(indexBondDeskImplementation), address(indexFundFactory)
+        );
 
         vm.prank(creator);
         token = Token12(
@@ -61,7 +120,7 @@ contract Pump12RHListingForkTest is Test {
                     totalFeeBps: 500,
                     creatorShareBps: 2_000,
                     creatorFeeRecipient: creator,
-                    indexToken: makeAddr("indexToken"),
+                    indexToken: DEFAULT_INDEX,
                     pTeamHolder: makeAddr("pTeamHolder")
                 })
             )
@@ -84,6 +143,27 @@ contract Pump12RHListingForkTest is Test {
 
         (PoolId poolId,) = pump.list(address(token));
         PoolKey memory key = _poolKey();
+        (
+            address treasuryAddress,
+            address sTokenAddress,
+            address stakingAddress,
+            address distributorAddress,
+            address bondAddress,
+            address premiumAddress,
+            address pTeamAddress,
+            address indexBondDeskAddress,
+            address indexFundAddress
+        ) = pump.tokenEmissionModules(address(token));
+        assertEq(token.treasury(), treasuryAddress);
+        assertGt(treasuryAddress.code.length, 0);
+        assertGt(sTokenAddress.code.length, 0);
+        assertGt(stakingAddress.code.length, 0);
+        assertGt(distributorAddress.code.length, 0);
+        assertGt(bondAddress.code.length, 0);
+        assertGt(premiumAddress.code.length, 0);
+        assertGt(pTeamAddress.code.length, 0);
+        assertGt(indexBondDeskAddress.code.length, 0);
+        assertGt(indexFundAddress.code.length, 0);
 
         deal(USDG, trader, 100e6, true);
         vm.startPrank(trader);
@@ -102,6 +182,118 @@ contract Pump12RHListingForkTest is Test {
             hook.claimableTagAI(poolId) + hook.claimableCreator(poolId) + hook.pendingUSDG(poolId),
             IERC20(USDG).balanceOf(address(hook))
         );
+    }
+
+    function test_fork_feePendingPokeSevenRangesHarvestAndBurn() public onlyFork {
+        deal(USDG, buyer, 30_000e6, true);
+        vm.startPrank(buyer);
+        IERC20(USDG).approve(address(token), type(uint256).max);
+        token.buy(20_000e6, 750_000_000e18);
+        vm.stopPrank();
+        (PoolId poolId,) = pump.list(address(token));
+
+        PoolKey memory key = _poolKey();
+        deal(USDG, trader, 200e6, true);
+        vm.startPrank(trader);
+        IERC20(USDG).approve(address(swapRouter), 100e6);
+        _swap(key, USDG < address(token), -int256(100e6));
+        assertGt(hook.pendingEligibleTradeFeeUSDG(poolId), 0);
+        IERC20(USDG).approve(address(hook), 100e6);
+        hook.addPendingUSDG(poolId, 100e6);
+        vm.stopPrank();
+
+        uint40 listedAt = uint40(block.timestamp);
+        vm.warp(listedAt + 8 hours);
+        hook.checkpoint(poolId);
+        vm.warp(listedAt + 8 hours + 1);
+        BurnNet burnNet = BurnNet(token.burnNet());
+        burnNet.poke();
+
+        assertGt(burnNet.totalUnfilledUSDG(), 99e6);
+        assertEq(burnNet.activeReserveUSDG(), burnNet.activeLiquidUSDG() + burnNet.activePositionPrincipalUSDG());
+        for (uint8 i; i < 7; ++i) {
+            assertGt(burnNet.tierState(i).liquidity, 0);
+        }
+
+        vm.startPrank(buyer);
+        token.approve(address(swapRouter), 300_000_000e18);
+        _swap(key, USDG >= address(token), -int256(300_000_000e18));
+        vm.stopPrank();
+        uint256 supplyBefore = token.totalSupply();
+
+        vm.prank(makeAddr("permissionlessHarvester"));
+        uint256 burned = burnNet.harvest();
+
+        assertGt(burned, 0);
+        assertEq(burnNet.totalBurned(), burned);
+        assertEq(token.totalSupply(), supplyBefore - burned);
+        assertGt(burnNet.consumedEligibleTradeFeeUSDG(), 0);
+    }
+
+    function test_fork_pTeamDeskBuysOfficialIndexThroughCanonicalRouter() public onlyFork {
+        deal(USDG, buyer, 30_000e6, true);
+        vm.startPrank(buyer);
+        IERC20(USDG).approve(address(token), type(uint256).max);
+        token.buy(20_000e6, 750_000_000e18);
+        vm.stopPrank();
+        (PoolId poolId,) = pump.list(address(token));
+        (,,,,,, address pTeamAddress, address deskAddress, address fundAddress) =
+            pump.tokenEmissionModules(address(token));
+
+        PoolKey memory key = _poolKey();
+        deal(USDG, trader, 3_000e6, true);
+        vm.startPrank(trader);
+        IERC20(USDG).approve(address(swapRouter), type(uint256).max);
+        _swap(key, USDG < address(token), -int256(2_000e6));
+        vm.stopPrank();
+
+        uint40 listedAt = uint40(token.listTime());
+        for (uint256 i; i <= 8; ++i) {
+            vm.warp(listedAt + 20 hours + i * 30 minutes);
+            hook.checkpoint(poolId);
+        }
+        vm.warp(listedAt + 24 hours + 1);
+
+        vm.prank(makeAddr("pTeamHolder"));
+        PTeam(pTeamAddress).exercise(1_000_000e18);
+        assertEq(token.balanceOf(makeAddr("pTeamHolder")), 0);
+        assertEq(IndexBondDesk(deskAddress).unsoldInventory(), 1_000_000e18);
+
+        uint256 pendingBefore = hook.pendingUSDG(poolId);
+        uint256 eligibleBefore = hook.pendingEligibleTradeFeeUSDG(poolId);
+        deal(USDG, buyer, 1_000e6, true);
+        vm.startPrank(buyer);
+        IERC20(USDG).approve(deskAddress, type(uint256).max);
+        IndexBondDesk(deskAddress).subscribe(100_000e18, type(uint256).max, buyer);
+        vm.stopPrank();
+
+        assertGt(hook.pendingUSDG(poolId), pendingBefore);
+        assertEq(hook.pendingEligibleTradeFeeUSDG(poolId), eligibleBefore);
+        assertGt(IERC20(DEFAULT_INDEX).balanceOf(fundAddress), 0);
+
+        // A later real Basket purchase accrues holder fees to the Fund's existing Index position.
+        address indexBuyer = makeAddr("indexBuyer");
+        deal(USDG, indexBuyer, 1_000e6, true);
+        vm.startPrank(indexBuyer);
+        IERC20(USDG).approve(BASKET_SWAP_ROUTER, type(uint256).max);
+        IRHBasketSwapRouter(BASKET_SWAP_ROUTER).buyExactUsdg(DEFAULT_INDEX, 500e6, 0, bytes(""), indexBuyer);
+        vm.stopPrank();
+
+        uint256 pendingBeforeClaim = hook.pendingUSDG(poolId);
+        uint256 eligibleBeforeClaim = hook.pendingEligibleTradeFeeUSDG(poolId);
+        uint256 creatorBefore = IERC20(USDG).balanceOf(creator);
+        vm.prank(creator);
+        (uint256 wethClaimed, uint256 usdgOut) = IndexFundV1(payable(fundAddress)).claimHolderFees(1);
+
+        uint256 creatorShare = usdgOut / 100;
+        assertGt(wethClaimed, 0);
+        assertGt(usdgOut, 0);
+        assertEq(IERC20(USDG).balanceOf(creator) - creatorBefore, creatorShare);
+        assertEq(hook.pendingUSDG(poolId) - pendingBeforeClaim, usdgOut - creatorShare);
+        assertEq(hook.pendingEligibleTradeFeeUSDG(poolId), eligibleBeforeClaim);
+        assertEq(IERC20(WETH).balanceOf(fundAddress), 0);
+        assertEq(fundAddress.balance, 0);
+        assertEq(IERC20(USDG).balanceOf(fundAddress), 0);
     }
 
     function _deployHook() internal returns (NetNetHook deployed) {

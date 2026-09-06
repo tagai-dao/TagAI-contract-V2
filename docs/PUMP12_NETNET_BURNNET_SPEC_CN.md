@@ -211,6 +211,8 @@ tokenCreditRaw18 = usdgRaw6 × 1e30 / anchorWad18
 5. 从 TagAI 官方 `IndexRegistry` 中选择的指数 Token ID；
 6. pTEAM 固定 holder/团队地址。
 
+Pump12 必须在 IndexFundFactory 和 pTEAM/Desk 实现完成一次性配置后才开放创建；创建时立即查询官方 Registry。不得先创建一个未经校验的 Index ID、再把校验推迟到 Listing，否则无效 Token 仍可抢占 symbol 和确定性 salt。
+
 Token 初始化时一次性预铸：
 
 ```text
@@ -915,6 +917,8 @@ Treasury mint Token
 
 PremiumSeller 不消耗 Distributor credit。协议不增加额外的“每天总供应量1%”限制；沿用 NetNet 风格的 `0.25% 基础仓位 Token inventory / execution + 1 hour interval + 2×anchor gate`。
 
+PremiumSeller 的协议自售调用由官方 Hook 按该 `poolId` 固定登记并免除 Hook 交易费。否则同一笔协议补墙卖出会被平台/创建者再次分账，并让 BurnNet 手续费子份额错误形成 Eligible credit。免税仅适用于 Listing 时绑定的 PremiumSeller 合约作为 PoolManager swap sender 的固定 `execute()` 路径；普通用户、外部路由和其他池均不能使用该豁免。卖出的全部 USDG 净输出随后通过 `addPendingUSDG(poolId, amount)` 进入本池 BurnNet，并保持 non-eligible。
+
 ## 17. pTEAM 与 IndexBondDesk
 
 ### 17.1 无 Strike
@@ -1390,14 +1394,84 @@ Robinhood mainnet fork 验收覆盖：创建 Token、售满 `750M`、锁入基�
 
 下列项目不改变本文经济机制，但必须在编码/仿真后写成不可变常量并补充本文：
 
-1. Per-pool TWAP observation 数量、ring buffer 容量、checkpoint 最小间隔、最小窗口和最大窗口；
-2. BurnNet 每档精确 tick 宽度和 tick rounding；
-3. Keeper bounty 的 USDG 数量、上限和支付来源；
-4. IndexFund v1 指数买卖与包装原生币换 USDG 的最小流动性和最大滑点；Bond 折扣已冻结为3%，Desk 折扣已冻结为6.5%，指数/基金变现抽成已冻结为1%；IndexFundFactory 的 TagAI 权限与 realization 接口；
-5. Robinhood canonical USDG 的代理升级、黑名单和暂停风险处理；
-6. 后续模块 clone/factory 的地址预测、初始化顺序和 wiring 防抢跑方案。
+1. Robinhood canonical USDG 的代理升级、黑名单和暂停风险处理；
+2. 后续模块 clone/factory 的地址预测和地址展示方案；当前 clone 初始化已在同一 Listing 交易中完成，不存在可抢先初始化窗口。
+
+### 23.5 Layer 2 已冻结参数
+
+| 项目 | 固定值 |
+| --- | --- |
+| TWAP observation ring | 每个 `poolId` 32 个观测点 |
+| checkpoint 最小间隔 | 30 分钟；swap 仍连续更新累计 tick |
+| TWAP 有效窗口 | 最短 4 小时，最长 8 小时 |
+| 最新观测 freshness | 不超过 1 小时 |
+| 同时间戳规则 | 当前时间戳观测不能供本次读取；同时间戳 swap 不增加时间权重 |
+| 七档 tick offset | `540 / 1080 / 1680 / 2280 / 3600 / 5160 / 6960` ticks |
+| 七档宽度 | 每档 60 ticks，按 Token/USDG 排序自动反转方向 |
+| Keeper bounty | 当次 Pending 的 `0.10%`，最多 `1 USDG`；按支付前 eligible 比例同步扣账 |
+
+以上 Keeper 参数只从当前 poolId 的 BurnNet Pending 支付；Pending 为0时奖励为0，不能从平台/创建者应收款、其他 poolId 或增发取得。
+
+### 23.6 Layer 3 已冻结参数
+
+| 项目 | 固定值 |
+| --- | --- |
+| 模块部署 | Treasury、sToken、Staking、Distributor 的全局实现由 TagAI 一次性配置；每个 Token 在 Listing 时 clone 独立实例并原子初始化 |
+| Token mint 权限 | Listing 后仅该 Token 的 Treasury 可调用；Pump12、TagAI、创建者均无直接 mint 路径 |
+| Layer 3 Treasury 授权 | 仅固定 Distributor；实现地址和实例授权均无二次修改入口 |
+| Epoch | 8 小时；每次调用最多推进一个 epoch |
+| Staking warmup | `0`；stake/unstake 都先处理已经到期的 rebase |
+| sToken 精度 | 18 decimals，gon 初始换算精度 `1e36` |
+| 排放最高速率 | 总供应量的 `0.45% / 8 hours` |
+| 满速 premium | `TWAP / max(initialAnchor, currentAnchor) >= 1.75` |
+| 初始 Distributor credit | `37.5M Token` |
+| Eligible reserve 折算 | 最近一次 poke 快照减去快照后 consumed；永久按 `initialAnchor` 折算 |
+| Burn credit | 只读取 BurnNet 已实际销毁的累计 Token，按 `1:1` 增加 credit |
+| poke 同区块门禁 | `snapshotAt` 所在时间戳 mint 不可用；Distributor 返回 0，Treasury 再次防御检查 |
+
+Staking 沿用 NetNet 的 queued-reward 快照：某次 epoch 到期先把上一期 `distribute` rebase 给当时 sToken 持有人，再为下一期请求 Distributor mint。零 sToken 时不 mint、不消耗 credit；已排队但尚未 rebase 的底层 Token 留在 Staking，直到后续存在质押者并跨过有效 epoch。
+
+### 23.7 Layer 4 已冻结参数
+
+| 项目 | 固定值 |
+| --- | --- |
+| Bond 折扣 | `3%`；`max(TWAP × 97%, currentAnchor)` |
+| Bond 归属 | 2 天线性归属，按独立 note 领取 |
+| Bond epoch cap | 每 8 小时最多 epoch 起始总供应量的 `0.25%` |
+| Bond period cap | 每 30 天最多 period 起始总供应量的 `5%` |
+| Premium 激活 | 有效 TWAP 严格大于 `2 × currentAnchor` |
+| Premium 间隔 | 距上次成功执行至少 1 小时 |
+| Premium clip | 永久基础 POL 当前 Token inventory 的 `0.25%` |
+| Premium 滑点 | 用户 `minOut` 与 TWAP 预期输出下方 `1%` 两者取高 |
+| Premium Hook 费 | Listing 时绑定的 PremiumSeller 自售免 Hook fee；全部输出以 non-eligible Pending 入墙 |
+
+### 23.8 Layer 5 已冻结参数
+
+| 项目 | 固定值 |
+| --- | --- |
+| pTEAM 激活 | Listing 后 24 小时，且有效 Pump12 Hook TWAP `>= 1.2 × currentAnchor` |
+| pTEAM 累计额度 | 当前 `totalSupply` 的 10%，减去累计已行权量；永不到期 |
+| Desk 未售库存 | 单次行权完成后不超过新总供应量的 0.5%；已售但仍在 2 天 note 内归属的 Token 不算未售库存 |
+| Desk 价格 | `max(Pump12 TWAP × 93.5%, 1.2 × currentAnchor)` |
+| Desk USDG 分流 | `currentAnchor × N` 原额进入本池 non-eligible Pending；其余同交易进入绑定 IndexFund |
+| Index 来源 | 创建和 Listing 时都必须通过官方 BasketRegistry `isBasket(indexToken)`；Token 创建后不可替换 |
+| Index 买入保护 | 固定调用官方 BasketSwapRouter，传 `minBasketOut = 0` 触发 BasketHook 按各注册成分路由的 `defaultMaxExecutionLossBps` 自动计算保护值；Basket 自池不要求 AMM 流动性 |
+| Index 卖出保护 | 仅创建者可执行，必须提供非零 `minUsdgOut`，并由官方 BasketSwapRouter/BasketHook 完成成分资产退出 |
+| Holder fee 换汇 | `claimHolderFeesFor(fund)` 领取绑定 Basket 的 `weth()`；同交易在官方 native ETH/USDG Hub exact-input 卖出 |
+| Hub 最低流动性 | v4 当前 active liquidity 至少 `1e12` |
+| Hub 最大执行损失 | 调用者非零 `minOut` 与 Hub spot quote 下方 10% 两者取高 |
+| 变现分账 | 实收 USDG 的 1% 给 `creatorFeeRecipient`，余数 99% 进入本池 non-eligible Pending |
+| Factory 插拔 | 只有 TagAI 可调用 `setIndexFundImplementation` 更新 current implementation；只影响之后 Listing 创建的 clone，既有 Fund 永久保持原 implementation |
+
+Robinhood Basket/USDG self-pool 由 BasketHook 使用 returns-delta 执行，设计上不持有 AMM liquidity。指数买入的最小输出应交给官方 BasketHook 根据每个成分资产的登记路由计算，不能错误地以 self-pool `PoolManager.liquidity` 为准。包装原生币变现使用的 ETH/USDG Hub 是普通 v4 池，因此仍执行独立的 active-liquidity 和最大执行损失检查。
+
+IndexFundFactory 部署时必须交叉核验 BasketSwapRouter 返回的 BasketHook，并确认该 Hook 的 PoolManager、BasketRegistry、RouteRegistry、USDG 和 WETH 与 Factory 参数属于同一套官方部署。`claimHolderFees` 兑换 Fund 的完整 WETH 余额，包含直接转入的尘埃，确保操作成功后不残留无法提取的包装原生币。
 
 以上工程参数冻结后，应新增部署参数表和主网 fork 验证结果。本规范中的经济比例、资金去向、发行权限和长期供应约束不得在实现过程中被隐式改变。
+
+截至 `2026-09-06`，Pump12 Robinhood 主网 fork 已通过三条完整路径：创建/上市/双向交易、手续费 Pending/poke/七档回购/harvest/burn，以及 pTEAM/Desk 认购真实官方 Basket 后领取 holder fee、WETH → USDG、1%/99% 分账和 Fund 零残留。
+
+同日，`DeployPump12RH.s.sol` 已在 Robinhood 主网状态上完成不广播 dry-run，构造和一次性配置全部成功；模拟总 gas 为 `31,919,383`。该 gas 数字仅用于部署预算，正式部署仍须按目标区块重新估算，并使用项目多签/正式部署账户，而不是测试私钥。
 
 ## 24. Robinhood Chain 外部基础设施基线
 
@@ -1411,6 +1485,11 @@ Robinhood mainnet fork 验收覆盖：创建 Token、售满 `750M`、锁入基�
 | Canonical USDG             | `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`，链上 `symbol() = USDG`、`decimals() = 6` |
 | Uniswap v4 PoolManager     | `0x8366a39cc670b4001a1121b8f6a443a643e40951`                                       |
 | Uniswap v4 PositionManager | `0x73991a25c818bf1f1128deaab1492d45638de0d3`                                       |
+| Wrapped native WETH        | `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73`                                       |
+| BasketRegistry             | `0x1f997dEb6C8Ac7Bb4134Bc7c6bF23F623Cda25C6`                                       |
+| BasketRouteRegistry        | `0x1aE3E64F51CCDC87Ff05E8E8242890e7964FF297`                                       |
+| BasketSwapRouter v3        | `0x9b5e6b7CC3661737e6A118e0D4f0F89fB1034653`                                       |
+| Default IndexToken v3      | `0x90d2cCA000Dc36fA8401632C67faFDa7D7860C07`                                       |
 
 
 资料来源：

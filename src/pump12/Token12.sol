@@ -29,6 +29,7 @@ contract Token12 is ERC20, ReentrancyGuard {
     error InsufficientCurveReserve();
     error CurveNotComplete();
     error AlreadyListed();
+    error OnlyTreasury();
 
     event CurveTrade(
         address indexed trader,
@@ -62,6 +63,8 @@ contract Token12 is ERC20, ReentrancyGuard {
     bool public listed;
     bytes32 public v4PoolId;
     address public liquidityVault;
+    address public burnNet;
+    address public treasury;
     uint256 public initialAnchor;
     uint256 public listTime;
 
@@ -227,13 +230,29 @@ contract Token12 is ERC20, ReentrancyGuard {
         return CurveMath.endPriceWad();
     }
 
+    /// @notice Burns only the caller's own balance. BurnNet uses this after position settlement.
+    function burn(uint256 amount) external {
+        if (amount == 0) revert InvalidAmount();
+        _burn(msg.sender, amount);
+    }
+
+    /// @notice Treasury is the sole post-listing supply controller.
+    function mint(address to, uint256 amount) external {
+        if (msg.sender != treasury) revert OnlyTreasury();
+        if (!listed || to == address(0) || amount == 0) revert InvalidAmount();
+        _mint(to, amount);
+    }
+
     /// @notice Pump12 在单一原子 Listing 流程内关闭曲线并迁移基础 POL。
-    function prepareListing(address vault, bytes32 poolId_) external onlyManager {
+    function prepareListing(address vault, address burnNet_, address treasury_, bytes32 poolId_) external onlyManager {
         if (listed) revert AlreadyListed();
         if (bondingCurveSupply != CURVE_ALLOCATION || curveReserveRaw != 15_000e6) revert CurveNotComplete();
+        if (vault.code.length == 0 || burnNet_.code.length == 0 || treasury_.code.length == 0) revert InvalidAmount();
 
         listed = true;
         liquidityVault = vault;
+        burnNet = burnNet_;
+        treasury = treasury_;
         v4PoolId = poolId_;
         initialAnchor = CurveMath.endPriceWad();
         listTime = block.timestamp;
