@@ -21,8 +21,9 @@ contract RHV4ListingLocalTest is RHV4TestBase {
         assertGt(manager.getLiquidity(poolId), 0, "pool has liquidity");
         assertEq(hook.poolToken(poolId), address(token), "hook pool mapping");
 
-        (, uint96 remaining,) = hook.tokenInfo(address(token));
-        assertEq(uint256(remaining), NUTBOX_ALLOCATION, "hook nutbox budget");
+        (address community, address calc) = hook.tokenInfo(address(token));
+        assertEq(community, token.nutboxCommunity(), "hook community");
+        assertEq(calc, address(calculator), "hook calculator");
         assertEq(token.balanceOf(address(hook)), NUTBOX_ALLOCATION, "hook holds nutbox tokens");
     }
 

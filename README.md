@@ -216,12 +216,12 @@ Full list: [`deployments/56/addresses.json`](deployments/56/addresses.json)
 
 ## Robinhood Chain Mainnet (4663)
 
-Branch **`rh`** targets **Robinhood Chain** with Uniswap v4 (not PancakeSwap). Full Nutbox stack + Pump + Hook + ImportHelper + TagAISwapWrapper.
+Branch **`rh`** targets **Robinhood Chain** with Uniswap v4 (not PancakeSwap). V11 增量部署：**不重部** Committee / CommunityFactory / IPShare / calculators / staking / BasketRegistry。
 
 - Explorer: [robinhoodchain.blockscout.com](https://robinhoodchain.blockscout.com)
-- Full list: [`deployments/4663/addresses.json`](deployments/4663/addresses.json)
-- Deploy: `FOUNDRY_PROFILE=rh_mainnet forge script script/DeployRH.s.sol:DeployRHScript --rpc-url https://rpc.mainnet.chain.robinhood.com --broadcast --legacy ...`
-- Verify: Blockscout (`--verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/`) — also verify EIP-1167 templates (`*Template` / `TokenImplementation` in `addresses.json`)
+- 活动地址：[`deployments/4663/version11.json`](deployments/4663/version11.json)（V9 生产快照：`version9.json`）
+- **不要**对 4663 广播全量 `script/DeployRH.s.sol`（会 `new IPShare` / 新 Nutbox 栈）
+- 增量脚本顺序：`DeployRHPumpRefresh` → ImportHelper+Wrapper → `DeployRHNutboxRouter` → Basket V3（`BRIDGE_ROUTER=NutboxRouter`，复用 Registry）→ `DeployRHIndexBrokerNFT` → 各 `acceptOwnership`
 
 | Contract | Address |
 |----------|---------|
@@ -242,7 +242,7 @@ Branch **`rh`** targets **Robinhood Chain** with Uniswap v4 (not PancakeSwap). F
 | Uniswap v4 PoolManager | [`0x8366a39CC670B4001A1121B8F6A443A643e40951`](https://robinhoodchain.blockscout.com/address/0x8366a39CC670B4001A1121B8F6A443A643e40951) |
 | WETH | [`0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73`](https://robinhoodchain.blockscout.com/address/0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73) |
 
-Clone templates (`CommunityTemplate`, `SocialCurationTemplate`, `ERC20StakingTemplate`, `ERC20LockingTemplate`) are also recorded in `addresses.json` for Blockscout verification.
+Clone templates (`CommunityTemplate`, `SocialCurationTemplate`, `ERC20StakingTemplate`, `ERC20LockingTemplate`) are also recorded in `version11.json` / `version9.json` for Blockscout verification.
 
 ## Ecosystem
 

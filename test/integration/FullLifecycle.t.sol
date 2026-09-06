@@ -7,7 +7,8 @@ import {V4PumpTestBase} from "../helpers/V4PumpTestBase.sol";
 
 /**
  * @title FullLifecycleTest
- * @notice End-to-end: createToken → fill curve → list → Hook Nutbox settlement (Uniswap v4).
+ * @notice End-to-end: createToken → fill curve → list → Hook Nutbox settlement (Uniswap v4)。
+ * @dev V11 余额制注入：注入量用 calculator.totalInjected 校验。
  */
 contract FullLifecycleTest is V4PumpTestBase {
     address internal buyer1;
@@ -21,6 +22,10 @@ contract FullLifecycleTest is V4PumpTestBase {
         vm.deal(buyer1, 1000 ether);
         vm.deal(buyer2, 1000 ether);
         super.setUp();
+    }
+
+    function _injected(Token t) internal view returns (uint256) {
+        return calculator.totalInjected(t.nutboxCommunity());
     }
 
     function test_fullLifecycle_createAndList() public onlyReady {
@@ -41,30 +46,26 @@ contract FullLifecycleTest is V4PumpTestBase {
 
     function test_hookInjection_decreasesOnBuy() public onlyReady {
         Token t = _createAndListToken("HOOK1");
-        (, uint96 initialRemaining,) = hook.tokenInfo(address(t));
-        assertEq(uint256(initialRemaining), NUTBOX_ALLOCATION);
+        assertEq(t.balanceOf(address(hook)), NUTBOX_ALLOCATION, "hook holds nutbox allocation");
 
-        _simulateHookBuy(t, 10_000 ether);
-        (, uint96 remainingAfterAccum,) = hook.tokenInfo(address(t));
-        assertEq(uint256(remainingAfterAccum), uint256(initialRemaining));
+        uint256 injected0 = _injected(t);
+        uint256 gross = _simulateHookBuy(t, 0.5 ether);
+        assertEq(_injected(t), injected0, "same period: no inject");
 
         _warpNextHookPeriod();
-        _simulateHookBuy(t, 1 ether);
+        _simulateHookBuy(t, 0.01 ether);
 
-        (, uint96 remainingAfterBuy,) = hook.tokenInfo(address(t));
-        (,, uint256 injectAmount) = hook.previewPeriodSettle(10_000 ether);
+        (,, uint256 injectAmount) = hook.previewPeriodSettle(gross);
         if (injectAmount >= HOOK_MIN_INJECT_OUTPUT) {
-            assertLt(uint256(remainingAfterBuy), uint256(initialRemaining));
-            assertEq(uint256(initialRemaining) - uint256(remainingAfterBuy), injectAmount);
+            assertEq(_injected(t) - injected0, injectAmount, "inject on next-period first buy");
         }
     }
 
-    function test_hookRemaining_unchangedOnSell() public onlyReady {
+    function test_hookInjection_unchangedOnSell() public onlyReady {
         Token t = _createAndListToken("HOOK2");
-        (, uint96 initialRemaining,) = hook.tokenInfo(address(t));
+        uint256 injected0 = _injected(t);
         _simulateHookSell(t, 10_000 ether);
-        (, uint96 remainingAfterSell,) = hook.tokenInfo(address(t));
-        assertEq(uint256(remainingAfterSell), uint256(initialRemaining));
+        assertEq(_injected(t), injected0, "sell never injects");
     }
 
     function test_totalSupply_invariant() public onlyReady {
@@ -72,23 +73,28 @@ contract FullLifecycleTest is V4PumpTestBase {
         assertEq(IERC20(address(t)).totalSupply(), TOTAL_SUPPLY);
     }
 
-    function test_multipleBuySwaps_monotonicDecrease() public onlyReady {
+    function test_multipleBuySwaps_monotonicInject() public onlyReady {
         Token t = _createAndListToken("MONO");
-        (, uint96 prevRemaining,) = hook.tokenInfo(address(t));
+        uint256 prevInjected = _injected(t);
 
         for (uint256 i = 0; i < 5; i++) {
-            _simulateHookBuy(t, 10_000 ether);
-            (, uint96 currentRemaining,) = hook.tokenInfo(address(t));
-            assertLe(currentRemaining, prevRemaining);
-            prevRemaining = currentRemaining;
+            _simulateHookBuy(t, 0.3 ether);
+            _warpNextHookPeriod();
+            _simulateHookBuy(t, 0.01 ether); // settle prior period
+            uint256 currentInjected = _injected(t);
+            assertGe(currentInjected, prevInjected, "inject is monotonic non-decreasing");
+            prevInjected = currentInjected;
         }
     }
 
     function test_buyBelowMinimum_noInject() public onlyReady {
         Token t = _createAndListToken("SMALL");
-        (, uint96 initialRemaining,) = hook.tokenInfo(address(t));
-        _simulateHookBuy(t, 100 ether);
-        (, uint96 remainingAfter,) = hook.tokenInfo(address(t));
-        assertEq(uint256(remainingAfter), uint256(initialRemaining));
+        uint256 injected0 = _injected(t);
+        // 极小 ETH：毛成交额产生的注入量 < MIN_INJECT_OUTPUT → 结算跳过。
+        uint256 gross = _simulateHookBuy(t, 1e10 wei);
+        _warpNextHookPeriod();
+        _simulateHookBuy(t, 0.01 ether);
+        assertEq(_injected(t), injected0, "below MIN_INJECT_OUTPUT: skip");
+        assertLt(gross, _minPeriodVolumeForSettle(), "gross below min settle volume");
     }
 }

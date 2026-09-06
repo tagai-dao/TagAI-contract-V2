@@ -9,6 +9,7 @@ import "../interfaces/IIPShare.sol";
 import "../interfaces/IPump.sol";
 import "../interfaces/IBondingCurve.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
+import "../interfaces/ICommunity.sol";
 import "../utils/CurrencySettler.sol";
 
 // Uniswap v4
@@ -26,6 +27,7 @@ interface ITipTagSwapHook {
 
 error OnlyPump();
 error NutboxAddressesAlreadySet();
+error ListingDisabledDuringAntiSnipe();
 
 contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     using PoolIdLibrary for PoolKey;
@@ -59,13 +61,17 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     address public nutboxCommunity;
     address public nutboxSocialPool;
 
-    /// @dev Set by Pump immediately before the deployer's bundled pre-buy; bypasses anti-snipe once.
-    bool private antiSnipeBypassArmed;
-
     // Uniswap v4 pool info
     IPoolManager public poolManager;
     PoolId public v4PoolId;
-    // fee=0：池子本身不收 swap fee，全部由 TipTagSwapHook 收取
+    /// @notice Hook permanently bound to this token's listing pool.
+    /// @dev 上市时快照，后续 Pump hook 升级不会改变该池的身份或费率目的地。
+    address public listingHook;
+    /// @dev V4 中 tickSpacing 与 fee 完全解耦。fee=3000 设 0.3% 原生 LP 费；TipTagSwapHook 在其上再收 swap 费。
+    /// tickSpacing=60 只控制价格 tick 粒度（与费率档无关）。
+    uint24 public constant LISTING_LP_FEE = 3000;
+    /// @dev 领取 LP 费的 permissionless 调用者奖励 0.5%。
+    uint256 public constant COLLECT_CALLER_REWARD_BPS = 50;
     int24 public constant TICK_SPACING = 60;
     // RH listing LP: 双边 ~200M + ~4.8 ETH；tickLower=MIN；tickUpper 校准使池外 800M 卖压抽干池内 ETH。
     // 离线标定：ListingParamsCalc.test_solveRH_listingConstants
@@ -76,6 +82,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     int24 private constant LISTING_TICK_UPPER = 205740;
     uint128 private constant LISTING_LIQUIDITY_DELTA = 34553395272273650725680;
 
+    /// @dev unlock callback op codes — seed listing LP vs collect fees。
+    uint8 private constant UNLOCK_OP_SEED = 0;
+    uint8 private constant UNLOCK_OP_COLLECT = 1;
+
+    /// @dev collect callback 写入，collectFees 读后清零。
+    uint256 private _collectEthAmount;
+    uint256 private _collectTokenAmount;
+
     receive() external payable nonReentrant {
         if (listed) revert TokenListed();
         _buyTokenDirect();
@@ -83,7 +97,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     function _buyTokenDirect() private {
         address sellsman = _checkBondingCurveState(address(0));
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatios();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (buyFunds * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (buyFunds * sellsmanFeePercent) / divisor;
@@ -137,12 +151,6 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         poolManager = IPoolManager(IPump(manager_).getPoolManager());
     }
 
-    /// @notice Arms a one-time anti-snipe bypass for the deployer's bundled pre-buy in `createToken`.
-    function armAntiSnipeBypass() external {
-        if (msg.sender != manager) revert OnlyPump();
-        antiSnipeBypassArmed = true;
-    }
-
     /// @notice Records Nutbox `Community` and SocialCuration pool; callable once by Pump only.
     function setNutboxAddresses(address community, address pool) external {
         if (msg.sender != manager) revert OnlyPump();
@@ -160,7 +168,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
     ) public payable nonReentrant returns (uint256) {
         require(msg.sender != address(poolManager), "can't buy token from pool");
         sellsman = _checkBondingCurveState(sellsman);
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatios();
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (msg.value * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (msg.value * sellsmanFeePercent) / divisor;
@@ -253,25 +261,23 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     /**
      * Get current buy fee ratios (basis points, e.g. 100 = 1%).
-     * 1. Within 15s after creation: tiptag = feeRatio[0]; sellsman decays quadratically from 80% to feeRatio[1].
-     * 2. After 15s: uses Pump's configured feeRatio.
-     * @dev Deployer's bundled pre-buy in `createToken` uses normal fees via `armAntiSnipeBypass` (not visible here).
+     * 1. Pump 预购（Community 未绑定）用 Pump 的 feeRatio。
+     * 2. 公开买入在 15s 窗口内用 anti-snipe 费率（含第一笔）。
+     * 3. 15s 后用 Pump 配置的 feeRatio。
      */
     function getBuyFeeRatios() external view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        return _getBuyFeeRatiosView();
+        return _getBuyFeeRatiosView(false);
     }
 
-    function _getBuyFeeRatios() private returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        if (antiSnipeBypassArmed) {
-            antiSnipeBypassArmed = false;
-            uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
+    function _getBuyFeeRatiosView(bool pumpPremine)
+        private
+        view
+        returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent)
+    {
+        uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
+        if (pumpPremine) {
             return (feeRatio[0], feeRatio[1]);
         }
-        return _getBuyFeeRatiosView();
-    }
-
-    function _getBuyFeeRatiosView() private view returns (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) {
-        uint256[2] memory feeRatio = IPump(manager).getFeeRatio();
         uint256 elapsed = block.timestamp - createdAt;
         if (elapsed >= ANTI_SNIPE_WINDOW) {
             return (feeRatio[0], feeRatio[1]);
@@ -309,7 +315,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     /// @notice Handles sellsman fee: during anti-snipe window, injects into Calculator; otherwise sends to IPShare.
     function _handleSellsmanFee(uint256 sellsmanFee, address feeRecipient) private {
-        if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
+        if (_inAntiSnipeWindow()) {
             _antiSnipeInject(sellsmanFee);
         } else {
             _tryValueCapture(feeRecipient, sellsmanFee);
@@ -318,24 +324,31 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     /// @notice During anti-snipe window, use sellsman ETH to buy tokens on bonding curve and inject into Calculator.
     function _antiSnipeInject(uint256 sellsmanEth) private {
-        // Use sellsman ETH to buy tokens on the bonding curve
+        // Pump 预购发生在 Community 绑定前，此时没有 canonical calculator，走 IPShare valueCapture。
+        if (nutboxCommunity == address(0)) {
+            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            return;
+        }
+
         uint256 tokensPurchased = bondingCurve.getBuyAmountByValue(bondingCurveSupply, sellsmanEth);
         uint256 remaining = bondingCurveTotalAmount - bondingCurveSupply;
-        if (tokensPurchased > remaining) {
-            tokensPurchased = remaining;
+        if (tokensPurchased >= remaining) revert ListingDisabledDuringAntiSnipe();
+        if (tokensPurchased == 0) {
+            IIPShare(IPump(manager).getIPShare()).valueCapture{value: sellsmanEth}(ipshareSubject);
+            return;
         }
         bondingCurveSupply += tokensPurchased;
 
-        // Get calculator address and inject
-        address calculator = IPump(manager).getCalculator();
+        // Community 的 calculator 在其整个生命周期内是 canonical 的。
+        address calculator = ICommunity(nutboxCommunity).rewardCalculator();
 
-        // Approve calculator to pull tokens (inject does transferFrom(msg.sender=Token, community, amount))
         _approve(address(this), calculator, tokensPurchased);
 
         try IHourlyTickCalculator(calculator).inject(nutboxCommunity, tokensPurchased) {
             emit AntiSnipeInjected(address(this), nutboxCommunity, sellsmanEth, tokensPurchased);
         } catch {
-            // Fallback: revert the supply change and try IPShare valueCapture
+            // 失败外部调用会回滚其 transferFrom，但本帧的 approve 不会回滚，先撤销再回退。
+            _approve(address(this), calculator, 0);
             bondingCurveSupply -= tokensPurchased;
             _tryValueCapture(ipshareSubject, sellsmanEth);
         }
@@ -347,6 +360,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         uint256 sellsmanFeePercent,
         address sellsman
     ) private returns (uint256) {
+        if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
+
         uint256 priceBeforeFee = bondingCurve.getPrice(bondingCurveSupply, actualAmount);
         uint256 usedEth = (priceBeforeFee * divisor) / (divisor - tiptagFeePercent - sellsmanFeePercent);
         if (usedEth > msg.value) revert InsufficientFund();
@@ -383,14 +398,25 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
 
     /// @notice 动态交易期（15s 内）费用固定归部署者，防止 MEV 攻击者通过传入自己为 sellsman 回收费用
     function _getFeeRecipient(address sellsman) private view returns (address) {
-        if (block.timestamp - createdAt < ANTI_SNIPE_WINDOW) {
+        if (_inAntiSnipeWindow()) {
             return ipshareSubject;
         }
         return sellsman;
     }
 
+    /// @dev Pump 捆绑预购：msg.sender 是 Pump，且 Community 尚未绑定、曲线尚未售出。
+    function _isPumpPremine() private view returns (bool) {
+        return msg.sender == manager && nutboxCommunity == address(0) && bondingCurveSupply == 0;
+    }
+
+    /// @dev 上市前的 15 秒 anti-snipe 窗口。
+    function _inAntiSnipeWindow() private view returns (bool) {
+        return block.timestamp - createdAt < ANTI_SNIPE_WINDOW;
+    }
+
     /********************************** to dex (Uniswap v4) ********************************/
     function _makeLiquidityPool() private {
+        if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
         require(address(this).balance >= LISTING_ETH_BUDGET, "Insufficient ETH for listing");
         require(balanceOf(address(this)) >= LISTING_TOKEN_AMOUNT + NUTBOX_ALLOCATION, "Insufficient token for listing");
 
@@ -399,14 +425,10 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         require(hookAddr != address(0), "Hook not set");
         _transfer(address(this), hookAddr, NUTBOX_ALLOCATION);
 
-        // currency0 = native ETH, currency1 = this token (address sort order)
-        PoolKey memory poolKey = PoolKey({
-            currency0: CurrencyLibrary.ADDRESS_ZERO,
-            currency1: Currency.wrap(address(this)),
-            fee: 0,
-            tickSpacing: TICK_SPACING,
-            hooks: IHooks(hookAddr)
-        });
+        // 永久绑定上市 hook，后续 Pump hook 升级不影响该池。
+        listingHook = hookAddr;
+
+        PoolKey memory poolKey = _listingPoolKey();
 
         uint160 sqrtPriceX96 = INITIAL_SQRT_PRICE_X96;
         int24 tickLower = LISTING_TICK_LOWER;
@@ -419,7 +441,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         ITipTagSwapHook(hookAddr).registerPool(poolId, address(this));
 
         // Add bounded-range liquidity inside unlock callback
-        poolManager.unlock(abi.encode(poolKey, tickLower, tickUpper));
+        poolManager.unlock(abi.encode(UNLOCK_OP_SEED, poolKey, tickLower, tickUpper, address(0)));
 
         // After LP is settled, send all remaining ETH to platform. Remaining token stays in this contract.
         address tiptagFeeAddress = IPump(manager).getFeeReceiver();
@@ -433,15 +455,87 @@ contract Token is IToken, ERC20, ReentrancyGuard, IUnlockCallback {
         emit TokenListedToDex(address(this), PoolId.unwrap(poolId), sqrtPriceX96);
     }
 
-    /// @notice IUnlockCallback — 双边 LP：~200M token + ~4.8 ETH 进池。
+    /// @notice IUnlockCallback — seed listing LP 或 collect 已累积的 LP 费（liquidityDelta=0）。
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(poolManager), "Only PoolManager");
 
-        (PoolKey memory poolKey, int24 tickLower, int24 tickUpper) = abi.decode(data, (PoolKey, int24, int24));
+        (uint8 op, PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) =
+            abi.decode(data, (uint8, PoolKey, int24, int24, address));
 
-        _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+        if (op == UNLOCK_OP_SEED) {
+            _modifyAndSettleLiquidity(poolKey, tickLower, tickUpper, int256(uint256(LISTING_LIQUIDITY_DELTA)));
+        } else if (op == UNLOCK_OP_COLLECT) {
+            _collectListingFees(poolKey, tickLower, tickUpper, collector);
+        } else {
+            revert("Invalid unlock op");
+        }
 
         return "";
+    }
+
+    /// @dev 从上市时快照的 listingHook 重建不可变 PoolKey，禁止再读 Pump.getHookAddress()。
+    function _listingPoolKey() private view returns (PoolKey memory) {
+        return PoolKey({
+            currency0: CurrencyLibrary.ADDRESS_ZERO,
+            currency1: Currency.wrap(address(this)),
+            fee: LISTING_LP_FEE,
+            tickSpacing: TICK_SPACING,
+            hooks: IHooks(listingHook)
+        });
+    }
+
+    /// @notice Permissionless：领取上市 LP 费、奖励调用者、BNB→平台、Token→Hook。
+    function collectFees() external nonReentrant returns (uint256 ethAmount, uint256 tokenAmount) {
+        if (!listed) revert TokenNotListed();
+
+        poolManager.unlock(
+            abi.encode(UNLOCK_OP_COLLECT, _listingPoolKey(), LISTING_TICK_LOWER, LISTING_TICK_UPPER, msg.sender)
+        );
+
+        ethAmount = _collectEthAmount;
+        tokenAmount = _collectTokenAmount;
+        _collectEthAmount = 0;
+        _collectTokenAmount = 0;
+
+        uint256 callerReward = (ethAmount * COLLECT_CALLER_REWARD_BPS) / divisor;
+        emit ListingFeesCollected(msg.sender, ethAmount, tokenAmount, callerReward);
+    }
+
+    /// @dev 通过 modifyLiquidity(0) 领取上市 LP 费；用 feesAccrued 计费，不要把本金 delta 当手续费。
+    function _collectListingFees(PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) private {
+        IPoolManager.ModifyLiquidityParams memory params = IPoolManager.ModifyLiquidityParams({
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            liquidityDelta: 0,
+            salt: bytes32(0)
+        });
+
+        (, BalanceDelta feeDelta) = poolManager.modifyLiquidity(poolKey, params, "");
+
+        int128 ethFee = feeDelta.amount0();
+        int128 tokenFee = feeDelta.amount1();
+
+        uint256 ethAmount;
+        uint256 tokenAmount;
+
+        if (ethFee > 0) {
+            ethAmount = uint256(uint128(ethFee));
+            uint256 callerReward = (ethAmount * COLLECT_CALLER_REWARD_BPS) / divisor;
+            address feeReceiver = IPump(manager).getFeeReceiver();
+            // 直接从 PoolManager take 到目标，Token 不持有领取的 BNB。
+            if (callerReward != 0) {
+                CurrencySettler.take(poolKey.currency0, poolManager, collector, callerReward, false);
+            }
+            CurrencySettler.take(poolKey.currency0, poolManager, feeReceiver, ethAmount - callerReward, false);
+        }
+
+        if (tokenFee > 0) {
+            tokenAmount = uint256(uint128(tokenFee));
+            CurrencySettler.take(poolKey.currency1, poolManager, listingHook, tokenAmount, false);
+        }
+
+        _collectEthAmount = ethAmount;
+        _collectTokenAmount = tokenAmount;
     }
 
     /// @dev modifyLiquidity + settle open deltas against PoolManager.

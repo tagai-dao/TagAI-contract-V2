@@ -23,7 +23,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     uint256 public createFee = 0.005 ether;
     uint256 private divisor = 10000;
     address private feeReceiver = 0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048;
-    uint256[2] private feeRatio = [30, 30]; // 0: to tiptag; 1: to salesman
+    uint256[2] private feeRatio = [30, 30]; // 0: to tiptag; 1: to salesman（仅内盘；上市后 Hook 硬编码费率，不读此处）
 
     // BSC Nutbox stack
     address public nutboxCommunityFactory = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
@@ -206,8 +206,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         Token(payable(instance)).initialize(address(this), creator, tick);
 
         if (msg.value > totalFixedFee) {
-            // Only the deployer's bundled pre-buy bypasses anti-snipe; external first buys still pay elevated fees.
-            Token(payable(instance)).armAntiSnipeBypass();
+            // V11: Pump 捆绑预购由 Token._isPumpPremine() 判定（msg.sender==manager && community 未绑定 && 曲线未售出），走普通 feeRatio。
             (bool success1, bytes memory receiveAmount) = instance.call{value: msg.value - totalFixedFee}(
                 abi.encodeWithSignature("buyToken(uint256,address,uint16)", 0, creator, 0)
             );
@@ -253,7 +252,9 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
 
         emit NutboxLinked(instance, community, pool);
 
-        // Transfer community ownership to creator (uses Ownable.transferOwnership)
+        // Transfer community devFund + ownership to creator (creator becomes dev & owner).
+        (bool setDevOk,) = community.call(abi.encodeWithSignature("adminSetDev(address)", creator));
+        require(setDevOk, "Set dev failed");
         (bool txOk,) = community.call(abi.encodeWithSignature("transferOwnership(address)", creator));
         require(txOk, "Transfer ownership failed");
 

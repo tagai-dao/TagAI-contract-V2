@@ -232,18 +232,6 @@ abstract contract RHForkBase is RHV4TestBase {
         return StateLibrary.getLiquidity(manager, poolId);
     }
 
-    function _simulateHookBuy(Token token, uint256 boughtAmount) internal {
-        PoolKey memory poolKey = _buildPoolKey(address(token));
-        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(boughtAmount)));
-        vm.prank(address(manager));
-        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
-    }
-
     function _logPoolReserves(PoolKey memory poolKey, string memory label) internal view {
         address tokenAddr = Currency.unwrap(poolKey.currency1);
         PoolId poolId = poolKey.toId();

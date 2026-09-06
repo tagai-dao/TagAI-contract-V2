@@ -3,9 +3,12 @@ pragma solidity ^0.8.26;
 
 import {RHV4TestBase} from "./RHV4TestBase.sol";
 import {Token} from "../../src/pump/Token.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {BalanceDelta, toBalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 
 /// @dev Uniswap v4 harness for Pump / Token / Hook unit tests (local PoolManager + CREATE2 hook).
 abstract contract V4PumpTestBase is RHV4TestBase {
@@ -38,18 +41,24 @@ abstract contract V4PumpTestBase is RHV4TestBase {
         return false;
     }
 
-    /// @dev Simulate pool buy volume for Nutbox period settlement (calls Hook.afterSwap as PoolManager).
-    function _simulateHookBuy(Token token, uint256 boughtAmount) internal {
+    /// @dev Simulate pool buy via real swapRouter (exact-in ETH) — runs Hook.beforeSwap/afterSwap inside PoolManager unlock, so token-fee `take` 正常工作。返回该次买入的**毛** token 成交额（即 Hook 累计到 periodBuy 的值，含 0.3% token fee）。用 periodState 前后差值推算，并处理跨周期重置。
+    function _simulateHookBuy(Token token, uint256 ethIn) internal returns (uint256 grossVolume) {
         PoolKey memory poolKey = _buildPoolKey(address(token));
-        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
-        BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(boughtAmount)));
-
-        vm.prank(address(manager));
-        hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
+        (uint32 idxBefore, uint256 pbBefore) = hook.periodState(address(token));
+        vm.deal(address(this), address(this).balance + ethIn);
+        swapRouter.swap{value: ethIn}(
+            poolKey,
+            IPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -int256(ethIn),
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false}),
+            bytes("")
+        );
+        (uint32 idxAfter, uint256 pbAfter) = hook.periodState(address(token));
+        // 跨周期：periodBuy 重置为 0 后累加本次毛额 → gross = pbAfter；同期：gross = 差值。
+        grossVolume = (idxAfter != idxBefore) ? pbAfter : (pbAfter - pbBefore);
     }
 
     /// @dev Simulate token→ETH sell path (exact-output ETH) — no Nutbox inject, no PoolManager.take.

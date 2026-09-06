@@ -193,10 +193,13 @@ contract RHImportWrapper is Test {
         ipshare = new IPShare(feeRecipient);
         ipshare.adminStartTrade();
 
+        // 第 2 期：Wrapper 先部署，Helper 构造传入 pump(0)+wrapper，再回填 importHelper。
+        wrapper = new TagAISwapWrapper(address(0), address(ipshare), WETH, feeRecipient);
+        wrapper.adminSetV4PoolManager(V4_PM, true);
         importHelper = new ImportHelper(
-            address(communityFactory), address(scf), address(committee), address(ipshare)
+            address(communityFactory), address(scf), address(committee), address(ipshare), address(0), address(wrapper)
         );
-        wrapper = new TagAISwapWrapper(address(importHelper), address(ipshare), WETH, feeRecipient);
+        wrapper.adminSetImportHelper(address(importHelper));
 
         v4LiquidityRouter = new PoolModifyLiquidityTest(IPoolManager(V4_PM));
     }
@@ -256,6 +259,9 @@ contract RHImportWrapper is Test {
         uint256 feeBefore = feeRecipient.balance;
         uint256 tokenBefore = IERC20(TOKEN).balanceOf(tester);
 
+        // 报价与实际到账一致（扣 0.2% token fee 后净额）。
+        uint256 quoted = wrapper.quoteBuy(ethIn, buyPath, V2_ROUTER);
+
         vm.prank(tester);
         wrapper.buyToken{value: ethIn}(
             address(0), 0, buyPath, tester, block.timestamp + 1 hours, V2_ROUTER
@@ -263,9 +269,13 @@ contract RHImportWrapper is Test {
 
         uint256 tokensBought = IERC20(TOKEN).balanceOf(tester) - tokenBefore;
         assertGt(tokensBought, 0, "v2 buy tokens");
+        // 导入后代币已登记：用户到账为扣 0.2% token fee 的净额，与 quoteBuy 一致。
+        assertEq(tokensBought, quoted, "v2 buy net matches quote (0.2% token fee)");
         // 1% tagai + 1% sellsman (→ importer=tester, so only tagai leaves tester's eth notionally;
         // feeRecipient still receives tagaiRatio share).
         assertGt(feeRecipient.balance, feeBefore, "v2 buy tagai fee");
+        // Wrapper 累计 0.2% token fee（pending Nutbox 注入）。
+        assertGt(wrapper.pendingNutboxInjection(TOKEN), 0, "v2 buy accrued nutbox fee");
 
         uint256 sellAmt = tokensBought / 2;
         assertGt(sellAmt, 0, "v2 sellAmt");

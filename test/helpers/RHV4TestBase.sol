@@ -231,7 +231,7 @@ abstract contract RHV4TestBase is Test {
         return PoolKey({
             currency0: CurrencyLibrary.ADDRESS_ZERO,
             currency1: Currency.wrap(tokenAddr),
-            fee: 0,
+            fee: 3000,
             tickSpacing: 60,
             hooks: IHooks(address(hook))
         });
