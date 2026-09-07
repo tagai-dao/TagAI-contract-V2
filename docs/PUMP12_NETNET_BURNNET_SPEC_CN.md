@@ -1469,7 +1469,7 @@ IndexFundFactory 部署时必须交叉核验 BasketSwapRouter 返回的 BasketHo
 
 以上工程参数冻结后，应新增部署参数表和主网 fork 验证结果。本规范中的经济比例、资金去向、发行权限和长期供应约束不得在实现过程中被隐式改变。
 
-截至 `2026-09-06`，Pump12 Robinhood 主网 fork 已通过三条完整路径：创建/上市/双向交易、手续费 Pending/poke/七档回购/harvest/burn，以及 pTEAM/Desk 认购真实官方 Basket 后领取 holder fee、WETH → USDG、1%/99% 分账和 Fund 零残留。
+截至 `2026-09-06`，Pump12 Robinhood 主网 fork 已通过四条测试路径：Basket v3 部署关系和协议版本探测、创建/上市/双向交易、手续费 Pending/poke/七档回购/harvest/burn，以及 pTEAM/Desk 认购真实官方 Basket 后完成 holder fee 与指数本金的真实卖出、WETH → USDG、1%/99% 分账和 Fund 零 USDG 残留。
 
 同日，`DeployPump12RH.s.sol` 已在 Robinhood 主网状态上完成不广播 dry-run，构造和一次性配置全部成功；模拟总 gas 为 `31,919,383`。该 gas 数字仅用于部署预算，正式部署仍须按目标区块重新估算，并使用项目多签/正式部署账户，而不是测试私钥。
 
@@ -1490,6 +1490,7 @@ IndexFundFactory 部署时必须交叉核验 BasketSwapRouter 返回的 BasketHo
 | BasketRouteRegistry        | `0x1aE3E64F51CCDC87Ff05E8E8242890e7964FF297`                                       |
 | BasketSwapRouter v3        | `0x9b5e6b7CC3661737e6A118e0D4f0F89fB1034653`                                       |
 | Default IndexToken v3      | `0x90d2cCA000Dc36fA8401632C67faFDa7D7860C07`                                       |
+| Basket v3 source baseline  | `robinhood-basket-contract/main@c83acea`，tag `rh-mainnet-v3`                        |
 
 
 资料来源：

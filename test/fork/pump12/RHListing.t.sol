@@ -29,6 +29,10 @@ import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 
 interface IRHBasketSwapRouter {
+    function poolManager() external view returns (address);
+    function basketHook() external view returns (address);
+    function usdg() external view returns (address);
+
     function buyExactUsdg(
         address basket,
         uint256 usdgIn,
@@ -36,6 +40,29 @@ interface IRHBasketSwapRouter {
         bytes calldata hookData,
         address recipient
     ) external returns (uint256 basketOut);
+}
+
+interface IRHBasketHookV3 {
+    function poolManager() external view returns (address);
+    function basketRegistry() external view returns (address);
+    function routeRegistry() external view returns (address);
+    function usdg() external view returns (address);
+    function weth() external view returns (address);
+}
+
+interface IRHBasketRegistryV3 {
+    function isBasket(address basket) external view returns (bool);
+    function basketVersion(address basket) external view returns (uint32);
+}
+
+interface IRHBasketTokenV3 {
+    function protocolVersion() external pure returns (uint32);
+    function registry() external view returns (address);
+    function settlementToken() external view returns (address);
+    function weth() external view returns (address);
+    function engine() external view returns (address);
+    function rebalanceExecutor() external view returns (address);
+    function assetCount() external view returns (uint256);
 }
 
 /// @notice Pump12 在 Robinhood mainnet canonical USDG / PoolManager 上的最小闭环验收。
@@ -47,6 +74,8 @@ contract Pump12RHListingForkTest is Test {
     address internal constant BASKET_REGISTRY = 0x1f997dEb6C8Ac7Bb4134Bc7c6bF23F623Cda25C6;
     address internal constant BASKET_ROUTE_REGISTRY = 0x1aE3E64F51CCDC87Ff05E8E8242890e7964FF297;
     address internal constant BASKET_SWAP_ROUTER = 0x9b5e6b7CC3661737e6A118e0D4f0F89fB1034653;
+    address internal constant BASKET_HOOK_V3 = 0x7103AA53a7de0Af737d1dC1A257838f6f488aA88;
+    address internal constant BASKET_REBALANCE_EXECUTOR = 0x1bca8A39021f6C65b62bbe79A59e41215cF19264;
     address internal constant DEFAULT_INDEX = 0x90d2cCA000Dc36fA8401632C67faFDa7D7860C07;
     uint160 internal constant HOOK_FLAGS = uint160((1 << 13) | (1 << 7) | (1 << 6) | (1 << 3) | (1 << 2));
 
@@ -132,6 +161,32 @@ contract Pump12RHListingForkTest is Test {
     modifier onlyFork() {
         if (!forkReady) vm.skip(true);
         _;
+    }
+
+    function test_fork_indexV3DeploymentMatchesPump12Assumptions() public onlyFork {
+        IRHBasketSwapRouter router = IRHBasketSwapRouter(BASKET_SWAP_ROUTER);
+        IRHBasketHookV3 basketHook = IRHBasketHookV3(BASKET_HOOK_V3);
+        IRHBasketRegistryV3 registry = IRHBasketRegistryV3(BASKET_REGISTRY);
+        IRHBasketTokenV3 index = IRHBasketTokenV3(DEFAULT_INDEX);
+
+        assertEq(router.poolManager(), POOL_MANAGER);
+        assertEq(router.basketHook(), BASKET_HOOK_V3);
+        assertEq(router.usdg(), USDG);
+        assertEq(basketHook.poolManager(), POOL_MANAGER);
+        assertEq(basketHook.basketRegistry(), BASKET_REGISTRY);
+        assertEq(basketHook.routeRegistry(), BASKET_ROUTE_REGISTRY);
+        assertEq(basketHook.usdg(), USDG);
+        assertEq(basketHook.weth(), WETH);
+
+        assertTrue(registry.isBasket(DEFAULT_INDEX));
+        assertEq(registry.basketVersion(DEFAULT_INDEX), 3);
+        assertEq(index.protocolVersion(), 3);
+        assertEq(index.registry(), BASKET_REGISTRY);
+        assertEq(index.settlementToken(), USDG);
+        assertEq(index.weth(), WETH);
+        assertEq(index.engine(), BASKET_HOOK_V3);
+        assertEq(index.rebalanceExecutor(), BASKET_REBALANCE_EXECUTOR);
+        assertGt(index.assetCount(), 0);
     }
 
     function test_fork_createListAndSwapBothDirections() public onlyFork {
@@ -293,6 +348,22 @@ contract Pump12RHListingForkTest is Test {
         assertEq(hook.pendingEligibleTradeFeeUSDG(poolId), eligibleBeforeClaim);
         assertEq(IERC20(WETH).balanceOf(fundAddress), 0);
         assertEq(fundAddress.balance, 0);
+        assertEq(IERC20(USDG).balanceOf(fundAddress), 0);
+
+        uint256 indexBeforeSell = IERC20(DEFAULT_INDEX).balanceOf(fundAddress);
+        uint256 indexToSell = indexBeforeSell / 10;
+        uint256 pendingBeforeSell = hook.pendingUSDG(poolId);
+        uint256 eligibleBeforeSell = hook.pendingEligibleTradeFeeUSDG(poolId);
+        uint256 creatorBeforeSell = IERC20(USDG).balanceOf(creator);
+        vm.prank(creator);
+        uint256 sellUsdGOut = IndexFundV1(payable(fundAddress)).sellIndex(indexToSell, 1);
+
+        uint256 sellCreatorShare = sellUsdGOut / 100;
+        assertGt(sellUsdGOut, 0);
+        assertEq(IERC20(DEFAULT_INDEX).balanceOf(fundAddress), indexBeforeSell - indexToSell);
+        assertEq(IERC20(USDG).balanceOf(creator) - creatorBeforeSell, sellCreatorShare);
+        assertEq(hook.pendingUSDG(poolId) - pendingBeforeSell, sellUsdGOut - sellCreatorShare);
+        assertEq(hook.pendingEligibleTradeFeeUSDG(poolId), eligibleBeforeSell);
         assertEq(IERC20(USDG).balanceOf(fundAddress), 0);
     }
 
