@@ -58,6 +58,12 @@ interface INutboxRouter {
 
     function allowedPancakeV4CLManager(address manager) external view returns (bool);
 
+    function operators(address operator) external view returns (bool);
+
+    function addOperator(address operator) external;
+
+    function removeOperator(address operator) external;
+
     function hasPricePool(bytes32 poolId) external view returns (bool);
 
     /// @notice Returns the stable registry ID for a normalized token pair.

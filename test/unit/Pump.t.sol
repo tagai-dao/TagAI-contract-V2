@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
 import "../../src/pump/IPShare.sol";
 import "../../src/pump/Pump.sol";
 import "../../src/pump/Token.sol";
+import {IPump} from "../../src/interfaces/IPump.sol";
 import "../../src/hook/TagAISwapHook.sol";
 import "../mocks/MockCLPoolManager.sol";
 import "../mocks/MockVault.sol";
@@ -17,7 +20,7 @@ import {IVault} from "infinity-core/src/interfaces/IVault.sol";
  * @title PumpTest
  * @notice Unit tests for Pump contract — admin functions, createToken happy path/revert paths.
  */
-contract PumpTest is Test {
+contract PumpTest is Version13LegacyTestSetup {
     Committee public committee;
     address public communityFactory;
     HourlyTickCalculator public calculator;
@@ -59,33 +62,23 @@ contract PumpTest is Test {
         mockVault = new MockVault();
 
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
 
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(
-            communityFactory,
-            address(calculator),
-            scf,
-            address(committee)
-        );
+        pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
 
         vm.warp(3600);
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         require(d != address(0), "CommunityFactory deploy failed");
@@ -93,10 +86,8 @@ contract PumpTest is Test {
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         require(d != address(0), "SocialCurationFactory deploy failed");
@@ -192,7 +183,7 @@ contract PumpTest is Test {
         uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
         ipshare.createShare{value: ipsharePrice}(creator);
 
-        address tokenAddr = pump.createToken{value: 0.005 ether}("TEST", bytes32(uint256(1)));
+        address tokenAddr = _createLegacyV13Token(pump, "TEST", bytes32(uint256(1)), 0.005 ether);
 
         assertTrue(pump.createdTokens(tokenAddr));
         assertTrue(tokenAddr != address(0));
@@ -211,7 +202,7 @@ contract PumpTest is Test {
         uint256 sellsmanFee = (premineValue * 30) / 10_000;
         uint256 expectedPremine = pump.getBuyAmountByValue(0, premineValue - platformFee - sellsmanFee);
 
-        address tokenAddr = pump.createToken{value: 0.005 ether + premineValue}("PREMINE", bytes32(uint256(2)));
+        address tokenAddr = _createLegacyV13Token(pump, "PREMINE", bytes32(uint256(2)), 0.005 ether + premineValue);
         vm.stopPrank();
 
         Token premineToken = Token(payable(tokenAddr));
@@ -227,11 +218,11 @@ contract PumpTest is Test {
         uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
         ipshare.createShare{value: ipsharePrice}(creator);
 
-        pump.createToken{value: 0.005 ether}("DUPE", bytes32(uint256(1)));
+        _createLegacyV13Token(pump, "DUPE", bytes32(uint256(1)), 0.005 ether);
 
         // Same tick again should revert
         vm.expectRevert();
-        pump.createToken{value: 0.005 ether}("DUPE", bytes32(uint256(2)));
+        _createLegacyV13Token(pump, "DUPE", bytes32(uint256(2)), 0.005 ether);
 
         vm.stopPrank();
     }
@@ -243,7 +234,7 @@ contract PumpTest is Test {
 
         // Only 0.001 ether — less than createFee (0.005)
         vm.expectRevert();
-        pump.createToken{value: 0.001 ether}("LOWFEE", bytes32(uint256(1)));
+        _createLegacyV13Token(pump, "LOWFEE", bytes32(uint256(1)), 0.001 ether);
 
         vm.stopPrank();
     }
@@ -258,12 +249,13 @@ contract PumpTest is Test {
         vm.deal(address(caller), 1 ether);
 
         vm.expectRevert();
-        caller.callCreateToken{value: 0.005 ether}("PROXY", bytes32(uint256(1)));
+        caller.callCreateToken{value: 0.005 ether}("PROXY", bytes32(uint256(1)), _legacyV13Config());
     }
 
     function test_createToken_revertsIfNutboxNotConfigured() public {
         // Deploy fresh Pump without adminSetNutbox to set calculator/community factory
-        Pump freshPump = new Pump(address(ipshare), feeRecipient);
+        Pump freshPump = new Pump(address(ipshare), feeRecipient, new address[](0));
+        _configureLegacyV13Index(freshPump);
         freshPump.adminSetCalculator(address(0)); // explicitly clear calculator
         // The check `hourlyTickCalculator == address(0)` will trigger NutboxNotConfigured
         // BUT freshPump still has BSC mainnet hardcoded addresses for nutboxCommunityFactory etc.
@@ -274,7 +266,7 @@ contract PumpTest is Test {
         ipshare.createShare{value: ipsharePrice}(creator);
 
         vm.expectRevert();
-        freshPump.createToken{value: 0.005 ether}("FRESH", bytes32(uint256(1)));
+        _createLegacyV13Token(freshPump, "FRESH", bytes32(uint256(1)), 0.005 ether);
 
         vm.stopPrank();
     }
@@ -315,8 +307,12 @@ contract ContractCaller {
         pump = Pump(payable(_pump));
     }
 
-    function callCreateToken(string calldata tick, bytes32 salt) external payable returns (address) {
-        return pump.createToken{value: msg.value}(tick, salt);
+    function callCreateToken(string calldata tick, bytes32 salt, IPump.IndexConfig calldata config)
+        external
+        payable
+        returns (address)
+    {
+        return pump.createToken{value: msg.value}(tick, salt, config);
     }
 
     receive() external payable {}
@@ -329,7 +325,7 @@ contract ContractCaller {
  * @notice Tests Pump behavior when nutboxFees > 0
  * @dev Separate contract because main PumpTest sets all fees to 0
  */
-contract PumpWithFeesTest is Test {
+contract PumpWithFeesTest is Version13LegacyTestSetup {
     Committee public committee;
     address public communityFactory;
     HourlyTickCalculator public calculator;
@@ -380,33 +376,23 @@ contract PumpWithFeesTest is Test {
         // Set IPShare createFee to 0 to isolate nutboxFees testing
         ipshare.adminSetCreateFee(0);
 
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
 
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(
-            communityFactory,
-            address(calculator),
-            scf,
-            address(committee)
-        );
+        pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
 
         vm.warp(3600);
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         require(d != address(0), "CommunityFactory deploy failed");
@@ -414,10 +400,8 @@ contract PumpWithFeesTest is Test {
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         require(d != address(0), "SocialCurationFactory deploy failed");
@@ -439,9 +423,9 @@ contract PumpWithFeesTest is Test {
         uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES + buyAmount; // 0.005 + 0.015 + 0.1 = 0.12 ether
 
         uint256 balanceBefore = creator.balance;
-        
-        address tokenAddr = pump.createToken{value: totalSent}("TESTFEE", bytes32(uint256(1)));
-        
+
+        address tokenAddr = _createLegacyV13Token(pump, "TESTFEE", bytes32(uint256(1)), totalSent);
+
         uint256 balanceAfter = creator.balance;
         uint256 actualSpent = balanceBefore - balanceAfter;
 
@@ -452,34 +436,34 @@ contract PumpWithFeesTest is Test {
         // - PUMP_CREATE_FEE (0.005) - goes to feeReceiver
         // - NUTBOX_FEES (0.015) - stays in Pump for later community creation
         // - Some ETH used for buying tokens (less than buyAmount due to bonding curve)
-        
+
         // CRITICAL: Verify that nutboxFees are NOT refunded to user
         // The refund should be: (buyAmount - actualTokenCost), NOT (buyAmount - actualTokenCost + nutboxFees)
         // So actualSpent should be close to: PUMP_CREATE_FEE + NUTBOX_FEES + (some portion of buyAmount)
-        
+
         // The user should have spent AT LEAST the fixed fees
         assertGe(actualSpent, PUMP_CREATE_FEE + NUTBOX_FEES, "User should have paid at least fixed fees");
-        
+
         // The user should have spent LESS than totalSent (because some ETH is refunded after token purchase)
         // But the refund should NOT include nutboxFees
         // With the bug, the refund would be too large (includes nutboxFees)
         // With the fix, refund = buyAmount - actualTokenCost (nutboxFees stay in contract)
-        
+
         uint256 refunded = totalSent - actualSpent;
-        
+
         // refunded should be less than buyAmount (since some ETH bought tokens)
         // With the bug: refunded would be roughly (buyAmount - tokenCost) + nutboxFees
         // With the fix: refunded should be roughly (buyAmount - tokenCost)
-        
+
         // Check Pump contract balance - it should have exactly NUTBOX_FEES remaining
         // (nutboxFees are used later for createCommunity + adminAddPool)
         uint256 pumpBalanceAfter = address(pump).balance;
-        
+
         // After createToken, Pump should have nutboxFees ready for community creation
         // But since createCommunity is called in the same transaction, the balance might be 0
         // Actually looking at the code, nutboxFees are passed to createCommunity and adminAddPool
         // So after the function completes, Pump balance should be 0
-        
+
         // Let's verify the user didn't get back more than expected
         // The maximum possible refund is buyAmount (if token cost was 0, which it isn't)
         assertLe(refunded, buyAmount, "Refund should not exceed buyAmount (nutboxFees should not be refunded)");
@@ -496,19 +480,19 @@ contract PumpWithFeesTest is Test {
         uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES + buyAmount;
 
         uint256 balanceBefore = creator.balance;
-        pump.createToken{value: totalSent}("TESTFEE2", bytes32(uint256(2)));
+        _createLegacyV13Token(pump, "TESTFEE2", bytes32(uint256(2)), totalSent);
         uint256 balanceAfter = creator.balance;
 
         // User should have spent: createFee + nutboxFees + (ETH used for tokens)
         // Since bonding curve prices > 0, some ETH was used to buy tokens
         // So actualSpent > PUMP_CREATE_FEE + NUTBOX_FEES
         uint256 actualSpent = balanceBefore - balanceAfter;
-        
+
         // Verify the user didn't get nutboxFees back (the bug would give it back)
         // With the bug: user gets back (buyAmount - tokenCost) + nutboxFees
         // With the fix: user gets back (buyAmount - tokenCost)
         // So actualSpent with fix should be higher by nutboxFees
-        
+
         assertGt(actualSpent, PUMP_CREATE_FEE, "User should have spent more than just createFee");
         assertGe(actualSpent, PUMP_CREATE_FEE + NUTBOX_FEES, "User should have paid nutboxFees");
 
@@ -524,7 +508,7 @@ contract PumpWithFeesTest is Test {
         uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES; // 0.02 ether
 
         uint256 balanceBefore = creator.balance;
-        pump.createToken{value: totalSent}("TESTFEE3", bytes32(uint256(3)));
+        _createLegacyV13Token(pump, "TESTFEE3", bytes32(uint256(3)), totalSent);
         uint256 balanceAfter = creator.balance;
 
         // User should have spent exactly totalSent (no refund since no token purchase)

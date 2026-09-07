@@ -35,7 +35,7 @@ contract DeployBSCPumpRefreshScript is Script {
     // ─── Reused BSC infrastructure ───────────────────────────────────────────
     address internal committee;
     address internal communityFactory;
-    address internal socialCurationFactory;
+    address internal erc20StakingFactory;
     address internal clPoolManager;
     address internal vault;
     address internal ipshare;
@@ -71,7 +71,7 @@ contract DeployBSCPumpRefreshScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        Pump pump = new Pump(ipshare, feeReceiver);
+        Pump pump = new Pump(ipshare, feeReceiver, new address[](0));
         pump.adminSetPoolManager(clPoolManager);
         pump.adminSetVault(vault);
         console.log("Pump:", address(pump));
@@ -100,7 +100,7 @@ contract DeployBSCPumpRefreshScript is Script {
 
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(calculator);
-        pump.adminSetNutbox(communityFactory, calculator, socialCurationFactory, committee);
+        pump.adminSetNutbox(communityFactory, calculator, erc20StakingFactory, committee);
         if (targetOwner != deployer) pump.transferOwnership(targetOwner);
         console.log("Pump configured");
 
@@ -139,7 +139,7 @@ contract DeployBSCPumpRefreshScript is Script {
 
         committee = vm.parseJsonAddress(json, ".Committee");
         communityFactory = vm.parseJsonAddress(json, ".CommunityFactory");
-        socialCurationFactory = vm.parseJsonAddress(json, ".SocialCurationFactory");
+        erc20StakingFactory = 0xDc3f940ac6Da516d5C9cc59c8AFE0F85A576E2A4;
         clPoolManager = vm.parseJsonAddress(json, ".CLPoolManager");
         vault = vm.parseJsonAddress(json, ".Vault");
         ipshare = vm.parseJsonAddress(json, ".IPShare");
@@ -155,7 +155,7 @@ contract DeployBSCPumpRefreshScript is Script {
     function _validateDependencies() internal view {
         require(committee.code.length > 0, "Committee missing");
         require(communityFactory.code.length > 0, "CommunityFactory missing");
-        require(socialCurationFactory.code.length > 0, "SocialCurationFactory missing");
+        require(erc20StakingFactory.code.length > 0, "ERC20StakingFactory missing");
         require(clPoolManager.code.length > 0, "CLPoolManager missing");
         require(vault.code.length > 0, "Vault missing");
         require(ipshare.code.length > 0, "IPShare missing");
@@ -179,7 +179,7 @@ contract DeployBSCPumpRefreshScript is Script {
         require(pump.getHookAddress() == address(hook), "Pump Hook mismatch");
         require(pump.getCalculator() == calculator, "Pump Calculator mismatch");
         require(pump.nutboxCommunityFactory() == communityFactory, "Pump CommunityFactory mismatch");
-        require(pump.socialCurationFactory() == socialCurationFactory, "Pump SocialCurationFactory mismatch");
+        require(pump.erc20StakingFactory() == erc20StakingFactory, "Pump ERC20StakingFactory mismatch");
         require(pump.nutboxCommittee() == committee, "Pump Committee mismatch");
         if (targetOwner != pump.owner()) require(pump.pendingOwner() == targetOwner, "Pump owner handover missing");
     }

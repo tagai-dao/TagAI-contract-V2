@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
@@ -31,7 +33,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * - Unauthorized direct calls to swap callbacks
  * - Asset custody: no path to drain Hook's token balance except through registered swaps
  */
-contract HookSecurityTest is Test {
+contract HookSecurityTest is Version13LegacyTestSetup {
     using CurrencyLibrary for Currency;
 
     Committee public committee;
@@ -77,17 +79,14 @@ contract HookSecurityTest is Test {
         mockPoolManager = new MockCLPoolManager();
         mockVault = new MockVault();
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
         pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
         vm.deal(address(mockVault), 100 ether);
 
         vm.warp(3600);
@@ -95,27 +94,23 @@ contract HookSecurityTest is Test {
         // Create and list token
         vm.startPrank(creator, creator);
         ipshare.createShare{value: ipshare.getPrice(10 ether, 0)}(creator);
-        token = Token(payable(pump.createToken{value: 0.005 ether}("SEC", bytes32(uint256(1)))));
+        token = Token(payable(_createLegacyV13Token(pump, "SEC", bytes32(uint256(1)), 0.005 ether)));
         vm.stopPrank();
 
         _fillBondingCurve();
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
@@ -130,12 +125,17 @@ contract HookSecurityTest is Test {
             if (remaining == 0) break;
             uint256 buyAmount = 5 ether;
             if (buyer.balance < buyAmount) vm.deal(buyer, 1000 ether);
-            try token.buyToken{value: buyAmount}(0, creator, 0) {} catch {
+            try token.buyToken{value: buyAmount}(0, creator, 0) {}
+            catch {
                 vm.deal(buyer, 5000 ether);
-                try token.buyToken{value: 500 ether}(0, creator, 0) {} catch { break; }
+                try token.buyToken{value: 500 ether}(0, creator, 0) {}
+                catch {
+                    break;
+                }
             }
         }
         vm.stopPrank();
+        _finalizeLegacyV13Token(pump, token);
     }
 
     function _buildPoolKey() internal view returns (PoolKey memory) {
@@ -146,7 +146,7 @@ contract HookSecurityTest is Test {
             currency1: Currency.wrap(address(token)),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 3000,
+            fee: token.LISTING_LP_FEE(),
             parameters: parameters
         });
     }
@@ -173,11 +173,8 @@ contract HookSecurityTest is Test {
 
     function test_directCall_beforeSwap_revertsIfNotPoolManager() public {
         PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory params =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
 
         // Call directly from attacker (not PoolManager)
         vm.prank(attacker);
@@ -187,11 +184,8 @@ contract HookSecurityTest is Test {
 
     function test_directCall_afterSwap_revertsIfNotPoolManager() public {
         PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory params =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
         BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
 
         vm.prank(attacker);
@@ -219,11 +213,8 @@ contract HookSecurityTest is Test {
             fee: 0,
             parameters: bytes32(0)
         });
-        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory params =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
         BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
 
         // Should not revert, but also no fee collected and no injection
@@ -260,7 +251,8 @@ contract HookSecurityTest is Test {
 
         // No transferFrom on Hook
         bytes4 transferFromSelector = bytes4(keccak256("transferFrom(address,address,uint256)"));
-        (bool s2,) = address(hook).call(abi.encodeWithSelector(transferFromSelector, address(hook), attacker, hookTokenBalance));
+        (bool s2,) =
+            address(hook).call(abi.encodeWithSelector(transferFromSelector, address(hook), attacker, hookTokenBalance));
         assertFalse(s2, "Hook should not have transferFrom");
 
         vm.stopPrank();
@@ -272,35 +264,28 @@ contract HookSecurityTest is Test {
     function test_assetCustody_balanceOnlyDecreasesViaInject() public {
         uint256 hookTokenBalanceBefore = IERC20(address(token)).balanceOf(address(hook));
         uint256 bought = 20_000 ether;
-        uint256 directionalFee = (bought * 30) / 10000;
 
-        // Trigger a buy → accrues directional fee; inject deferred to next period
+        // Trigger a buy; injection is deferred to the next period.
         PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory buyParams =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
         BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(bought)));
 
-        deal(address(token), address(mockVault), IERC20(address(token)).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
-        // Same period: no inject yet — directional fee increases Hook balance
+        // V13 charges fees in BNB, so token inventory is unchanged in-period.
         uint256 hookTokenBalanceMid = IERC20(address(token)).balanceOf(address(hook));
-        assertEq(hookTokenBalanceMid, hookTokenBalanceBefore + directionalFee, "same period: fee only");
+        assertEq(hookTokenBalanceMid, hookTokenBalanceBefore, "same period: no token movement");
 
         vm.warp(block.timestamp + 600);
 
-        deal(address(token), address(mockVault), IERC20(address(token)).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, delta, bytes(""));
 
         uint256 hookTokenBalanceAfter = IERC20(address(token)).balanceOf(address(hook));
         uint256 expectedInject = 20_000 ether * 106_069_772 / 1e9;
-        // Mid + triggerFee - after = inject
-        assertEq(hookTokenBalanceMid + directionalFee - hookTokenBalanceAfter, expectedInject);
+        assertEq(hookTokenBalanceMid - hookTokenBalanceAfter, expectedInject);
     }
 
     // ─── Attack 6: Reentrancy via inject callback ───

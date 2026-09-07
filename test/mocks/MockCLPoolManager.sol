@@ -51,11 +51,7 @@ contract MockCLPoolManager {
             ICLHooks(hookAddr).beforeInitialize(msg.sender, key, sqrtPriceX96);
         }
 
-        pools[PoolId.unwrap(id)] = PoolState({
-            sqrtPriceX96: sqrtPriceX96,
-            tick: 0,
-            initialized: true
-        });
+        pools[PoolId.unwrap(id)] = PoolState({sqrtPriceX96: sqrtPriceX96, tick: 0, initialized: true});
 
         initializeCount++;
         lastInitializedPoolId = id;
@@ -78,7 +74,10 @@ contract MockCLPoolManager {
         PoolKey memory key,
         ICLPoolManager.ModifyLiquidityParams memory params,
         bytes calldata /* hookData */
-    ) external returns (BalanceDelta delta, BalanceDelta feeDelta) {
+    )
+        external
+        returns (BalanceDelta delta, BalanceDelta feeDelta)
+    {
         lastModifiedPoolId = key.toId();
         // Simplified: return deltas based on liquidity delta
         // For listing: negative means pool needs tokens from caller
@@ -100,11 +99,10 @@ contract MockCLPoolManager {
     }
 
     /// @notice Simulate a swap and call hook callbacks
-    function swap(
-        PoolKey memory key,
-        ICLPoolManager.SwapParams memory params,
-        bytes calldata hookData
-    ) external returns (BalanceDelta delta) {
+    function swap(PoolKey memory key, ICLPoolManager.SwapParams memory params, bytes calldata hookData)
+        external
+        returns (BalanceDelta delta)
+    {
         address hookAddr = address(key.hooks);
 
         // Call beforeSwap
@@ -115,16 +113,12 @@ contract MockCLPoolManager {
         // Simulate swap delta
         if (params.zeroForOne) {
             // Buy: ETH in, Token out
-            int128 ethIn = params.amountSpecified < 0
-                ? int128(params.amountSpecified)
-                : int128(int256(1 ether));
+            int128 ethIn = params.amountSpecified < 0 ? int128(params.amountSpecified) : int128(int256(1 ether));
             int128 tokenOut = -int128(int256(10_000 ether)); // Simplified: 10k tokens per swap
             delta = toBalanceDelta(ethIn, tokenOut);
         } else {
             // Sell: Token in, ETH out
-            int128 tokenIn = params.amountSpecified < 0
-                ? int128(params.amountSpecified)
-                : int128(int256(10_000 ether));
+            int128 tokenIn = params.amountSpecified < 0 ? int128(params.amountSpecified) : int128(int256(10_000 ether));
             int128 ethOut = -int128(int256(1 ether));
             delta = toBalanceDelta(ethOut, tokenIn);
         }
@@ -139,11 +133,23 @@ contract MockCLPoolManager {
     }
 
     // Stub functions to satisfy interface expectations
-    function getSlot0(PoolId /* id */) external pure returns (uint160, int24, uint24, uint24) {
+    function getSlot0(
+        PoolId /* id */
+    )
+        external
+        pure
+        returns (uint160, int24, uint24, uint24)
+    {
         return (0, 0, 0, 0);
     }
 
-    function getLiquidity(PoolId /* id */) external pure returns (uint128) {
+    function getLiquidity(
+        PoolId /* id */
+    )
+        external
+        pure
+        returns (uint128)
+    {
         return 0;
     }
 

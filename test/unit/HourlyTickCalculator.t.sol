@@ -52,12 +52,7 @@ contract HourlyTickCalculatorTest is Test {
         token = new TestERC20("TestToken", "TT", TOTAL_SUPPLY);
 
         address communityAddr = communityFactory.createCommunity(
-            false,
-            address(token),
-            address(0),
-            bytes(""),
-            address(calculator),
-            bytes("")
+            false, address(token), address(0), bytes(""), address(calculator), bytes("")
         );
         community = Community(payable(communityAddr));
 

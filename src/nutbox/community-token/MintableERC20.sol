@@ -28,14 +28,17 @@ contract MintableERC20 is Context, AccessControlEnumerable, ERC20Burnable {
      *
      * See {ERC20-constructor}.
      */
-    constructor(string memory name, 
-    string memory symbol, 
-    uint256 initialSupply,
-    address owner,
-    address communityFactory) ERC20(name, symbol) {
+    constructor(
+        string memory name,
+        string memory symbol,
+        uint256 initialSupply,
+        address owner,
+        address communityFactory
+    ) ERC20(name, symbol) {
         _setupRole(DEFAULT_ADMIN_ROLE, communityFactory);
         _mint(owner, initialSupply);
     }
+
     /**
      * @dev Creates `amount` new tokens for `to`.
      *
@@ -50,11 +53,7 @@ contract MintableERC20 is Context, AccessControlEnumerable, ERC20Burnable {
         _mint(to, amount);
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual override(ERC20) {
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual override(ERC20) {
         super._beforeTokenTransfer(from, to, amount);
     }
 }

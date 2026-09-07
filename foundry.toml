@@ -21,6 +21,12 @@ fs_permissions = [
 #   FOUNDRY_PROFILE=fork forge test --match-contract BSCForkTest --fork-url $BSC_RPC_URL -vvv
 [profile.fork]
 chain_id = 56
+fs_permissions = [
+    { access = "read-write", path = "./deployments" },
+    { access = "read-write", path = "./previews" },
+    # Deploy the current Basket V4 artifacts without mixing its OZ5 dependencies with this project's OZ4.
+    { access = "read", path = "../bsc-basket-contract/out" },
+]
 
 [profile.bsc_mainnet]
 chain_id = 56

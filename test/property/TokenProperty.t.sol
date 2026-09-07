@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
@@ -18,7 +20,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @title TokenProperty
  * @notice Property tests for Token (P5: Free Trade, P8: Total Supply Invariant).
  */
-contract TokenPropertyTest is Test {
+contract TokenPropertyTest is Version13LegacyTestSetup {
     Committee public committee;
     address public communityFactory;
     HourlyTickCalculator public calculator;
@@ -61,24 +63,21 @@ contract TokenPropertyTest is Test {
         mockPoolManager = new MockCLPoolManager();
         mockVault = new MockVault();
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
         pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
 
         vm.warp(3600);
 
         // Create a fresh, unlisted token
         vm.startPrank(creator, creator);
         ipshare.createShare{value: ipshare.getPrice(10 ether, 0)}(creator);
-        token = Token(payable(pump.createToken{value: 0.005 ether}("PROP", bytes32(uint256(1)))));
+        token = Token(payable(_createLegacyV13Token(pump, "PROP", bytes32(uint256(1)), 0.005 ether)));
         vm.stopPrank();
 
         // Skip anti-snipe window
@@ -86,20 +85,16 @@ contract TokenPropertyTest is Test {
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
@@ -123,16 +118,17 @@ contract TokenPropertyTest is Test {
         vm.prank(buyer, buyer);
         // Should not revert with any signature error (just succeed or revert with curve error)
         try token.buyToken{value: buyAmount}(0, creator, 0) {
-            // Success — this is what we want
-        } catch (bytes memory reason) {
+        // Success — this is what we want
+        }
+        catch (bytes memory reason) {
             // The only acceptable reverts are curve-related: DustIssue, OutOfSlippage, etc.
             // NOT signature errors (which don't exist in v2)
             bytes4 selector;
             assembly { selector := mload(add(reason, 0x20)) }
             // Make sure no signature-related error
             assertTrue(
-                selector != bytes4(keccak256("InvalidSignature()")) &&
-                selector != bytes4(keccak256("InvalidGatePermission()")),
+                selector != bytes4(keccak256("InvalidSignature()"))
+                    && selector != bytes4(keccak256("InvalidGatePermission()")),
                 "Should never revert with signature-related error"
             );
         }
@@ -159,13 +155,14 @@ contract TokenPropertyTest is Test {
 
             vm.prank(buyer, buyer);
             try token.sellToken(sellAmount, 0, creator, 0) {
-                // Success
-            } catch (bytes memory reason) {
+            // Success
+            }
+            catch (bytes memory reason) {
                 bytes4 selector;
                 assembly { selector := mload(add(reason, 0x20)) }
                 assertTrue(
-                    selector != bytes4(keccak256("InvalidSignature()")) &&
-                    selector != bytes4(keccak256("InvalidGatePermission()")),
+                    selector != bytes4(keccak256("InvalidSignature()"))
+                        && selector != bytes4(keccak256("InvalidGatePermission()")),
                     "sellToken should never revert with signature-related error"
                 );
             }
@@ -192,10 +189,7 @@ contract TokenPropertyTest is Test {
         assertEq(IERC20(address(token)).totalSupply(), TOTAL_SUPPLY);
     }
 
-    function testFuzz_P8_totalSupplyInvariant_afterBuyAndSell(
-        uint256 buyAmount,
-        uint256 sellFraction
-    ) public {
+    function testFuzz_P8_totalSupplyInvariant_afterBuyAndSell(uint256 buyAmount, uint256 sellFraction) public {
         buyAmount = bound(buyAmount, 0.5 ether, 3 ether);
         sellFraction = bound(sellFraction, 10, 90);
 

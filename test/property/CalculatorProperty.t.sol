@@ -57,12 +57,7 @@ contract CalculatorPropertyTest is Test {
         token = new TestERC20("TestToken", "TT", TOTAL_SUPPLY);
 
         address communityAddr = communityFactory.createCommunity(
-            false,
-            address(token),
-            address(0),
-            bytes(""),
-            address(calculator),
-            bytes("")
+            false, address(token), address(0), bytes(""), address(calculator), bytes("")
         );
         community = Community(payable(communityAddr));
 
@@ -202,11 +197,7 @@ contract CalculatorPropertyTest is Test {
     }
 
     /// Reward across a < b interval should be ≤ totalInjected
-    function testFuzz_P3_rewardBoundedByTotalInjected(
-        uint256 amount,
-        uint256 a,
-        uint256 b
-    ) public {
+    function testFuzz_P3_rewardBoundedByTotalInjected(uint256 amount, uint256 a, uint256 b) public {
         amount = bound(amount, VEST, 1_000_000 ether);
         a = bound(a, 0, 1000 * 3600);
         b = bound(b, a + 3600, a + 1000 * 3600);

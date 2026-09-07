@@ -41,7 +41,7 @@ contract DeployBSCTwoPhaseScript is Script {
     // ─── BSC Deployed Addresses (Reused) ─────────────────────────────────────────
     address constant COMMITTEE = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
     address constant COMMUNITY_FACTORY = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
-    address constant SOCIAL_CURATION_FACTORY = 0xc4674D3fBbD201Ea401a8B7e7285F956178593D8;
+    address constant ERC20_STAKING_FACTORY = 0xDc3f940ac6Da516d5C9cc59c8AFE0F85A576E2A4;
     address constant CL_POOL_MANAGER = 0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b;
     address constant VAULT = 0x238a358808379702088667322f80aC48bAd5e6c4;
 
@@ -74,7 +74,7 @@ contract DeployBSCTwoPhaseScript is Script {
         console.log("--- Reused Contracts ---");
         console.log("  Committee:              ", COMMITTEE);
         console.log("  CommunityFactory:       ", COMMUNITY_FACTORY);
-        console.log("  SocialCurationFactory:  ", SOCIAL_CURATION_FACTORY);
+        console.log("  ERC20StakingFactory:    ", ERC20_STAKING_FACTORY);
         console.log("  CLPoolManager:          ", CL_POOL_MANAGER);
         console.log("  Vault:                  ", VAULT);
         console.log("  IPShare (v1):           ", IPSHARE);
@@ -91,7 +91,7 @@ contract DeployBSCTwoPhaseScript is Script {
         HourlyTickCalculator calculator = new HourlyTickCalculator(COMMUNITY_FACTORY);
         console.log("(1) HourlyTickCalculator:", address(calculator));
 
-        Pump pump = new Pump(IPSHARE, FEE_RECEIVER);
+        Pump pump = new Pump(IPSHARE, FEE_RECEIVER, new address[](0));
         pump.adminSetPoolManager(CL_POOL_MANAGER);
         pump.adminSetVault(VAULT);
         console.log("(2) Pump:", address(pump));
@@ -115,8 +115,7 @@ contract DeployBSCTwoPhaseScript is Script {
 
         // Get creation bytecode with constructor args
         bytes memory creationCode = abi.encodePacked(
-            type(TagAISwapHook).creationCode,
-            abi.encode(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump))
+            type(TagAISwapHook).creationCode, abi.encode(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump))
         );
         bytes32 bytecodeHash = keccak256(creationCode);
 
@@ -128,8 +127,7 @@ contract DeployBSCTwoPhaseScript is Script {
         console.logBytes32(bytecodeHash);
 
         // Mine for salt (Foundry uses the deterministic CREATE2 proxy)
-        (bytes32 hookSalt, address predictedAddress, uint256 iterations) =
-            mineSalt(CREATE2_DEPLOYER, bytecodeHash);
+        (bytes32 hookSalt, address predictedAddress, uint256 iterations) = mineSalt(CREATE2_DEPLOYER, bytecodeHash);
 
         console.log("    Found salt after %d iterations", iterations);
         console.log("    Salt (decimal): %d", uint256(hookSalt));
@@ -141,11 +139,8 @@ contract DeployBSCTwoPhaseScript is Script {
         // Deploy Hook with mined salt
         vm.startBroadcast(deployerPrivateKey);
 
-        TagAISwapHook hook = new TagAISwapHook{salt: hookSalt}(
-            ICLPoolManager(CL_POOL_MANAGER),
-            IVault(VAULT),
-            address(pump)
-        );
+        TagAISwapHook hook =
+            new TagAISwapHook{salt: hookSalt}(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump));
 
         // Verify deployed address matches prediction
         require(address(hook) == predictedAddress, "Hook address mismatch!");
@@ -163,12 +158,7 @@ contract DeployBSCTwoPhaseScript is Script {
 
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(
-            COMMUNITY_FACTORY,
-            address(calculator),
-            SOCIAL_CURATION_FACTORY,
-            COMMITTEE
-        );
+        pump.adminSetNutbox(COMMUNITY_FACTORY, address(calculator), ERC20_STAKING_FACTORY, COMMITTEE);
         console.log("(6) Pump configured: hookAddress, calculator, nutbox set");
 
         vm.stopBroadcast();
@@ -179,6 +169,7 @@ contract DeployBSCTwoPhaseScript is Script {
         console.log("Committee whitelist is NOT executed by this script.");
         console.log("Before Pump.createToken / Community.adminAddPool, multisig owner must call:");
         _logPendingWhitelist("HourlyTickCalculator", address(calculator));
+        _logPendingWhitelist("ERC20StakingFactory", ERC20_STAKING_FACTORY);
         _logPendingWhitelist("DFXStarScoreStakingFactory", dfxFactory);
 
         console.log("Historical V9 snapshot is immutable: deployments/56/version9.json");
@@ -198,15 +189,14 @@ contract DeployBSCTwoPhaseScript is Script {
         console.log("  Pump.calculator:          ", address(calculator));
         console.log("  Pump.committee:           ", COMMITTEE);
         console.log("  Pump.communityFactory:    ", COMMUNITY_FACTORY);
-        console.log("  Pump.socialCurationFactory:", SOCIAL_CURATION_FACTORY);
+        console.log("  Pump.erc20StakingFactory:", ERC20_STAKING_FACTORY);
         console.log("  DFXStarScoreStaking admin: ", dfxAdmin);
         console.log("");
     }
 
     function _deployDFXStarScoreStakingFactory(address communityFactory_) internal returns (address) {
         bytes memory bytecode = abi.encodePacked(
-            vm.getCode("DFXStarScoreStakingFactory.sol:DFXStarScoreStakingFactory"),
-            abi.encode(communityFactory_)
+            vm.getCode("DFXStarScoreStakingFactory.sol:DFXStarScoreStakingFactory"), abi.encode(communityFactory_)
         );
         address deployed;
         assembly {
@@ -234,22 +224,16 @@ contract DeployBSCTwoPhaseScript is Script {
      * @notice Mine for a salt that produces a valid hook address.
      * @dev Uses CREATE2 address formula: address = keccak256(0xff ++ deployer ++ salt ++ bytecodeHash)[12:]
      */
-    function mineSalt(
-        address deployer,
-        bytes32 bytecodeHash
-    ) internal pure returns (bytes32 salt, address predictedAddress, uint256 iterations) {
+    function mineSalt(address deployer, bytes32 bytecodeHash)
+        internal
+        pure
+        returns (bytes32 salt, address predictedAddress, uint256 iterations)
+    {
         for (uint256 i = 0; i < MAX_MINING_ITERATIONS; i++) {
             salt = bytes32(i);
 
             // Compute CREATE2 address
-            bytes32 hash = keccak256(
-                abi.encodePacked(
-                    bytes1(0xff),
-                    deployer,
-                    salt,
-                    bytecodeHash
-                )
-            );
+            bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), deployer, salt, bytecodeHash));
             predictedAddress = address(uint160(uint256(hash)));
 
             // Check if lower 16 bits match target

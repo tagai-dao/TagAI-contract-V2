@@ -49,7 +49,12 @@ contract LinearTimeCalculator is ICalculator {
     }
 
     /// @inheritdoc ICalculator
-    function calculateReward(address community, uint256 lastCursor, uint256 head) external view override returns (uint256) {
+    function calculateReward(address community, uint256 lastCursor, uint256 head)
+        external
+        view
+        override
+        returns (uint256)
+    {
         uint256 rewardedCursor = lastCursor;
         uint256 rewards = 0;
         Distribution[] memory eras = distributionErasMap[community];
@@ -135,7 +140,10 @@ contract LinearTimeCalculator is ICalculator {
             if (i == 0) {
                 require(start > block.timestamp, "Invalid start cursor of distribution");
             } else {
-                require(start > distributionErasMap[community][i - 1].stopCursor, "Subsequent eras must start after previous era ends");
+                require(
+                    start > distributionErasMap[community][i - 1].stopCursor,
+                    "Subsequent eras must start after previous era ends"
+                );
             }
             require(start < stopCursor, "Invalid stop cursor of distribution");
             distributionErasMap[community].push(

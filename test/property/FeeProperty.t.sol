@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
@@ -17,7 +19,7 @@ import {IVault} from "infinity-core/src/interfaces/IVault.sol";
  * @title FeeProperty
  * @notice Property tests for fee distribution (P9) and anti-snipe formula (P10).
  */
-contract FeePropertyTest is Test {
+contract FeePropertyTest is Version13LegacyTestSetup {
     Committee public committee;
     address public communityFactory;
     HourlyTickCalculator public calculator;
@@ -63,41 +65,34 @@ contract FeePropertyTest is Test {
         mockPoolManager = new MockCLPoolManager();
         mockVault = new MockVault();
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
         pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
 
         vm.warp(3600);
 
         vm.startPrank(creator, creator);
         ipshare.createShare{value: ipshare.getPrice(10 ether, 0)}(creator);
-        token = Token(payable(pump.createToken{value: 0.005 ether}("FEE", bytes32(uint256(1)))));
+        token = Token(payable(_createLegacyV13Token(pump, "FEE", bytes32(uint256(1)), 0.005 ether)));
         vm.stopPrank();
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
@@ -160,7 +155,9 @@ contract FeePropertyTest is Test {
         assertApproxEqAbs(deployerFee, expectedDeployerFee, 1);
     }
 
-    function testFuzz_P9_feeNeverExceedsSwapAmount(uint256 swapAmount, uint256 platformBPS, uint256 deployerBPS) public {
+    function testFuzz_P9_feeNeverExceedsSwapAmount(uint256 swapAmount, uint256 platformBPS, uint256 deployerBPS)
+        public
+    {
         platformBPS = bound(platformBPS, 0, 1000);
         deployerBPS = bound(deployerBPS, 0, 1000);
         swapAmount = bound(swapAmount, 1, 1_000_000 ether);
@@ -188,8 +185,8 @@ contract FeePropertyTest is Test {
         uint256[2] memory feeRatio = pump.getFeeRatio();
         uint256 expectedPlatform = feeRatio[0]; // 30
         uint256 remaining = ANTI_SNIPE_WINDOW - elapsed;
-        uint256 expectedSellsman = feeRatio[1] +
-            ((ANTI_SNIPE_FEE_MAX - feeRatio[1]) * remaining * remaining) / ANTI_SNIPE_DENOM;
+        uint256 expectedSellsman =
+            feeRatio[1] + ((ANTI_SNIPE_FEE_MAX - feeRatio[1]) * remaining * remaining) / ANTI_SNIPE_DENOM;
 
         assertEq(platformFee, expectedPlatform, "Platform fee should remain at 30 BPS");
         assertEq(sellsmanFee, expectedSellsman, "Sellsman fee should follow quadratic formula");

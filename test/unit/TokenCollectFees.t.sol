@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/interfaces/IToken.sol";
 import "../../src/nutbox/Committee.sol";
@@ -20,7 +22,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @title TokenCollectFeesTest
  * @notice Unit tests for Token.collectFees — fee routing via vault.lock collect path.
  */
-contract TokenCollectFeesTest is Test {
+contract TokenCollectFeesTest is Version13LegacyTestSetup {
     Committee public committee;
     address public communityFactory;
     HourlyTickCalculator public calculator;
@@ -63,7 +65,7 @@ contract TokenCollectFeesTest is Test {
         mockVault = new MockVault();
 
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 
@@ -72,6 +74,7 @@ contract TokenCollectFeesTest is Test {
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
         pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
 
         vm.deal(address(mockVault), 100 ether);
 
@@ -80,7 +83,7 @@ contract TokenCollectFeesTest is Test {
         vm.startPrank(creator, creator);
         uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
         ipshare.createShare{value: ipsharePrice}(creator);
-        address tokenAddr = pump.createToken{value: 0.005 ether}("COLLECT", bytes32(uint256(1)));
+        address tokenAddr = _createLegacyV13Token(pump, "COLLECT", bytes32(uint256(1)), 0.005 ether);
         token = Token(payable(tokenAddr));
         vm.stopPrank();
 
@@ -118,6 +121,7 @@ contract TokenCollectFeesTest is Test {
             }
         }
         vm.stopPrank();
+        _finalizeLegacyV13Token(pump, target);
     }
 
     function test_collectFees_revertsWhenNotListed() public {
@@ -208,7 +212,7 @@ contract TokenCollectFeesTest is Test {
         assertEq(PoolId.unwrap(mockPoolManager.lastModifiedPoolId()), PoolId.unwrap(token.v4PoolId()));
     }
 
-    function test_listingBindsHookSelectedAtListingTime() public {
+    function test_listingUsesHookSnapshottedAtCreation() public {
         Token unlisted = _createUnlistedToken();
         TagAISwapHook listingHook =
             new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
@@ -217,15 +221,15 @@ contract TokenCollectFeesTest is Test {
         _fillBondingCurve(unlisted);
 
         assertTrue(unlisted.listed());
-        assertEq(unlisted.listingHook(), address(listingHook));
-        assertEq(IERC20(address(unlisted)).balanceOf(address(listingHook)), unlisted.NUTBOX_ALLOCATION());
-        assertEq(IERC20(address(unlisted)).balanceOf(address(hook)), 0);
+        assertEq(unlisted.listingHook(), address(hook));
+        assertEq(IERC20(address(unlisted)).balanceOf(address(hook)), unlisted.NUTBOX_ALLOCATION());
+        assertEq(IERC20(address(unlisted)).balanceOf(address(listingHook)), 0);
         assertEq(PoolId.unwrap(mockPoolManager.lastInitializedPoolId()), PoolId.unwrap(unlisted.v4PoolId()));
     }
 
     function _createUnlistedToken() internal returns (Token) {
         vm.startPrank(creator, creator);
-        address tokenAddr = pump.createToken{value: 0.005 ether}("UNLIST", bytes32(uint256(2)));
+        address tokenAddr = _createLegacyV13Token(pump, "UNLIST", bytes32(uint256(2)), 0.005 ether);
         vm.stopPrank();
         return Token(payable(tokenAddr));
     }

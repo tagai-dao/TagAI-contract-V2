@@ -69,7 +69,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     address public immutable pump;
     address public immutable defaultRenderer;
     address public immutable ammTemplate;
-    address public immutable nutboxRouter;
+    address public nutboxRouter;
     address public immutable basketRegistry;
     address public immutable indexV3Router;
     uint24 public immutable indexV3Fee;
@@ -85,6 +85,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     mapping(bytes32 => uint256) private _reservedCollectionNameIndexPlusOne;
 
     event PlatformFeeBpsChanged(uint16 previousBps, uint16 newBps);
+    event NutboxRouterChanged(address indexed previousRouter, address indexed newRouter);
     event DefaultIndexTokenChanged(address indexed previousToken, address indexed newToken);
     event BasketSwapRouterChanged(uint32 indexed version, address indexed previousRouter, address indexed newRouter);
     event PumpAdded(address indexed pump);
@@ -144,6 +145,7 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
     error DuplicateBasketVersion();
     error UnsupportedBasketVersion();
     error DefaultBasketVersion();
+    error InvalidNutboxRouter();
 
     constructor(
         address communityFactory_,
@@ -171,10 +173,10 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         pump = pump_;
         defaultRenderer = defaultRenderer_;
         ammTemplate = ammTemplate_;
-        nutboxRouter = nutboxRouter_;
         basketRegistry = basketRegistry_;
         indexV3Router = indexV3Router_;
         indexV3Fee = indexV3Fee_;
+        _setNutboxRouter(nutboxRouter_);
         for (uint256 i; i < basketVersions_.length; ++i) {
             if (basketSwapRouterForVersion[basketVersions_[i]] != address(0)) revert DuplicateBasketVersion();
             _setBasketSwapRouter(basketVersions_[i], basketSwapRouters_[i]);
@@ -248,6 +250,11 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         uint16 previousBps = platformFeeBps;
         platformFeeBps = newBps;
         emit PlatformFeeBpsChanged(previousBps, newBps);
+    }
+
+    /// @notice Updates the shared Router used by both existing and future AMMs.
+    function setNutboxRouter(address newRouter) external onlyOwner {
+        _setNutboxRouter(newRouter);
     }
 
     function setDefaultIndexToken(address newToken) external onlyOwner {
@@ -388,6 +395,20 @@ contract IndexBrokerNFTFactory is IPoolFactory, Ownable2Step {
         address previousRouter = basketSwapRouterForVersion[version];
         basketSwapRouterForVersion[version] = newRouter;
         emit BasketSwapRouterChanged(version, previousRouter, newRouter);
+    }
+
+    function _setNutboxRouter(address newRouter) internal {
+        if (newRouter.code.length == 0) revert InvalidNutboxRouter();
+        try INutboxRouter(newRouter).wrappedNative() returns (address routerWrappedNative) {
+            if (routerWrappedNative != IIndexBrokerPancakeV3Router(indexV3Router).WETH9()) {
+                revert InvalidNutboxRouter();
+            }
+        } catch {
+            revert InvalidNutboxRouter();
+        }
+        address previousRouter = nutboxRouter;
+        nutboxRouter = newRouter;
+        emit NutboxRouterChanged(previousRouter, newRouter);
     }
 
     function _resolveIndexToken(address token) internal view returns (uint32 version, address selectedRouter) {

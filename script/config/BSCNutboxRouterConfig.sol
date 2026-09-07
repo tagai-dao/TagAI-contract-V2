@@ -91,8 +91,17 @@ library BSCNutboxRouterConfig {
         });
     }
 
+    /// @notice Pump deployment uses exactly the same default asset catalog as Router bootstrap.
+    function constituentAssets() internal pure returns (address[] memory tokens) {
+        AssetConfig[] memory assets = assetConfigs();
+        tokens = new address[](assets.length);
+        for (uint256 i; i < assets.length; ++i) {
+            tokens[i] = assets[i].token;
+        }
+    }
+
     function assetConfigs() internal pure returns (AssetConfig[] memory assets) {
-        assets = new AssetConfig[](14);
+        assets = new AssetConfig[](16);
         assets[0] = AssetConfig({
             symbol: "ETH",
             token: 0x2170Ed0880ac9A755fd29B2688956BD959F933F8,
@@ -204,6 +213,23 @@ library BSCNutboxRouterConfig {
             quoteToken: USDT,
             fee: 2_500,
             pool: 0x908d49048EB3a7bEdfd238972403842805EAF2bE
+        });
+        // V13 追加：美股代币 GOOGLB（Google）与 CRCLB（Circle），均为 PancakeSwap V3 /USDT 0.25% 池。
+        assets[14] = AssetConfig({
+            symbol: "GOOGLB",
+            token: 0x3F53De71c126BdaBAe20f9cD64848d317f6C3238,
+            decimals: 18,
+            quoteToken: USDT,
+            fee: 2_500,
+            pool: 0x89001D846f7CA36EE089F73eEFC25657E1798144
+        });
+        assets[15] = AssetConfig({
+            symbol: "CRCLB",
+            token: 0x80f3D493EBCe97e343c53D29a137942416B4ffC0,
+            decimals: 18,
+            quoteToken: USDT,
+            fee: 2_500,
+            pool: 0x29967c54c5Bf12E8158c8894376064b30ebaB297
         });
     }
 

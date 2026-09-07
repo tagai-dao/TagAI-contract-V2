@@ -66,7 +66,7 @@ contract BSCForkV11Deployment is BSCForkBase {
         assertEq(pump.getHookAddress(), HOOK_V11, "Pump Hook");
         assertEq(pump.getCalculator(), address(calculator), "Pump calculator");
         assertEq(pump.nutboxCommunityFactory(), COMMUNITY_FACTORY, "Pump CommunityFactory");
-        assertEq(pump.socialCurationFactory(), SOCIAL_CURATION_FACTORY, "Pump SocialCurationFactory");
+        assertEq(pump.erc20StakingFactory(), ERC20_STAKING_FACTORY, "Pump ERC20StakingFactory");
         assertEq(pump.nutboxCommittee(), COMMITTEE, "Pump Committee");
         assertTrue(
             pump.owner() == V11_TARGET_OWNER || pump.pendingOwner() == V11_TARGET_OWNER,

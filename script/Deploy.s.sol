@@ -78,17 +78,14 @@ contract Deploy is Script {
         console.log("MockVault:", address(mockVault));
 
         // ─── Phase 8: Deploy Pump ───
-        Pump pump = new Pump(address(ipshare), deployer);
+        Pump pump = new Pump(address(ipshare), deployer, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
         console.log("Pump:", address(pump));
 
         // ─── Phase 9: Deploy TagAISwapHook ───
-        TagAISwapHook hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        TagAISwapHook hook =
+            new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
         console.log("TagAISwapHook:", address(hook));
 
         // ─── Phase 10: Configure Pump ───
@@ -131,10 +128,8 @@ contract Deploy is Script {
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address deployed;
         assembly {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
@@ -145,8 +140,7 @@ contract Deploy is Script {
 
     function _deploySocialCurationFactory(address _communityFactory, address _claimSigner) internal returns (address) {
         bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_communityFactory, _claimSigner)
+            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_communityFactory, _claimSigner)
         );
         address deployed;
         assembly {
@@ -158,8 +152,7 @@ contract Deploy is Script {
 
     function _deployDFXStarScoreStakingFactory(address _communityFactory) internal returns (address) {
         bytes memory bytecode = abi.encodePacked(
-            vm.getCode("DFXStarScoreStakingFactory.sol:DFXStarScoreStakingFactory"),
-            abi.encode(_communityFactory)
+            vm.getCode("DFXStarScoreStakingFactory.sol:DFXStarScoreStakingFactory"), abi.encode(_communityFactory)
         );
         address deployed;
         assembly {
@@ -189,18 +182,42 @@ contract Deploy is Script {
         // Build JSON manually for clarity & version-control friendliness
         string memory json = string.concat(
             "{\n",
-            '  "chainId": ', chainIdStr, ',\n',
-            '  "deployer": "', vm.toString(deployer), '",\n',
-            '  "Committee": "', vm.toString(committee), '",\n',
-            '  "CommunityFactory": "', vm.toString(communityFactory), '",\n',
-            '  "HourlyTickCalculator": "', vm.toString(calculator), '",\n',
-            '  "SocialCurationFactory": "', vm.toString(scf), '",\n',
-            '  "DFXStarScoreStakingFactory": "', vm.toString(dfxFactory), '",\n',
-            '  "IPShare": "', vm.toString(ipshare), '",\n',
-            '  "MockCLPoolManager": "', vm.toString(mockPoolManager), '",\n',
-            '  "MockVault": "', vm.toString(mockVault), '",\n',
-            '  "Pump": "', vm.toString(pump), '",\n',
-            '  "TagAISwapHook": "', vm.toString(hook), '"\n',
+            '  "chainId": ',
+            chainIdStr,
+            ",\n",
+            '  "deployer": "',
+            vm.toString(deployer),
+            '",\n',
+            '  "Committee": "',
+            vm.toString(committee),
+            '",\n',
+            '  "CommunityFactory": "',
+            vm.toString(communityFactory),
+            '",\n',
+            '  "HourlyTickCalculator": "',
+            vm.toString(calculator),
+            '",\n',
+            '  "SocialCurationFactory": "',
+            vm.toString(scf),
+            '",\n',
+            '  "DFXStarScoreStakingFactory": "',
+            vm.toString(dfxFactory),
+            '",\n',
+            '  "IPShare": "',
+            vm.toString(ipshare),
+            '",\n',
+            '  "MockCLPoolManager": "',
+            vm.toString(mockPoolManager),
+            '",\n',
+            '  "MockVault": "',
+            vm.toString(mockVault),
+            '",\n',
+            '  "Pump": "',
+            vm.toString(pump),
+            '",\n',
+            '  "TagAISwapHook": "',
+            vm.toString(hook),
+            '"\n',
             "}\n"
         );
 

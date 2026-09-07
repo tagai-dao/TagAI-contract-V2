@@ -543,6 +543,30 @@ contract IndexBrokerNFTTest is Test {
         poolFactory.addNFTTemplate(candidate);
     }
 
+    function test_FactoryOwnerUpdatesNutboxRouterForExistingAndFutureAMMs() public {
+        NutboxRouter replacement = _deployNutboxRouter(address(wrappedNative), indexV3Router, indexV3Factory);
+
+        vm.prank(paidUser);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        poolFactory.setNutboxRouter(address(replacement));
+
+        poolFactory.setNutboxRouter(address(replacement));
+        assertEq(poolFactory.nutboxRouter(), address(replacement));
+        assertEq(amm.nutboxRouter(), address(replacement));
+        assertEq(amm.quoteNativeValue(), NFT_NATIVE_VALUE);
+
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidNutboxRouter.selector);
+        poolFactory.setNutboxRouter(paidUser);
+
+        IndexBrokerCommunityToken otherWrappedNative = new IndexBrokerCommunityToken();
+        IndexBrokerIndexV3FactoryMock otherV3Factory = new IndexBrokerIndexV3FactoryMock();
+        IndexBrokerIndexV3RouterMock otherV3Router =
+            new IndexBrokerIndexV3RouterMock(address(otherV3Factory), address(otherWrappedNative));
+        NutboxRouter incompatible = _deployNutboxRouter(address(otherWrappedNative), otherV3Router, otherV3Factory);
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidNutboxRouter.selector);
+        poolFactory.setNutboxRouter(address(incompatible));
+    }
+
     function test_StakeTemplateUsesCreatorSelectedTokenAndHasNoActivation() public {
         IndexBrokerNFTStake stakePool = _addStakePool();
 
@@ -2473,5 +2497,28 @@ contract IndexBrokerNFTTest is Test {
     function _setV2Price(uint112 tokenReserve, uint112 nativeReserve) internal {
         if (v2Pair.token0() == address(communityToken)) v2Pair.setReserves(tokenReserve, nativeReserve);
         else v2Pair.setReserves(nativeReserve, tokenReserve);
+    }
+
+    function _deployNutboxRouter(
+        address routerWrappedNative,
+        IndexBrokerIndexV3RouterMock routerV3,
+        IndexBrokerIndexV3FactoryMock factoryV3
+    ) internal returns (NutboxRouter deployed) {
+        address[] memory v2Factories = new address[](1);
+        v2Factories[0] = address(v2Factory);
+        address[] memory v3Factories = new address[](1);
+        v3Factories[0] = address(factoryV3);
+        address[] memory pancakeV4Managers = new address[](1);
+        pancakeV4Managers[0] = address(pancakeV4Manager);
+        deployed = new NutboxRouter(
+            routerWrappedNative,
+            address(routerV3),
+            new address[](0),
+            v2Factories,
+            v3Factories,
+            new address[](0),
+            pancakeV4Managers,
+            ""
+        );
     }
 }
