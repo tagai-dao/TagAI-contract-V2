@@ -3,6 +3,8 @@ pragma solidity ^0.8.26;
 
 import {Pump13MainnetForkTest, ForkPair, ForkStake} from "./Pump13Mainnet.t.sol";
 import {Token} from "../../src/pump/Token.sol";
+import {Vm} from "forge-std/Vm.sol";
+import {IIPShare} from "../../src/interfaces/IIPShare.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ICommunity} from "../../src/interfaces/ICommunity.sol";
 import {ICommittee} from "../../src/interfaces/ICommittee.sol";
@@ -42,7 +44,7 @@ contract TagAITradeRouterForkTest is Pump13MainnetForkTest {
         );
     }
 
-    function _splitRoundtrip(uint256 componentCount) internal {
+    function _splitRoundtrip(uint256 componentCount, address subject) internal {
         Token t = _create(_config(0, componentCount, true));
         _fill(t);
         _list(t);
@@ -56,11 +58,17 @@ contract TagAITradeRouterForkTest is Pump13MainnetForkTest {
         }
         uint256 beforeBuy = vm.snapshotState();
         vm.prank(buyer);
-        uint256 quoted = executor.buy{value: chunk * legs.length}(address(t), legs, 1, block.timestamp + 60, buyer);
+        uint256 quoted =
+            executor.buy{value: chunk * legs.length}(address(t), legs, 1, block.timestamp + 60, buyer, subject);
         vm.revertToState(beforeBuy);
         // The exact same complete-plan simulation is the frontend's quote boundary.
+        vm.recordLogs();
         vm.prank(buyer);
-        uint256 out = executor.buy{value: chunk * legs.length}(address(t), legs, quoted, block.timestamp + 60, buyer);
+        uint256 out =
+            executor.buy{value: chunk * legs.length}(address(t), legs, quoted, block.timestamp + 60, buyer, subject);
+        address expectedSubject =
+            subject != address(0) && IIPShare(IPSHARE).ipshareCreated(subject) ? subject : t.getIPShare();
+        _assertCapture(vm.getRecordedLogs(), t, expectedSubject, true);
         assertEq(out, quoted);
         assertEq(t.balanceOf(buyer), out);
         vm.prank(buyer);
@@ -73,11 +81,13 @@ contract TagAITradeRouterForkTest is Pump13MainnetForkTest {
         }
         uint256 beforeSell = vm.snapshotState();
         vm.prank(buyer);
-        quoted = executor.sell(address(t), out, legs, 1, block.timestamp + 60, buyer);
+        quoted = executor.sell(address(t), out, legs, 1, block.timestamp + 60, buyer, subject);
         vm.revertToState(beforeSell);
         uint256 balanceBefore = buyer.balance;
+        vm.recordLogs();
         vm.prank(buyer);
-        uint256 received = executor.sell(address(t), out, legs, quoted, block.timestamp + 60, buyer);
+        uint256 received = executor.sell(address(t), out, legs, quoted, block.timestamp + 60, buyer, subject);
+        _assertCapture(vm.getRecordedLogs(), t, expectedSubject, true);
         assertEq(received, quoted);
         assertEq(buyer.balance - balanceBefore, received);
         assertEq(t.balanceOf(buyer), 0);
@@ -91,12 +101,71 @@ contract TagAITradeRouterForkTest is Pump13MainnetForkTest {
         }
     }
 
+    function _assertCapture(Vm.Log[] memory entries, Token t, address expected, bool mainUsed) internal view {
+        uint256 capture;
+        uint256 hookFee;
+        uint256 feeEvents;
+        for (uint256 i; i < entries.length; ++i) {
+            Vm.Log memory e = entries[i];
+            if (
+                e.emitter == address(hook)
+                    && e.topics[0] == keccak256("SwapFeeCollected(bytes32,address,uint256,uint256,uint256)")
+                    && e.topics[2] == bytes32(uint256(uint160(address(t))))
+            ) {
+                (, uint256 fee,) = abi.decode(e.data, (uint256, uint256, uint256));
+                hookFee += fee;
+                ++feeEvents;
+            }
+            if (
+                e.emitter == IPSHARE && e.topics[0] == keccak256("ValueCaptured(address,address,uint256)")
+                    && e.topics[2] == bytes32(uint256(uint160(address(hook))))
+            ) {
+                assertEq(e.topics[1], bytes32(uint256(uint160(expected))), "wrong IPShare beneficiary");
+                capture += uint256(e.topics[3]);
+            }
+        }
+        if (mainUsed) {
+            assertEq(feeEvents, 1);
+            assertGt(hookFee, 0);
+        } else {
+            assertEq(feeEvents, 0);
+        }
+        assertEq(capture, hookFee, "IPShare value does not match main-pool fee");
+    }
+
+    function test_tradeRouter_customSubjectFiveLegBuyAndSellFees() public {
+        address subject = makeAddr("frontend-ipshare-subject");
+        IIPShare(IPSHARE).createShare{value: IIPShare(IPSHARE).createFee()}(subject);
+        _splitRoundtrip(4, subject);
+    }
+
+    function test_tradeRouter_uncreatedSubjectFallsBackOnBuyAndSell() public {
+        _splitRoundtrip(1, makeAddr("uncreated-subject"));
+    }
+
+    function test_tradeRouter_componentOnlyDoesNotChargeIPShare() public {
+        Token t = _create(_config(0, 1, true));
+        _fill(t);
+        _list(t);
+        TagAITradeRouter executor = new TagAITradeRouter(address(pump), address(router), Config.pancakeV2Factory());
+        TagAITradeRouter.Leg[] memory legs = new TagAITradeRouter.Leg[](1);
+        legs[0] = _tradeLeg(executor, t, 1, 0.1 ether, true);
+        vm.recordLogs();
+        uint256 out = executor.buy{value: 0.1 ether}(address(t), legs, 1, block.timestamp, address(this), creator);
+        _assertCapture(vm.getRecordedLogs(), t, creator, false);
+        t.approve(address(executor), out);
+        legs[0] = _tradeLeg(executor, t, 1, out, false);
+        vm.recordLogs();
+        executor.sell(address(t), out, legs, 1, block.timestamp, address(this), creator);
+        _assertCapture(vm.getRecordedLogs(), t, creator, false);
+    }
+
     function test_tradeRouter_twoLegRoundtrip() public {
-        _splitRoundtrip(1);
+        _splitRoundtrip(1, address(0));
     }
 
     function test_tradeRouter_fiveLegRoundtrip() public {
-        _splitRoundtrip(4);
+        _splitRoundtrip(4, address(0));
     }
 
     function test_tradeRouter_pendingCannotTrade() public {
@@ -106,7 +175,7 @@ contract TagAITradeRouterForkTest is Pump13MainnetForkTest {
         TagAITradeRouter.Leg[] memory legs = new TagAITradeRouter.Leg[](1);
         legs[0] = TagAITradeRouter.Leg(0, 0.1 ether, 0, 1, bytes32(uint256(1)));
         vm.expectRevert(TagAITradeRouter.InvalidToken.selector);
-        executor.buy{value: 0.1 ether}(address(t), legs, 1, block.timestamp + 60, address(this));
+        executor.buy{value: 0.1 ether}(address(t), legs, 1, block.timestamp + 60, address(this), address(0));
     }
 
     function test_tradeRouter_realStakingCreditsCallerNotOriginalUser() public {

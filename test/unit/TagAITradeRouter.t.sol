@@ -6,6 +6,14 @@ import {Vm} from "forge-std/Vm.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TagAITradeRouter} from "../../src/router/TagAITradeRouter.sol";
+import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
+import {IPoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
+import {IVault} from "infinity-core/src/interfaces/IVault.sol";
+import {ILockCallback} from "infinity-core/src/interfaces/ILockCallback.sol";
+import {IHooks} from "infinity-core/src/interfaces/IHooks.sol";
+import {PoolKey} from "infinity-core/src/types/PoolKey.sol";
+import {Currency} from "infinity-core/src/types/Currency.sol";
+import {BalanceDelta, toBalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
 import {INutboxRouter} from "../../src/router/INutboxRouter.sol";
 
 contract TradeAsset is ERC20 {
@@ -52,8 +60,31 @@ contract TradeToken is TradeAsset {
         return (assets[i], 2500, pairs[i]);
     }
 
+    function listingHook() external view returns (address) {
+        return router;
+    }
+
+    function vault() external view returns (address) {
+        return router;
+    }
+
+    function v4PoolId() external view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                PoolKey(
+                    Currency.wrap(address(0)),
+                    Currency.wrap(address(this)),
+                    IHooks(router),
+                    IPoolManager(router),
+                    0,
+                    bytes32(0)
+                )
+            )
+        );
+    }
+
     function listingInfrastructure() external view returns (address, address, address, address) {
-        return (router, address(0), address(0), address(0));
+        return (router, address(0), address(0), router);
     }
 
     function _transfer(address from, address to, uint256 amount) internal override {
@@ -117,6 +148,64 @@ contract TradePair {
 }
 
 contract TradeVenue {
+    address public mainToken;
+    address public lastSubject;
+    bool public lastIsBuy;
+    uint256 public callbackMode;
+    bool public repeatedCallbackBlocked;
+
+    function setMain(address token) external {
+        mainToken = token;
+    }
+
+    function setCallbackMode(uint256 mode) external {
+        callbackMode = mode;
+    }
+
+    function vault() external view returns (IVault) {
+        return IVault(address(this));
+    }
+
+    function lock(bytes calldata data) external returns (bytes memory result) {
+        if (callbackMode == 1) return "";
+        if (callbackMode == 2) return ILockCallback(msg.sender).lockAcquired(abi.encode(data, uint256(1)));
+        result = ILockCallback(msg.sender).lockAcquired(data);
+        if (callbackMode == 3) {
+            (bool ok,) = msg.sender.call(abi.encodeCall(ILockCallback.lockAcquired, (data)));
+            repeatedCallbackBlocked = !ok;
+            require(!ok, "REPLAY");
+        }
+    }
+    function sync(Currency) external {}
+
+    function settle() external payable returns (uint256) {
+        return msg.value;
+    }
+
+    function take(Currency currency, address to, uint256 amount) external {
+        if (Currency.unwrap(currency) == address(0)) {
+            (bool ok,) = to.call{value: amount}("");
+            require(ok);
+        } else {
+            TradeAsset(Currency.unwrap(currency)).mint(to, amount);
+        }
+    }
+
+    function swap(PoolKey calldata key, ICLPoolManager.SwapParams calldata params, bytes calldata hookData)
+        external
+        returns (BalanceDelta)
+    {
+        _attack();
+        lastSubject = abi.decode(hookData, (address));
+        lastIsBuy = params.zeroForOne;
+        uint256 spent = uint256(-params.amountSpecified) * spendBps / 10000;
+        uint256 units = unitsPerBnb[Currency.unwrap(key.currency1)];
+        uint256 out = (params.zeroForOne ? spent * units : spent / units) * outputBps / 10000;
+        return params.zeroForOne
+            ? toBalanceDelta(-int128(int256(spent)), int128(int256(out)))
+            : toBalanceDelta(int128(int256(out)), -int128(int256(spent)));
+    }
+
     mapping(address => uint256) public unitsPerBnb;
     uint256 public revision;
     uint256 public spendBps = 10000;
@@ -165,19 +254,24 @@ contract TradeVenue {
         return keccak256(abi.encode(a, b, i));
     }
 
-    function pricePool(bytes32)
+    function pricePool(bytes32 id)
         external
         view
         returns (bool, uint32, address, address, INutboxRouter.SourceType, bytes memory)
     {
+        if (
+            id == keccak256(abi.encode(address(0), mainToken, uint256(0)))
+                || id == keccak256(abi.encode(mainToken, address(0), uint256(0)))
+        ) {
+            INutboxRouter.PancakeV4CLSource memory source = INutboxRouter.PancakeV4CLSource(
+                address(0), mainToken, address(this), address(this), 0, bytes32(revision)
+            );
+            return (enabled, 1, address(0), mainToken, INutboxRouter.SourceType.PANCAKE_V4_CL, abi.encode(source));
+        }
         return (enabled, 1, address(0), address(1), INutboxRouter.SourceType.PANCAKE_V4_CL, abi.encode(revision));
     }
 
-    function swapExactInput(address a, address b, uint256 amount, uint256, address to, uint256)
-        external
-        payable
-        returns (uint256)
-    {
+    function _attack() private {
         if (reentryTarget != address(0)) {
             (bool ok, bytes memory reason) = reentryTarget.call(reentryData);
             reentryBlocked = !ok
@@ -185,6 +279,14 @@ contract TradeVenue {
                     == keccak256(abi.encodeWithSignature("Error(string)", "ReentrancyGuard: reentrant call"));
             require(reentryBlocked, "NOT_GUARDED");
         }
+    }
+
+    function swapExactInput(address a, address b, uint256 amount, uint256, address to, uint256)
+        external
+        payable
+        returns (uint256)
+    {
+        _attack();
         uint256 spent = amount * spendBps / 10000;
         if (a == address(0)) {
             require(msg.value == amount, "VALUE");
@@ -227,6 +329,7 @@ contract TagAITradeRouterTest is Test {
         token = new TradeToken(address(factory), address(venue));
         pump.register(address(token));
         venue.register(address(token), 100);
+        venue.setMain(address(token));
         for (uint256 i; i < 4; ++i) {
             assets[i] = new TradeAsset();
             // Both orientations must work.
@@ -264,12 +367,12 @@ contract TagAITradeRouterTest is Test {
 
     function _buy(TagAITradeRouter.Leg[] memory legs, uint256 amount, uint256 minOut) internal returns (uint256) {
         vm.prank(user);
-        return router.buy{value: amount}(address(token), legs, minOut, block.timestamp, recipient);
+        return router.buy{value: amount}(address(token), legs, minOut, block.timestamp, recipient, address(0));
     }
 
     function _sell(TagAITradeRouter.Leg[] memory legs, uint256 amount, uint256 minOut) internal returns (uint256) {
         vm.prank(user);
-        return router.sell(address(token), amount, legs, minOut, block.timestamp, recipient);
+        return router.sell(address(token), amount, legs, minOut, block.timestamp, recipient, address(0));
     }
 
     function _empty() internal view {
@@ -282,6 +385,58 @@ contract TagAITradeRouterTest is Test {
         }
     }
 
+    function test_mainForwardsSubjectBuyAndSell() public {
+        address subject = address(0xabcd);
+        TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
+        vm.prank(user);
+        router.buy{value: 1 ether}(address(token), legs, 1, block.timestamp, recipient, subject);
+        assertEq(venue.lastSubject(), subject);
+        assertTrue(venue.lastIsBuy());
+        legs = _one(0, 100 ether, false);
+        vm.prank(user);
+        router.sell(address(token), 100 ether, legs, 1, block.timestamp, recipient, subject);
+        assertEq(venue.lastSubject(), subject);
+        assertFalse(venue.lastIsBuy());
+        _empty();
+    }
+
+    function test_mainAuthenticatesCallbackAndRequiresExactlyOne() public {
+        vm.expectRevert(TagAITradeRouter.InvalidCallback.selector);
+        router.lockAcquired("");
+        TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
+        for (uint256 mode = 1; mode <= 2; ++mode) {
+            venue.setCallbackMode(mode);
+            vm.expectRevert(TagAITradeRouter.InvalidCallback.selector);
+            vm.prank(user);
+            router.buy{value: 1 ether}(address(token), legs, 1, block.timestamp, recipient, address(0));
+        }
+        venue.setCallbackMode(3);
+        _buy(legs, 1 ether, 1);
+        assertTrue(venue.repeatedCallbackBlocked());
+        vm.prank(address(venue));
+        vm.expectRevert(TagAITradeRouter.InvalidCallback.selector);
+        router.lockAcquired("");
+        _empty();
+    }
+
+    function test_mainRejectsReplacedListingPoolEvenWithFreshHash() public {
+        venue.changeRoute();
+        TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
+        vm.expectRevert(TagAITradeRouter.InvalidMainPool.selector);
+        vm.prank(user);
+        router.buy{value: 1 ether}(address(token), legs, 1, block.timestamp, recipient, address(0));
+        _empty();
+    }
+
+    function test_mainRejectsPartialInputDelta() public {
+        venue.configure(5000, 10000);
+        TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
+        vm.expectRevert(TagAITradeRouter.UnexpectedBalance.selector);
+        vm.prank(user);
+        router.buy{value: 1 ether}(address(token), legs, 1, block.timestamp, recipient, address(0));
+        _empty();
+    }
+
     function test_buyMainActualRecipientBalance() public {
         uint256 out = _buy(_one(0, 1 ether, true), 1 ether, 100 ether);
         assertEq(out, 100 ether);
@@ -291,7 +446,9 @@ contract TagAITradeRouterTest is Test {
 
     function test_eventsDistinguishInputRefundAndActualSpend() public {
         venue.configure(5000, 10000);
-        TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
+        TagAITradeRouter.Leg[] memory legs = _one(1, 1 ether, true);
+        uint256 gross = uint256(1 ether) * 9975 * 100_000 ether / (1000 ether * 10000 + 1 ether * 9975);
+        uint256 expected = gross - gross / 1000;
         vm.recordLogs();
         _buy(legs, 1 ether, 1);
         Vm.Log[] memory entries = vm.getRecordedLogs();
@@ -307,9 +464,9 @@ contract TagAITradeRouterTest is Test {
                     abi.decode(entries[i].data, (bool, uint256, uint256, uint256, bytes32));
                 assertTrue(isBuy);
                 assertEq(input, 1 ether);
-                assertEq(output, 50 ether);
+                assertEq(output, expected);
                 assertEq(refund, 0.5 ether);
-                assertEq(plan, keccak256(abi.encode(legs)));
+                assertEq(plan, keccak256(abi.encode(address(0), legs)));
                 assertEq(entries[i].topics[2], bytes32(uint256(uint160(user))));
                 assertEq(entries[i].topics[3], bytes32(uint256(uint160(recipient))));
                 tradeFound = true;
@@ -317,7 +474,7 @@ contract TagAITradeRouterTest is Test {
                 (bool isBuy, uint256 spent, uint256 output) = abi.decode(entries[i].data, (bool, uint256, uint256));
                 assertTrue(isBuy);
                 assertEq(spent, 0.5 ether);
-                assertEq(output, 50 ether);
+                assertEq(output, expected);
                 legFound = true;
             }
         }
@@ -387,7 +544,7 @@ contract TagAITradeRouterTest is Test {
         legs[0] = _leg(0, 1 ether, true);
         vm.prank(user);
         vm.expectRevert(TagAITradeRouter.DeadlineExpired.selector);
-        router.buy{value: 1 ether}(address(token), legs, 1, block.timestamp - 1, recipient);
+        router.buy{value: 1 ether}(address(token), legs, 1, block.timestamp - 1, recipient, address(0));
     }
 
     function test_noRepeatedPoolOrEmptyPlan() public {
@@ -410,7 +567,7 @@ contract TagAITradeRouterTest is Test {
         _buy(legs, 1 ether, 1);
         vm.expectRevert(TagAITradeRouter.InvalidToken.selector);
         vm.prank(user);
-        router.buy{value: 1 ether}(address(assets[0]), legs, 1, block.timestamp, recipient);
+        router.buy{value: 1 ether}(address(assets[0]), legs, 1, block.timestamp, recipient, address(0));
     }
 
     function test_rejectsUnregisteredPair() public {
@@ -477,7 +634,7 @@ contract TagAITradeRouterTest is Test {
         TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
         vm.prank(user);
         vm.expectRevert(TagAITradeRouter.Slippage.selector);
-        router.buy{value: 1 ether}(address(token), legs, 100 ether, block.timestamp, address(pairs[0]));
+        router.buy{value: 1 ether}(address(token), legs, 100 ether, block.timestamp, address(pairs[0]), address(0));
     }
 
     function test_refundsOnlyCurrentCallBalances() public {
@@ -486,11 +643,11 @@ contract TagAITradeRouterTest is Test {
         assets[0].mint(address(router), 9 ether);
         venue.configure(5000, 10000);
         uint256 bnbBefore = user.balance;
-        _buy(_one(0, 1 ether, true), 1 ether, 1);
+        _buy(_one(1, 1 ether, true), 1 ether, 1);
         assertEq(bnbBefore - user.balance, 0.5 ether);
         uint256 tokenBefore = token.balanceOf(user);
-        _sell(_one(0, 100 ether, false), 100 ether, 1);
-        assertEq(tokenBefore - token.balanceOf(user), 50 ether);
+        _sell(_one(1, 100 ether, false), 100 ether, 1);
+        assertEq(tokenBefore - token.balanceOf(user), 100 ether);
         _sell(_one(1, 100 ether, false), 100 ether, 1); // unused intermediate A is returned to payer.
         assertGt(assets[0].balanceOf(user), 0);
         assertEq(address(router).balance, 3 ether);
@@ -511,14 +668,17 @@ contract TagAITradeRouterTest is Test {
         address target = address(new RejectNative());
         vm.prank(user);
         vm.expectRevert(TagAITradeRouter.NativeTransferFailed.selector);
-        router.sell(address(token), 100 ether, legs, 1, block.timestamp, target);
+        router.sell(address(token), 100 ether, legs, 1, block.timestamp, target, address(0));
         assertEq(token.balanceOf(user), beforeT);
         _empty();
     }
 
     function test_reentrancyBlocked() public {
         TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
-        venue.attack(address(router), abi.encodeCall(router.buy, (address(token), legs, 1, block.timestamp, recipient)));
+        venue.attack(
+            address(router),
+            abi.encodeCall(router.buy, (address(token), legs, 1, block.timestamp, recipient, address(0)))
+        );
         _buy(legs, 1 ether, 1);
         assertTrue(venue.reentryBlocked());
         _empty();
@@ -528,7 +688,7 @@ contract TagAITradeRouterTest is Test {
         TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
         vm.prank(user);
         vm.expectRevert(TagAITradeRouter.InvalidRecipient.selector);
-        router.buy{value: 1 ether}(address(token), legs, 1, block.timestamp, address(router));
+        router.buy{value: 1 ether}(address(token), legs, 1, block.timestamp, address(router), address(0));
         vm.prank(user);
         (bool ok,) = address(router).call{value: 1 ether}("");
         assertFalse(ok);
@@ -549,7 +709,7 @@ contract TagAITradeRouterTest is Test {
         legs[0] = _leg(0, out / 2, false);
         legs[1] = _leg(2, out - out / 2, false);
         vm.prank(recipient);
-        uint256 bnbOut = router.sell(address(token), out, legs, 1, block.timestamp, user);
+        uint256 bnbOut = router.sell(address(token), out, legs, 1, block.timestamp, user, address(0));
         assertGt(bnbOut, 0);
         assertEq(token.balanceOf(recipient), beforeT);
         _empty();

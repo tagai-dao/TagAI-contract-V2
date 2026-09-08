@@ -25,18 +25,27 @@ struct Leg {
 }
 
 function routeHash(address tokenIn, address tokenOut) external view returns (bytes32);
-function buy(address token, Leg[] legs, uint256 minTokenOut, uint256 deadline, address recipient)
+function buy(address token, Leg[] legs, uint256 minTokenOut, uint256 deadline, address recipient, address subject)
     external payable returns (uint256 tokenOut);
-function sell(address token, uint256 amountIn, Leg[] legs, uint256 minBnbOut, uint256 deadline, address recipient)
+function sell(address token, uint256 amountIn, Leg[] legs, uint256 minBnbOut, uint256 deadline, address recipient, address subject)
     external returns (uint256 bnbOut);
 ```
 
 所有数量均为最小单位整数；不要使用 JS Number。`deadline` 是 Unix 秒。
 `recipient` 是最终输出接收者，退款始终退给调用者。
+`subject` 是 IPShare 主体地址（前端原 sellsman），不是 IPShare 合约地址，也不是 recipient。
+主池买卖都传 `abi.encode(subject)` 给 Hook；零地址或未创建 IPShare 的主体沿用 Hook 的
+Token.getIPShare() 回退规则。组件 V2 池不因此新增 IPShare 收费。
+
+现有 NutboxRouter 的 swapExactInput 不支持 hookData，因此执行器直接锁定 V4 Vault
+并调用主池。仅允许 Nutbox 注册的单跳原始上市池：PoolId、原生币/T、Hook、Manager、
+Vault 必须与 Token 上市快照一致。回调绑定本次完整参数哈希，并且只能消费一次。
+组件中转仍通过既有 NutboxRouter，现有 Pump、Hook、NutboxRouter 和矿池均无需改动。
+本次 buy/sell ABI 增加参数，前端和 API 必须使用更新后的 ABI。
 
 | routeIndex | 买入 | 卖出 | Nutbox 路由哈希参数 |
 | --- | --- | --- | --- |
-| 0 | Nutbox 注册的 BNB → T 路由，正常为 V4 主池 | T → BNB | 买入 `(0, T)`；卖出 `(T, 0)` |
+| 0 | Nutbox 注册且匹配 Token 快照的 V4 主池 BNB → T | T → BNB | 买入 `(0, T)`；卖出 `(T, 0)` |
 | 1..N | BNB → 成分 A → T/A V2 池 → T | T/A V2 池 → A → BNB | 买入 `(0, A)`；卖出 `(A, 0)` |
 
 `routeIndex=1` 对应 `Token.componentAt(0)`。最多四个组件池加主池，共五条交易腿。
@@ -74,6 +83,48 @@ Pancake V2 手续费按 25 bps；V13 T 向组件 Pair 转入或转出另有 10 b
 输入按本次转账实际到池数量计算，输出按净到账计算；已有 Pair 捐赠不被算作本次投入。
 外部 A 路径的执行能力沿用 NutboxRouter 的限制，不额外承诺任意税币或 rebase 币支持。
 
+## 本地路由优化与数据批量读取（待前端实现）
+
+目标是以统一 BNB 口径比较扣除 gas 后的结果。买入比较 (输入 BNB + gas BNB) / 净 T；
+卖出比较净 BNB - gas BNB。合约最低到账约束的是输出币数量，不包含另付的 gas。
+不能使用固定边权的最短路径算法直接解决此问题：边的实际汇率随交易金额和状态变化。
+
+- 区分物理池与候选路线。当前 V13 为最多四个组件池加一个主池；中转池另外计数，
+  并可能被多条路线共用。若按六条候选路线扩展，非空组合仅 63 个，当前五条为 31 个。
+- 静态缓存保存地址、PoolKey、decimals、费用规则和注册路径；以配置版本/路线哈希失效。
+  每轮行情在明确 blockNumber 上刷新所有相关动态状态，额外读取必须固定同一区块。
+- V2 的核心数据为 reserves，税币还需对应转账规则。V3/V4 需要 sqrtPrice、tick、liquidity、
+  实际协议/LP/Hook 费用，以及可能跨越的 bitmap 和 initialized tick 的 liquidityNet。
+  当前 V4 主池的固定 Hook 费按链上代码模拟；不能直接把普通 V3 报价器用于 Hook 池。
+- 缓存已知地址和 tick 范围后，可以用一次 Multicall3 批量刷新本轮已知所需状态。
+  首次发现路径和 ticks 有前后依赖，普通 aggregate3 不能把上一返回值动态拼成下一调用；
+  需要分阶段请求或专用只读 Lens。tick 不足时补读，不得把未知区间当成没有流动性。
+  RPC 对 calldata/执行 gas/返回大小有限制，大批量读取仍可能分包。
+
+独立路线可用边际收益均衡（水位法）求比例：对固定路线集合，最大化 sum(f_i(x_i))，
+约束 sum(x_i)=总输入。连续、递增且凹的报价函数下，使用中的路线满足 f'_i(x_i)=lambda，
+未使用路线的初始边际收益不高于 lambda。用二分搜索 lambda 求解，不逐个枚举百分比。
+V2 的 f(x)=Rout*gamma*x/(Rin+gamma*x)，其导数可直接计算并反解投入；多跳要包含每跳
+费用、转账税与整数舍入。V3/V4 按 tick 分段模拟，对候选解最后进行精确整数核算。
+固定开启成本 gas 通过路线集合比较处理，不能只放进边际导数。gas 随跨 tick 数变化时，
+先估算筛选，再对少量最终候选 estimateGas 比较。
+
+存在共享池时，独立路线解只作为起点。每个候选必须用统一池状态按真实整腿执行顺序
+模拟，不能把逐小份交错成交的结果直接当作合约整腿成交结果。保留几个优选起点，进行
+路线间资金重新分配与相邻执行顺序交换；步长由粗到细，并设置迭代预算。始终保留最佳
+单路线作为基准，不声称在任意共享池/Hook 状态下求得全局最优。
+
+性能实现：在 Web Worker 中复用已解码池状态与报价曲线；以区块+路由版本+方向+金额
+缓存结果；输入金额小幅变化时沿用前次解作为初值；旧请求用序号取消，避免覆盖新报价。
+先展示可用的单路线结果，再发布经过优化和核验的方案。对少量候选执行 eth_call 和
+estimateGas，使用真实 from/value/subject/授权状态，避免按“每条路线×每个比例”请求 RPC。
+本地运算耗时与端到端 RPC 耗时分别测量；任何毫秒级目标在手机与桌面实测前都不是保证。
+
+参考：
+- [Multicall3 批量读取](https://github.com/mds1/multicall3#batch-contract-reads)
+- [Uniswap 集中流动性池数据](https://developers.uniswap.org/docs/sdks/v3/guides/pool-data)
+- [Uniswap Smart Order Router](https://github.com/Uniswap/smart-order-router)
+
 ## 资金与事件
 
 交易腿和顶层最低到账任何一项不满足，所有 swap、税款和中间动作一起回滚。
@@ -86,7 +137,11 @@ Nutbox 授权仅开放本次所需金额，调用后归零。卖出后的未用 
 - token、payer、recipient、isBuy；
 - amountIn：提交的总投入；amountOut：实际最终到账；
 - refundAmount：退回的输入币数量（买入为 BNB，卖出为 T）；
-- planHash：`keccak256(abi.encode(legs))`。
+- planHash：`keccak256(abi.encode(subject, legs))`。
+
+`MainPoolExecuted` 额外记录主池交易请求的 subject、方向和金额。subject 是请求值，
+实际回退后的归属以 IPShare 的 ValueCaptured 为准。计划哈希也包含 subject，不能继续
+使用旧版仅对 legs 编码的哈希。
 
 统计实际输入成本使用 `amountIn - refundAmount`；其他中间资产退款应结合 ERC20 日志。
 组件成交和主池成交不能分别被当作用户多笔完整 BNB 交易重复计费。
@@ -120,11 +175,13 @@ FOUNDRY_PROFILE=fork FOUNDRY_ETH_RPC_URL='' forge test \
   --match-contract '^TagAITradeRouterForkTest$' --match-test '^test_tradeRouter_' -vv
 ```
 
+fork 测试同时核对真实 IPShare ValueCaptured 的主体与主池 Hook 收费金额，覆盖买卖及拆单。
 fork 测试复用 Pump13Mainnet 的固定区块与真实 BSC DEX/资产/质押 Factory，Pump、Hook、
 Basket 和执行器在 fork 内部署。没有运行在生产网络上；该测试也不等于独立安全审计。
 
-2026-09-08 验证结果：22 项单元测试通过，其中模糊测试执行 4096 次；上述四项 fork
-测试全部通过，无跳过。部署脚本编译及新增 Solidity 文件格式检查通过。
+2026-09-08 IPShare 修订验证：26 项单元测试（含 4096 次模糊输入）、七项 fork 测试
+全部通过，无跳过。覆盖指定主体、零地址及无效主体回退、组件独立交易、主池回调鉴权
+和上市池身份检查。真实 ValueCaptured 的主体及金额与对应主池 Hook 收费一致。
 
 部署脚本：`script/DeployBSCTagAITradeRouter.s.sol`。默认绑定 version13.json 中的
 Pump13、NutboxRouter 和官方 Pancake V2 Factory，先核验 Pump 当前配置。
