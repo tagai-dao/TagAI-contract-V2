@@ -1,11 +1,11 @@
 # V13 BNB 聚合交易执行器
 
 合约：`src/router/TagAITradeRouter.sol`。它是独立的交易执行器，不修改 Pump V13、
-Token、NutboxRouter、Basket V4 或现有质押池。部署地址尚未生成。
+Token、NutboxRouter、Basket V4 或现有质押池。BSC 部署地址为 `0x7D5480C10A98b0Feb4e5fA77aF3F01aE3a5E86F4`，地址、部署交易和区块记录在 [version13.json](../deployments/56/version13.json)。
 
 ## 职责与边界
 
-前端负责发现候选池、计算资金分配与执行顺序、比较扣除 gas 后的结果，并模拟完整交易。
+API 提供候选池、注册路径和 tick 清单；前端一次 multicall 刷新状态，在 Worker 中计算资金分配与执行顺序、比较扣除 gas 后的结果，并模拟完整交易。
 合约执行前端传入的拆单方案；支持 BNB 买 T，以及卖 T 收 BNB，两者各用一笔交易完成。
 卖出前需要用户对执行器授权 T，首次授权可能是额外一笔交易。
 
@@ -68,7 +68,7 @@ routeHash 包含 chain ID、Nutbox 地址、方向、所有注册池 ID 和当�
 
 前端流程：
 
-1. 在同一区块读取组件、各路径配置、价格和流动性。
+1. API 返回组件、路径配置及 tick 清单；前端在一次 multicall 中读取当前价格、流动性、费用及清单内 tick，不发现或补取额外 tick。
 2. 比较最佳单路径与多路径分配，统计全部中转池的费用和 gas。
    净收益相近时减少路径；多路径净收益更好时选择多路径，不机械平均分配。
 3. 处理共享中转池的状态影响，按最终执行顺序模拟整个计划。
@@ -161,7 +161,7 @@ Nutbox 授权仅开放本次所需金额，调用后归零。卖出后的未用 
 因此前端同页提供两步操作：先添加流动性，LP 直接交给用户钱包；然后用户授权矿池并
 直接调用 deposit(amount)，附上实时读取的 pool operation fee。第二步取消或失败时，
 LP 留在钱包，页面提供继续质押入口。不改矿池，也不使用中间合约代持用户质押。
-本交易执行器不包含添加/移除流动性功能，该功能仍是后续前端和流动性工具的独立工作。
+添加/移除流动性由独立的 [TagAILiquidityRouter](tagai-liquidity-router.md) 提供，BNB 加池复用本执行器的主池买卖。
 
 ## 测试与部署
 
@@ -200,5 +200,12 @@ FOUNDRY_PROFILE=bsc_mainnet forge script script/DeployBSCTagAITradeRouter.s.sol 
 ```
 
 脚本沿用 PRIVATE_KEY_MAIN。部署后记录地址、交易、区块、源码版本和验证结果，再将
-地址写入前端/API 的 bsc-version13 配置。ABI 位于 `abis/TagAITradeRouter.json`，
+地址写入 UI（`bsc-version13`）的 `src/config/chains.ts` BSC `contracts.tradeRouter13`，不从 API 读取执行器地址。ABI 位于 `abis/TagAITradeRouter.json`，
 应与 Foundry 当前产物一致。前端路由优化器和页面的完成状态不由本合约测试代表。
+
+
+## 两个执行器的联合部署
+
+完整的模拟、广播、自动验证、独立补验证、构造参数和部署后绑定检查见 [BSC_V13_ROUTERS_DEPLOY.md](./BSC_V13_ROUTERS_DEPLOY.md)。先部署本合约，再部署 [TagAILiquidityRouter](./tagai-liquidity-router.md)。
+
+普通聚合买卖仍由本合约接收多条交易腿。BNB 加池由 TagAILiquidityRouter 内部构造唯一 routeIndex=0 的交易腿调用本合约，购买和余量卖出均走 V4 主池，并携带 subject；这一约束不限制用户普通聚合买卖的多池能力。

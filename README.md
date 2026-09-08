@@ -3,6 +3,7 @@
 > **V13 current release:** Pump/Token V13, Basket V4, the new NutboxRouter, atomic keeper listing, post-list index buybacks and four-component gas limits are documented in [`docs/PUMP_TOKEN_HOOK_V13.md`](docs/PUMP_TOKEN_HOOK_V13.md). The V9–V11 material below remains as the historical production baseline for earlier tokens.
 
 > **V13 split-trade executor (not deployed):** [`TagAITradeRouter`](docs/TAGAI_TRADE_ROUTER.md) executes frontend-computed BNB buys / BNB-output sells atomically across the main route and component pools. Existing LP staking remains a separate user operation.
+> **V13 liquidity helper (not deployed):** [TagAILiquidityRouter](docs/tagai-liquidity-router.md) supports BNB-to-LP with main-pool token purchases and BNB surplus refunds. [Deployment and verification commands](docs/BSC_V13_ROUTERS_DEPLOY.md).
 
 Smart contracts for **TagAI (TipTag)** on BSC — **Pump Version 9 (V9)** for new community token launches, plus **Version 10 (V10)** for importing existing ERC20s into Nutbox via `ImportHelper`. V9 ties together **community token launches**, **creator IPShare**, **Nutbox community incentives**, and **PancakeSwap V4 on-chain trading**. Users participate through Twitter/X social activity; tokens start on a bonding curve and migrate to the DEX once listing conditions are met, with swap fees flowing back to the community and creators.
 

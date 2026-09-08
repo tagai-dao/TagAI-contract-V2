@@ -215,6 +215,7 @@ contract DeployBSCIndexBrokerNFTV2Script is Script {
         accessoryRenderer = vm.parseJsonAddress(legacy, ".StonkBrokerAccessoryRenderer");
         uint256 configuredFee = vm.parseJsonUint(legacy, ".BnbUsdtV3Fee");
         require(configuredFee <= type(uint24).max, "Invalid BNB/USDT V3 fee");
+        // forge-lint: disable-next-line(unsafe-typecast)
         bnbUsdtV3Fee = uint24(configuredFee);
 
         require(committee == vm.parseJsonAddress(legacy, ".Committee"), "Committee changed");
