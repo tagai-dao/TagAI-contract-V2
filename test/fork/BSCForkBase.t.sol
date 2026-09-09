@@ -33,7 +33,7 @@ abstract contract BSCForkBase is Test {
 
     address internal constant COMMITTEE = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
     address internal constant COMMUNITY_FACTORY = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
-    address internal constant SOCIAL_CURATION_FACTORY = 0xc4674D3fBbD201Ea401a8B7e7285F956178593D8;
+    address internal constant ERC20_STAKING_FACTORY = 0xDc3f940ac6Da516d5C9cc59c8AFE0F85A576E2A4;
     address internal constant CL_POOL_MANAGER = 0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b;
     address internal constant VAULT = 0x238a358808379702088667322f80aC48bAd5e6c4;
     address internal constant IPSHARE = 0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922;
@@ -96,7 +96,7 @@ abstract contract BSCForkBase is Test {
     function _deployProductionStack() internal virtual {
         calculator = new HourlyTickCalculator(COMMUNITY_FACTORY);
 
-        pump = new Pump(IPSHARE, FEE_RECEIVER);
+        pump = new Pump(IPSHARE, FEE_RECEIVER, new address[](0));
         pump.adminSetPoolManager(CL_POOL_MANAGER);
         pump.adminSetVault(VAULT);
 
@@ -104,7 +104,7 @@ abstract contract BSCForkBase is Test {
 
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(COMMUNITY_FACTORY, address(calculator), SOCIAL_CURATION_FACTORY, COMMITTEE);
+        pump.adminSetNutbox(COMMUNITY_FACTORY, address(calculator), ERC20_STAKING_FACTORY, COMMITTEE);
 
         router = new CLPoolManagerRouter(IVault(VAULT), ICLPoolManager(CL_POOL_MANAGER));
 
@@ -113,19 +113,14 @@ abstract contract BSCForkBase is Test {
 
     function _deployHookWithValidBitmap() internal returns (TagAISwapHook deployed) {
         bytes memory creationCode = abi.encodePacked(
-            type(TagAISwapHook).creationCode,
-            abi.encode(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump))
+            type(TagAISwapHook).creationCode, abi.encode(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump))
         );
         bytes32 bytecodeHash = keccak256(creationCode);
 
         address deployer = address(this);
         (bytes32 salt, address predicted,) = _mineHookSalt(deployer, bytecodeHash);
 
-        deployed = new TagAISwapHook{salt: salt}(
-            ICLPoolManager(CL_POOL_MANAGER),
-            IVault(VAULT),
-            address(pump)
-        );
+        deployed = new TagAISwapHook{salt: salt}(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump));
 
         assertEq(address(deployed), predicted, "CREATE2 hook address mismatch");
         assertEq(uint16(uint160(address(deployed))), TARGET_HOOK_BITMAP, "invalid hook bitmap");
@@ -156,8 +151,8 @@ abstract contract BSCForkBase is Test {
     function _createAndListToken(string memory tick) internal returns (Token token) {
         _ensureCreatorIPShare();
 
-        uint256 nutboxFees = ICommittee(COMMITTEE).getCreateCommunityFee()
-            + ICommittee(COMMITTEE).getCommunitySettingsFee();
+        uint256 nutboxFees =
+            ICommittee(COMMITTEE).getCreateCommunityFee() + ICommittee(COMMITTEE).getCommunitySettingsFee();
         uint256 ipshareFee = IIPShare(IPSHARE).ipshareCreated(creator) ? 0 : IIPShare(IPSHARE).createFee();
         uint256 totalFee = pump.createFee() + nutboxFees + ipshareFee + 1 ether;
 
@@ -176,16 +171,15 @@ abstract contract BSCForkBase is Test {
     function _createAndListForWhale(string memory tick, address whale) internal returns (Token token) {
         _ensureCreatorIPShare();
 
-        uint256 nutboxFees = ICommittee(COMMITTEE).getCreateCommunityFee()
-            + ICommittee(COMMITTEE).getCommunitySettingsFee();
+        uint256 nutboxFees =
+            ICommittee(COMMITTEE).getCreateCommunityFee() + ICommittee(COMMITTEE).getCommunitySettingsFee();
         uint256 ipshareFee = IIPShare(IPSHARE).ipshareCreated(creator) ? 0 : IIPShare(IPSHARE).createFee();
         uint256 totalFixedFee = pump.createFee() + nutboxFees + ipshareFee;
 
         vm.deal(creator, totalFixedFee);
         vm.prank(creator, creator);
-        address tokenAddr = pump.createToken{value: totalFixedFee}(
-            tick, keccak256(abi.encodePacked("whale", tick, block.timestamp))
-        );
+        address tokenAddr =
+            pump.createToken{value: totalFixedFee}(tick, keccak256(abi.encodePacked("whale", tick, block.timestamp)));
         token = Token(payable(tokenAddr));
 
         _fillBondingCurveFull(token, whale);
@@ -226,9 +220,12 @@ abstract contract BSCForkBase is Test {
             uint256 buyEth = 10 ether;
             if (actor.balance < buyEth) vm.deal(actor, buyEth + 100 ether);
 
-            try token.buyToken{value: buyEth}(0, creator, 500) {} catch {
-                try token.buyToken{value: 100 ether}(0, creator, 1000) {} catch {
-                    try token.buyToken{value: 500 ether}(0, creator, 2000) {} catch {
+            try token.buyToken{value: buyEth}(0, creator, 500) {}
+            catch {
+                try token.buyToken{value: 100 ether}(0, creator, 1000) {}
+                catch {
+                    try token.buyToken{value: 500 ether}(0, creator, 2000) {}
+                    catch {
                         break;
                     }
                 }
@@ -251,9 +248,12 @@ abstract contract BSCForkBase is Test {
 
             if (trader.balance < ethIn + 1 ether) vm.deal(trader, ethIn + 5000 ether);
 
-            try token.buyToken{value: ethIn}(0, creator, 8000) {} catch {
-                try token.buyToken{value: ethIn * 2}(0, creator, 9000) {} catch {
-                    try token.buyToken{value: ethIn / 2}(0, creator, 9000) {} catch {
+            try token.buyToken{value: ethIn}(0, creator, 8000) {}
+            catch {
+                try token.buyToken{value: ethIn * 2}(0, creator, 9000) {}
+                catch {
+                    try token.buyToken{value: ethIn / 2}(0, creator, 9000) {}
+                    catch {
                         break;
                     }
                 }
@@ -274,9 +274,7 @@ abstract contract BSCForkBase is Test {
         router.swap{value: ethIn}(
             poolKey,
             ICLPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -int256(ethIn),
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
+                zeroForOne: true, amountSpecified: -int256(ethIn), sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
             }),
             CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
             bytes("")
@@ -305,9 +303,7 @@ abstract contract BSCForkBase is Test {
         router.swap(
             poolKey,
             ICLPoolManager.SwapParams({
-                zeroForOne: false,
-                amountSpecified: -int256(tokenIn),
-                sqrtPriceLimitX96: sqrtPriceLimitX96
+                zeroForOne: false, amountSpecified: -int256(tokenIn), sqrtPriceLimitX96: sqrtPriceLimitX96
             }),
             CLPoolManagerRouter.SwapTestSettings({withdrawTokens: true, settleUsingTransfer: true}),
             bytes("")
@@ -422,11 +418,7 @@ abstract contract BSCForkBase is Test {
         return injectAmount > availableBalance ? availableBalance : injectAmount;
     }
 
-    function _readPeriodState(address tokenAddr)
-        internal
-        view
-        returns (uint32 periodIndex, uint256 currentPeriodBuy)
-    {
+    function _readPeriodState(address tokenAddr) internal view returns (uint32 periodIndex, uint256 currentPeriodBuy) {
         (periodIndex, currentPeriodBuy) = hook.periodState(tokenAddr);
     }
 
@@ -437,9 +429,7 @@ abstract contract BSCForkBase is Test {
     /// @dev Drive hook afterSwap inject path with a controlled token delta (PCS buy uses positive amount1).
     function _simulateHookBuy(PoolKey memory poolKey, uint256 boughtAmount) internal {
         ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
+            zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: TickMath.MIN_SQRT_RATIO + 1
         });
         BalanceDelta delta = toBalanceDelta(0, int128(int256(boughtAmount)));
         vm.prank(CL_POOL_MANAGER);

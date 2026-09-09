@@ -23,25 +23,21 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 contract DFXStarScoreStakingFactory is IPoolFactory, Ownable2Step {
     address public immutable communityFactory;
     address public immutable poolTemplate;
-    
+
     /// @dev Admin list (can call depositFromGame)
     mapping(address => bool) public isAdmin;
-    
+
     // Events
     event AdminAdded(address indexed admin);
     event AdminRemoved(address indexed admin);
-    event DFXStarScoreStakingCreated(
-        address indexed pool,
-        address indexed community,
-        string name
-    );
-    
+    event DFXStarScoreStakingCreated(address indexed pool, address indexed community, string name);
+
     constructor(address _communityFactory) {
         require(_communityFactory != address(0), "Invalid address");
         communityFactory = _communityFactory;
         poolTemplate = address(new DFXStarScoreStaking());
     }
-    
+
     /**
      * @notice Add admin
      * @dev Only owner can call
@@ -53,7 +49,7 @@ contract DFXStarScoreStakingFactory is IPoolFactory, Ownable2Step {
         isAdmin[_admin] = true;
         emit AdminAdded(_admin);
     }
-    
+
     /**
      * @notice Remove admin
      * @dev Only owner can call
@@ -64,7 +60,7 @@ contract DFXStarScoreStakingFactory is IPoolFactory, Ownable2Step {
         isAdmin[_admin] = false;
         emit AdminRemoved(_admin);
     }
-    
+
     /**
      * @notice Create pool
      * @dev Only callable by Community contract, a community can create multiple pools
@@ -75,16 +71,20 @@ contract DFXStarScoreStakingFactory is IPoolFactory, Ownable2Step {
         address community,
         string memory name,
         bytes calldata /* meta */
-    ) external override returns (address) {
-        require(community == msg.sender, 'Permission denied: caller is not community');
+    )
+        external
+        override
+        returns (address)
+    {
+        require(community == msg.sender, "Permission denied: caller is not community");
         require(CommunityFactory(payable(communityFactory)).createdCommunity(community), "Invalid community");
-        
+
         address clone = Clones.clone(poolTemplate);
         DFXStarScoreStaking pool = DFXStarScoreStaking(payable(clone));
         pool.initialize(community);
-        
+
         emit DFXStarScoreStakingCreated(address(pool), community, name);
-        
+
         return address(pool);
     }
 }

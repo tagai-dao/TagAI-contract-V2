@@ -48,8 +48,7 @@ contract MineHookSaltScript is Script {
 
         // Get creation bytecode with constructor args
         bytes memory creationCode = abi.encodePacked(
-            type(TagAISwapHook).creationCode,
-            abi.encode(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), pumpAddress)
+            type(TagAISwapHook).creationCode, abi.encode(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), pumpAddress)
         );
         bytes32 bytecodeHash = keccak256(creationCode);
 
@@ -90,24 +89,18 @@ contract MineHookSaltScript is Script {
      * @notice Mine for a salt that produces a valid hook address.
      * @dev Uses CREATE2 address formula: address = keccak256(0xff ++ deployer ++ salt ++ bytecodeHash)[12:]
      */
-    function mineSalt(
-        address deployer,
-        bytes32 bytecodeHash
-    ) internal pure returns (bytes32 salt, address predictedAddress, uint256 iterations) {
+    function mineSalt(address deployer, bytes32 bytecodeHash)
+        internal
+        pure
+        returns (bytes32 salt, address predictedAddress, uint256 iterations)
+    {
         uint256 maxIterations = 100_000_000; // Safety limit
 
         for (uint256 i = 0; i < maxIterations; i++) {
             salt = bytes32(i);
 
             // Compute CREATE2 address
-            bytes32 hash = keccak256(
-                abi.encodePacked(
-                    bytes1(0xff),
-                    deployer,
-                    salt,
-                    bytecodeHash
-                )
-            );
+            bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), deployer, salt, bytecodeHash));
             predictedAddress = address(uint160(uint256(hash)));
 
             // Check if lower 16 bits match target

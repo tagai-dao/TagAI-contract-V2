@@ -9,15 +9,12 @@ interface IDFXStarScoreStaking {
 
     function claimExternalRewards() external payable;
 
-    function getPendingExternalRewards(
-        address user
-    ) external view returns (uint256);
+    function getPendingExternalRewards(address user) external view returns (uint256);
 
-    function getPendingCommunityRewards(
-        address user
-    ) external view returns (uint256);
+    function getPendingCommunityRewards(address user) external view returns (uint256);
 
-    function getPendingAllRewards(
-        address user
-    ) external view returns (uint256 communityPending, uint256 externalPending);
+    function getPendingAllRewards(address user)
+        external
+        view
+        returns (uint256 communityPending, uint256 externalPending);
 }

@@ -19,13 +19,7 @@ import "./ERC20Helper.sol";
  * Community Contract always returns an entity of this contract.
  * Support add serial staking pool into it.
  */
-contract Community is
-    ICommunity,
-    ERC20Helper,
-    Initializable,
-    Ownable,
-    ReentrancyGuard
-{
+contract Community is ICommunity, ERC20Helper, Initializable, Ownable, ReentrancyGuard {
     uint16 constant CONSTANTS_10000 = 10000;
     // Maximum number of active pools allowed in a community
     uint256 public constant MAX_ACTIVE_POOLS = 255;
@@ -109,10 +103,10 @@ contract Community is
         if (fee == 0) return;
         require(msg.value >= fee, "Insufficient fee");
         address payable recipient = ICommittee(committee).getFeeRecipient();
-        (bool ok, ) = recipient.call{value: fee}("");
+        (bool ok,) = recipient.call{value: fee}("");
         require(ok, "Fee transfer failed");
         if (msg.value > fee) {
-            (bool ok2, ) = msg.sender.call{value: msg.value - fee}("");
+            (bool ok2,) = msg.sender.call{value: msg.value - fee}("");
             require(ok2, "Refund failed");
         }
     }
@@ -122,10 +116,10 @@ contract Community is
         if (fee == 0) return;
         require(msg.value >= fee, "Insufficient fee");
         address payable recipient = ICommittee(committee).getFeeRecipient();
-        (bool ok, ) = recipient.call{value: fee}("");
+        (bool ok,) = recipient.call{value: fee}("");
         require(ok, "Fee transfer failed");
         if (msg.value > fee) {
-            (bool ok2, ) = msg.sender.call{value: msg.value - fee}("");
+            (bool ok2,) = msg.sender.call{value: msg.value - fee}("");
             require(ok2, "Refund failed");
         }
     }
@@ -144,9 +138,7 @@ contract Community is
         uint256 harvestAmount = retainedRevenue;
         if (!isMintableCommunityToken) {
             uint256 balance = IERC20(communityToken).balanceOf(address(this));
-            harvestAmount = balance < retainedRevenue
-                ? balance
-                : retainedRevenue;
+            harvestAmount = balance < retainedRevenue ? balance : retainedRevenue;
         }
         retainedRevenue = retainedRevenue - harvestAmount; // Effects before Interactions
         _unlockOrMintAsset(devFund, harvestAmount);
@@ -163,12 +155,11 @@ contract Community is
         emit AdminSetFeeRatio(_ratio);
     }
 
-    function adminAddPool(
-        string memory poolName,
-        uint16[] memory ratios,
-        address poolFactory,
-        bytes calldata meta
-    ) external payable onlyOwner {
+    function adminAddPool(string memory poolName, uint16[] memory ratios, address poolFactory, bytes calldata meta)
+        external
+        payable
+        onlyOwner
+    {
         require(activedPools.length < MAX_ACTIVE_POOLS, "MPR"); // Max active pools reached
         require((activedPools.length + 1) == ratios.length, "WPC"); //Wrong Pool ratio count
         require(ICommittee(committee).verifyContract(poolFactory), "UPF"); //Unsupported pool factory
@@ -176,11 +167,7 @@ contract Community is
         _chargeTier2Fee();
 
         // create pool instance
-        address pool = IPoolFactory(poolFactory).createPool(
-            address(this),
-            poolName,
-            meta
-        );
+        address pool = IPoolFactory(poolFactory).createPool(address(this), poolName, meta);
         _updatePoolsInternal();
         openedPools[pool] = true;
         whitelists[pool] = true;
@@ -196,10 +183,7 @@ contract Community is
      * @param poolIndex  Index of the pool to close in activedPools[]
      * @param ratios     New reward ratios for the remaining active pools (length == activedPools.length - 1)
      */
-    function adminClosePool(
-        uint256 poolIndex,
-        uint16[] memory ratios
-    ) external payable onlyOwner {
+    function adminClosePool(uint256 poolIndex, uint16[] memory ratios) external payable onlyOwner {
         require(poolIndex < activedPools.length, "OOB"); // Index out of bounds
         address poolAddress = activedPools[poolIndex];
         require(openedPools[poolAddress], "PIA"); // Pool is already inactived
@@ -222,9 +206,7 @@ contract Community is
         emit AdminClosePool(poolAddress);
     }
 
-    function adminSetPoolRatios(
-        uint16[] memory ratios
-    ) external payable onlyOwner {
+    function adminSetPoolRatios(uint16[] memory ratios) external payable onlyOwner {
         require(activedPools.length == ratios.length, "WL"); //Wrong ratio list length
         _checkRatioSum(ratios);
         _chargeTier2Fee();
@@ -238,9 +220,7 @@ contract Community is
      * @dev This function would withdraw all rewards that exist in all pools which available for user
      * This function will not only travel actived pools, but also closed pools
      */
-    function withdrawPoolsRewards(
-        address[] memory poolAddresses
-    ) external payable nonReentrant {
+    function withdrawPoolsRewards(address[] memory poolAddresses) external payable nonReentrant {
         // game has not started
         if (lastRewardCursor == 0) return;
         require(poolAddresses.length > 0, "MHO1"); // Must harvest at least one pool
@@ -258,25 +238,15 @@ contract Community is
         for (uint256 i = 0; i < poolAddresses.length; i++) {
             address poolAddress = poolAddresses[i];
             require(whitelists[poolAddress], "IP"); // Illegal pool
-            uint256 stakedAmount = IPool(poolAddress).getUserStakedAmount(
-                msg.sender
-            );
+            uint256 stakedAmount = IPool(poolAddress).getUserStakedAmount(msg.sender);
 
-            uint256 pending = (stakedAmount * poolAcc[poolAddress]) /
-                1e12 -
-                userDebts[poolAddress][msg.sender];
+            uint256 pending = (stakedAmount * poolAcc[poolAddress]) / 1e12 - userDebts[poolAddress][msg.sender];
 
             if (pending > 0) {
-                userRewards[poolAddress][msg.sender] =
-                    userRewards[poolAddress][msg.sender] +
-                    pending;
+                userRewards[poolAddress][msg.sender] = userRewards[poolAddress][msg.sender] + pending;
             }
-            totalAvailableRewards =
-                totalAvailableRewards +
-                userRewards[poolAddress][msg.sender];
-            userDebts[poolAddress][msg.sender] =
-                (stakedAmount * poolAcc[poolAddress]) /
-                1e12;
+            totalAvailableRewards = totalAvailableRewards + userRewards[poolAddress][msg.sender];
+            userDebts[poolAddress][msg.sender] = (stakedAmount * poolAcc[poolAddress]) / 1e12;
             userRewards[poolAddress][msg.sender] = 0; // Zero before transfer (CEI)
         }
 
@@ -292,37 +262,27 @@ contract Community is
         emit WithdrawRewards(poolAddresses, msg.sender, totalAvailableRewards);
     }
 
-    function getPoolPendingRewards(
-        address poolAddress,
-        address user
-    ) public view returns (uint256) {
+    function getPoolPendingRewards(address poolAddress, address user) public view returns (uint256) {
         // game has not started
         if (lastRewardCursor == 0) return 0;
 
         uint256 head = ICalculator(rewardCalculator).rewardHead();
-        uint256 rewardsReadyToMintedToPools = (ICalculator(rewardCalculator)
-            .calculateReward(address(this), lastRewardCursor, head) *
-            (10000 - feeRatio)) / 10000;
+        uint256 rewardsReadyToMintedToPools =
+            (ICalculator(rewardCalculator).calculateReward(address(this), lastRewardCursor, head) * (10000 - feeRatio))
+                / 10000;
         // our lastRewardCursor isn't up to date, as the result, the availableRewards isn't
         // the right amount that delegator can award
         uint256 stakedAmount = IPool(poolAddress).getUserStakedAmount(user);
         if (stakedAmount == 0) return userRewards[poolAddress][user];
         uint256 totalStakedAmount = IPool(poolAddress).getTotalStakedAmount();
         // M-03: formula aligned with _updatePoolsInternal to avoid integer-division discrepancy
-        uint256 pendingPoolRewards = (rewardsReadyToMintedToPools *
-            1e12 *
-            poolRatios[poolAddress]) / CONSTANTS_10000;
-        uint256 _shareAcc = poolAcc[poolAddress] +
-            (pendingPoolRewards / totalStakedAmount);
-        uint256 pending = (stakedAmount * _shareAcc) /
-            1e12 -
-            userDebts[poolAddress][user];
+        uint256 pendingPoolRewards = (rewardsReadyToMintedToPools * 1e12 * poolRatios[poolAddress]) / CONSTANTS_10000;
+        uint256 _shareAcc = poolAcc[poolAddress] + (pendingPoolRewards / totalStakedAmount);
+        uint256 pending = (stakedAmount * _shareAcc) / 1e12 - userDebts[poolAddress][user];
         return userRewards[poolAddress][user] + pending;
     }
 
-    function getTotalPendingRewards(
-        address user
-    ) external view returns (uint256) {
+    function getTotalPendingRewards(address user) external view returns (uint256) {
         uint256 rewards = 0;
         for (uint256 i = 0; i < createdPools.length; i++) {
             rewards = rewards + getPoolPendingRewards(createdPools[i], user);
@@ -334,9 +294,7 @@ contract Community is
         return openedPools[pool];
     }
 
-    function getShareAcc(
-        address pool
-    ) external view override returns (uint256) {
+    function getShareAcc(address pool) external view override returns (uint256) {
         return poolAcc[pool];
     }
 
@@ -353,26 +311,17 @@ contract Community is
         return lastRewardCursor;
     }
 
-    function getUserDebt(
-        address pool,
-        address user
-    ) external view override returns (uint256) {
+    function getUserDebt(address pool, address user) external view override returns (uint256) {
         return userDebts[pool][user];
     }
 
     // Pool callable only
-    function appendUserReward(
-        address user,
-        uint256 amount
-    ) external override onlyPool {
+    function appendUserReward(address user, uint256 amount) external override onlyPool {
         userRewards[msg.sender][user] = userRewards[msg.sender][user] + amount;
     }
 
     // Pool callable only
-    function setUserDebt(
-        address user,
-        uint256 debt
-    ) external override onlyPool {
+    function setUserDebt(address user, uint256 debt) external override onlyPool {
         userDebts[msg.sender][user] = debt;
     }
 
@@ -394,19 +343,14 @@ contract Community is
         // later calls in the same tick see head <= lastRewardCursor and return.
         if (head <= lastRewardCursor) return;
 
-        rewardsReadyToMinted = ICalculator(rewardCalculator).calculateReward(
-            address(this),
-            lastRewardCursor,
-            head
-        );
+        rewardsReadyToMinted = ICalculator(rewardCalculator).calculateReward(address(this), lastRewardCursor, head);
 
         // save all rewards to contract temporary
         if (rewardsReadyToMinted > 0) {
             if (feeRatio > 0) {
                 // only send rewards belong to community, reward belong to user would send when
                 // they withdraw reward manually
-                uint256 feeAmount = (rewardsReadyToMinted * feeRatio) /
-                    CONSTANTS_10000;
+                uint256 feeAmount = (rewardsReadyToMinted * feeRatio) / CONSTANTS_10000;
                 retainedRevenue = retainedRevenue + feeAmount;
                 // M-02: use subtraction to ensure fee + user rewards == total (no precision loss)
                 rewardsReadyToMinted = rewardsReadyToMinted - feeAmount;
@@ -418,17 +362,13 @@ contract Community is
 
         for (uint256 i = 0; i < activedPools.length; i++) {
             address poolAddress = activedPools[i];
-            uint256 totalStakedAmount = IPool(poolAddress)
-                .getTotalStakedAmount();
-            if (totalStakedAmount == 0 || poolRatios[poolAddress] == 0)
+            uint256 totalStakedAmount = IPool(poolAddress).getTotalStakedAmount();
+            if (totalStakedAmount == 0 || poolRatios[poolAddress] == 0) {
                 continue;
+            }
             // M-03: formula aligned with getPoolPendingRewards view function
-            uint256 poolRewards = (rewardsReadyToMinted *
-                1e12 *
-                poolRatios[poolAddress]) / CONSTANTS_10000;
-            poolAcc[poolAddress] =
-                poolAcc[poolAddress] +
-                (poolRewards / totalStakedAmount);
+            uint256 poolRewards = (rewardsReadyToMinted * 1e12 * poolRatios[poolAddress]) / CONSTANTS_10000;
+            poolAcc[poolAddress] = poolAcc[poolAddress] + (poolRewards / totalStakedAmount);
         }
 
         lastRewardCursor = head;
@@ -439,10 +379,7 @@ contract Community is
         for (uint256 i = 0; i < ratios.length; i++) {
             ratioSum += ratios[i];
         }
-        require(
-            ratioSum == uint256(CONSTANTS_10000) || ratioSum == 0,
-            "RS!=1w"
-        ); //Ratio summary not equal to 10000
+        require(ratioSum == uint256(CONSTANTS_10000) || ratioSum == 0, "RS!=1w"); //Ratio summary not equal to 10000
     }
 
     function _updatePoolRatios(uint16[] memory ratios) private {

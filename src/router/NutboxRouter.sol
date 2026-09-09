@@ -97,6 +97,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
     mapping(address => bool) public override allowedUniswapV4Manager;
     mapping(address => bool) public override allowedPancakeV4CLManager;
     mapping(address => bool) public allowedPancakeV4Vault;
+    mapping(address => bool) public override operators;
 
     struct StoredPricePool {
         bool enabled;
@@ -131,6 +132,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
     event RouteAdded(address indexed token0, address indexed token1, bytes32 indexed routeHash, bytes32[] poolIds);
     event RouteReplaced(address indexed token0, address indexed token1, bytes32 indexed routeHash, bytes32[] poolIds);
     event RouteRemoved(address indexed token0, address indexed token1);
+    event OperatorAdded(address indexed operator);
     event SwapExecuted(
         address indexed caller,
         address indexed tokenIn,
@@ -161,6 +163,13 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
     error InvalidSwapOutput();
     error InvalidNativeSender();
     error InvalidCallback();
+    error NotOwnerOrOperator();
+    error InvalidOperator();
+
+    modifier onlyOwnerOrOperator() {
+        if (msg.sender != owner() && !operators[msg.sender]) revert NotOwnerOrOperator();
+        _;
+    }
 
     constructor(
         address wrappedNative_,
@@ -251,6 +260,17 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         ) revert InvalidNativeSender();
     }
 
+    function addOperator(address operator) external override onlyOwner {
+        if (operator == address(0) || operators[operator]) revert InvalidOperator();
+        operators[operator] = true;
+        emit OperatorAdded(operator);
+    }
+
+    function removeOperator(address operator) external override onlyOwner {
+        if (!operators[operator]) revert InvalidOperator();
+        delete operators[operator];
+    }
+
     function hasPricePool(bytes32 poolId) external view override returns (bool) {
         return _pricePools[poolId].enabled;
     }
@@ -279,7 +299,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
     function addPricePool(SourceType sourceType, bytes calldata sourceData)
         external
         override
-        onlyOwner
+        onlyOwnerOrOperator
         returns (bytes32 poolId)
     {
         (address token0, address token1, bytes32 resolvedPoolId) = _validatePricePool(sourceType, sourceData);
@@ -345,7 +365,11 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         return forward ? route.poolIds[index] : route.poolIds[length - 1 - index];
     }
 
-    function addRoute(address tokenIn, address tokenOut, bytes32[] calldata poolIds) external override onlyOwner {
+    function addRoute(address tokenIn, address tokenOut, bytes32[] calldata poolIds)
+        external
+        override
+        onlyOwnerOrOperator
+    {
         (bytes32 routeKey, bool forward, address canonicalToken0) = _routeKey(tokenIn, tokenOut);
         if (_routes[routeKey].enabled) revert RouteAlreadyExists();
         address canonicalToken1 = _otherEndpoint(tokenIn, tokenOut, canonicalToken0);

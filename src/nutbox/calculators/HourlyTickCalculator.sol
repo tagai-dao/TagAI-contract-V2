@@ -29,19 +29,14 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
     error AlreadyRegistered();
 
     // ─── Events ───────────────────────────────────────────────────────────────
-    event Injected(
-        address indexed community,
-        uint256 hourIndex,
-        uint256 amount,
-        uint256 totalInjectedSoFar
-    );
+    event Injected(address indexed community, uint256 hourIndex, uint256 amount, uint256 totalInjectedSoFar);
     event CommunityRegistered(address indexed community, address token);
 
     // ─── Data Structures ──────────────────────────────────────────────────────
     struct Injection {
-        uint256 startHour;      // Hour index when injection starts
-        uint256 amount;         // Token amount (dust removed)
-        uint256 cumAmount;      // Prefix sum: Σ amount from entry 0 to this entry
+        uint256 startHour; // Hour index when injection starts
+        uint256 amount; // Token amount (dust removed)
+        uint256 cumAmount; // Prefix sum: Σ amount from entry 0 to this entry
         uint256 cumAmountStart; // Weighted prefix sum: Σ (amount × startHour)
     }
 
@@ -70,7 +65,11 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
     function setDistributionEra(
         address community,
         bytes calldata /* policy */
-    ) external onlyFactory returns (bool) {
+    )
+        external
+        onlyFactory
+        returns (bool)
+    {
         if (registered[community]) revert AlreadyRegistered();
 
         registered[community] = true;
@@ -86,11 +85,7 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
     }
 
     /// @inheritdoc ICalculator
-    function calculateReward(
-        address community,
-        uint256 lastCursor,
-        uint256 head
-    ) external view returns (uint256) {
+    function calculateReward(address community, uint256 lastCursor, uint256 head) external view returns (uint256) {
         if (head <= lastCursor) return 0;
 
         uint256 a = lastCursor / 3600; // Convert to hour index
@@ -109,8 +104,10 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
 
         // Find all active injections: startHour < currentHour AND startHour + 168 > currentHour
         // Active means: startHour < currentHour (has started) and currentHour < startHour + 168 (not ended)
-        for (uint256 i = injs.length; i > 0; ) {
-            unchecked { --i; }
+        for (uint256 i = injs.length; i > 0;) {
+            unchecked {
+                --i;
+            }
             uint256 sh = injs[i].startHour;
             // If startHour >= currentHour, injection hasn't started contributing yet
             if (sh >= currentHour) continue;
@@ -153,12 +150,8 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
             last.cumAmountStart += amount * H;
         } else {
             // New entry
-            uint256 prevCumAmount = injs.length > 0
-                ? injs[injs.length - 1].cumAmount
-                : 0;
-            uint256 prevCumAmountStart = injs.length > 0
-                ? injs[injs.length - 1].cumAmountStart
-                : 0;
+            uint256 prevCumAmount = injs.length > 0 ? injs[injs.length - 1].cumAmount : 0;
+            uint256 prevCumAmountStart = injs.length > 0 ? injs[injs.length - 1].cumAmountStart : 0;
 
             injs.push(
                 Injection({
@@ -175,11 +168,11 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
     }
 
     /// @inheritdoc IHourlyTickCalculator
-    function getHourlyRewards(
-        address community,
-        uint256 startTimestamp,
-        uint256 numHours
-    ) external view returns (uint256[] memory rewards) {
+    function getHourlyRewards(address community, uint256 startTimestamp, uint256 numHours)
+        external
+        view
+        returns (uint256[] memory rewards)
+    {
         rewards = new uint256[](numHours);
         uint256 startHourIdx = startTimestamp / 3600;
 
@@ -232,10 +225,9 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
         // Entries in (endIdx, curIdx] are in-progress
         uint256 F2 = 0;
         if (curIdx > endIdx) {
-            uint256 sumAmount = injs[uint256(curIdx)].cumAmount
-                - (endIdx >= 0 ? injs[uint256(endIdx)].cumAmount : 0);
-            uint256 sumAmountStart = injs[uint256(curIdx)].cumAmountStart
-                - (endIdx >= 0 ? injs[uint256(endIdx)].cumAmountStart : 0);
+            uint256 sumAmount = injs[uint256(curIdx)].cumAmount - (endIdx >= 0 ? injs[uint256(endIdx)].cumAmount : 0);
+            uint256 sumAmountStart =
+                injs[uint256(curIdx)].cumAmountStart - (endIdx >= 0 ? injs[uint256(endIdx)].cumAmountStart : 0);
 
             // F2 = (t × sumAmount - sumAmountStart) / 168
             F2 = (t * sumAmount - sumAmountStart) / VEST_WINDOW;
@@ -249,10 +241,7 @@ contract HourlyTickCalculator is IHourlyTickCalculator, ReentrancyGuard {
      *      If all entries have startHour <= target, returns injs.length.
      *      If all entries have startHour > target, returns 0.
      */
-    function _upperBound(
-        Injection[] storage injs,
-        uint256 target
-    ) internal view returns (uint256) {
+    function _upperBound(Injection[] storage injs, uint256 target) internal view returns (uint256) {
         uint256 lo = 0;
         uint256 hi = injs.length;
         while (lo < hi) {

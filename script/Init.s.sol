@@ -89,15 +89,10 @@ contract Init is Script {
 
         // First add DFXStarScoreStaking pool (requires settingsFee=0 in local)
         uint16[] memory ratios = new uint16[](2);
-        ratios[0] = 0;      // SocialCuration gets 0%
-        ratios[1] = 10000;  // DFXStarScoreStaking gets 100%
+        ratios[0] = 0; // SocialCuration gets 0%
+        ratios[1] = 10000; // DFXStarScoreStaking gets 100%
 
-        ICommunity(community).adminAddPool{value: 0}(
-            "DFXStar Score Staking",
-            ratios,
-            dfxFactoryAddr,
-            bytes("")
-        );
+        ICommunity(community).adminAddPool{value: 0}("DFXStar Score Staking", ratios, dfxFactoryAddr, bytes(""));
 
         // Get DFXStarScoreStaking pool address (index 1)
         address dfxPool = ICommunity(community).activedPools(1);
@@ -111,15 +106,7 @@ contract Init is Script {
         vm.stopBroadcast();
 
         // ─── Write initialized addresses ───
-        _writeInitialized(
-            dfxFactoryAddr,
-            token,
-            community,
-            socialPool,
-            dfxPool,
-            calculatorAddr,
-            deployer
-        );
+        _writeInitialized(dfxFactoryAddr, token, community, socialPool, dfxPool, calculatorAddr, deployer);
 
         console.log("");
         console.log("=== Initialization Summary ===");
@@ -132,15 +119,14 @@ contract Init is Script {
     }
 
     function _createToken(address pump, string memory tick, bytes32 salt, uint256 value) internal returns (address) {
-        (bool success, bytes memory data) = pump.call{value: value}(
-            abi.encodeWithSignature("createToken(string,bytes32)", tick, salt)
-        );
+        (bool success, bytes memory data) =
+            pump.call{value: value}(abi.encodeWithSignature("createToken(string,bytes32)", tick, salt));
         require(success, "createToken failed");
         return abi.decode(data, (address));
     }
 
     function _addAdmin(address factory, address admin) internal {
-        (bool success, ) = factory.call(abi.encodeWithSignature("addAdmin(address)", admin));
+        (bool success,) = factory.call(abi.encodeWithSignature("addAdmin(address)", admin));
         require(success, "addAdmin failed");
     }
 
@@ -165,14 +151,30 @@ contract Init is Script {
 
         string memory json = string.concat(
             "{\n",
-            '  "chainId": ', chainIdStr, ',\n',
-            '  "deployer": "', vm.toString(deployer), '",\n',
-            '  "DFXStarScoreStakingFactory": "', vm.toString(dfxFactory), '",\n',
-            '  "Token": "', vm.toString(token), '",\n',
-            '  "Community": "', vm.toString(community), '",\n',
-            '  "SocialCurationPool": "', vm.toString(socialPool), '",\n',
-            '  "DFXStarScoreStakingPool": "', vm.toString(dfxPool), '",\n',
-            '  "HourlyTickCalculator": "', vm.toString(calculator), '"\n',
+            '  "chainId": ',
+            chainIdStr,
+            ",\n",
+            '  "deployer": "',
+            vm.toString(deployer),
+            '",\n',
+            '  "DFXStarScoreStakingFactory": "',
+            vm.toString(dfxFactory),
+            '",\n',
+            '  "Token": "',
+            vm.toString(token),
+            '",\n',
+            '  "Community": "',
+            vm.toString(community),
+            '",\n',
+            '  "SocialCurationPool": "',
+            vm.toString(socialPool),
+            '",\n',
+            '  "DFXStarScoreStakingPool": "',
+            vm.toString(dfxPool),
+            '",\n',
+            '  "HourlyTickCalculator": "',
+            vm.toString(calculator),
+            '"\n',
             "}\n"
         );
 

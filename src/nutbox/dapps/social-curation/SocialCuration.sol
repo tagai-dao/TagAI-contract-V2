@@ -27,9 +27,7 @@ contract SocialCuration is IPool, ERC20Helper, ReentrancyGuard, Initializable, E
 
     /// @dev EIP-712 type hash for off-chain signing (MetaMask / ethers signTypedData).
     bytes32 private constant CLAIM_TYPEHASH =
-        keccak256(
-            "Claim(uint256 chainId,address pool,uint256 orderId,uint256 amount,address to,uint256 deadline)"
-        );
+        keccak256("Claim(uint256 chainId,address pool,uint256 orderId,uint256 amount,address to,uint256 deadline)");
 
     address public factory;
     address public community;
@@ -40,12 +38,7 @@ contract SocialCuration is IPool, ERC20Helper, ReentrancyGuard, Initializable, E
 
     uint256 public totalClaimed;
 
-    event SocialClaimed(
-        address indexed user,
-        uint256 indexed orderId,
-        uint256 amount,
-        bool harvested
-    );
+    event SocialClaimed(address indexed user, uint256 indexed orderId, uint256 amount, bool harvested);
 
     constructor() EIP712("Nutbox SocialCuration", "1") {
         _disableInitializers();
@@ -66,27 +59,17 @@ contract SocialCuration is IPool, ERC20Helper, ReentrancyGuard, Initializable, E
      * @param deadline  Unix timestamp after which the signature is invalid.
      * @param signature ECDSA signature by `claimSigner` over the Claim struct.
      */
-    function claim(
-        uint256 orderId,
-        uint256 amount,
-        uint256 deadline,
-        bytes calldata signature
-    ) external payable nonReentrant {
+    function claim(uint256 orderId, uint256 amount, uint256 deadline, bytes calldata signature)
+        external
+        payable
+        nonReentrant
+    {
         require(block.timestamp <= deadline, "Expired");
         require(amount > 0, "Amount=0");
         require(!claimedOrders[msg.sender][orderId], "Claimed");
 
-        bytes32 structHash = keccak256(
-            abi.encode(
-                CLAIM_TYPEHASH,
-                block.chainid,
-                address(this),
-                orderId,
-                amount,
-                msg.sender,
-                deadline
-            )
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(CLAIM_TYPEHASH, block.chainid, address(this), orderId, amount, msg.sender, deadline));
         address recovered = ECDSA.recover(_hashTypedDataV4(structHash), signature);
         require(recovered == SocialCurationFactory(factory).claimSigner(), "Bad sig");
 
@@ -133,10 +116,10 @@ contract SocialCuration is IPool, ERC20Helper, ReentrancyGuard, Initializable, E
         if (ICommittee(committeeAddr).getFeeFree(msg.sender)) return;
         require(msg.value >= fee, "Insufficient fee");
         address payable recipient = ICommittee(committeeAddr).getFeeRecipient();
-        (bool ok, ) = recipient.call{value: fee}("");
+        (bool ok,) = recipient.call{value: fee}("");
         require(ok, "Fee transfer failed");
         if (msg.value > fee) {
-            (bool ok2, ) = msg.sender.call{value: msg.value - fee}("");
+            (bool ok2,) = msg.sender.call{value: msg.value - fee}("");
             require(ok2, "Refund failed");
         }
     }
@@ -145,7 +128,7 @@ contract SocialCuration is IPool, ERC20Helper, ReentrancyGuard, Initializable, E
     function _refundEthToUser() private {
         uint256 ethBal = address(this).balance;
         if (ethBal == 0) return;
-        (bool ok, ) = payable(msg.sender).call{value: ethBal}("");
+        (bool ok,) = payable(msg.sender).call{value: ethBal}("");
         require(ok, "ETH refund failed");
     }
 

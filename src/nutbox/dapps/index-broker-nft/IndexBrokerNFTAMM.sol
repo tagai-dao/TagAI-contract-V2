@@ -93,6 +93,10 @@ interface IIndexBrokerWrappedNative {
     function withdraw(uint256 amount) external;
 }
 
+interface IIndexBrokerNutboxRouterProvider {
+    function nutboxRouter() external view returns (address);
+}
+
 /**
  * @title IndexBrokerNFTAMM
  * @notice Fixed-price inventory vault paired one-to-one with an NFT mining pool.
@@ -123,7 +127,6 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     uint16 public normalFeeBps;
     uint16 public specificFeeBps;
     address public pump;
-    address public nutboxRouter;
     INutboxRouter.SourceType public priceSourceType;
     bytes public priceSourceData;
     address public priceQuoteToken;
@@ -201,6 +204,11 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         _disableInitializers();
     }
 
+    /// @notice Returns the Factory-managed Router so owner updates also apply to existing AMMs.
+    function nutboxRouter() public view returns (address) {
+        return IIndexBrokerNutboxRouterProvider(factory).nutboxRouter();
+    }
+
     function initialize(
         address collection_,
         address communityToken_,
@@ -230,13 +238,13 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         }
 
         factory = msg.sender;
+        if (nutboxRouter() != nutboxRouter_) revert InvalidAddress();
         collection = collection_;
         communityToken = communityToken_;
         tokensPerNFT = tokensPerNFT_;
         normalFeeBps = normalFeeBps_;
         specificFeeBps = specificFeeBps_;
         pump = pump_;
-        nutboxRouter = nutboxRouter_;
         basketRegistry = basketRegistry_;
         indexToken = indexToken_;
 
@@ -543,7 +551,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     }
 
     function _quoteNativeValue() internal view returns (uint256) {
-        INutboxRouter router = INutboxRouter(nutboxRouter);
+        INutboxRouter router = INutboxRouter(nutboxRouter());
         uint256 quoteAmount = NutboxSpotPrice.quote(
             router, communityToken, priceQuoteToken, tokensPerNFT, priceSourceType, priceSourceData
         );
@@ -558,7 +566,7 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     ) internal {
         if (active) revert AMMAlreadyActive();
 
-        INutboxRouter router = INutboxRouter(nutboxRouter);
+        INutboxRouter router = INutboxRouter(nutboxRouter());
         address quoteToken = NutboxSpotPrice.otherToken(communityToken, priceSourceType_, priceSourceData_);
         uint256 quoteAmount =
             NutboxSpotPrice.quote(router, communityToken, quoteToken, tokensPerNFT, priceSourceType_, priceSourceData_);

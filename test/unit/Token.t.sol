@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/interfaces/IToken.sol";
 import "../../src/nutbox/Committee.sol";
@@ -19,7 +21,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @title TokenTest
  * @notice Unit tests for Token contract — buyToken/sellToken without signature, receive() behavior, dust guards.
  */
-contract TokenTest is Test {
+contract TokenTest is Version13LegacyTestSetup {
     Committee public committee;
     address public communityFactory;
     HourlyTickCalculator public calculator;
@@ -66,19 +68,16 @@ contract TokenTest is Test {
         mockVault = new MockVault();
 
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
 
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
         pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
 
         vm.warp(3600);
 
@@ -86,16 +85,14 @@ contract TokenTest is Test {
         vm.startPrank(creator, creator);
         uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
         ipshare.createShare{value: ipsharePrice}(creator);
-        address tokenAddr = pump.createToken{value: 0.005 ether}("UNIT", bytes32(uint256(1)));
+        address tokenAddr = _createLegacyV13Token(pump, "UNIT", bytes32(uint256(1)), 0.005 ether);
         token = Token(payable(tokenAddr));
         vm.stopPrank();
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         require(d != address(0), "CF deploy failed");
@@ -103,10 +100,8 @@ contract TokenTest is Test {
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         require(d != address(0), "SCF deploy failed");
@@ -205,13 +200,13 @@ contract TokenTest is Test {
         token.buyToken{value: 1}(0, creator, 0); // 1 wei
     }
 
-    // ─── setNutboxAddresses access control ───
+    // ─── setNutboxCommunity access control ───
 
-    function test_setNutboxAddresses_onlyManager() public {
+    function test_setNutboxCommunity_onlyManager() public {
         address rando = makeAddr("rando");
         vm.prank(rando);
         vm.expectRevert();
-        token.setNutboxAddresses(makeAddr("comm"), makeAddr("pool"));
+        token.setNutboxCommunity(makeAddr("comm"));
     }
 
     // ─── Anti-Snipe Window behavior ───
@@ -227,11 +222,9 @@ contract TokenTest is Test {
 
         uint256 buyAmount = 1 ether;
         uint256 expectedMainPurchase = pump.getBuyAmountByValue(
-            0,
-            buyAmount - (buyAmount * platformFee) / 10_000 - (buyAmount * sellsmanFee) / 10_000
+            0, buyAmount - (buyAmount * platformFee) / 10_000 - (buyAmount * sellsmanFee) / 10_000
         );
-        uint256 expectedInjection =
-            pump.getBuyAmountByValue(expectedMainPurchase, (buyAmount * sellsmanFee) / 10_000);
+        uint256 expectedInjection = pump.getBuyAmountByValue(expectedMainPurchase, (buyAmount * sellsmanFee) / 10_000);
 
         vm.prank(buyer, buyer);
         uint256 received = token.buyToken{value: buyAmount}(0, creator, 0);
@@ -254,10 +247,8 @@ contract TokenTest is Test {
 
     function test_antiSnipe_mainFillToCap_revertsForBuyAndReceive() public {
         uint256 buyAmount = 110 ether;
-        uint256 mainPurchase = pump.getBuyAmountByValue(
-            0,
-            buyAmount - (buyAmount * 30) / 10_000 - (buyAmount * 8000) / 10_000
-        );
+        uint256 mainPurchase =
+            pump.getBuyAmountByValue(0, buyAmount - (buyAmount * 30) / 10_000 - (buyAmount * 8000) / 10_000);
         assertGe(mainPurchase, BONDING_CURVE_SUPPLY);
 
         vm.expectRevert(IToken.ListingDisabledDuringAntiSnipe.selector);
@@ -317,6 +308,11 @@ contract TokenTest is Test {
 
         assertEq(received, BONDING_CURVE_SUPPLY);
         assertEq(token.bondingCurveSupply(), BONDING_CURVE_SUPPLY);
+        assertTrue(token.listingPending());
+        assertFalse(token.listed());
+
+        _finalizeLegacyV13Token(pump, token);
+
         assertTrue(token.listed());
         assertEq(mockPoolManager.initializeCount(), 1);
         assertEq(IERC20(address(token)).balanceOf(address(hook)), token.NUTBOX_ALLOCATION());

@@ -48,7 +48,8 @@ interface IRouterDeployPancakeV3Pool {
  *     --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
  *     --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
  *
- * NUTBOX_ROUTER_OWNER must explicitly select the final owner. Ownership uses Ownable2Step,
+ * NUTBOX_ROUTER_OWNER must explicitly select the final owner. NUTBOX_ROUTER_OPERATORS may
+ * contain a comma-separated initial operator list (for example the deployed Pump13). Ownership uses Ownable2Step,
  * so a different target owner must call acceptOwnership() after deployment. Do not write the
  * authoritative deployment record until every transaction is confirmed and validated.
  */
@@ -68,6 +69,8 @@ contract DeployBSCNutboxRouterScript is Script {
         address targetOwner = vm.envAddress("NUTBOX_ROUTER_OWNER");
 
         require(targetOwner != address(0), "NutboxRouter owner missing");
+        address[] memory initialOperators =
+            vm.envExists("NUTBOX_ROUTER_OPERATORS") ? vm.envAddress("NUTBOX_ROUTER_OPERATORS", ",") : new address[](0);
         _validateDependencies();
 
         console2.log("=== BSC Shared NutboxRouter Deploy ===");
@@ -78,10 +81,13 @@ contract DeployBSCNutboxRouterScript is Script {
 
         vm.startBroadcast(privateKey);
         NutboxRouter router = _deployRouter();
+        for (uint256 i; i < initialOperators.length; ++i) {
+            router.addOperator(initialOperators[i]);
+        }
         if (targetOwner != deployer) router.transferOwnership(targetOwner);
         vm.stopBroadcast();
 
-        _validateDeployment(router, deployer, targetOwner);
+        _validateDeployment(router, deployer, targetOwner, initialOperators);
 
         console2.log("NutboxRouter", address(router));
         if (targetOwner != deployer) {
@@ -157,7 +163,12 @@ contract DeployBSCNutboxRouterScript is Script {
         }
     }
 
-    function _validateDeployment(NutboxRouter router, address deployer, address targetOwner) internal view {
+    function _validateDeployment(
+        NutboxRouter router,
+        address deployer,
+        address targetOwner,
+        address[] memory initialOperators
+    ) internal view {
         address wbnb = BSCNutboxRouterConfig.wrappedNative();
         address usdt = BSCNutboxRouterConfig.settlementToken();
 
@@ -174,6 +185,9 @@ contract DeployBSCNutboxRouterScript is Script {
         require(router.allowedV3Factory(BSCNutboxRouterConfig.pancakeV3Factory()), "Router V3 factory missing");
         require(router.allowedPancakeV4CLManager(clPoolManager), "Router V4 manager missing");
         require(router.allowedPancakeV4Vault(vault), "Router V4 Vault missing");
+        for (uint256 i; i < initialOperators.length; ++i) {
+            require(router.operators(initialOperators[i]), "Router operator missing");
+        }
         require(router.hasRoute(usdt, wbnb), "Router USDT/WBNB route missing");
         require(router.routePoolCount(usdt, wbnb) == 1, "Router USDT/WBNB route invalid");
         router.validateRoute(usdt, wbnb);
@@ -181,12 +195,15 @@ contract DeployBSCNutboxRouterScript is Script {
         require(router.quote(usdt, wbnb, 1 ether) > 0, "Router USDT/WBNB quote failed");
         require(router.quote(wbnb, usdt, 1 ether) > 0, "Router WBNB/USDT quote failed");
 
+        BSCNutboxRouterConfig.AssetConfig[] memory assets = BSCNutboxRouterConfig.assetConfigs();
         bytes32 hubPoolId = router.pricePoolId(usdt, wbnb);
-        _validateStoredPool(router, BSCNutboxRouterConfig.hubPoolConfig(), 15);
+        // The hub route itself references this pool once, and every configured asset's
+        // indirect WBNB/USDT route references it once. Derive the count from the catalog
+        // so adding a Router bootstrap asset cannot stale this deployment assertion.
+        _validateStoredPool(router, BSCNutboxRouterConfig.hubPoolConfig(), uint32(assets.length + 1));
         require(router.routePoolAt(usdt, wbnb, 0) == hubPoolId, "Router hub pool mismatch");
         require(router.routePoolAt(wbnb, usdt, 0) == hubPoolId, "Router reverse hub pool mismatch");
 
-        BSCNutboxRouterConfig.AssetConfig[] memory assets = BSCNutboxRouterConfig.assetConfigs();
         for (uint256 i; i < assets.length; ++i) {
             _validateStoredAssetRoutes(router, assets[i], hubPoolId, usdt, wbnb);
         }

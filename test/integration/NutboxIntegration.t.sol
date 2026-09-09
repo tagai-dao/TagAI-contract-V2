@@ -74,12 +74,12 @@ contract NutboxIntegrationTest is Test {
         // 7. Create community via CommunityFactory
         // The community uses our test token as the community token (non-mintable)
         address communityAddr = communityFactory.createCommunity(
-            false,                      // isMintable = false
-            address(token),             // communityToken
-            address(0),                 // communityTokenFactory (not needed)
-            bytes(""),                  // tokenMeta
-            address(calculator),        // rewardCalculator
-            bytes("")                   // distributionPolicy
+            false, // isMintable = false
+            address(token), // communityToken
+            address(0), // communityTokenFactory (not needed)
+            bytes(""), // tokenMeta
+            address(calculator), // rewardCalculator
+            bytes("") // distributionPolicy
         );
         community = Community(payable(communityAddr));
 
@@ -113,11 +113,7 @@ contract NutboxIntegrationTest is Test {
         uint256 startTimestamp = 3600; // hour 1
         uint256 endTimestamp = startTimestamp + (VEST_WINDOW * 3600); // hour 169
 
-        uint256 reward = calculator.calculateReward(
-            address(community),
-            startTimestamp,
-            endTimestamp
-        );
+        uint256 reward = calculator.calculateReward(address(community), startTimestamp, endTimestamp);
         assertEq(reward, injectAmount, "Full vest should release all tokens");
     }
 
@@ -135,11 +131,7 @@ contract NutboxIntegrationTest is Test {
         uint256 startTimestamp = 3600;
         uint256 halfVestTimestamp = startTimestamp + (84 * 3600); // 84 hours later
 
-        uint256 reward = calculator.calculateReward(
-            address(community),
-            startTimestamp,
-            halfVestTimestamp
-        );
+        uint256 reward = calculator.calculateReward(address(community), startTimestamp, halfVestTimestamp);
 
         // Expected: injectAmount * 84 / 168 = injectAmount / 2
         uint256 expected = injectAmount * 84 / VEST_WINDOW;
@@ -169,8 +161,8 @@ contract NutboxIntegrationTest is Test {
         // At hour 178, both should be fully vested
         uint256 reward = calculator.calculateReward(
             address(community),
-            3600,           // from hour 1
-            178 * 3600      // to hour 178
+            3600, // from hour 1
+            178 * 3600 // to hour 178
         );
         assertEq(reward, amount1 + amount2, "Both injections should be fully vested");
     }
@@ -191,11 +183,7 @@ contract NutboxIntegrationTest is Test {
         assertEq(calculator.totalInjected(address(community)), amount1 + amount2);
 
         // Full vest
-        uint256 reward = calculator.calculateReward(
-            address(community),
-            3600,
-            (1 + VEST_WINDOW) * 3600
-        );
+        uint256 reward = calculator.calculateReward(address(community), 3600, (1 + VEST_WINDOW) * 3600);
         assertEq(reward, amount1 + amount2);
     }
 
@@ -212,8 +200,8 @@ contract NutboxIntegrationTest is Test {
         // Query hourly rewards for hours 1-10 (starting from hour 1 = timestamp 3600)
         uint256[] memory rewards = calculator.getHourlyRewards(
             address(community),
-            3600,   // startTimestamp (hour 1)
-            10      // numHours
+            3600, // startTimestamp (hour 1)
+            10 // numHours
         );
 
         assertEq(rewards.length, 10);
@@ -237,8 +225,8 @@ contract NutboxIntegrationTest is Test {
         // head <= lastCursor should return 0
         uint256 reward = calculator.calculateReward(
             address(community),
-            10 * 3600,  // lastCursor at hour 10
-            5 * 3600    // head at hour 5 (before lastCursor)
+            10 * 3600, // lastCursor at hour 10
+            5 * 3600 // head at hour 5 (before lastCursor)
         );
         assertEq(reward, 0, "Should return 0 when head <= lastCursor");
     }
@@ -279,8 +267,8 @@ contract NutboxIntegrationTest is Test {
         uint256 expectedReward = injectAmount * 10 / VEST_WINDOW; // 10 hours of vesting
         uint256 calcReward = calculator.calculateReward(
             address(community),
-            3600,           // from hour 1
-            11 * 3600       // to hour 11
+            3600, // from hour 1
+            11 * 3600 // to hour 11
         );
         assertEq(calcReward, expectedReward, "Calculator should return 10 hours of rewards");
     }
@@ -294,8 +282,8 @@ contract NutboxIntegrationTest is Test {
         vm.warp(3600); // hour 1
         calculator.inject(address(community), injectAmount);
 
-        uint256 t0 = 3600;       // hour 1
-        uint256 t1 = 50 * 3600;  // hour 50
+        uint256 t0 = 3600; // hour 1
+        uint256 t1 = 50 * 3600; // hour 50
         uint256 t2 = 100 * 3600; // hour 100
 
         uint256 rewardFull = calculator.calculateReward(address(community), t0, t2);

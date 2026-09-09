@@ -23,9 +23,8 @@ interface IHourlyTickCalculator is ICalculator {
     /// @param startTimestamp The start timestamp (must be hour-aligned).
     /// @param numHours Number of hours to query.
     /// @return rewards Array of per-hour reward amounts.
-    function getHourlyRewards(
-        address community,
-        uint256 startTimestamp,
-        uint256 numHours
-    ) external view returns (uint256[] memory rewards);
+    function getHourlyRewards(address community, uint256 startTimestamp, uint256 numHours)
+        external
+        view
+        returns (uint256[] memory rewards);
 }

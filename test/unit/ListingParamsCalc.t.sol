@@ -170,7 +170,8 @@ contract ListingParamsCalc is Test {
 
     function test_tokensNeededForFullDrain() public view {
         uint256 pWad = FullMath.mulDiv(LISTING_TOKEN, 1e18, LISTING_ETH);
-        uint160 sqrtP = TickMath.getSqrtRatioAtTick(_alignTick(TickMath.getTickAtSqrtRatio(_sqrtPriceX96FromPrice(pWad))));
+        uint160 sqrtP =
+            TickMath.getSqrtRatioAtTick(_alignTick(TickMath.getTickAtSqrtRatio(_sqrtPriceX96FromPrice(pWad))));
         int24 tickLower = TickMath.minUsableTick(TICK_SPACING);
         int24 tickUpper = TickMath.maxUsableTick(TICK_SPACING);
         uint160 sqrtPa = TickMath.getSqrtRatioAtTick(tickLower);
@@ -423,7 +424,11 @@ contract ListingParamsCalc is Test {
         console2.log("tokens at upper M:", tokensAtUpper / 1e24);
     }
 
-    function _simulateSellToken(uint160 sqrtP, uint160 sqrtPb, uint128 L, uint256 tokenIn) internal pure returns (uint256 bnbOut) {
+    function _simulateSellToken(uint160 sqrtP, uint160 sqrtPb, uint128 L, uint256 tokenIn)
+        internal
+        pure
+        returns (uint256 bnbOut)
+    {
         (bnbOut,) = _simulateSellTokenWithRemaining(sqrtP, sqrtPb, L, tokenIn);
     }
 
@@ -451,13 +456,11 @@ contract ListingParamsCalc is Test {
         }
     }
 
-    function _liquidityForAmounts(
-        uint160 sqrtP,
-        uint160 sqrtA,
-        uint160 sqrtB,
-        uint256 amount0,
-        uint256 amount1
-    ) internal pure returns (uint128 L) {
+    function _liquidityForAmounts(uint160 sqrtP, uint160 sqrtA, uint160 sqrtB, uint256 amount0, uint256 amount1)
+        internal
+        pure
+        returns (uint128 L)
+    {
         if (sqrtA > sqrtB) (sqrtA, sqrtB) = (sqrtB, sqrtA);
 
         if (sqrtP <= sqrtA) {

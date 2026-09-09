@@ -15,7 +15,7 @@
 
 ## 协议版本关系
 
-这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前新发社区代币使用 Pump V11；已经存在的外部 ERC20 通过 ImportHelper V10 接入 Nutbox。V9 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。
+这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V13；已经存在的外部 ERC20 通过 ImportHelper V10 接入 Nutbox。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
 
 | 版本 | 状态 | 功能定位 |
 | --- | --- | --- |
@@ -23,7 +23,66 @@
 | V8 | 已被新发行入口替代 | 面向 Agent 社区，bonding curve 上市前只允许 Agent 交易，并为 Nutbox Community 自动分配 15% 供应量。 |
 | V9 | 历史发行入口 | 通过 Pump 创建新社区代币，支持开放 bonding curve 交易、反狙击、PCS V4 上市、TagAISwapHook 和 Nutbox 奖励注入；既有 Token 保持原实现。 |
 | V10 | 当前外部代币导入入口 | 通过 ImportHelper 将已部署 ERC20 接入 Nutbox，创建不可增发 Community 和默认 SocialCuration Pool；不创建 Token、bonding curve、PCS V4 池或 Hook。 |
-| V11 | 当前新发行入口 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。所有新合约均已部署并完成源码验证。 |
+| V11 | 历史发行入口，既有 Token 继续使用 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。该批部署及验证记录见下文。 |
+| V13 | 当前 BSC 新发行源码基线 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
+
+---
+
+## V13 — BSC 源码发布（2026-09-09）
+
+| 项目 | 记录 |
+| --- | --- |
+| 发布分支 | `version13` 合并至 `main`，保留合并历史 |
+| 发布标签 | `version13`，annotated tag，指向包含本节版本记录的合并提交 |
+| 合并前 main | `d579d39c7ae1e18c9e9670acce9f9a001fad7739` |
+| 已归档的版本分支提交 | `b109f1abfc6b08538bbc09ef908975ca71f3b935` |
+| 首次 V13 源码记录 | `fe926f9`（Pump / Token V13 发布提交） |
+| 部署快照 | [`deployments/56/version13.json`](deployments/56/version13.json) |
+| 协议与既有测试报告 | [`docs/PUMP_TOKEN_HOOK_V13.md`](docs/PUMP_TOKEN_HOOK_V13.md) |
+| 路由部署记录 | [`docs/BSC_V13_ROUTERS_DEPLOY.md`](docs/BSC_V13_ROUTERS_DEPLOY.md) |
+
+### 主要变更与兼容范围
+
+- 创建时确定 1–4 个成分和权重，为每个成分创建 T–资产 V2 Pair 及 Nutbox LP 质押矿池；矿池名称仍为 `V2 LP Staking`。
+- 曲线满额后进入 pending，由 owner / keeper 提交逐腿最低到账及 deadline，原子完成 V4 / V2 注入、路由注册和 Basket V4 指数创建；失败整笔回滚。
+- 上市后 Hook 费用分配、成分池 Token 转账销毁、指数回购与持有人分红按 V13 规则执行。
+- `TagAITradeRouter` 执行前端计算的多池交易，保留 IPShare subject；`TagAILiquidityRouter` 支持双资产及 BNB 加池、余量回售退款。LP 质押 / 解押仍是独立用户操作。
+- V11 及更早 Token、既有 Hook / PoolKey / Community 不自动迁移。本次未修改矿池命名、重新部署合约或执行链上授权。
+
+### 已记录的 BSC 地址
+
+以下为仓库已有部署快照，不表示本次重新部署或重新完成链上验证。
+
+| 合约 | 地址 |
+| --- | --- |
+| Pump13 | `0x2c2f4e8D85c02a065f109c74d9b27186AE65Adfa` |
+| Token implementation | `0xcC8f585593feAb2a27f9e699a6b578d46446c88C` |
+| TagAISwapHook | `0xaC29EaEb5764A83f7Ed03240EA2aF54018210cc1` |
+| NutboxRouter | `0x72dc4F38A7E4159e97d826a6ab594748C6b68f17` |
+| TagAIBuybackRouter | `0x7f10EB00FffDdE548F13E38871b04b0967Aa2fDB` |
+| TagAITradeRouter | `0x7D5480C10A98b0Feb4e5fA77aF3F01aE3a5E86F4` |
+| TagAILiquidityRouter | `0x2868FDdf7F86041557257c55a79A382536401752` |
+
+`version13.json.sourceCommit` 的 `d579d39...` 是部署时工作区的基础提交，**不是包含全部部署改动的干净源码快照**。本次保留该历史字段，不将它改写为发布 tag；部署复现仍需结合协议文档第 16 节的源码哈希和原部署产物。发布 tag 用于固定当前已提交的源码及文档，不替代部署字节码核验。
+
+历史部署记录中的多签授权 / ownership 待办和 Verified 标记仍按当时记录保留，本次没有复核其当前链上状态。两个辅助路由的部署交易和区块已归档，源码验证状态不从 receipt 成功推断。
+
+### 配套仓库与发布检查
+
+本版本依赖 `bsc-basket-contract` 的 Basket V4 部署，但截至此次归档，该仓库的 V4 源码分支尚未推送；按用户确认，本次只合并 TagAI V13，不为 Basket 创建 tag，也不把现有 Basket V3 main 标记为 V4。
+
+本次仅执行本地编译 / 测试，不广播交易。默认测试命令被既有 `script/Deploy.s.sol` 对缺失的 `src/mocks/MockCLPoolManager.sol`、`src/mocks/MockVault.sol` 导入阻断；定向测试使用 `--skip script`，不把脚本编译或全量测试记作通过。既有主网 fork 报告保留为历史结果，本次未重跑依赖 Basket V4 产物的 fork 测试。
+
+本次实际验证：Solidity 0.8.26，fuzz 每例 256 次。4 个核心单元套件共 81 项通过；V13 安全套件 40 项通过（包含继承的 29 项 Pump 测试），均无失败或跳过。执行命令：
+
+```bash
+FOUNDRY_ETH_RPC_URL='' forge test --offline --skip script \
+  --match-path 'test/unit/*.t.sol' \
+  --match-contract 'PumpVersion13|TagAITradeRouter|TagAILiquidityRouter|TagAIBuybackRouter' \
+  --fuzz-runs 256
+FOUNDRY_ETH_RPC_URL='' forge test --offline --skip script \
+  --match-path 'test/security/Version13Security.t.sol' --fuzz-runs 256
+```
 
 ---
 

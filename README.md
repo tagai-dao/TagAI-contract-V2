@@ -1,5 +1,10 @@
 # TagAI Contract V2
 
+> **V13 current source release (`version13` tag):** See [`VERSION_HISTORY.md`](VERSION_HISTORY.md) for the 2026-09-09 main-branch release, fixed source commit, deployment provenance and validation limits. Pump/Token V13, Basket V4 integration, the new NutboxRouter, atomic keeper listing, post-list index buybacks and four-component gas limits are documented in [`docs/PUMP_TOKEN_HOOK_V13.md`](docs/PUMP_TOKEN_HOOK_V13.md). The V9–V11 material below remains as the historical production baseline for earlier tokens. The sibling Basket V4 source release is pending separately.
+
+> **V13 split-trade executor (deployment recorded):** [`TagAITradeRouter`](docs/TAGAI_TRADE_ROUTER.md) executes frontend-computed BNB buys / BNB-output sells atomically across the main route and component pools. Existing LP staking remains a separate user operation.
+> **V13 liquidity helper (deployment recorded):** [TagAILiquidityRouter](docs/tagai-liquidity-router.md) supports BNB-to-LP with main-pool token purchases and BNB surplus refunds. [Recorded addresses, deployment and verification commands](docs/BSC_V13_ROUTERS_DEPLOY.md). This source release does not assert a fresh on-chain verification or ownership check.
+
 Smart contracts for **TagAI (TipTag)** on BSC — **Pump Version 9 (V9)** for new community token launches, plus **Version 10 (V10)** for importing existing ERC20s into Nutbox via `ImportHelper`. V9 ties together **community token launches**, **creator IPShare**, **Nutbox community incentives**, and **PancakeSwap V4 on-chain trading**. Users participate through Twitter/X social activity; tokens start on a bonding curve and migrate to the DEX once listing conditions are met, with swap fees flowing back to the community and creators.
 
 > **Earlier Pump versions (V1–V8)** live in the legacy Hardhat repo: [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract). This repository is the Foundry-based **V9 / V10** deployment and supersedes V8 on BSC mainnet for new community tokens (and for external-token Nutbox imports that previously went through Pump6).

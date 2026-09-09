@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
@@ -27,7 +29,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * P6 - Injection Condition: inject only when buy settle output >= MIN (capped by balance)
  * P7 - Asset Custody: Hook token balance only decreases via inject path
  */
-contract HookPropertyTest is Test {
+contract HookPropertyTest is Version13LegacyTestSetup {
     using CurrencyLibrary for Currency;
 
     Committee public committee;
@@ -52,8 +54,6 @@ contract HookPropertyTest is Test {
     uint256 constant MAX_PERIOD_BUY_VOLUME = 420_000_000 ether;
     uint256 constant TIER0_RATIO_PPM = 106_069_772;
     uint256 constant MIN_INJECT_OUTPUT = 168 ether / 10;
-    uint256 constant DIVISOR = 10000;
-    uint256 constant DIRECTIONAL_FEE_BPS = 30;
 
     function setUp() public {
         creator = makeAddr("creator");
@@ -79,44 +79,37 @@ contract HookPropertyTest is Test {
         mockPoolManager = new MockCLPoolManager();
         mockVault = new MockVault();
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
         pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
         vm.deal(address(mockVault), 100 ether);
 
         vm.warp(3600);
 
         vm.startPrank(creator, creator);
         ipshare.createShare{value: ipshare.getPrice(10 ether, 0)}(creator);
-        token = Token(payable(pump.createToken{value: 0.005 ether}("PROP", bytes32(uint256(1)))));
+        token = Token(payable(_createLegacyV13Token(pump, "PROP", bytes32(uint256(1)), 0.005 ether)));
         vm.stopPrank();
 
         _fillBondingCurve();
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
@@ -131,12 +124,17 @@ contract HookPropertyTest is Test {
             if (remaining == 0) break;
             uint256 buyAmount = 5 ether;
             if (buyer.balance < buyAmount) vm.deal(buyer, 1000 ether);
-            try token.buyToken{value: buyAmount}(0, creator, 0) {} catch {
+            try token.buyToken{value: buyAmount}(0, creator, 0) {}
+            catch {
                 vm.deal(buyer, 5000 ether);
-                try token.buyToken{value: 500 ether}(0, creator, 0) {} catch { break; }
+                try token.buyToken{value: 500 ether}(0, creator, 0) {}
+                catch {
+                    break;
+                }
             }
         }
         vm.stopPrank();
+        _finalizeLegacyV13Token(pump, token);
     }
 
     function _buildPoolKey() internal view returns (PoolKey memory) {
@@ -147,30 +145,16 @@ contract HookPropertyTest is Test {
             currency1: Currency.wrap(address(token)),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 3000,
+            fee: token.LISTING_LP_FEE(),
             parameters: parameters
         });
     }
 
-    function _directionalTokenFee(uint256 boughtAmount) internal pure returns (uint256) {
-        return (boughtAmount * DIRECTIONAL_FEE_BPS) / DIVISOR;
-    }
-
-    function _fundVaultForBuyFee(uint256 boughtAmount) internal {
-        uint256 fee = _directionalTokenFee(boughtAmount);
-        if (fee == 0) return;
-        deal(address(token), address(mockVault), IERC20(address(token)).balanceOf(address(mockVault)) + fee);
-    }
-
     function _simulateBuy(uint256 boughtAmount) internal {
         PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory params =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
         BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(boughtAmount)));
-        _fundVaultForBuyFee(boughtAmount);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
     }
@@ -191,11 +175,8 @@ contract HookPropertyTest is Test {
 
     function _simulateSell(uint256 soldAmount) internal {
         PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: false,
-            amountSpecified: -int256(soldAmount),
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory params =
+            ICLPoolManager.SwapParams({zeroForOne: false, amountSpecified: -int256(soldAmount), sqrtPriceLimitX96: 0});
         BalanceDelta delta = toBalanceDelta(-1 ether, int128(int256(soldAmount)));
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, params, delta, bytes(""));
@@ -206,26 +187,20 @@ contract HookPropertyTest is Test {
     // ═══════════════════════════════════════════════════════════════════
 
     /// Feature: tagai-v2-nutbox-integration, Property 4: Inventory Cap
-    /// Without top-ups, cumulative inject cannot drain more than (start inventory + accrued directional fees).
+    /// Without top-ups, cumulative inject cannot drain more than the starting inventory.
     function testFuzz_P4_allocationCap_invariant(uint256 boughtAmount) public {
         boughtAmount = bound(boughtAmount, 0, 100_000_000_000 ether);
 
         uint256 balBefore = IERC20(address(token)).balanceOf(address(hook));
         _simulateBuy(boughtAmount);
         uint256 balAfter = IERC20(address(token)).balanceOf(address(hook));
-        uint256 fee = _directionalTokenFee(boughtAmount);
-
-        // Buy accrues directional token fee onto Hook (no inject same-period).
-        assertEq(balAfter, balBefore + fee);
-        assertLe(balAfter, NUTBOX_ALLOCATION + fee);
+        // V13 charges swap fees in BNB, so a same-period buy only records volume.
+        assertEq(balAfter, balBefore);
+        assertLe(balAfter, NUTBOX_ALLOCATION);
     }
 
-    /// Multiple buys: cumulative injection should never exceed Hook's starting inventory + fees
-    function testFuzz_P4_multipleBuys_neverExceedsCap(
-        uint256 amount1,
-        uint256 amount2,
-        uint256 amount3
-    ) public {
+    /// Multiple buys: cumulative injection should never exceed Hook's starting inventory
+    function testFuzz_P4_multipleBuys_neverExceedsCap(uint256 amount1, uint256 amount2, uint256 amount3) public {
         amount1 = bound(amount1, _minPeriodVolumeForSettle(), 50_000_000_000 ether);
         amount2 = bound(amount2, 1, 50_000_000_000 ether);
         amount3 = bound(amount3, 1, 50_000_000_000 ether);
@@ -239,8 +214,8 @@ contract HookPropertyTest is Test {
         _simulateBuy(amount3);
 
         uint256 endBal = IERC20(address(token)).balanceOf(address(hook));
-        // endBal = start + fees - injects; injects cannot exceed start + fees collected before each settle
-        assertLe(endBal, startBal + _directionalTokenFee(amount1) + _directionalTokenFee(amount2) + _directionalTokenFee(amount3));
+        // BNB fees never increase token inventory; only settlement injections reduce it.
+        assertLe(endBal, startBal);
         // Never go negative relative to zero inventory
         assertGe(endBal, 0);
     }
@@ -260,7 +235,8 @@ contract HookPropertyTest is Test {
         _warpNextPeriod();
 
         uint256 balBeforeSettle = IERC20(address(token)).balanceOf(address(hook));
-        uint256 expectedSettle = _expectedSettleInject(boughtAmount > MAX_PERIOD_BUY_VOLUME ? MAX_PERIOD_BUY_VOLUME : boughtAmount);
+        uint256 expectedSettle =
+            _expectedSettleInject(boughtAmount > MAX_PERIOD_BUY_VOLUME ? MAX_PERIOD_BUY_VOLUME : boughtAmount);
 
         if (isBuy) {
             _simulateBuy(1 ether);
@@ -272,13 +248,10 @@ contract HookPropertyTest is Test {
 
         if (isBuy && expectedSettle > 0 && balBeforeSettle > 0) {
             assertEq(balAfterAccum, balBeforeSettle, "accum period unchanged");
-            uint256 triggerFee = _directionalTokenFee(1 ether);
-            uint256 inject = expectedSettle > balBeforeSettle + triggerFee ? balBeforeSettle + triggerFee : expectedSettle;
-            // Fee taken before settle: net = +triggerFee - inject
-            assertEq(balBeforeSettle + triggerFee - balAfter, inject);
+            uint256 inject = expectedSettle > balBeforeSettle ? balBeforeSettle : expectedSettle;
+            assertEq(balBeforeSettle - balAfter, inject);
         } else if (isBuy) {
-            // No inject; only trigger fee
-            assertEq(balAfter, balBeforeSettle + _directionalTokenFee(1 ether));
+            assertEq(balAfter, balBeforeSettle);
         } else {
             assertEq(balAfter, balBeforeSettle);
         }
@@ -302,14 +275,13 @@ contract HookPropertyTest is Test {
         periodVolume = bound(periodVolume, 1, maxVolume - 1);
 
         _simulateBuy(periodVolume);
-        // Strip to listing-only path: keep fees but ensure settle still below MIN by using small volume
+        // Keep the prior period below the settlement threshold.
         uint256 balBefore = IERC20(address(token)).balanceOf(address(hook));
         _warpNextPeriod();
         _simulateBuy(1 ether);
         uint256 balAfter = IERC20(address(token)).balanceOf(address(hook));
 
-        // No inject; only trigger directional fee
-        assertEq(balAfter, balBefore + _directionalTokenFee(1 ether));
+        assertEq(balAfter, balBefore);
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -317,7 +289,7 @@ contract HookPropertyTest is Test {
     // ═══════════════════════════════════════════════════════════════════
 
     /// Feature: tagai-v2-nutbox-integration, Property 7: Hook Asset Custody
-    /// Hook token balance decreases via inject; increases via buy directional fees
+    /// Hook token balance only decreases via injection (and can increase through explicit top-ups)
     function testFuzz_P7_balanceOnlyDecreasesViaInject(uint256 boughtAmount) public {
         boughtAmount = bound(boughtAmount, _minPeriodVolumeForSettle(), 1_000_000_000 ether);
 
@@ -329,11 +301,11 @@ contract HookPropertyTest is Test {
         _simulateBuy(1 ether);
 
         uint256 hookBalAfter = IERC20(address(token)).balanceOf(address(hook));
-        uint256 expected = _expectedSettleInject(boughtAmount > MAX_PERIOD_BUY_VOLUME ? MAX_PERIOD_BUY_VOLUME : boughtAmount);
-        uint256 triggerFee = _directionalTokenFee(1 ether);
-        uint256 expectedInject = expected > hookBalBefore + triggerFee ? hookBalBefore + triggerFee : expected;
+        uint256 expected =
+            _expectedSettleInject(boughtAmount > MAX_PERIOD_BUY_VOLUME ? MAX_PERIOD_BUY_VOLUME : boughtAmount);
+        uint256 expectedInject = expected > hookBalBefore ? hookBalBefore : expected;
 
-        assertEq(hookBalBefore + triggerFee - hookBalAfter, expectedInject, "Net change must match settle inject vs trigger fee");
+        assertEq(hookBalBefore - hookBalAfter, expectedInject, "Balance decrease must match settle inject");
     }
 
     /// Sell does not change Hook's token balance

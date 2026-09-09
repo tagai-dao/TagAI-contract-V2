@@ -40,7 +40,7 @@ contract DeployBSCScript is Script {
     // ─── BSC Deployed Addresses (Reused) ─────────────────────────────────────────
     address constant COMMITTEE = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
     address constant COMMUNITY_FACTORY = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
-    address constant SOCIAL_CURATION_FACTORY = 0xc4674D3fBbD201Ea401a8B7e7285F956178593D8;
+    address constant ERC20_STAKING_FACTORY = 0xDc3f940ac6Da516d5C9cc59c8AFE0F85A576E2A4;
     address constant CL_POOL_MANAGER = 0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b;
     address constant VAULT = 0x238a358808379702088667322f80aC48bAd5e6c4;
 
@@ -72,7 +72,7 @@ contract DeployBSCScript is Script {
         console.log("--- Reused Contracts ---");
         console.log("  Committee:              ", COMMITTEE);
         console.log("  CommunityFactory:       ", COMMUNITY_FACTORY);
-        console.log("  SocialCurationFactory:  ", SOCIAL_CURATION_FACTORY);
+        console.log("  ERC20StakingFactory:    ", ERC20_STAKING_FACTORY);
         console.log("  CLPoolManager:          ", CL_POOL_MANAGER);
         console.log("  Vault:                  ", VAULT);
         console.log("  IPShare (v1):           ", IPSHARE);
@@ -85,7 +85,7 @@ contract DeployBSCScript is Script {
         console.log("(1) HourlyTickCalculator:", address(calculator));
 
         // ─── (2) Deploy Pump ─────────────────────────────────────────────────────
-        Pump pump = new Pump(IPSHARE, FEE_RECEIVER);
+        Pump pump = new Pump(IPSHARE, FEE_RECEIVER, new address[](0));
         pump.adminSetPoolManager(CL_POOL_MANAGER);
         pump.adminSetVault(VAULT);
         console.log("(2) Pump:", address(pump));
@@ -93,11 +93,8 @@ contract DeployBSCScript is Script {
         // ─── (3) Deploy TagAISwapHook (CREATE2) ──────────────────────────────────
         // The salt must be mined so that the deployed address has lower 16 bits = 0x0CC1
         // Run MineHookSalt.s.sol with PUMP_ADDRESS=<pump address> to find the correct salt
-        TagAISwapHook hook = new TagAISwapHook{salt: HOOK_SALT}(
-            ICLPoolManager(CL_POOL_MANAGER),
-            IVault(VAULT),
-            address(pump)
-        );
+        TagAISwapHook hook =
+            new TagAISwapHook{salt: HOOK_SALT}(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), address(pump));
         console.log("(3) TagAISwapHook (CREATE2):", address(hook));
 
         // Verify hook address has correct bitmap
@@ -108,12 +105,7 @@ contract DeployBSCScript is Script {
         // ─── (4) Configure Pump ──────────────────────────────────────────────────
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(
-            COMMUNITY_FACTORY,
-            address(calculator),
-            SOCIAL_CURATION_FACTORY,
-            COMMITTEE
-        );
+        pump.adminSetNutbox(COMMUNITY_FACTORY, address(calculator), ERC20_STAKING_FACTORY, COMMITTEE);
         console.log("(4) Pump configured: hookAddress, calculator, nutbox set");
 
         vm.stopBroadcast();
@@ -141,7 +133,7 @@ contract DeployBSCScript is Script {
         console.log("  Pump.calculator:     ", address(calculator));
         console.log("  Pump.committee:      ", COMMITTEE);
         console.log("  Pump.communityFactory:", COMMUNITY_FACTORY);
-        console.log("  Pump.socialCurationFactory:", SOCIAL_CURATION_FACTORY);
+        console.log("  Pump.erc20StakingFactory:", ERC20_STAKING_FACTORY);
         console.log("");
         console.log("// Historical V9 script: compare output with deployments/56/version9.json");
     }

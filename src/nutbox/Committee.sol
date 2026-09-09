@@ -12,7 +12,7 @@ contract Committee is ICommittee, Ownable2Step {
     // Three-tier fee structure (in wei)
     uint256 private createCommunityFee = 500000000000000; // Tier 1: creating a community
     uint256 private communitySettingsFee = 500000000000000; // Tier 2: community owner operations (addPool, closePool, setRatios, setFeeRatio)
-    uint256 private poolOperationFee= 500000000000000; // Tier 3: pool user operations (deposit, withdraw, withdrawRewards)
+    uint256 private poolOperationFee = 500000000000000; // Tier 3: pool user operations (deposit, withdraw, withdrawRewards)
 
     // contract => isWhitelistContract (factory whitelist)
     mapping(address => bool) private whitelistContracts;
@@ -38,9 +38,7 @@ contract Committee is ICommittee, Ownable2Step {
 
     // ──────── Admin: Fee Configuration ────────
 
-    function adminSetFeeRecipient(
-        address payable _feeRecipient
-    ) external onlyOwner {
+    function adminSetFeeRecipient(address payable _feeRecipient) external onlyOwner {
         require(_feeRecipient != address(0), "Invalid feeRecipient");
         feeRecipient = _feeRecipient;
         emit AdminSetFeeRecipient(_feeRecipient);
@@ -87,12 +85,7 @@ contract Committee is ICommittee, Ownable2Step {
 
     // ──────── View Functions ────────
 
-    function getFeeRecipient()
-        external
-        view
-        override
-        returns (address payable)
-    {
+    function getFeeRecipient() external view override returns (address payable) {
         return feeRecipient;
     }
 
@@ -100,12 +93,7 @@ contract Committee is ICommittee, Ownable2Step {
         return createCommunityFee;
     }
 
-    function getCommunitySettingsFee()
-        external
-        view
-        override
-        returns (uint256)
-    {
+    function getCommunitySettingsFee() external view override returns (uint256) {
         return communitySettingsFee;
     }
 
@@ -117,9 +105,7 @@ contract Committee is ICommittee, Ownable2Step {
         return whitelistContracts[c];
     }
 
-    function getFeeFree(
-        address freeAddress
-    ) external view override returns (bool) {
+    function getFeeFree(address freeAddress) external view override returns (bool) {
         return feeFreeList[freeAddress];
     }
 }

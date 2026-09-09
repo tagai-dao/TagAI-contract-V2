@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
@@ -36,7 +38,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * Note: CommunityFactory and SocialCurationFactory are deployed via vm.getCode
  * to avoid ERC20 name collision between OpenZeppelin (MintableERC20) and Solady (Token).
  */
-contract FullLifecycleTest is Test {
+contract FullLifecycleTest is Version13LegacyTestSetup {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
 
@@ -105,26 +107,18 @@ contract FullLifecycleTest is Test {
         ipshare = new IPShare(feeRecipient);
 
         // ─── Deploy Pump ───
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 
         // ─── Deploy Hook ───
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
 
         // ─── Wire Pump ───
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
-        pump.adminSetNutbox(
-            communityFactory,
-            address(calculator),
-            scf,
-            address(committee)
-        );
+        pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
 
         // Fund the mock vault so it can send ETH for fee collection
         vm.deal(address(mockVault), 100 ether);
@@ -144,7 +138,7 @@ contract FullLifecycleTest is Test {
         ipshare.createShare{value: ipsharePrice}(creator);
 
         // Create token with enough ETH for fees
-        address tokenAddr = pump.createToken{value: 0.005 ether}("TEST", bytes32(uint256(1)));
+        address tokenAddr = _createLegacyV13Token(pump, "TEST", bytes32(uint256(1)), 0.005 ether);
         Token token = Token(payable(tokenAddr));
         vm.stopPrank();
 
@@ -178,7 +172,6 @@ contract FullLifecycleTest is Test {
         assertEq(initialBal, NUTBOX_ALLOCATION, "Initial hook balance should be NUTBOX_ALLOCATION");
 
         uint256 bought = 10_000 ether;
-        uint256 directionalFee = (bought * 30) / 10000;
 
         // Simulate a buy swap via MockPoolManager
         // Buy: zeroForOne = true (ETH → Token)
@@ -192,16 +185,14 @@ contract FullLifecycleTest is Test {
 
         // Mock returns delta with tokenOut = 10_000 ether (accumulated in period 1)
         BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(bought)));
-        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
 
-        // Same period: no inject yet — directional fee accrues on Hook
-        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), initialBal + directionalFee, "Same period: fee only, no inject");
+        // V13 charges swap fees in BNB. Same-period buys only record volume.
+        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), initialBal, "Same period: no token movement");
 
         // Next period first buy settles prior period.
         vm.warp(block.timestamp + 600);
-        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
         uint256 balBeforeSettle = IERC20(tokenAddr).balanceOf(address(hook));
         vm.prank(address(mockPoolManager));
         hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
@@ -210,8 +201,8 @@ contract FullLifecycleTest is Test {
 
         (,, uint256 injectAmount) = hook.previewPeriodSettle(bought);
         if (injectAmount >= 168 ether / 10) {
-            assertTrue(balAfterBuy < balBeforeSettle + directionalFee, "Hook balance should decrease after period settle");
-            assertEq(balBeforeSettle + directionalFee - balAfterBuy, injectAmount, "Should inject period settlement amount");
+            assertTrue(balAfterBuy < balBeforeSettle, "Hook balance should decrease after period settle");
+            assertEq(balBeforeSettle - balAfterBuy, injectAmount, "Should inject period settlement amount");
         }
     }
 
@@ -255,24 +246,18 @@ contract FullLifecycleTest is Test {
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
         uint256 bought = 10_000 ether;
-        uint256 directionalFee = (bought * 30) / 10000;
         uint256 prevBal = IERC20(tokenAddr).balanceOf(address(hook));
 
-        // Simulate 5 buy swaps in the same period — balance non-decreasing via directional fees (no inject yet)
+        // Simulate 5 buy swaps in the same period. They only accumulate buy volume.
         for (uint256 i = 0; i < 5; i++) {
-            deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
             vm.prank(address(mockPoolManager));
-            ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -1 ether,
-                sqrtPriceLimitX96: 0
-            });
+            ICLPoolManager.SwapParams memory buyParams =
+                ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
             BalanceDelta buyDelta = toBalanceDelta(-1 ether, -int128(int256(bought)));
             hook.afterSwap(address(0), poolKey, buyParams, buyDelta, bytes(""));
 
             uint256 currentBal = IERC20(tokenAddr).balanceOf(address(hook));
-            assertTrue(currentBal >= prevBal, "Same-period buys accrue directional fees (non-decreasing)");
-            assertEq(currentBal, prevBal + directionalFee);
+            assertEq(currentBal, prevBal, "Same-period buys do not move token inventory");
             prevBal = currentBal;
         }
     }
@@ -285,26 +270,17 @@ contract FullLifecycleTest is Test {
 
         uint256 initialBal = IERC20(tokenAddr).balanceOf(address(hook));
         uint256 bought = 100 ether;
-        uint256 directionalFee = (bought * 30) / 10000;
 
         PoolKey memory poolKey = _buildPoolKey(tokenAddr);
 
         // Small buy: 100 ether tokens (below MIN_INJECT_AMOUNT of 8400 ether)
-        deal(tokenAddr, address(mockVault), IERC20(tokenAddr).balanceOf(address(mockVault)) + directionalFee);
         vm.prank(address(mockPoolManager));
-        ICLPoolManager.SwapParams memory buyParams = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -0.01 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory buyParams =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -0.01 ether, sqrtPriceLimitX96: 0});
         BalanceDelta smallDelta = toBalanceDelta(-0.01 ether, -int128(int256(bought)));
         hook.afterSwap(address(0), poolKey, buyParams, smallDelta, bytes(""));
 
-        assertEq(
-            IERC20(tokenAddr).balanceOf(address(hook)),
-            initialBal + directionalFee,
-            "Small buy: directional fee only, no inject"
-        );
+        assertEq(IERC20(tokenAddr).balanceOf(address(hook)), initialBal, "Small buy: no inject");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -322,7 +298,7 @@ contract FullLifecycleTest is Test {
 
         // Use unique salt for each token
         bytes32 salt = bytes32(uint256(keccak256(abi.encodePacked(tick))));
-        address tokenAddr = pump.createToken{value: 0.005 ether}(tick, salt);
+        address tokenAddr = _createLegacyV13Token(pump, tick, salt, 0.005 ether);
         Token token = Token(payable(tokenAddr));
         vm.stopPrank();
 
@@ -354,14 +330,17 @@ contract FullLifecycleTest is Test {
             }
 
             try token.buyToken{value: buyAmount}(0, creator, 0) {
-                // Success
-            } catch {
+            // Success
+            }
+            catch {
                 // If buy fails, try with more ETH (near the cap, price is high)
                 vm.deal(buyer, buyer.balance + 500 ether);
-                try token.buyToken{value: 50 ether}(0, creator, 0) {} catch {
+                try token.buyToken{value: 50 ether}(0, creator, 0) {}
+                catch {
                     // Final attempt with very large amount
                     vm.deal(buyer, buyer.balance + 5000 ether);
-                    try token.buyToken{value: 500 ether}(0, creator, 0) {} catch {
+                    try token.buyToken{value: 500 ether}(0, creator, 0) {}
+                    catch {
                         break;
                     }
                 }
@@ -369,6 +348,7 @@ contract FullLifecycleTest is Test {
         }
 
         vm.stopPrank();
+        _finalizeLegacyV13Token(pump, token);
     }
 
     function _buildPoolKey(address tokenAddr) internal view returns (PoolKey memory) {
@@ -380,17 +360,15 @@ contract FullLifecycleTest is Test {
             currency1: Currency.wrap(tokenAddr),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 3000,
+            fee: Token(payable(tokenAddr)).LISTING_LP_FEE(),
             parameters: parameters
         });
     }
 
     /// @dev Deploy CommunityFactory using vm.getCode to avoid ERC20 collision
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address deployed;
         assembly {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
@@ -402,8 +380,7 @@ contract FullLifecycleTest is Test {
     /// @dev Deploy SocialCurationFactory using vm.getCode to avoid ERC20 collision
     function _deploySocialCurationFactory(address _communityFactory, address _claimSigner) internal returns (address) {
         bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_communityFactory, _claimSigner)
+            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_communityFactory, _claimSigner)
         );
         address deployed;
         assembly {

@@ -22,7 +22,23 @@ import {Currency, CurrencyLibrary} from "infinity-core/src/types/Currency.sol";
 import {BalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
 import {CLPoolParametersHelper} from "infinity-core/src/pool-cl/libraries/CLPoolParametersHelper.sol";
 import {TickMath} from "infinity-core/src/pool-cl/libraries/TickMath.sol";
+import {SqrtPriceMath} from "infinity-core/src/pool-cl/libraries/SqrtPriceMath.sol";
 import {IPoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {INutboxRouter} from "../router/INutboxRouter.sol";
+
+interface IPancakeV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+    function createPair(address tokenA, address tokenB) external returns (address pair);
+}
+
+interface IPancakeV2Pair {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function mint(address to) external returns (uint256 liquidity);
+}
 
 interface ITipTagSwapHook {
     function registerPool(PoolId poolId, address token) external;
@@ -32,8 +48,56 @@ error OnlyPump();
 error NutboxAddressesAlreadySet();
 
 contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
+    using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
+
+    uint256 public constant V4_TOKEN_ALLOCATION = 150_000_000 ether;
+    uint256 public constant COMPONENT_TOKEN_ALLOCATION = 50_000_000 ether;
+    uint256 public constant V4_NATIVE_ALLOCATION = 15 ether;
+    address public constant LP_BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    /// @notice Token-side transfer tax for every post-list transfer into or out of a component V2 pair.
+    uint256 public constant COMPONENT_POOL_TAX_BPS = 10;
+
+    uint256 private constant BPS = 10_000;
+    uint256 private constant MAX_COMPONENTS = 4;
+
+    address public indexCreator;
+    address public pancakeV2Factory;
+    address private _listingRouter;
+    address private _listingBasketHook;
+    address private _listingSettlementToken;
+    string public indexName;
+    string public indexSymbol;
+    uint16 public basketFeeBps;
+    uint16 public creatorShareBps;
+    address public indexToken;
+    bool private _indexInitialized;
+    uint256 public accIndexRewardPerToken;
+    uint256 public totalIndexRewardsNotified;
+    mapping(address => uint256) public pendingIndexRewards;
+    mapping(address => uint256) public indexRewardDebt;
+
+    address[] private _componentAssets;
+    uint16[] private _componentWeights;
+    address[] private _componentPairs;
+    mapping(address => bool) public componentPair;
+
+    event ComponentPairCreated(address indexed asset, address indexed pair, uint16 weight);
+    event ComponentLiquidityBurned(
+        address indexed asset,
+        address indexed pair,
+        uint256 nativeBudget,
+        uint256 tokenAmount,
+        uint256 assetAmount,
+        uint256 liquidity
+    );
+
+    error InvalidIndexConfig();
+    error IndexAlreadyInitialized();
+    error InvalidComponentPair();
+    error ComponentSwapFailed();
+    error IndexCreationFailed();
 
     string private _name;
     string private _symbol;
@@ -57,11 +121,11 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     address public ipshareSubject;
     IBondingCurve public bondingCurve;
     bool public listed = false;
+    bool public listingPending = false;
     bool initialized = false;
 
-    /// @dev Filled once by Pump after Nutbox community + SocialCuration pool exist.
+    /// @dev Filled once by Pump after the Nutbox community and component-LP staking pools exist.
     address public nutboxCommunity;
-    address public nutboxSocialPool;
 
     // PCS V4 pool info
     ICLPoolManager public clPoolManager;
@@ -71,22 +135,16 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     /// @dev Snapshotted at listing so later Pump hook upgrades cannot change this pool's identity or fee destination.
     address public listingHook;
     bytes32 public listingPoolParameters;
-    // In V4, tickSpacing and fee are fully decoupled.
-    // fee=3000 sets native LP fee to 0.3%; TipTagSwapHook collects additional swap fees on top.
-    // tickSpacing=60 controls price-tick granularity only (independent of fee tier).
-    uint24 public constant LISTING_LP_FEE = 3000;
+    uint24 public constant LISTING_LP_FEE = 0;
     /// @dev 0.5% of collected BNB LP fees rewards the permissionless caller.
     uint256 public constant COLLECT_CALLER_REWARD_BPS = 50;
+    uint256 private constant ACC_REWARD_PRECISION = 1e36;
     int24 public constant TICK_SPACING = 60;
-    // Listing LP: 200M token 全进池 + 配对 BNB（~19.174，来自内盘收入）；tickLower=MIN；
-    // tickUpper 校准使 800M 外部卖压抽干池内 BNB。
-    uint160 private constant INITIAL_SQRT_PRICE_X96 = 229333670737072535143449936330532;
-    uint256 private constant LISTING_ETH_BUDGET = 19174083034210496243; // ~19.174 BNB
-    uint256 private constant LISTING_TOKEN_AMOUNT = 200000000 ether;
+    // V13: 150M tokens / 15 BNB in V4; 50M tokens / 5 BNB across component V2 pools.
+    uint160 private constant INITIAL_SQRT_PRICE_X96 = 225060284636549774439465527763777;
     int24 private constant LISTING_TICK_LOWER = -887220;
     int24 private constant LISTING_TICK_UPPER = 191940;
-    // 离线标定（ListingParamsCalc.test_computeTokenFirstListingConstants）：200M token-first 单次 add
-    uint128 private constant LISTING_LIQUIDITY_DELTA = 69094226120069552406389;
+    uint128 private constant LISTING_LIQUIDITY_DELTA = 52804626975085827442929;
 
     /// @dev vault.lock callback op codes — seed listing LP vs collect fees only.
     uint8 private constant LOCK_OP_SEED = 0;
@@ -164,13 +222,99 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         vault = IVault(IPump(manager).getVault());
     }
 
-    /// @notice Records Nutbox `Community` and SocialCuration pool; callable once by Pump only.
-    function setNutboxAddresses(address community, address pool) external {
+    /// @notice Configures the V13 index and its component pairs once, from the canonical Pump.
+    function initializeIndex(
+        address pump,
+        address creator,
+        address v2Factory,
+        address router,
+        address basketHook,
+        address settlement,
+        address hook,
+        IPump.IndexConfig calldata config
+    ) external {
+        if (_indexInitialized) revert IndexAlreadyInitialized();
+        if (
+            msg.sender != manager || pump != manager || !initialized || pump == address(0) || creator == address(0)
+                || v2Factory.code.length == 0 || router.code.length == 0 || basketHook.code.length == 0
+                || settlement.code.length == 0 || hook.code.length == 0
+        ) {
+            revert InvalidIndexConfig();
+        }
+        uint256 count = config.constituentAssets.length;
+        if (
+            count == 0 || count > MAX_COMPONENTS || count != config.targetWeights.length
+                || bytes(config.name).length == 0 || bytes(config.symbol).length == 0 || config.basketFeeBps < 100
+                || config.basketFeeBps > 300 || config.creatorShareBps > 3_000
+        ) revert InvalidIndexConfig();
+
+        _indexInitialized = true;
+        indexCreator = creator;
+        pancakeV2Factory = v2Factory;
+        _listingRouter = router;
+        _listingBasketHook = basketHook;
+        _listingSettlementToken = settlement;
+        listingHook = hook;
+        indexName = config.name;
+        indexSymbol = config.symbol;
+        basketFeeBps = config.basketFeeBps;
+        creatorShareBps = config.creatorShareBps;
+
+        uint256 totalWeight;
+        IPancakeV2Factory factory = IPancakeV2Factory(v2Factory);
+        for (uint256 i; i < count; ++i) {
+            address asset = config.constituentAssets[i];
+            uint16 weight = config.targetWeights[i];
+            if (asset == address(0) || asset == address(this) || asset.code.length == 0 || weight == 0) {
+                revert InvalidIndexConfig();
+            }
+            for (uint256 j; j < i; ++j) {
+                if (_componentAssets[j] == asset) revert InvalidIndexConfig();
+            }
+            totalWeight += weight;
+
+            address pair = factory.getPair(address(this), asset);
+            if (pair == address(0)) pair = factory.createPair(address(this), asset);
+            if (pair.code.length == 0) revert InvalidComponentPair();
+            address token0 = IPancakeV2Pair(pair).token0();
+            address token1 = IPancakeV2Pair(pair).token1();
+            if (!((token0 == address(this) && token1 == asset) || (token0 == asset && token1 == address(this)))) {
+                revert InvalidComponentPair();
+            }
+
+            _componentAssets.push(asset);
+            _componentWeights.push(weight);
+            _componentPairs.push(pair);
+            componentPair[pair] = true;
+            emit ComponentPairCreated(asset, pair, weight);
+        }
+        if (totalWeight != BPS) revert InvalidIndexConfig();
+    }
+
+    function componentCount() external view returns (uint256) {
+        return _componentAssets.length;
+    }
+
+    function componentAt(uint256 index) external view returns (address asset, uint16 weight, address pair) {
+        return (_componentAssets[index], _componentWeights[index], _componentPairs[index]);
+    }
+
+    /// @notice Infrastructure snapshot selected when this Token was created.
+    /// @dev Later Pump configuration changes only affect newly-created Tokens.
+    function listingInfrastructure()
+        external
+        view
+        returns (address router, address basketHook, address settlement, address poolManager)
+    {
+        return (_listingRouter, _listingBasketHook, _listingSettlementToken, address(clPoolManager));
+    }
+
+    /// @notice Records the Nutbox community; its staking pools are enumerable through Community.activedPools.
+    function setNutboxCommunity(address community) external {
         if (msg.sender != manager) revert OnlyPump();
         if (nutboxCommunity != address(0)) revert NutboxAddressesAlreadySet();
-        require(community != address(0) && pool != address(0));
+        require(community != address(0));
         nutboxCommunity = community;
-        nutboxSocialPool = pool;
     }
 
     /********************************** bonding curve ********************************/
@@ -180,7 +324,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         nonReentrant
         returns (uint256)
     {
-        require(msg.sender != address(clPoolManager), "can't buy token from pool");
+        if (msg.sender == address(clPoolManager)) revert TokenListed();
         sellsman = _checkBondingCurveState(sellsman);
         (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
         uint256 buyFunds = msg.value;
@@ -349,6 +493,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         uint256 sellsmanFeePercent,
         address sellsman
     ) private returns (uint256) {
+        if (actualAmount == 0) revert TokenListingPending();
         if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
 
         uint256 priceBeforeFee = bondingCurve.getPrice(bondingCurveSupply, actualAmount);
@@ -370,11 +515,13 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         address feeRecipient = _getFeeRecipient(sellsman);
         _handleSellsmanFee(sellsmanFee, feeRecipient);
         emit Trade(msg.sender, feeRecipient, true, actualAmount, usedEth, tiptagFee, sellsmanFee);
-        _makeLiquidityPool();
+        listingPending = true;
+        emit TokenListingQueued(address(this));
         return actualAmount;
     }
 
     function _checkBondingCurveState(address sellsman) private returns (address) {
+        if (listingPending) revert TokenListingPending();
         if (listed) {
             revert TokenListed();
         }
@@ -404,6 +551,70 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /********************************** to dex (PancakeSwap V4 Infinity) ********************************/
 
+    function finalizeListing(uint256[] calldata componentMinOuts, uint256 deadline)
+        external
+        nonReentrant
+        returns (address)
+    {
+        if (msg.sender != manager) revert OnlyPump();
+        if (listed || (!listingPending && bondingCurveSupply != bondingCurveTotalAmount)) {
+            revert TokenNotListingPending();
+        }
+        if (block.timestamp > deadline) revert ListingDeadlineExpired();
+        if (componentMinOuts.length != _componentAssets.length) revert InvalidComponentMinOuts();
+        _makeLiquidityPool(componentMinOuts, deadline);
+        return indexToken;
+    }
+
+    /// @notice Clears a failed pending listing without moving funds, reopening bonding-curve sells.
+    function recoverFailedListing() external {
+        if (msg.sender != manager) revert OnlyPump();
+        if (!listingPending || listed) revert TokenNotListingPending();
+        listingPending = false;
+    }
+
+    function notifyBuybackReward(uint256 amount) external nonReentrant {
+        if (msg.sender != listingHook) revert OnlyPump();
+        if (indexToken == address(0)) revert IndexTokenNotReady();
+        uint256 eligibleSupply = _rewardEligibleSupply();
+        if (eligibleSupply == 0) revert NoEligibleRewardSupply();
+
+        uint256 balanceBefore = IERC20(indexToken).balanceOf(address(this));
+        IERC20(indexToken).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 received = IERC20(indexToken).balanceOf(address(this)) - balanceBefore;
+        if (received == 0) revert InvalidRewardAmount();
+
+        accIndexRewardPerToken += received * ACC_REWARD_PRECISION / eligibleSupply;
+        totalIndexRewardsNotified += received;
+        emit BuybackRewardNotified(indexToken, received, accIndexRewardPerToken);
+    }
+
+    function claimBuybackReward(address account) external nonReentrant returns (uint256 amount) {
+        _accrueIndexReward(account);
+        amount = pendingIndexRewards[account];
+        if (amount == 0) return 0;
+        pendingIndexRewards[account] = 0;
+        IERC20(indexToken).safeTransfer(account, amount);
+        emit BuybackRewardClaimed(msg.sender, account, amount);
+    }
+
+    function pendingBuybackReward(address account) external view returns (uint256 amount) {
+        amount = pendingIndexRewards[account];
+        if (_isRewardExcluded(account)) return amount;
+        uint256 accumulated = balanceOf(account) * accIndexRewardPerToken / ACC_REWARD_PRECISION;
+        if (accumulated > indexRewardDebt[account]) {
+            amount += accumulated - indexRewardDebt[account];
+        }
+    }
+
+    /// @notice Native amount available to component V2 pools after the deterministic V4 seed is paid.
+    /// @dev Useful for the listing keeper to calculate per-leg minimum outputs without assuming exactly 5 BNB.
+    function componentListingNativeBudget() public view returns (uint256) {
+        uint256 v4NativeRequired = _v4NativeRequired();
+        uint256 nativeBalance = address(this).balance;
+        return nativeBalance > v4NativeRequired ? nativeBalance - v4NativeRequired : 0;
+    }
+
     /// @notice Permissionless: collect listing LP fees, reward caller, and route BNB→platform, Token→Hook.
     function collectFees() external nonReentrant returns (uint256 bnbAmount, uint256 tokenAmount) {
         if (!listed) revert TokenNotListed();
@@ -421,56 +632,139 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         emit ListingFeesCollected(msg.sender, bnbAmount, tokenAmount, callerReward);
     }
 
-    function _makeLiquidityPool() private {
+    function _makeLiquidityPool(uint256[] calldata componentMinOuts, uint256 deadline) private {
         if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
-        require(address(this).balance >= LISTING_ETH_BUDGET, "Insufficient ETH for listing");
-        require(balanceOf(address(this)) >= LISTING_TOKEN_AMOUNT + NUTBOX_ALLOCATION, "Insufficient token for listing");
+        if (!_indexInitialized) revert InvalidIndexConfig();
+        if (componentListingNativeBudget() == 0) revert ComponentSwapFailed();
+        if (balanceOf(address(this)) < V4_TOKEN_ALLOCATION + COMPONENT_TOKEN_ALLOCATION + NUTBOX_ALLOCATION) {
+            revert InvalidIndexConfig();
+        }
 
-        // Transfer NUTBOX_ALLOCATION to Hook before creating the pool
-        address hookAddr = IPump(manager).getHookAddress();
-        require(hookAddr != address(0), "Hook not set");
+        address hookAddr = listingHook;
         _transfer(address(this), hookAddr, NUTBOX_ALLOCATION);
 
         uint16 hookBitmap = IHooks(hookAddr).getHooksRegistrationBitmap();
-        listingHook = hookAddr;
         listingPoolParameters = CLPoolParametersHelper.setTickSpacing(bytes32(uint256(hookBitmap)), TICK_SPACING);
-
         PoolKey memory poolKey = _listingPoolKey();
 
-        // 2. Use fixed initial price to avoid runtime price drift and overflow edge-cases.
-        uint160 sqrtPriceX96 = INITIAL_SQRT_PRICE_X96;
-
-        // 3. Use precomputed bounded ticks to avoid per-list tick math.
-        int24 tickLower = LISTING_TICK_LOWER;
-        int24 tickUpper = LISTING_TICK_UPPER;
-
-        // 4. Initialize the pool
-        clPoolManager.initialize(poolKey, sqrtPriceX96);
-
-        // 5. Register pool in Hook for fee collection
+        clPoolManager.initialize(poolKey, INITIAL_SQRT_PRICE_X96);
         PoolId poolId = poolKey.toId();
         v4PoolId = poolId;
         ITipTagSwapHook(hookAddr).registerPool(poolId, address(this));
 
-        // 6. Add bounded-range liquidity via vault.lock() callback.
-        bytes memory callbackData = abi.encode(LOCK_OP_SEED, poolKey, tickLower, tickUpper, address(0));
-        vault.lock(callbackData);
+        vault.lock(abi.encode(LOCK_OP_SEED, poolKey, LISTING_TICK_LOWER, LISTING_TICK_UPPER, address(0)));
 
-        // 7. After LP is settled, send all remaining ETH to platform. Remaining token stays in this contract.
-        address tiptagFeeAddress = IPump(manager).getFeeReceiver();
-        uint256 remainEth = address(this).balance;
-        if (remainEth > 0) {
-            (bool success1,) = tiptagFeeAddress.call{value: remainEth}("");
-            require(success1, "Transfer ETH failed");
+        // Spend every wei left after the deterministic V4 seed across the component pools.
+        _seedComponentPools(componentMinOuts, deadline, address(this).balance);
+        listingPending = false;
+        listed = true;
+        indexToken = IPump(manager).finalizeTokenListing();
+        if (indexToken == address(0)) revert IndexCreationFailed();
+
+        uint256 remainingNative = address(this).balance;
+        if (remainingNative != 0) {
+            (bool sent,) = IPump(manager).getFeeReceiver().call{value: remainingNative}("");
+            if (!sent) revert RefundFail();
         }
 
-        listed = true;
-        emit TokenListedToDex(address(this), PoolId.unwrap(poolId), sqrtPriceX96);
+        emit TokenListedToDex(address(this), PoolId.unwrap(poolId), INITIAL_SQRT_PRICE_X96);
+    }
+
+    function _seedComponentPools(uint256[] calldata componentMinOuts, uint256 deadline, uint256 totalNativeBudget)
+        private
+    {
+        INutboxRouter router = INutboxRouter(_listingRouter);
+        uint256 count = _componentAssets.length;
+        uint256 allocatedNative;
+        uint256 allocatedToken;
+
+        for (uint256 i; i < count; ++i) {
+            require(componentMinOuts[i] != 0);
+            uint256 nativeBudget =
+                i + 1 == count ? totalNativeBudget - allocatedNative : totalNativeBudget * _componentWeights[i] / BPS;
+            uint256 tokenAmount = i + 1 == count
+                ? COMPONENT_TOKEN_ALLOCATION - allocatedToken
+                : COMPONENT_TOKEN_ALLOCATION * _componentWeights[i] / BPS;
+            allocatedNative += nativeBudget;
+            allocatedToken += tokenAmount;
+
+            address asset = _componentAssets[i];
+            uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
+            router.swapExactInput{value: nativeBudget}(
+                address(0), asset, nativeBudget, componentMinOuts[i], address(this), deadline
+            );
+            uint256 assetAmount = IERC20(asset).balanceOf(address(this)) - balanceBefore;
+            if (assetAmount == 0) revert ComponentSwapFailed();
+
+            address pair = _componentPairs[i];
+            _transfer(address(this), pair, tokenAmount);
+            uint256 pairAssetBefore = IERC20(asset).balanceOf(pair);
+            IERC20(asset).safeTransfer(pair, assetAmount);
+            if (IERC20(asset).balanceOf(pair) - pairAssetBefore != assetAmount) revert ComponentSwapFailed();
+            uint256 liquidity = IPancakeV2Pair(pair).mint(LP_BURN_ADDRESS);
+            if (liquidity == 0) revert InvalidComponentPair();
+            emit ComponentLiquidityBurned(asset, pair, nativeBudget, tokenAmount, assetAmount, liquidity);
+        }
+    }
+
+    function _v4NativeRequired() private pure returns (uint256) {
+        return SqrtPriceMath.getAmount0Delta(
+            INITIAL_SQRT_PRICE_X96, TickMath.getSqrtRatioAtTick(LISTING_TICK_UPPER), LISTING_LIQUIDITY_DELTA, true
+        );
+    }
+
+    function _rewardEligibleSupply() private view returns (uint256 supply) {
+        supply = totalSupply() - balanceOf(address(this));
+        if (listingHook != address(0)) {
+            uint256 hookBalance = balanceOf(listingHook);
+            if (hookBalance < supply) supply -= hookBalance;
+            else supply = 0;
+        }
+        if (address(vault) != address(0)) {
+            uint256 vaultBalance = balanceOf(address(vault));
+            if (vaultBalance < supply) supply -= vaultBalance;
+            else supply = 0;
+        }
+        uint256 deadBalance = balanceOf(LP_BURN_ADDRESS);
+        if (deadBalance < supply) supply -= deadBalance;
+        else supply = 0;
+        uint256 count = _componentPairs.length;
+        for (uint256 i; i < count; ++i) {
+            uint256 pairBalance = balanceOf(_componentPairs[i]);
+            if (pairBalance < supply) supply -= pairBalance;
+            else return 0;
+        }
+    }
+
+    function _isRewardExcluded(address account) private view returns (bool) {
+        return account == address(0) || account == address(this) || account == listingHook || account == address(vault)
+            || account == LP_BURN_ADDRESS || componentPair[account];
+    }
+
+    function _accrueIndexReward(address account) private {
+        if (_isRewardExcluded(account)) {
+            indexRewardDebt[account] = 0;
+            return;
+        }
+        uint256 accumulated = balanceOf(account) * accIndexRewardPerToken / ACC_REWARD_PRECISION;
+        uint256 debt = indexRewardDebt[account];
+        if (accumulated > debt) {
+            pendingIndexRewards[account] += accumulated - debt;
+        }
+        indexRewardDebt[account] = accumulated;
+    }
+
+    function _syncIndexRewardDebt(address account) private {
+        if (_isRewardExcluded(account)) {
+            indexRewardDebt[account] = 0;
+            return;
+        }
+        indexRewardDebt[account] = balanceOf(account) * accIndexRewardPerToken / ACC_REWARD_PRECISION;
     }
 
     /// @notice ILockCallback — seed listing LP or collect accrued LP fees (liquidityDelta=0).
-    function lockAcquired(bytes calldata data) external override returns (bytes memory) {
-        require(msg.sender == address(vault), "Only Vault");
+    function lockAcquired(bytes calldata data) public override returns (bytes memory) {
+        require(msg.sender == address(vault));
 
         (uint8 op, PoolKey memory poolKey, int24 tickLower, int24 tickUpper, address collector) =
             abi.decode(data, (uint8, PoolKey, int24, int24, address));
@@ -480,7 +774,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         } else if (op == LOCK_OP_COLLECT) {
             _collectListingFees(poolKey, tickLower, tickUpper, collector);
         } else {
-            revert("Invalid lock op");
+            revert();
         }
 
         return "";
@@ -545,13 +839,13 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
         if (ethOwed < 0) {
             uint256 ethToSettle = uint256(uint128(-ethOwed));
-            require(ethToSettle <= LISTING_ETH_BUDGET, "ETH budget exceeded");
+            if (ethToSettle > V4_NATIVE_ALLOCATION) revert InvalidIndexConfig();
             vault.settle{value: ethToSettle}();
         }
 
         if (tokenOwed < 0) {
             uint256 tokenToSettle = uint256(uint128(-tokenOwed));
-            require(tokenToSettle <= LISTING_TOKEN_AMOUNT, "Token budget exceeded");
+            if (tokenToSettle > V4_TOKEN_ALLOCATION) revert InvalidIndexConfig();
             vault.sync(poolKey.currency1);
             _transfer(address(this), address(vault), tokenToSettle);
             vault.settle();
@@ -574,12 +868,58 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         return _symbol;
     }
 
+    /// @dev Applies the component-pool tax once to the gross amount. Internal protocol transfers, including
+    ///      initial liquidity seeding, deliberately use `_transfer` and are not taxed.
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        _transferWithComponentPoolTax(msg.sender, to, amount);
+        return true;
+    }
+
+    /// @dev Allowance is consumed once against the gross amount, matching ordinary ERC20 semantics.
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        _spendAllowance(from, msg.sender, amount);
+        _transferWithComponentPoolTax(from, to, amount);
+        return true;
+    }
+
+    function _transferWithComponentPoolTax(address from, address to, uint256 amount) private {
+        address pair;
+        if (listed) {
+            if (componentPair[from]) pair = from;
+            else if (componentPair[to]) pair = to;
+        }
+
+        uint256 taxAmount = pair == address(0) ? 0 : amount * COMPONENT_POOL_TAX_BPS / BPS;
+        if (taxAmount == 0) {
+            _transfer(from, to, amount);
+            return;
+        }
+
+        _transfer(from, to, amount - taxAmount);
+        // This is an internal balance move, so it neither re-enters transfer() nor incurs a second tax.
+        _transfer(from, LP_BURN_ADDRESS, taxAmount);
+        emit ComponentPoolTaxBurned(pair, from, to, amount, taxAmount);
+    }
+
     // only listed token can do erc20 transfer functions
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
+        if (!listed && componentPair[to] && from != address(this)) revert TokenNotListed();
         // Before listing, prevent unauthorized token transfers to Vault
         if (!listed && to == address(vault) && from != address(this)) {
             revert TokenNotListed();
         }
+        if (amount != 0 && accIndexRewardPerToken != 0) {
+            _accrueIndexReward(from);
+            _accrueIndexReward(to);
+        }
         return super._beforeTokenTransfer(from, to, amount);
+    }
+
+    function _afterTokenTransfer(address from, address to, uint256 amount) internal override {
+        if (amount != 0 && accIndexRewardPerToken != 0) {
+            _syncIndexRewardDebt(from);
+            _syncIndexRewardDebt(to);
+        }
+        super._afterTokenTransfer(from, to, amount);
     }
 }

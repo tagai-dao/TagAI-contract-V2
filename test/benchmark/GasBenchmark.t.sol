@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {Version13LegacyTestSetup} from "../helpers/Version13LegacyTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "../../src/nutbox/Committee.sol";
@@ -33,7 +35,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * - Calculator inject: 40-60k gas
  * - Calculator calculateReward: 20-40k gas
  */
-contract GasBenchmarkTest is Test {
+contract GasBenchmarkTest is Version13LegacyTestSetup {
     using CurrencyLibrary for Currency;
 
     Committee public committee;
@@ -76,44 +78,37 @@ contract GasBenchmarkTest is Test {
         mockPoolManager = new MockCLPoolManager();
         mockVault = new MockVault();
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient);
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
-        hook = new TagAISwapHook(
-            ICLPoolManager(address(mockPoolManager)),
-            IVault(address(mockVault)),
-            address(pump)
-        );
+        hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));
         pump.adminSetHookAddress(address(hook));
         pump.adminSetCalculator(address(calculator));
         pump.adminSetNutbox(communityFactory, address(calculator), scf, address(committee));
+        _configureLegacyV13(pump, committee, communityFactory, address(calculator));
         vm.deal(address(mockVault), 100 ether);
 
         vm.warp(3600);
 
         vm.startPrank(creator, creator);
         ipshare.createShare{value: ipshare.getPrice(10 ether, 0)}(creator);
-        token = Token(payable(pump.createToken{value: 0.005 ether}("BENCH", bytes32(uint256(1)))));
+        token = Token(payable(_createLegacyV13Token(pump, "BENCH", bytes32(uint256(1)), 0.005 ether)));
         vm.stopPrank();
 
         _fillBondingCurve();
     }
 
     function _deployCommunityFactory(address _committee) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("CommunityFactory.sol:CommunityFactory"),
-            abi.encode(_committee)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("CommunityFactory.sol:CommunityFactory"), abi.encode(_committee));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
     }
 
     function _deploySocialCurationFactory(address _cf, address _signer) internal returns (address) {
-        bytes memory bytecode = abi.encodePacked(
-            vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"),
-            abi.encode(_cf, _signer)
-        );
+        bytes memory bytecode =
+            abi.encodePacked(vm.getCode("SocialCurationFactory.sol:SocialCurationFactory"), abi.encode(_cf, _signer));
         address d;
         assembly { d := create(0, add(bytecode, 0x20), mload(bytecode)) }
         return d;
@@ -128,12 +123,17 @@ contract GasBenchmarkTest is Test {
             if (remaining == 0) break;
             uint256 buyAmount = 5 ether;
             if (buyer.balance < buyAmount) vm.deal(buyer, 1000 ether);
-            try token.buyToken{value: buyAmount}(0, creator, 0) {} catch {
+            try token.buyToken{value: buyAmount}(0, creator, 0) {}
+            catch {
                 vm.deal(buyer, 5000 ether);
-                try token.buyToken{value: 500 ether}(0, creator, 0) {} catch { break; }
+                try token.buyToken{value: 500 ether}(0, creator, 0) {}
+                catch {
+                    break;
+                }
             }
         }
         vm.stopPrank();
+        _finalizeLegacyV13Token(pump, token);
     }
 
     function _buildPoolKey() internal view returns (PoolKey memory) {
@@ -144,7 +144,7 @@ contract GasBenchmarkTest is Test {
             currency1: Currency.wrap(address(token)),
             hooks: IHooks(address(hook)),
             poolManager: IPoolManager(address(mockPoolManager)),
-            fee: 3000,
+            fee: token.LISTING_LP_FEE(),
             parameters: parameters
         });
     }
@@ -224,11 +224,8 @@ contract GasBenchmarkTest is Test {
 
     function test_gas_hookAfterSwap_buyWithInject() public {
         PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory params =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
         BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(20_000 ether)));
 
         // Accumulate period 1 (no inject).
@@ -249,11 +246,8 @@ contract GasBenchmarkTest is Test {
 
     function test_gas_hookAfterSwap_buyAccumulateOnly() public {
         PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -1 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory params =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -1 ether, sqrtPriceLimitX96: 0});
         BalanceDelta delta = toBalanceDelta(-1 ether, -int128(int256(10_000 ether)));
 
         vm.prank(address(mockPoolManager));
@@ -267,11 +261,8 @@ contract GasBenchmarkTest is Test {
 
     function test_gas_hookAfterSwap_buyBelowMin_skipInject() public {
         PoolKey memory poolKey = _buildPoolKey();
-        ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: true,
-            amountSpecified: -0.01 ether,
-            sqrtPriceLimitX96: 0
-        });
+        ICLPoolManager.SwapParams memory params =
+            ICLPoolManager.SwapParams({zeroForOne: true, amountSpecified: -0.01 ether, sqrtPriceLimitX96: 0});
         // 100 ether < 8400 ether MIN
         BalanceDelta delta = toBalanceDelta(-0.01 ether, -int128(int256(100 ether)));
 
@@ -288,9 +279,7 @@ contract GasBenchmarkTest is Test {
     function test_gas_hookAfterSwap_sell() public {
         PoolKey memory poolKey = _buildPoolKey();
         ICLPoolManager.SwapParams memory params = ICLPoolManager.SwapParams({
-            zeroForOne: false,
-            amountSpecified: -int256(10_000 ether),
-            sqrtPriceLimitX96: 0
+            zeroForOne: false, amountSpecified: -int256(10_000 ether), sqrtPriceLimitX96: 0
         });
         BalanceDelta delta = toBalanceDelta(-1 ether, int128(int256(10_000 ether)));
 

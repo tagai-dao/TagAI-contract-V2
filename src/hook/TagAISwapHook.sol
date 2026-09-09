@@ -13,26 +13,32 @@ import {Currency, CurrencyLibrary} from "infinity-core/src/types/Currency.sol";
 import {SafeCast} from "infinity-core/src/libraries/SafeCast.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IPump.sol";
 import "../interfaces/IIPShare.sol";
 import "../interfaces/IToken.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
 import "../interfaces/ICommunity.sol";
 
+interface ITagAIBuybackRouter {
+    function buyIndexWithBnb(
+        address token,
+        address indexToken,
+        uint256 minIndexOut,
+        uint256 deadline,
+        bytes calldata data,
+        address recipient
+    ) external payable returns (uint256 indexOut);
+}
+
 /// @title TagAISwapHook
 /// @notice PancakeSwap V4 (Infinity) CL Hook for post-list fee routing + Nutbox injection.
-/// @dev Post-list fees are HARDCODED (never reads Pump.feeRatio — that is inner-market only):
-///   - IPShare 0.3% (`IPSHARE_FEE_BPS`) from the BNB side on both buy and sell
-///     → `IPShare.valueCapture(subject)` via `_resolveSubject` / hookData
-///   - Directional 0.3% (`DIRECTIONAL_FEE_BPS`):
-///       BUY  (`zeroForOne`): 0.3% of gross token output → left on Hook (Nutbox budget)
-///       SELL: 0.3% of gross BNB → platform `feeReceiver`
-///   - Sell BNB leg: IPShare 30 + platform directional 30 = 60 BPS on the SAME gross BNB base (not nested)
-///   - Buy BNB leg: only IPShare 30 BPS (no platform cut from BNB)
-/// `SwapFeeCollected.platformFee` = platform BNB portion; `deployerFee` = IPShare BNB portion.
+/// @dev Post-list fees are hardcoded: 0.9% from the BNB side on buys and sells.
+///      The split is 0.3% platform, 0.3% deployer/IPShare, 0.3% buyback reserve.
 /// On buys, 10-minute period volume accumulates; prior period settles into HourlyTickCalculator on next period's first buy.
-/// Inject amount is capped by the Hook's live ERC20 balance (listing allocation + directional token fees + top-ups).
+/// Inject amount is capped by the Hook's live ERC20 balance (listing allocation + top-ups).
 contract TagAISwapHook is ICLHooks, ReentrancyGuard {
+    using SafeERC20 for IERC20;
     using PoolIdLibrary for PoolKey;
     using SafeCast for uint256;
     using CurrencyLibrary for Currency;
@@ -42,12 +48,20 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     error Unauthorized();
     error PoolNotRegistered();
     error OnlyPump();
+    error BuybackRouterNotConfigured();
+    error IndexTokenNotReady();
+    error NoBuybackReserve();
+    error BuybackSlippage();
 
     // ================================ Events ================================
     event PoolRegistered(PoolId indexed poolId, address indexed token);
-    /// @param platformFee Platform BNB portion (sell-side directional only; 0 on buy BNB leg)
+    /// @param platformFee Platform BNB portion
     /// @param deployerFee IPShare BNB portion
-    event SwapFeeCollected(PoolId indexed poolId, address indexed token, uint256 platformFee, uint256 deployerFee);
+    /// @param buybackFee BNB reserved for index buyback rewards
+    event SwapFeeCollected(
+        PoolId indexed poolId, address indexed token, uint256 platformFee, uint256 deployerFee, uint256 buybackFee
+    );
+    event BuybackExecuted(address indexed token, address indexed indexToken, uint256 bnbIn, uint256 indexOut);
     /// @param balanceAfter Hook's ERC20 balance after a successful inject (supports continuous top-ups).
     event NutboxInjected(address indexed token, address indexed community, uint256 injectAmount, uint256 balanceAfter);
     event NutboxInjectionFailed(address indexed token, address indexed community, uint256 injectAmount, bytes reason);
@@ -63,10 +77,9 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
 
     // ================================ Constants ================================
     uint256 private constant DIVISOR = 10000;
-    /// @dev Hardcoded post-list IPShare fee: 0.3% of gross BNB (both buy and sell).
-    uint256 private constant IPSHARE_FEE_BPS = 30;
-    /// @dev Hardcoded directional fee: 0.3% — buy takes token output; sell takes BNB to platform.
-    uint256 private constant DIRECTIONAL_FEE_BPS = 30;
+    uint256 private constant PLATFORM_FEE_BPS = 30;
+    uint256 private constant DEPLOYER_FEE_BPS = 30;
+    uint256 private constant BUYBACK_FEE_BPS = 30;
     /// @dev Ratio scale: injectAmount = boughtAmount * ratioPpm / RATIO_SCALE (ratioPpm = percent * 1e7).
     uint256 private constant RATIO_SCALE = 1e9;
     /// @dev Minimum inject output (16.8 whole tokens); below this the period settlement is skipped.
@@ -116,6 +129,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
 
     // token → 10-minute period buy accumulation
     mapping(address => PeriodBuyState) public periodState;
+    mapping(address => uint256) public buybackBnbReserve;
 
     // ================================ Modifiers ================================
     modifier onlyPoolManager() {
@@ -134,14 +148,13 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     /// Bits: beforeInitialize(0), beforeSwap(6), afterSwap(7),
     ///       beforeSwapReturnsDelta(10), afterSwapReturnsDelta(11)
     function getHooksRegistrationBitmap() external pure override returns (uint16) {
-        return
-            uint16(
-                (1 << 0) | // HOOKS_BEFORE_INITIALIZE_OFFSET
-                    (1 << 6) | // HOOKS_BEFORE_SWAP_OFFSET
-                    (1 << 7) | // HOOKS_AFTER_SWAP_OFFSET
-                    (1 << 10) | // HOOKS_BEFORE_SWAP_RETURNS_DELTA_OFFSET
-                    (1 << 11) // HOOKS_AFTER_SWAP_RETURNS_DELTA_OFFSET
-            );
+        return uint16(
+            (1 << 0) // HOOKS_BEFORE_INITIALIZE_OFFSET
+                | (1 << 6) // HOOKS_BEFORE_SWAP_OFFSET
+                | (1 << 7) // HOOKS_AFTER_SWAP_OFFSET
+                | (1 << 10) // HOOKS_BEFORE_SWAP_RETURNS_DELTA_OFFSET
+                | (1 << 11) // HOOKS_AFTER_SWAP_RETURNS_DELTA_OFFSET
+        );
     }
 
     // ================================ Pool Registration ================================
@@ -170,15 +183,21 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
     /// @notice Guard: only registered Token contracts can create pools with this Hook
     function beforeInitialize(
         address sender,
-        PoolKey calldata /* key */,
+        PoolKey calldata,
+        /* key */
         uint160 /* sqrtPriceX96 */
-    ) external virtual override onlyPoolManager returns (bytes4) {
+    )
+        external
+        virtual
+        override
+        onlyPoolManager
+        returns (bytes4)
+    {
         if (!pump.createdTokens(sender)) revert Unauthorized();
         return ICLHooks.beforeInitialize.selector;
     }
 
-    /// @notice Collect fees when the fee currency is the swap's specified currency.
-    /// @dev ETH specified → BNB IPShare (+ sell directional). Token specified on buy → directional token fee.
+    /// @notice Collect BNB fees when the fee currency is the swap's specified currency.
     function beforeSwap(
         address,
         PoolKey calldata key,
@@ -189,7 +208,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
             return (ICLHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
         }
 
-        // Specified currency is ETH/BNB iff (exactIn == zeroForOne)
+        // Specified currency is ETH/BNB iff (exactIn == zeroForOne).
         bool ethSpecified = (params.amountSpecified < 0 == params.zeroForOne);
 
         if (ethSpecified) {
@@ -197,14 +216,6 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
             return (ICLHooks.beforeSwap.selector, toBeforeSwapDelta(fee, 0), 0);
         }
 
-        // Token specified + buy = exact-out buy: take directional token fee from specified output.
-        // (afterSwap can only report unspecified=BNB delta, so token fee must be accounted here.)
-        if (params.zeroForOne) {
-            int128 tokenFee = _collectBeforeSwapBuyTokenFee(key, params);
-            return (ICLHooks.beforeSwap.selector, toBeforeSwapDelta(tokenFee, 0), 0);
-        }
-
-        // Sell exact-in: BNB fee collected in afterSwap
         return (ICLHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
     }
 
@@ -221,23 +232,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         return _takeAndDistributeBnbFees(key, specifiedAmount, params.zeroForOne, hookData);
     }
 
-    /// @dev Buy exact-out: directional token fee from specified token amount (PCS specified delta).
-    function _collectBeforeSwapBuyTokenFee(
-        PoolKey calldata key,
-        ICLPoolManager.SwapParams calldata params
-    ) internal returns (int128) {
-        // exact-out → amountSpecified > 0
-        uint256 specifiedAmount = uint256(params.amountSpecified);
-        uint256 tokenFee = (specifiedAmount * DIRECTIONAL_FEE_BPS) / DIVISOR;
-        if (tokenFee == 0) return 0;
-
-        vault.take(key.currency1, address(this), tokenFee);
-        return tokenFee.toInt128();
-    }
-
-    /// @notice Collect unspecified-currency fees + buy-side directional token fee; trigger Nutbox period tracking.
-    /// @dev CRITICAL: when ETH was already fee'd in beforeSwap (exact-in buy), still take directional TOKEN
-    ///      fee here and return it as afterSwapReturnsDelta (unspecified = token) so vault accounting balances.
+    /// @notice Collect unspecified-currency BNB fees and trigger Nutbox period tracking.
     function afterSwap(
         address,
         PoolKey calldata key,
@@ -252,10 +247,7 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         int128 hookUnspecifiedDelta = 0;
 
         if (ethSpecified) {
-            // BNB fee already collected in beforeSwap.
-            // Exact-in buy: unspecified currency is the token — collect directional fee + report delta.
             if (params.zeroForOne) {
-                hookUnspecifiedDelta = _collectBuyDirectionalTokenFee(key, delta);
                 _tryInject(token, delta.amount1());
             }
             return (ICLHooks.afterSwap.selector, hookUnspecifiedDelta);
@@ -264,7 +256,6 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         // ETH is unspecified: collect BNB fees here (exact-out buy or exact-in sell).
         hookUnspecifiedDelta = _collectAfterSwapBnbFee(key, params, delta, hookData, token);
 
-        // Exact-out buy: directional token fee already taken in beforeSwap (specified delta).
         if (params.zeroForOne) {
             _tryInject(token, delta.amount1());
         }
@@ -290,37 +281,30 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         return _takeAndDistributeBnbFees(key, unspecifiedAmount, params.zeroForOne, hookData);
     }
 
-    /// @dev Shared BNB fee take + split. Buy: IPShare only. Sell: IPShare + platform on same gross base.
+    /// @dev Shared BNB fee take + split. Buy and sell use the same gross BNB base.
     function _takeAndDistributeBnbFees(
         PoolKey calldata key,
         uint256 bnbAmount,
-        bool isBuy,
+        bool,
+        /* isBuy */
         bytes calldata hookData
-    ) internal returns (int128) {
-        uint256 ipshareFee = (bnbAmount * IPSHARE_FEE_BPS) / DIVISOR;
-        // Sell: platform directional on the SAME gross BNB (not nested after IPShare).
-        uint256 platformFee = isBuy ? 0 : (bnbAmount * DIRECTIONAL_FEE_BPS) / DIVISOR;
-        uint256 totalFee = ipshareFee + platformFee;
+    )
+        internal
+        returns (int128)
+    {
+        uint256 platformFee = (bnbAmount * PLATFORM_FEE_BPS) / DIVISOR;
+        uint256 deployerFee = (bnbAmount * DEPLOYER_FEE_BPS) / DIVISOR;
+        uint256 buybackFee = (bnbAmount * BUYBACK_FEE_BPS) / DIVISOR;
+        uint256 totalFee = platformFee + deployerFee + buybackFee;
         if (totalFee == 0) return 0;
 
         vault.take(key.currency0, address(this), totalFee);
 
         address token = poolToken[key.toId()];
-        _distributeFees(token, platformFee, ipshareFee, hookData);
-        emit SwapFeeCollected(key.toId(), token, platformFee, ipshareFee);
+        _distributeFees(token, platformFee, deployerFee, buybackFee, hookData);
+        emit SwapFeeCollected(key.toId(), token, platformFee, deployerFee, buybackFee);
 
         return totalFee.toInt128();
-    }
-
-    /// @dev Buy-side directional: take 0.3% of gross token output; leave on Hook for Nutbox budget.
-    /// @return Fee amount as int128 for afterSwapReturnsDelta (unspecified = token when ETH was specified).
-    function _collectBuyDirectionalTokenFee(PoolKey calldata key, BalanceDelta delta) internal returns (int128) {
-        uint256 bought = _boughtAmountFromDelta(delta.amount1());
-        uint256 tokenFee = (bought * DIRECTIONAL_FEE_BPS) / DIVISOR;
-        if (tokenFee == 0) return 0;
-
-        vault.take(key.currency1, address(this), tokenFee);
-        return tokenFee.toInt128();
     }
 
     // ================================ Internal: Period ratio ================================
@@ -444,13 +428,15 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         return candidate;
     }
 
-    /// @notice Route BNB fees: platform → feeReceiver; IPShare → valueCapture(subject).
-    /// @param platformFee Platform BNB (sell directional); 0 on buy BNB leg
+    /// @notice Route BNB fees: platform → feeReceiver; IPShare → valueCapture(subject); buyback stays reserved.
+    /// @param platformFee Platform BNB
     /// @param deployerFee IPShare BNB portion
+    /// @param buybackFee BNB reserved for index buyback
     function _distributeFees(
         address token,
         uint256 platformFee,
         uint256 deployerFee,
+        uint256 buybackFee,
         bytes calldata hookData
     ) internal {
         address feeReceiver = pump.getFeeReceiver();
@@ -458,12 +444,43 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         address subject = _resolveSubject(token, hookData);
 
         if (platformFee > 0) {
-            (bool success, ) = feeReceiver.call{value: platformFee}("");
+            (bool success,) = feeReceiver.call{value: platformFee}("");
             require(success, "Platform fee transfer failed");
         }
         if (deployerFee > 0) {
             IIPShare(ipshare).valueCapture{value: deployerFee}(subject);
         }
+        if (buybackFee > 0) {
+            buybackBnbReserve[token] += buybackFee;
+        }
+    }
+
+    function executeBuyback(address token, uint256 minIndexOut, uint256 deadline, bytes calldata data)
+        external
+        nonReentrant
+        returns (uint256 indexOut)
+    {
+        address router = pump.buybackRouter();
+        if (router == address(0)) revert BuybackRouterNotConfigured();
+        address indexToken = IToken(token).indexToken();
+        if (indexToken == address(0)) revert IndexTokenNotReady();
+        uint256 bnbAmount = buybackBnbReserve[token];
+        if (bnbAmount == 0) revert NoBuybackReserve();
+
+        buybackBnbReserve[token] = 0;
+        uint256 balanceBefore = IERC20(indexToken).balanceOf(address(this));
+        indexOut = ITagAIBuybackRouter(router).buyIndexWithBnb{value: bnbAmount}(
+            token, indexToken, minIndexOut, deadline, data, address(this)
+        );
+        uint256 received = IERC20(indexToken).balanceOf(address(this)) - balanceBefore;
+        if (received < minIndexOut || received == 0 || indexOut > received) revert BuybackSlippage();
+
+        IERC20(indexToken).safeApprove(token, 0);
+        IERC20(indexToken).safeApprove(token, received);
+        IToken(token).notifyBuybackReward(received);
+        IERC20(indexToken).safeApprove(token, 0);
+        emit BuybackExecuted(token, indexToken, bnbAmount, received);
+        return received;
     }
 
     // ================================ Unimplemented hooks ================================
@@ -512,23 +529,21 @@ contract TagAISwapHook is ICLHooks, ReentrancyGuard {
         return (ICLHooks.afterRemoveLiquidity.selector, toBalanceDelta(0, 0));
     }
 
-    function beforeDonate(
-        address,
-        PoolKey calldata,
-        uint256,
-        uint256,
-        bytes calldata
-    ) external virtual override returns (bytes4) {
+    function beforeDonate(address, PoolKey calldata, uint256, uint256, bytes calldata)
+        external
+        virtual
+        override
+        returns (bytes4)
+    {
         return ICLHooks.beforeDonate.selector;
     }
 
-    function afterDonate(
-        address,
-        PoolKey calldata,
-        uint256,
-        uint256,
-        bytes calldata
-    ) external virtual override returns (bytes4) {
+    function afterDonate(address, PoolKey calldata, uint256, uint256, bytes calldata)
+        external
+        virtual
+        override
+        returns (bytes4)
+    {
         return ICLHooks.afterDonate.selector;
     }
 

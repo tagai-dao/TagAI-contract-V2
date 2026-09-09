@@ -65,8 +65,8 @@ interface IDeployPancakeV3Factory {
  *     --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
  *     --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
  *
- * The V11 Pump and shared NutboxRouter deployments must be recorded first. The Router
- * is loaded from V11; an optional NUTBOX_ROUTER value must match that record exactly.
+ * The V11 Pump must already be recorded. NUTBOX_ROUTER and BASKET_SWAP_ROUTER_V3
+ * must explicitly point at the newly deployed Router and Basket V3 stack.
  * Set INDEX_BROKER_OWNER to initiate the Factory
  * Ownable2Step handover. A successful write advances the V11 status
  * from `pump-deployed` to `contracts-deployed`; post-deploy ownership and
@@ -109,9 +109,10 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         require(vm.envExists("INDEX_BROKER_OWNER"), "INDEX_BROKER_OWNER must be explicit");
         address targetOwner = vm.envAddress("INDEX_BROKER_OWNER");
         require(targetOwner != address(0), "Index Broker owner missing");
-        address configuredNutboxRouter = vm.envOr("NUTBOX_ROUTER", recordedNutboxRouter);
-        require(configuredNutboxRouter == recordedNutboxRouter, "NUTBOX_ROUTER differs from V11 record");
-        NutboxRouter router = NutboxRouter(payable(recordedNutboxRouter));
+        require(vm.envExists("NUTBOX_ROUTER"), "NUTBOX_ROUTER must be explicit");
+        require(vm.envExists("BASKET_SWAP_ROUTER_V3"), "BASKET_SWAP_ROUTER_V3 must be explicit");
+        NutboxRouter router = NutboxRouter(payable(vm.envAddress("NUTBOX_ROUTER")));
+        basketSwapRouterV3 = vm.envAddress("BASKET_SWAP_ROUTER_V3");
         bool writeDeployments = vm.envOr("WRITE_DEPLOYMENTS", false);
         bool isBroadcast =
             vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume);
@@ -369,6 +370,8 @@ contract DeployBSCIndexBrokerNFTScript is Script {
         _writeAddress(".IndexBrokerNFTBurnTemplate", address(burnTemplate));
         _writeAddress(".IndexBrokerNFTStakeTemplate", address(stakeTemplate));
         _writeAddress(".IndexBrokerNFTAMMTemplate", address(ammTemplate));
+        _writeAddress(".NutboxRouter", factory.nutboxRouter());
+        _writeAddress(".BasketSwapRouterV3", basketSwapRouterV3);
         _writeString(".status", "contracts-deployed");
     }
 

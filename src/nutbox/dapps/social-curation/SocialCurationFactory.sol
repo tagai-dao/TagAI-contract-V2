@@ -28,21 +28,21 @@ contract SocialCurationFactory is IPoolFactory, Ownable2Step {
         claimSigner = _claimSigner;
     }
 
-    event SocialCurationCreated(
-        address indexed pool,
-        address indexed community,
-        string name
-    );
+    event SocialCurationCreated(address indexed pool, address indexed community, string name);
 
     function adminSetClaimSigner(address _claimSigner) external onlyOwner {
         require(_claimSigner != address(0), "Invalid address");
         claimSigner = _claimSigner;
     }
 
-    function createPool(address community, string memory name, bytes calldata meta) override external returns(address) {
-        require(community == msg.sender, 'Permission denied: caller is not community');
+    function createPool(address community, string memory name, bytes calldata meta)
+        external
+        override
+        returns (address)
+    {
+        require(community == msg.sender, "Permission denied: caller is not community");
         require(CommunityFactory(payable(communityFactory)).createdCommunity(community), "Invalid community");
-        require(!createdPoolOfCommunity[community], 'Community already has this pool');
+        require(!createdPoolOfCommunity[community], "Community already has this pool");
 
         address clone = Clones.clone(poolTemplate);
         SocialCuration pool = SocialCuration(payable(clone));

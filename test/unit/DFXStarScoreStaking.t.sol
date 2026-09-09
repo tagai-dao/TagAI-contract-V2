@@ -71,12 +71,7 @@ contract DFXStarScoreStakingTest is Test {
 
         // 7. Create community
         address communityAddr = communityFactory.createCommunity(
-            false,
-            address(token),
-            address(0),
-            bytes(""),
-            address(calculator),
-            bytes("")
+            false, address(token), address(0), bytes(""), address(calculator), bytes("")
         );
         community = Community(payable(communityAddr));
 
@@ -190,8 +185,8 @@ contract DFXStarScoreStakingTest is Test {
         uint256 pending1 = pool.getPendingExternalRewards(user1);
         uint256 pending2 = pool.getPendingExternalRewards(user2);
 
-        assertEq(pending1, 2500 ether);  // 10000 * 1000 / 4000
-        assertEq(pending2, 7500 ether);  // 10000 * 3000 / 4000
+        assertEq(pending1, 2500 ether); // 10000 * 1000 / 4000
+        assertEq(pending2, 7500 ether); // 10000 * 3000 / 4000
     }
 
     function test_injectRewards_revertNoStakers() public {

@@ -58,7 +58,13 @@ contract MockVault {
         return msg.value;
     }
 
-    function settleFor(address /* recipient */) external payable returns (uint256) {
+    function settleFor(
+        address /* recipient */
+    )
+        external
+        payable
+        returns (uint256)
+    {
         settleCount++;
         emit SettleCalled(msg.value);
         return msg.value;
@@ -76,17 +82,42 @@ contract MockVault {
         return 0;
     }
 
-    function currencyDelta(address /* settler */, Currency /* currency */) external pure returns (int256) {
+    function currencyDelta(
+        address,
+        /* settler */
+        Currency /* currency */
+    )
+        external
+        pure
+        returns (int256)
+    {
         return 0;
     }
 
-    function isAppRegistered(address /* app */) external pure returns (bool) {
+    function isAppRegistered(
+        address /* app */
+    )
+        external
+        pure
+        returns (bool)
+    {
         return true;
     }
 
-    function registerApp(address /* app */) external {}
+    function registerApp(
+        address /* app */
+    )
+        external {}
 
-    function reservesOfApp(address /* app */, Currency /* currency */) external pure returns (uint256) {
+    function reservesOfApp(
+        address,
+        /* app */
+        Currency /* currency */
+    )
+        external
+        pure
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -95,30 +126,73 @@ contract MockVault {
     }
 
     function accountAppBalanceDelta(
-        Currency /* currency0 */,
-        Currency /* currency1 */,
-        BalanceDelta /* delta */,
-        address /* settler */,
-        BalanceDelta /* hookDelta */,
+        Currency,
+        /* currency0 */
+        Currency,
+        /* currency1 */
+        BalanceDelta,
+        /* delta */
+        address,
+        /* settler */
+        BalanceDelta,
+        /* hookDelta */
         address /* hook */
-    ) external {}
+    )
+        external {}
 
     function accountAppBalanceDelta(
-        Currency /* currency0 */,
-        Currency /* currency1 */,
-        BalanceDelta /* delta */,
+        Currency,
+        /* currency0 */
+        Currency,
+        /* currency1 */
+        BalanceDelta,
+        /* delta */
         address /* settler */
-    ) external {}
+    )
+        external {}
 
-    function accountAppBalanceDelta(Currency /* currency */, int128 /* delta */, address /* settler */) external {}
+    function accountAppBalanceDelta(
+        Currency,
+        /* currency */
+        int128,
+        /* delta */
+        address /* settler */
+    )
+        external {}
 
-    function clear(Currency /* currency */, uint256 /* amount */) external {}
+    function clear(
+        Currency,
+        /* currency */
+        uint256 /* amount */
+    )
+        external {}
 
-    function collectFee(Currency /* currency */, uint256 /* amount */, address /* recipient */) external {}
+    function collectFee(
+        Currency,
+        /* currency */
+        uint256,
+        /* amount */
+        address /* recipient */
+    )
+        external {}
 
-    function mint(address /* to */, Currency /* currency */, uint256 /* amount */) external {}
+    function mint(
+        address,
+        /* to */
+        Currency,
+        /* currency */
+        uint256 /* amount */
+    )
+        external {}
 
-    function burn(address /* from */, Currency /* currency */, uint256 /* amount */) external {}
+    function burn(
+        address,
+        /* from */
+        Currency,
+        /* currency */
+        uint256 /* amount */
+    )
+        external {}
 
     receive() external payable {}
 }

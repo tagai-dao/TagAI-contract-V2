@@ -26,7 +26,7 @@ contract DeployBSCResumeScript is Script {
     // ─── Reused infrastructure ─────────────────────────────────────────────────
     address constant COMMITTEE = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
     address constant COMMUNITY_FACTORY = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
-    address constant SOCIAL_CURATION_FACTORY = 0xc4674D3fBbD201Ea401a8B7e7285F956178593D8;
+    address constant ERC20_STAKING_FACTORY = 0xDc3f940ac6Da516d5C9cc59c8AFE0F85A576E2A4;
     address constant CL_POOL_MANAGER = 0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b;
     address constant VAULT = 0x238a358808379702088667322f80aC48bAd5e6c4;
 
@@ -58,11 +58,7 @@ contract DeployBSCResumeScript is Script {
             hook = TagAISwapHook(payable(EXPECTED_HOOK));
             console.log("Hook already deployed:", address(hook));
         } else {
-            hook = new TagAISwapHook{salt: HOOK_SALT}(
-                ICLPoolManager(CL_POOL_MANAGER),
-                IVault(VAULT),
-                PUMP
-            );
+            hook = new TagAISwapHook{salt: HOOK_SALT}(ICLPoolManager(CL_POOL_MANAGER), IVault(VAULT), PUMP);
             require(address(hook) == EXPECTED_HOOK, "Hook address mismatch");
             require(uint16(uint160(address(hook))) == TARGET_BITMAP, "Hook bitmap mismatch");
             console.log("Hook deployed:", address(hook));
@@ -76,7 +72,7 @@ contract DeployBSCResumeScript is Script {
             pump.adminSetCalculator(CALCULATOR);
         }
         if (pump.nutboxCommunityFactory() != COMMUNITY_FACTORY || pump.hourlyTickCalculator() != CALCULATOR) {
-            pump.adminSetNutbox(COMMUNITY_FACTORY, CALCULATOR, SOCIAL_CURATION_FACTORY, COMMITTEE);
+            pump.adminSetNutbox(COMMUNITY_FACTORY, CALCULATOR, ERC20_STAKING_FACTORY, COMMITTEE);
         }
 
         vm.stopBroadcast();

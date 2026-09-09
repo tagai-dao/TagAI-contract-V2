@@ -754,25 +754,66 @@ contract NutboxRouterTest is Test {
         assertFalse(router.hasPricePool(poolId));
     }
 
-    function test_OnlyOwnerCanManagePoolsAndRoutes() public {
+    function test_OwnerCanManageOperatorsAndOperatorsCanOnlyAddPoolsAndRoutes() public {
         RouterV2PairMock pair = _createV2Pair(address(baseToken), address(wrappedNative), 1_000 ether, 10 ether);
+        address operator = makeAddr("operator");
+        address secondOperator = makeAddr("secondOperator");
+        address notOperator = makeAddr("notOperator");
 
-        vm.prank(makeAddr("notOwner"));
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        vm.prank(notOperator);
+        vm.expectRevert(NutboxRouter.NotOwnerOrOperator.selector);
         router.addPricePool(INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(pair)));
 
+        address[] memory newOperators = new address[](2);
+        newOperators[0] = operator;
+        newOperators[1] = secondOperator;
+        router.addOperator(newOperators[0]);
+        router.addOperator(newOperators[1]);
+        assertTrue(router.operators(operator));
+        assertTrue(router.operators(secondOperator));
+
+        vm.prank(operator);
         bytes32 poolId =
             router.addPricePool(INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(pair)));
+        vm.prank(operator);
+        router.addRoute(address(baseToken), address(wrappedNative), _singlePool(poolId));
+
         RouterV2PairMock replacementPair =
             _createV2Pair(address(baseToken), address(wrappedNative), 1_000 ether, 20 ether);
-        vm.prank(makeAddr("notOwner"));
+        vm.prank(operator);
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         router.replacePricePool(
             INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(replacementPair))
         );
-        vm.prank(makeAddr("notOwner"));
+        vm.prank(operator);
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        router.addRoute(address(baseToken), address(wrappedNative), _singlePool(poolId));
+        router.removeRoute(address(baseToken), address(wrappedNative));
+
+        router.removeOperator(secondOperator);
+        router.removeOperator(operator);
+        assertFalse(router.operators(operator));
+        assertFalse(router.operators(secondOperator));
+
+        RouterV2PairMock anotherPair = _createV2Pair(address(baseToken), address(bridgeToken), 1_000 ether, 10 ether);
+        vm.prank(operator);
+        vm.expectRevert(NutboxRouter.NotOwnerOrOperator.selector);
+        router.addPricePool(INutboxRouter.SourceType.V2_PAIR, abi.encode(address(v2Factory), address(anotherPair)));
+    }
+
+    function test_RejectsInvalidOperatorChanges() public {
+        address operator = makeAddr("operator");
+
+        vm.expectRevert(NutboxRouter.InvalidOperator.selector);
+        router.addOperator(address(0));
+        router.addOperator(operator);
+        vm.expectRevert(NutboxRouter.InvalidOperator.selector);
+        router.addOperator(operator);
+        vm.expectRevert(NutboxRouter.InvalidOperator.selector);
+        router.removeOperator(makeAddr("missingOperator"));
+
+        vm.prank(operator);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        router.addOperator(makeAddr("thirdOperator"));
     }
 
     function test_SupportsFiveHopsAndRejectsLongerOrDiscontinuousRoutes() public {

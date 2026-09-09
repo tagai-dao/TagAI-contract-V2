@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import '../interfaces/ICalculator.sol';
+import "../interfaces/ICalculator.sol";
 
 /**
  * @title LinearCalculator (block clock)
@@ -19,11 +19,9 @@ contract LinearCalculator is ICalculator {
         uint256 stopCursor;
     }
 
-
-
     address immutable communityFactory;
-    mapping (address => Distribution[]) public distributionErasMap;
-    mapping (address => uint8) public distributionCountMap;
+    mapping(address => Distribution[]) public distributionErasMap;
+    mapping(address => uint8) public distributionCountMap;
 
     event DistributionEraSet(address indexed community, bytes policy);
 
@@ -42,20 +40,23 @@ contract LinearCalculator is ICalculator {
         return block.number;
     }
 
-    function setDistributionEra(address community, bytes calldata policy) onlyFactory external override returns(bool) {
-        require(community != address(0), 'Invalid address');
-        require(distributionErasMap[community].length == 0, 'Already initialized');
+    function setDistributionEra(address community, bytes calldata policy) external override onlyFactory returns (bool) {
+        require(community != address(0), "Invalid address");
+        require(distributionErasMap[community].length == 0, "Already initialized");
         _applyDistributionEras(community, policy);
         emit DistributionEraSet(community, policy);
         return true;
     }
 
-
-
     /// @inheritdoc ICalculator
     /// @param lastCursor Last block cursor already fully settled by `Community` (0 = not started).
     /// @param head Current block cursor upper bound (`rewardHead()` / `block.number`).
-    function calculateReward(address community, uint256 lastCursor, uint256 head) external view override returns (uint256) {
+    function calculateReward(address community, uint256 lastCursor, uint256 head)
+        external
+        view
+        override
+        returns (uint256)
+    {
         // Last cursor credited before the open end of (lastCursor, head]
         uint256 rewardedCursor = lastCursor;
         uint256 rewards = 0;
@@ -118,13 +119,13 @@ contract LinearCalculator is ICalculator {
      */
     function _applyDistributionEras(address community, bytes calldata policy) private {
         require(policy.length >= 1, "Empty policy");
-        
+
         uint8 erasLength;
         assembly ("memory-safe") {
             erasLength := shr(248, calldataload(policy.offset))
         }
-        require(erasLength >= 1, 'At least one distribution era is needed');
-        require(policy.length >= 1 + uint256(erasLength) * 96, 'Policy too short');
+        require(erasLength >= 1, "At least one distribution era is needed");
+        require(policy.length >= 1 + uint256(erasLength) * 96, "Policy too short");
 
         uint256 offset = 1;
         for (uint256 i = 0; i < erasLength; i++) {
@@ -142,7 +143,10 @@ contract LinearCalculator is ICalculator {
             if (i == 0) {
                 require(start > block.number, "Invalid start cursor of distribution");
             } else {
-                require(start > distributionErasMap[community][i - 1].stopCursor, "Subsequent eras must start after previous era ends");
+                require(
+                    start > distributionErasMap[community][i - 1].stopCursor,
+                    "Subsequent eras must start after previous era ends"
+                );
             }
             require(start < stopCursor, "Invalid stop cursor of distribution");
             distributionErasMap[community].push(

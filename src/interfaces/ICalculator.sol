@@ -16,15 +16,9 @@ interface ICalculator {
     /// @notice Current head value in this calculator's native unit (e.g. `block.number` or `block.timestamp`).
     function rewardHead() external view returns (uint256);
 
-    function calculateReward(
-        address staking,
-        uint256 lastCursor,
-        uint256 head
-    ) external view returns (uint256);
+    function calculateReward(address staking, uint256 lastCursor, uint256 head) external view returns (uint256);
 
-    function setDistributionEra(address staking, bytes calldata policy)
-        external
-        returns (bool);
+    function setDistributionEra(address staking, bytes calldata policy) external returns (bool);
 
     /// @notice Emission rate for the active era: reward amount per one step of this calculator's clock.
     function getCurrentRewardRate(address staking) external view returns (uint256);

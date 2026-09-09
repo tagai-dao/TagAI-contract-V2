@@ -17,39 +17,22 @@ interface ICommunity {
 
     function getCommittee() external view returns (address);
 
-    function getUserDebt(address pool, address user)
-        external
-        view
-        returns (uint256);
+    function getUserDebt(address pool, address user) external view returns (uint256);
 
-    function appendUserReward(
-        address user,
-        uint256 amount
-    ) external;
+    function appendUserReward(address user, uint256 amount) external;
 
-    function setUserDebt(
-        address user,
-        uint256 debt
-    ) external;
+    function setUserDebt(address user, uint256 debt) external;
 
     function updatePools() external;
 
     /// @dev Pull accrued community-token rewards for the given pools to the caller.
-    function withdrawPoolsRewards(
-        address[] memory poolAddresses
-    ) external payable;
+    function withdrawPoolsRewards(address[] memory poolAddresses) external payable;
 
-    function adminAddPool(
-        string memory poolName,
-        uint16[] memory ratios,
-        address poolFactory,
-        bytes calldata meta
-    ) external payable;
+    function adminAddPool(string memory poolName, uint16[] memory ratios, address poolFactory, bytes calldata meta)
+        external
+        payable;
 
     function activedPools(uint256 index) external view returns (address);
 
-    function getPoolPendingRewards(
-        address poolAddress,
-        address user
-    ) external view returns (uint256);
+    function getPoolPendingRewards(address poolAddress, address user) external view returns (uint256);
 }
