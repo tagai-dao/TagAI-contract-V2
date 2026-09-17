@@ -39,6 +39,9 @@ contract CommentTradeVaultTest is Test {
         vault.setAllowedToken(address(token), true);
         vault.setPaused(false);
         vm.deal(user, 5 ether);
+        // Keep accounting fixtures independent of pre-existing balances on a fork.
+        vm.deal(executor, 0);
+        vm.deal(fees, 0);
         vm.startPrank(user);
         vault.deposit{value: 2 ether}(0.1 ether);
         vault.authorize(2 ether, 0.2 ether, 0.3 ether, 0.001 ether, 100, 100, block.timestamp + 1 days);
