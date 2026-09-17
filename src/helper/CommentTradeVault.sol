@@ -2,21 +2,22 @@
 pragma solidity ^0.8.26;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 interface ICommentBuyAdapter {
-    function outputFeeBps(address token) external view returns (uint256);
-    function quoteInput(address token, uint256 principal) external view
+    function outputFeeBps(address token, uint8 kind) external view returns (uint256);
+    function quoteInput(address token, uint256 principal, uint8 kind) external view
         returns (uint256 gross, uint256 platformFee, uint256 subjectFee, uint256 buybackFee);
-    function buy(address token, address recipient, address subject, uint256 minimum, uint256 deadline, bytes calldata route)
+    function buy(address token, address recipient, address subject, uint256 minimum, uint256 deadline, uint8 kind, bytes calldata route)
         external payable returns (uint256);
 }
 
 /// @notice Separate, opt-in BNB trading custody. Never spends CoinPurse tipping deposits.
-/// @dev Executor is trusted to authenticate X replies and quote/risk-check orders. Users authorize
-/// that executor explicitly; it cannot change recipient, exceed limits, or call arbitrary targets.
-/// Must be independently audited before funding. Deploy only on BSC in production.
-contract CommentTradeVault is ReentrancyGuard {
+/// @dev Executor authenticates X replies, picks the trade kind off-chain, and quote/risk-checks
+/// orders. Users authorize that executor explicitly; it cannot change recipient, exceed limits,
+/// or call arbitrary targets. Kind is not re-derived on-chain. Deploy only on BSC in production.
+contract CommentTradeVault is ReentrancyGuard, Ownable2Step {
     struct Grant {
         uint256 remaining;
         uint256 perTrade;
@@ -45,18 +46,21 @@ contract CommentTradeVault is ReentrancyGuard {
         uint256 grantVersion;
         uint256 quotedOut;
         uint256 routingFee;
+        uint8 kind; // executor-selected: 0 inner, 1 V13 main pool, 2 imported/external router
     }
 
-    address public immutable admin;
+    uint256 public constant MAX_TRADE_INTERVAL = 1 hours; // cap on owner-set cooldown, not the default
+
     address public immutable executor;
     address public immutable feeReceiver;
-    ICommentBuyAdapter public immutable adapter;
-    bool public paused = true;
+    ICommentBuyAdapter public adapter;
+    bool public paused = false;
+    uint256 public minTradeInterval = 30;
     mapping(address => uint256) public principalBalance;
     mapping(address => uint256) public feeBalance;
     mapping(address => Grant) public grants;
     mapping(bytes32 => bool) public executed;
-    mapping(address => bool) public allowedTokens;
+    mapping(address => uint256) public lastTradeAt;
 
     error Invalid();
     error Unauthorized();
@@ -66,6 +70,8 @@ contract CommentTradeVault is ReentrancyGuard {
     event Authorization(address indexed user, uint256 version, bool enabled);
     event Funded(address indexed user, uint256 principal, uint256 fees);
     event Withdrawn(address indexed user, uint256 principal, uint256 fees);
+    event TradeIntervalSet(uint256 seconds_);
+    event AdapterSet(address indexed adapter);
     event Settled(bytes32 indexed id, address indexed user, address indexed token, uint256 principal,
         uint256 platformFee, uint256 executionFee, uint256 received, address subject,
         uint256 routingFee, uint256 subjectFee, uint256 buybackFee, uint256 rounding);
@@ -73,25 +79,34 @@ contract CommentTradeVault is ReentrancyGuard {
 
     constructor(address executor_, address feeReceiver_, address adapter_) {
         if (executor_ == address(0) || feeReceiver_ == address(0) || adapter_.code.length == 0) revert Invalid();
-        admin = msg.sender;
         executor = executor_;
         feeReceiver = feeReceiver_;
         adapter = ICommentBuyAdapter(adapter_);
+        emit AdapterSet(adapter_);
     }
 
-    function setPaused(bool value) external { if (msg.sender != admin) revert Unauthorized(); paused = value; }
-    function setAllowedToken(address token, bool value) external {
-        if (msg.sender != admin) revert Unauthorized();
-        if (token.code.length == 0) revert Invalid();
-        allowedTokens[token] = value;
+    function setPaused(bool value) external onlyOwner { paused = value; }
+
+    function setAdapter(address adapter_) external onlyOwner {
+        if (adapter_.code.length == 0) revert Invalid();
+        adapter = ICommentBuyAdapter(adapter_);
+        emit AdapterSet(adapter_);
+    }
+
+    function setMinTradeInterval(uint256 seconds_) external onlyOwner {
+        if (seconds_ > MAX_TRADE_INTERVAL) revert Invalid();
+        minTradeInterval = seconds_;
+        emit TradeIntervalSet(seconds_);
     }
 
     /// @notice Limits are ALL-IN (principal + platform + execution), day resets at 00:00 UTC.
     /// Reauthorization never resets today's spend. Updating/revoking invalidates queued versions.
+    /// Optional `msg.value` funds principal/fee balances in the same transaction as the grant.
     function authorize(uint256 budget, uint256 perTrade, uint256 perDay, uint256 maxExecutionFee,
-        uint16 maxPlatformBps, uint16 maxSlippageBps, uint256 expiresAt) external {
+        uint16 maxPlatformBps, uint16 maxSlippageBps, uint256 expiresAt, uint256 fees) external payable {
         if (budget == 0 || perTrade == 0 || perDay < perTrade || budget < perTrade ||
             maxPlatformBps > 1000 || maxSlippageBps > 1000 || expiresAt <= block.timestamp || expiresAt > block.timestamp + 90 days) revert Invalid();
+        if (msg.value > 0 || fees > 0) _credit(msg.value, fees);
         Grant storage g = grants[msg.sender];
         g.remaining = budget;
         g.perTrade = perTrade;
@@ -114,10 +129,7 @@ contract CommentTradeVault is ReentrancyGuard {
     }
 
     function deposit(uint256 fees) external payable {
-        if (msg.value == 0 || fees > msg.value) revert Invalid();
-        principalBalance[msg.sender] += msg.value - fees;
-        feeBalance[msg.sender] += fees;
-        emit Funded(msg.sender, msg.value - fees, fees);
+        _credit(msg.value, fees);
     }
 
     /// Withdraw remains possible while paused or revoked; no administrator withdrawal.
@@ -130,11 +142,11 @@ contract CommentTradeVault is ReentrancyGuard {
 
     function execute(Order calldata o, bytes calldata route) external nonReentrant returns (uint256 received) {
         if (msg.sender != executor) revert Unauthorized();
-        if (paused || executed[o.id] || o.id == bytes32(0) || !allowedTokens[o.token] || o.principal == 0 ||
+        if (paused || executed[o.id] || o.id == bytes32(0) || o.token.code.length == 0 || o.principal == 0 ||
             o.minimumOut == 0 || o.deadline < block.timestamp || o.deadline > block.timestamp + 120) revert Invalid();
         Grant storage g = grants[o.user];
-        (uint256 gross, uint256 routePlatform, uint256 subjectFee, uint256 buybackFee) = adapter.quoteInput(o.token, o.principal);
-        uint256 outputBps = adapter.outputFeeBps(o.token);
+        (uint256 gross, uint256 routePlatform, uint256 subjectFee, uint256 buybackFee) = adapter.quoteInput(o.token, o.principal, o.kind);
+        uint256 outputBps = adapter.outputFeeBps(o.token, o.kind);
         // Conservative BNB-equivalent check ONLY; the output fee is not debited again.
         uint256 outputFeeCapCharge = (o.principal * outputBps + 9999) / 10000;
         if (gross != o.principal + o.routingFee) revert Invalid();
@@ -145,21 +157,30 @@ contract CommentTradeVault is ReentrancyGuard {
             o.quotedOut == 0 || o.minimumOut < (o.quotedOut * (10000 - g.maxSlippageBps) + 9999) / 10000 ||
             total > g.remaining || total > g.perTrade || total + g.spentDay > g.perDay ||
             o.executionFee > g.maxExecutionFee || o.platformFee + o.routingFee + outputFeeCapCharge > o.principal * g.maxPlatformBps / 10000 ||
-            o.principal > principalBalance[o.user] || o.platformFee + o.routingFee + o.executionFee > feeBalance[o.user]) revert Limit();
+            o.principal > principalBalance[o.user] || o.platformFee + o.routingFee + o.executionFee > feeBalance[o.user] ||
+            block.timestamp < lastTradeAt[o.user] + minTradeInterval) revert Limit();
         executed[o.id] = true;
         g.remaining -= total;
         g.spentDay += total;
         principalBalance[o.user] -= o.principal;
         feeBalance[o.user] -= o.platformFee + o.routingFee + o.executionFee;
         uint256 beforeBalance = IERC20(o.token).balanceOf(o.user);
-        adapter.buy{value: gross}(o.token, o.user, o.subject, o.minimumOut, o.deadline, route);
+        adapter.buy{value: gross}(o.token, o.user, o.subject, o.minimumOut, o.deadline, o.kind, route);
         received = IERC20(o.token).balanceOf(o.user) - beforeBalance;
         if (received < o.minimumOut) revert Delivery();
+        lastTradeAt[o.user] = block.timestamp;
         _send(feeReceiver, o.platformFee);
         _send(executor, o.executionFee);
         emit Settled(o.id, o.user, o.token, o.principal, o.platformFee, o.executionFee, received, o.subject,
             o.routingFee, subjectFee, buybackFee, o.routingFee - routePlatform - subjectFee - buybackFee);
         emit OutputFeePolicy(o.id, outputBps);
+    }
+
+    function _credit(uint256 value, uint256 fees) private {
+        if (value == 0 || fees > value) revert Invalid();
+        principalBalance[msg.sender] += value - fees;
+        feeBalance[msg.sender] += fees;
+        emit Funded(msg.sender, value - fees, fees);
     }
 
     function _send(address recipient, uint256 amount) private {
