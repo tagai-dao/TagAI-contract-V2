@@ -15,8 +15,9 @@ interface ICommentBuyAdapter {
 
 /// @notice Separate, opt-in BNB trading custody. Never spends CoinPurse tipping deposits.
 /// @dev Executor authenticates X replies, picks the trade kind off-chain, and quote/risk-checks
-/// orders. Users authorize that executor explicitly; it cannot change recipient, exceed limits,
-/// or call arbitrary targets. Kind is not re-derived on-chain. Deploy only on BSC in production.
+/// orders. User grants authorize the owner-managed executor role; rotation preserves grants and
+/// their limits. The executor cannot change recipient or exceed limits. Kind is not re-derived
+/// on-chain. Deploy only on BSC in production.
 contract CommentTradeVault is ReentrancyGuard, Ownable2Step {
     struct Grant {
         uint256 remaining;
@@ -51,7 +52,7 @@ contract CommentTradeVault is ReentrancyGuard, Ownable2Step {
 
     uint256 public constant MAX_TRADE_INTERVAL = 1 hours; // cap on owner-set cooldown, not the default
 
-    address public immutable executor;
+    address public executor;
     address public immutable feeReceiver;
     ICommentBuyAdapter public adapter;
     bool public paused = false;
@@ -72,6 +73,7 @@ contract CommentTradeVault is ReentrancyGuard, Ownable2Step {
     event Withdrawn(address indexed user, uint256 principal, uint256 fees);
     event TradeIntervalSet(uint256 seconds_);
     event AdapterSet(address indexed adapter);
+    event ExecutorSet(address indexed previousExecutor, address indexed newExecutor);
     event Settled(bytes32 indexed id, address indexed user, address indexed token, uint256 principal,
         uint256 platformFee, uint256 executionFee, uint256 received, address subject,
         uint256 routingFee, uint256 subjectFee, uint256 buybackFee, uint256 rounding);
@@ -82,10 +84,19 @@ contract CommentTradeVault is ReentrancyGuard, Ownable2Step {
         executor = executor_;
         feeReceiver = feeReceiver_;
         adapter = ICommentBuyAdapter(adapter_);
+        emit ExecutorSet(address(0), executor_);
         emit AdapterSet(adapter_);
     }
 
     function setPaused(bool value) external onlyOwner { paused = value; }
+
+    /// @notice Rotate the keeper without resetting user grants or spending limits.
+    function setExecutor(address executor_) external onlyOwner nonReentrant {
+        if (executor_ == address(0)) revert Invalid();
+        address previousExecutor = executor;
+        executor = executor_;
+        emit ExecutorSet(previousExecutor, executor_);
+    }
 
     function setAdapter(address adapter_) external onlyOwner {
         if (adapter_.code.length == 0) revert Invalid();

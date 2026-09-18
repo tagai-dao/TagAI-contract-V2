@@ -104,6 +104,51 @@ contract CommentTradeVaultTest is Test {
     function testOnlyExecutorCanExecute() public {
         vm.expectRevert(CommentTradeVault.Unauthorized.selector); vault.execute(order(1), "");
     }
+    function testOnlyOwnerCanSetNonzeroExecutor() public {
+        address next = makeAddr("next-executor");
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        vault.setExecutor(next);
+        vm.prank(executor);
+        vm.expectRevert("Ownable: caller is not the owner");
+        vault.setExecutor(next);
+        vm.expectRevert(CommentTradeVault.Invalid.selector);
+        vault.setExecutor(address(0));
+        assertEq(vault.executor(), executor);
+        vm.expectEmit(true, true, false, true, address(vault));
+        emit CommentTradeVault.ExecutorSet(executor, next);
+        vault.setExecutor(next);
+        assertEq(vault.executor(), next);
+    }
+    function testExecutorRotationPreservesLimitsAndPaysNewKeeper() public {
+        execute(1);
+        address next = makeAddr("next-executor");
+        vm.deal(next, 0);
+        vault.setExecutor(next);
+        vm.expectRevert(CommentTradeVault.Unauthorized.selector);
+        execute(2);
+
+        vm.startPrank(next);
+        vm.expectRevert(CommentTradeVault.Invalid.selector);
+        vault.execute(order(1), "");
+        vm.expectRevert(CommentTradeVault.Limit.selector);
+        vault.execute(order(2), "");
+        vm.warp(block.timestamp + 30);
+        vault.execute(order(2), "");
+        assertEq(token.balanceOf(user), 200);
+        assertEq(executor.balance, 0.001 ether);
+        assertEq(next.balance, 0.001 ether);
+        assertEq(vault.principalBalance(user), 1.7 ether);
+        assertEq(vault.feeBalance(user), 0.096 ether);
+        (uint256 remaining,,,,, uint256 version,, uint256 spentDay,,,,) = vault.grants(user);
+        assertEq(remaining, 1.796 ether);
+        assertEq(version, 1);
+        assertEq(spentDay, 0.204 ether);
+        vm.warp(block.timestamp + 30);
+        vm.expectRevert(CommentTradeVault.Limit.selector);
+        vault.execute(order(3), "");
+        vm.stopPrank();
+    }
     function testStaleGrantDeadlineAndFeeCap() public {
         CommentTradeVault.Order memory o = order(1);
         o.executionFee = 0.002 ether;
