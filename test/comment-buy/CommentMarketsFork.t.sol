@@ -39,8 +39,7 @@ contract CommentMarketsForkTest is Test {
         vault.setMinTradeInterval(0);
         vm.deal(recipient, 1 ether);
         vm.startPrank(recipient);
-        vault.deposit{value: 0.1 ether}(0.01 ether);
-        vault.authorize(0.1 ether, 0.01 ether, 0.05 ether, 0, 300, 100, block.timestamp + 1 days, 0);
+        vault.authorize{value: 0.1 ether}(0.1 ether, 0.01 ether, 0.05 ether, 0, 100, block.timestamp + 1 days);
         vm.stopPrank();
         uint256 beforeBalance = IERC20(token).balanceOf(recipient);
         // Quote the exact adapter from the vault context; rollback quote effects before execution.
@@ -54,8 +53,7 @@ contract CommentMarketsForkTest is Test {
         uint256 output = vault.execute(order, plan);
         assertGt(output, 0); assertEq(IERC20(token).balanceOf(recipient) - beforeBalance, output);
         assertEq(IERC20(token).balanceOf(address(adapter)), 0);
-        assertEq(vault.principalBalance(recipient), 0.09 ether - 0.0001 ether);
-        assertEq(vault.feeBalance(recipient), 0.01 ether - (gross - 0.0001 ether));
+        assertEq(vault.balanceOf(recipient), 0.1 ether - gross);
         vm.expectRevert(CommentTradeVault.Invalid.selector); vault.execute(order, plan);
     }
     function _externalV2(address token) internal {

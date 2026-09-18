@@ -13,8 +13,8 @@ contract DeployBSCCommentTradeVaultScript is Script {
         require(block.chainid == 56, "BSC mainnet only");
         string memory json = vm.readFile("deployments/56/version13.json");
         address adapter = vm.parseJsonAddress(json, ".CommentBuyAdapter");
-        address feeReceiver = vm.parseJsonAddress(json, ".CommentTradeVaultFeeReceiver");
-        address targetOwner = vm.parseJsonAddress(json, ".CommentTradeVaultTargetOwner");
+        address feeReceiver = vm.parseJsonAddress(json, ".FeeReceiver");
+        address targetOwner = vm.parseJsonAddress(json, ".targetOwner");
         require(adapter.code.length > 0, "Adapter missing");
         require(feeReceiver != address(0), "Fee receiver missing");
         require(targetOwner != address(0), "Owner missing");
@@ -33,6 +33,7 @@ contract DeployBSCCommentTradeVaultScript is Script {
         vm.stopBroadcast();
 
         require(address(vault.adapter()) == adapter, "Adapter mismatch");
+        require(vault.vaultVersion() == 2, "Unified Vault required");
         require(vault.executor() == EXECUTOR, "Executor mismatch");
         require(vault.feeReceiver() == feeReceiver, "Fee receiver mismatch");
         require(vault.owner() == deployer, "Owner mismatch");
@@ -41,6 +42,8 @@ contract DeployBSCCommentTradeVaultScript is Script {
         }
 
         console2.log("CommentTradeVault", address(vault));
+        console2.log("Vault version: 2 (unified balance). Update API/worker address only after broadcast confirmation.");
+        console2.log("Existing deposits and grants remain on the old Vault; users must withdraw and reauthorize.");
         if (targetOwner != deployer) {
             console2.log("ACTION: target owner must accept ownership on the new Vault", targetOwner);
         }

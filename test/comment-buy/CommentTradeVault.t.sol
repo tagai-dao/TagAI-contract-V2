@@ -24,6 +24,21 @@ contract CommentTestAdapter is ICommentBuyAdapter {
         return output;
     }
 }
+contract CommentReentrantUser {
+    CommentTradeVault public vault;
+    bool public blocked;
+    constructor(CommentTradeVault vault_) { vault = vault_; }
+    function fundAndWithdraw() external payable {
+        vault.deposit{value: msg.value}();
+        vault.withdraw(msg.value);
+    }
+    receive() external payable {
+        (bool ok, bytes memory reason) = address(vault).call(abi.encodeWithSignature(
+            "authorize(uint256,uint256,uint256,uint256,uint16,uint256)",
+            1, 1, 1, 0, 0, block.timestamp + 1 days));
+        blocked = !ok && keccak256(reason) == keccak256(abi.encodeWithSignature("Error(string)", "ReentrancyGuard: reentrant call"));
+    }
+}
 contract CommentTradeVaultTest is Test {
     CommentTradeVault vault;
     CommentTestAdapter adapter;
@@ -42,8 +57,7 @@ contract CommentTradeVaultTest is Test {
         vm.deal(executor, 0);
         vm.deal(fees, 0);
         vm.startPrank(user);
-        vault.deposit{value: 2 ether}(0.1 ether);
-        vault.authorize(2 ether, 0.2 ether, 0.3 ether, 0.001 ether, 100, 100, block.timestamp + 1 days, 0);
+        vault.authorize{value: 2 ether}(2 ether, 0.2 ether, 0.3 ether, 0.001 ether, 100, block.timestamp + 1 days);
         vm.stopPrank();
     }
     function order(uint256 id) internal view returns (CommentTradeVault.Order memory) {
@@ -54,27 +68,24 @@ contract CommentTradeVaultTest is Test {
     function testSuccessAndReplay() public {
         execute(1);
         assertEq(token.balanceOf(user), 100);
-        assertEq(vault.principalBalance(user), 1.8 ether);
-        assertEq(vault.feeBalance(user), 0.098 ether);
+        assertEq(vault.balanceOf(user), 1.898 ether);
         assertEq(fees.balance, 0.001 ether);
         assertEq(executor.balance, 0.001 ether);
         vm.expectRevert(CommentTradeVault.Invalid.selector); execute(1);
     }
     function testOutputProtocolFeeCountsTowardsCapWithoutSecondDebit() public {
-        adapter.setOutputBps(20);
+        assertEq(vault.MAX_PROTOCOL_FEE_BPS(), 300);
+        adapter.setOutputBps(201); // 2.01% output + 1% platform exceeds the fixed 3% ceiling.
         vm.expectRevert(CommentTradeVault.Limit.selector); execute(1);
-        vm.prank(user);
-        vault.authorize(2 ether, 0.2 ether, 0.3 ether, 0.001 ether, 120, 100, block.timestamp + 1 days, 0);
-        CommentTradeVault.Order memory o = order(1); o.grantVersion = 2;
-        vm.prank(executor); vault.execute(o, "");
-        assertEq(vault.feeBalance(user), 0.098 ether); // still only BNB platform + execution
+        adapter.setOutputBps(200); // Exactly 3% passes; no user-supplied cap.
+        execute(1);
+        assertEq(vault.balanceOf(user), 1.898 ether); // output fee is not debited again in BNB
     }
     function testRevertedDeliveryRollsBackEverything() public {
         adapter.setOutput(99);
         vm.expectRevert(CommentTradeVault.Delivery.selector); execute(1);
         assertFalse(vault.executed(bytes32(uint256(1))));
-        assertEq(vault.principalBalance(user), 1.9 ether);
-        assertEq(vault.feeBalance(user), 0.1 ether);
+        assertEq(vault.balanceOf(user), 2 ether);
         assertEq(token.balanceOf(user), 0);
         assertEq(fees.balance, 0);
         assertEq(vault.lastTradeAt(user), 0);
@@ -84,7 +95,7 @@ contract CommentTradeVaultTest is Test {
         vm.warp(block.timestamp + 30);
         execute(2);
         vm.prank(user);
-        vault.authorize(2 ether, 0.2 ether, 0.3 ether, 0.001 ether, 100, 100, block.timestamp + 1 days, 0);
+        vault.authorize(2 ether, 0.2 ether, 0.3 ether, 0.001 ether, 100, block.timestamp + 1 days);
         CommentTradeVault.Order memory o = order(3); o.grantVersion = 2;
         vm.warp(block.timestamp + 30);
         vm.expectRevert(CommentTradeVault.Limit.selector);
@@ -94,12 +105,20 @@ contract CommentTradeVaultTest is Test {
         vm.prank(user); vault.revoke();
         vm.expectRevert(CommentTradeVault.Limit.selector); execute(1);
         vault.setPaused(true);
-        vm.prank(user); vault.withdraw(1.9 ether, 0.1 ether);
+        vm.prank(user); vault.withdraw(2 ether);
         assertEq(user.balance, 5 ether);
     }
-    function testFeesCannotUsePrincipalBalance() public {
-        vm.prank(user); vault.withdraw(0, 0.1 ether);
+    function testSingleBalanceCoversPrincipalAndFees() public {
+        vm.prank(user); vault.withdraw(1.898 ether);
+        execute(1);
+        assertEq(vault.balanceOf(user), 0);
+        assertEq(executor.balance, 0.001 ether);
+    }
+    function testInsufficientTotalBalanceReverts() public {
+        vm.prank(user); vault.withdraw(1.898 ether + 1);
         vm.expectRevert(CommentTradeVault.Limit.selector); execute(1);
+        assertEq(vault.balanceOf(user), 0.102 ether - 1);
+        assertFalse(vault.executed(bytes32(uint256(1))));
     }
     function testOnlyExecutorCanExecute() public {
         vm.expectRevert(CommentTradeVault.Unauthorized.selector); vault.execute(order(1), "");
@@ -138,9 +157,8 @@ contract CommentTradeVaultTest is Test {
         assertEq(token.balanceOf(user), 200);
         assertEq(executor.balance, 0.001 ether);
         assertEq(next.balance, 0.001 ether);
-        assertEq(vault.principalBalance(user), 1.7 ether);
-        assertEq(vault.feeBalance(user), 0.096 ether);
-        (uint256 remaining,,,,, uint256 version,, uint256 spentDay,,,,) = vault.grants(user);
+        assertEq(vault.balanceOf(user), 1.796 ether);
+        (uint256 remaining,,,,, uint256 version,, uint256 spentDay,,,) = vault.grants(user);
         assertEq(remaining, 1.796 ether);
         assertEq(version, 1);
         assertEq(spentDay, 0.204 ether);
@@ -158,17 +176,16 @@ contract CommentTradeVaultTest is Test {
         o = order(1); o.deadline = block.timestamp - 1;
         vm.expectRevert(CommentTradeVault.Invalid.selector); vm.prank(executor); vault.execute(o, "");
     }
-    function testEmbeddedFeesUseFeeBalanceAndCannotBeDoubleCharged() public {
-        adapter.setRouteFee(0.0005 ether);
+    function testEmbeddedFeesUseUnifiedBalanceAndCannotBeDoubleCharged() public {
+        adapter.setRouteFee(0.0025 ether);
         CommentTradeVault.Order memory o = order(1);
-        o.routingFee = 0.0005 ether;
-        // Combined protocol + additional platform fee exceeds 1% authorization.
+        o.routingFee = 0.0025 ether;
+        // Combined protocol + additional platform fee exceeds the fixed 3% ceiling.
         vm.expectRevert(CommentTradeVault.Limit.selector); vm.prank(executor); vault.execute(o, "");
         o.platformFee = 0;
         vm.prank(executor); vault.execute(o, "");
-        assertEq(vault.principalBalance(user), 1.8 ether);
-        assertEq(vault.feeBalance(user), 0.0985 ether);
-        assertEq(address(adapter).balance, 0.1005 ether);
+        assertEq(vault.balanceOf(user), 1.8965 ether);
+        assertEq(address(adapter).balance, 0.1025 ether);
         assertEq(fees.balance, 0);
     }
     function testTradeIntervalPerUser() public {
@@ -180,7 +197,7 @@ contract CommentTradeVaultTest is Test {
         execute(2);
         assertEq(vault.lastTradeAt(user), block.timestamp);
         vm.prank(user);
-        vault.authorize(2 ether, 0.2 ether, 1 ether, 0.001 ether, 100, 100, block.timestamp + 1 days, 0);
+        vault.authorize(2 ether, 0.2 ether, 1 ether, 0.001 ether, 100, block.timestamp + 1 days);
         vault.setMinTradeInterval(0);
         CommentTradeVault.Order memory o = order(3); o.grantVersion = 2;
         vm.prank(executor); vault.execute(o, "");
@@ -208,14 +225,53 @@ contract CommentTradeVaultTest is Test {
         address other = address(0xabc);
         vm.deal(other, 1 ether);
         vm.prank(other);
-        vault.authorize{value: 0.5 ether}(0.4 ether, 0.1 ether, 0.2 ether, 0, 100, 100, block.timestamp + 1 days, 0.05 ether);
-        assertEq(vault.principalBalance(other), 0.45 ether);
-        assertEq(vault.feeBalance(other), 0.05 ether);
-        (uint256 remaining,,,,,,,,,,, bool enabled) = vault.grants(other);
+        vault.authorize{value: 0.5 ether}(0.4 ether, 0.1 ether, 0.2 ether, 0, 500, block.timestamp + 1 days);
+        assertEq(vault.balanceOf(other), 0.5 ether);
+        (uint256 remaining,,,,,,,,,, bool enabled) = vault.grants(other);
         assertEq(remaining, 0.4 ether);
         assertTrue(enabled);
         vm.prank(other);
         vm.expectRevert(CommentTradeVault.Invalid.selector);
-        vault.authorize(0.4 ether, 0.1 ether, 0.2 ether, 0, 100, 100, block.timestamp + 1 days, 1);
+        vault.authorize{value: 0.1 ether}(0.4 ether, 0.3 ether, 0.2 ether, 0, 500, block.timestamp + 1 days);
+        assertEq(vault.balanceOf(other), 0.5 ether); // invalid authorization rolls back the deposit too
+    }
+    function testDepositPreservesGrantExactlyIncludingDailySpend() public {
+        execute(1);
+        (bool ok, bytes memory beforeGrant) = address(vault).staticcall(abi.encodeWithSignature("grants(address)", user));
+        assertTrue(ok);
+        vm.prank(user); vault.deposit{value: 0.2 ether}();
+        (, bytes memory afterGrant) = address(vault).staticcall(abi.encodeWithSignature("grants(address)", user));
+        assertEq(beforeGrant, afterGrant);
+        assertEq(vault.balanceOf(user), 2.098 ether);
+        assertEq(vault.vaultVersion(), 2);
+    }
+    function testWithdrawalCannotReenterAuthorization() public {
+        CommentReentrantUser receiver = new CommentReentrantUser(vault);
+        vm.deal(address(this), 1 ether);
+        receiver.fundAndWithdraw{value: 1 ether}();
+        assertTrue(receiver.blocked());
+        assertEq(address(receiver).balance, 1 ether);
+        assertEq(vault.balanceOf(address(receiver)), 0);
+        assertEq(vault.balanceOf(user), 2 ether);
+    }
+    function testZeroDepositAndOtherUserWithdrawalAreRejected() public {
+        vm.expectRevert(CommentTradeVault.Invalid.selector);
+        vault.deposit();
+        vm.prank(address(0xbeef));
+        vm.expectRevert();
+        vault.withdraw(1);
+        assertEq(vault.balanceOf(user), 2 ether);
+    }
+    function testCombinedUpdateKeepsDailySpendAndInvalidatesOldOrder() public {
+        execute(1);
+        vm.prank(user);
+        vault.authorize{value: 0.1 ether}(1 ether, 0.2 ether, 0.3 ether, 0.001 ether, 500, block.timestamp + 7 days);
+        (uint256 remaining,,,,, uint256 version,, uint256 spentDay,,,) = vault.grants(user);
+        assertEq(remaining, 1 ether);
+        assertEq(version, 2);
+        assertEq(spentDay, 0.102 ether);
+        assertEq(vault.balanceOf(user), 1.998 ether);
+        vm.warp(block.timestamp + 30);
+        vm.expectRevert(CommentTradeVault.Limit.selector); execute(2);
     }
 }
