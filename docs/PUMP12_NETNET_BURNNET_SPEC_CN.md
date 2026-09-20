@@ -24,7 +24,7 @@ Pump12 将 TagAI 的 Bonding Curve 冷启动机制与 NetNet 的受控发行机�
 8. 不使用 Nutbox，不使用 NetNet 的 Morpho（全部进入回购墙）、InverseBond（回购墙自动回购销毁）、TaxCollector（v4池直接收取了usdg） 或 RFV/NAV（没有国库了，只有回购墙和后续的RWA金库） 会计；本协议只复用 USDG 作为计价和结算资产；
 9. Anchor 是货币政策和 BurnNet 的参考价格，不是兑付承诺，也不代表可赎回 NAV；
 10. 非官方池不收取 Hook 手续费，协议依靠官方池的永久流动性深度集中主要交易量；
-11. Distributor 的 USDG 型信用只来自官方池交易费中进入 BurnNet 的份额，并永久按 `initialAnchor` 折算；其他资金只能增强回购墙。
+11. Distributor 的 USDG 型信用只来自官方池交易费中经 poke 激活进入 BurnNet 的份额，并永久按 `initialAnchor` 折算；墙成交和实际销毁不增加、不扣减该信用。其他资金只能增强回购墙。
 
 ## 2. 核心术语
 
@@ -39,9 +39,10 @@ Pump12 将 TagAI 的 Bonding Curve 冷启动机制与 NetNet 的受控发行机�
 | Pending USDG            | 已完成 TagAI/创建者等全部分账、无第三方退款或领取权、已由 BurnNet 净拥有但尚未部署进回购仓位的 USDG；必须按交易费来源与其他来源分账                                 |
 | Active reserve USDG     | 已归属于指定 poolId、已经过有效 poke 结算并投入当前 BurnNet generation 的 USDG 储备本金；不包括 Pending USDG                                        |
 | Eligible trade-fee USDG | 上市后由官方池真实 swap 收取、完成 TagAI/创建者分成后实际划入 BurnNet 的手续费 USDG；这是唯一能产生 USDG 型 Distributor credit 的资金来源                         |
-| Reserve snapshot        | 有效 poke 在完成结算、销毁、anchor 更新和 pending 激活后，为指定 poolId 分别封存 Active reserve 总额、其中 Eligible trade-fee USDG、anchorVersion 和时间戳 |
-| Distributor credit      | Distributor 还可向质押者增发的 Token 数量额度                                                                                        |
-| 实际销毁                    | BurnNet 已经获得 Token 并成功调用 Token `burn()`；仓位中尚未结算的 Token 不属于实际销毁                                                          |
+| `totalEligibleTradeFeeActivatedUSDG` | poke 从 Pending 激活的 Eligible 累计值（已扣除 keeper bounty），只增不减；Distributor 只按该值 / `initialAnchor` 折算手续费额度 |
+| Reserve snapshot        | 有效 poke 在完成结算、销毁、anchor 更新和 pending 激活后，为指定 poolId 分别封存 Active reserve 总额、其中 Eligible trade-fee USDG、anchorVersion 和时间戳；该快照服务墙会计，不直接决定 Distributor credit |
+| Distributor credit      | `37.5M + totalEligibleTradeFeeActivatedUSDG / initialAnchor − totalMinted`（饱和为 0）；烧毁不加额度                                                                                        |
+| 实际销毁                    | BurnNet 已经获得 Token 并成功调用 Token `burn()`；仓位中尚未结算的 Token 不属于实际销毁。实际销毁只减少 `totalSupply`，不增加 Distributor credit |
 
 
 ## 3. 固定经济参数
@@ -523,7 +524,7 @@ kappa3
 
 每8小时最多成功执行一次 poke。
 
-每次有效 poke 必须按以下顺序形成 Distributor 可使用的储备快照：
+每次有效 poke 必须按以下顺序处理墙会计，并在激活 Pending 时累加 Distributor 额度基数：
 
 ```text
 结算旧仓位
@@ -533,6 +534,7 @@ kappa3
 → 计算deployablePendingUSDG = pendingBefore - keeperBounty
 → 支付keeperBounty并同步更新来源子账
 → 将可分配金额按来源分类转为activeReserveUSDG
+→ totalEligibleTradeFeeActivatedUSDG += 当次净激活的 Eligible
 → 按新anchor部署仓位
 → 封存reserveSnapshotUSDG、eligibleTradeFeeReserveUSDG、anchorVersion、generation和snapshotAt
 ```
@@ -550,9 +552,9 @@ pendingBefore
 
 `pendingAfter` 只允许来自 Uniswap v4 liquidity/tick 的确定性 rounding dust，或本文已经明确的有效档位/层级集中度约束；必须记录数额和原因。不得由 keeper 或管理员声明新的扣减项目。不存在约束时，全部 `deployablePendingUSDG` 必须进入当时仍有效的档位。
 
-`reserveSnapshotUSDG` 是本次 poke 已核验并锁定在该 poolId BurnNet 体系中的 USDG 储备本金，不是对 PoolManager 当前 spot 资产构成的即时读取。`eligibleTradeFeeReserveUSDG` 是其中由官方池交易费形成的子集，且任何时刻不得大于总储备。仓位在两个 poke 之间从 USDG 转换成 Token 时，已锁定的 Eligible 本金继续计入本期排放节流额度；结算时必须把获得的 Token 实际 burn，再更新下一份快照。该快照不是全体 Token 的 backing、兑付资产或价格托底承诺。
+`reserveSnapshotUSDG` 是本次 poke 已核验并锁定在该 poolId BurnNet 体系中的 USDG 储备本金，不是对 PoolManager 当前 spot 资产构成的即时读取。`eligibleTradeFeeReserveUSDG` 是其中由官方池交易费形成的子集，且任何时刻不得大于总储备。`totalEligibleTradeFeeActivatedUSDG` 是 poke 从 Pending 激活的 Eligible 累计值（已扣除 keeper bounty），只增不减：墙把这些 USDG 买成 Token 并销毁后，这笔累计仍按 `initialAnchor` 计入 Distributor。该快照不是全体 Token 的 backing、兑付资产或价格托底承诺。
 
-Distributor 禁止在 `distribute()` 中使用当前 spot、PoolManager 聚合余额或临时推高/压低价格后计算出来的仓位 USDG 数量。储备快照必须来自该 `poolId` 有效 TWAP 保护的 poke，并与当前 `anchorVersion` 和 `generation` 匹配；快照不足、过期或版本不匹配时，本 epoch mint 为0而不是使用不可信数据。储备快照只封存 USDG 数量和会计版本，绝不封存、生成或替代市场价格。
+Distributor 禁止在 `distribute()` 中使用当前 spot、PoolManager 聚合余额或临时推高/压低价格后计算出来的仓位 USDG 数量。`totalEligibleTradeFeeActivatedUSDG` 只能在该 `poolId` 有效 TWAP 保护的 poke 中增加；poke 失败时本 epoch 不得用不可信数据补记额度。储备快照只封存墙的 USDG 数量和会计版本，绝不封存、生成或替代市场价格，也不再作为 Distributor 额度输入。
 
 #### 场景 A：价格高于 Anchor
 
@@ -595,9 +597,9 @@ Distributor 禁止在 `distribute()` 中使用当前 spot、PoolManager 聚合�
 
 - 只能移除已经完全越过的仓位；
 - 结算并销毁已经获得的 Token；
-- 对已经计入 reserve snapshot 的仓位，必须在同一交易中扣减已经转换掉的 Active reserve USDG 本金；其中属于 Eligible trade-fee 的本金同时扣减 `consumedEligibleTradeFeeUSDG`，并增加实际 burn，禁止同一份交易费价值同时保留 reserve credit 和 burn credit；
-- 不同来源的 USDG 混合部署时，每个仓位必须固化 `eligiblePrincipalUSDG / totalPrincipalUSDG`，成交消耗按该固定比例归因；不得由 keeper 或管理员选择优先消耗 non-eligible 本金来人为保留更多信用；
-- harvest 后记录该快照自上次 poke 以来的 `consumedActiveUSDG` 和 `consumedEligibleTradeFeeUSDG`；Distributor 只使用 `eligibleTradeFeeReserveUSDG - consumedEligibleTradeFeeUSDG`；
+- 对已经计入 reserve snapshot 的仓位，必须在同一交易中扣减已经转换掉的 Active reserve USDG 本金；其中属于 Eligible trade-fee 的本金同时扣减 `consumedEligibleTradeFeeUSDG` 并增加实际 burn。这只更新墙的资金会计，**不再**把同一份手续费在 Distributor 里替换成 burn credit；
+- 不同来源的 USDG 混合部署时，每个仓位必须固化 `eligiblePrincipalUSDG / totalPrincipalUSDG`，成交消耗按该固定比例归因；不得由 keeper 或管理员选择优先消耗 non-eligible 本金；
+- harvest 后记录该快照自上次 poke 以来的 `consumedActiveUSDG` 和 `consumedEligibleTradeFeeUSDG`；Distributor **不**读取这两项，只读取 `totalEligibleTradeFeeActivatedUSDG`；
 - 不修改 anchor；
 - 不迁移 generation；
 - 不领取 poke keeper 奖励。
@@ -612,7 +614,7 @@ circulatingSupply = Token.totalSupply()
 
 不减去基础 LP、Bond escrow、pTEAM Desk、Staking 或仓位中的 Token。原因是这些 Token 在真正销毁前都可能进入市场。
 
-BurnNet 仓位内已经转换成 Token、但尚未结算和销毁的部分仍计入供应量。只有实际 `burn()` 后 `totalSupply` 才下降并增加 Distributor credit。
+BurnNet 仓位内已经转换成 Token、但尚未结算和销毁的部分仍计入供应量。只有实际 `burn()` 后 `totalSupply` 才下降。销毁不增加 Distributor credit。
 
 ## 13. Mint 权限与统一冻结
 
@@ -721,7 +723,7 @@ initialFormulaReward ≈ 444,398 Token / 8 hours
 
 实际 mint 仍受剩余 Distributor credit 限制；以上数字只表示上市价格和 anchor 均未变化时的首期理论排放。
 
-每次 Distributor epoch 都必须使用当次有效的 `Hook.validTWAP(poolId)` 计算 premium，并使用 `max(initialAnchor, currentAnchor)` 作为排放速度分母。TWAP 无效或 `marketPrice <= emissionAnchor` 时本 epoch mint 为0；不得回退到 spot、上一次价格或其他 poolId。Reserve snapshot 只参与额度计算，不参与 premium 或 anchor 的价格读取。
+每次 Distributor epoch 都必须使用当次有效的 `Hook.validTWAP(poolId)` 计算 premium，并使用 `max(initialAnchor, currentAnchor)` 作为排放速度分母。TWAP 无效或 `marketPrice <= emissionAnchor` 时本 epoch mint 为0；不得回退到 spot、上一次价格或其他 poolId。额度只读取 `totalEligibleTradeFeeActivatedUSDG / initialAnchor`，不读取 poke 快照、consumed 或 `totalBurned`。快照只服务墙会计和 `snapshotAt` 同区块门禁，绝不封存、生成或替代市场价格。
 
 ### 14.2 质押进入、退出和 rebase 快照
 
@@ -742,9 +744,9 @@ stakingWarmupEpochs = 0
 
 这是明确接受的 NetNet 快照语义，不得由前端描述为“每个用户必须质押满8小时才有奖励”。
 
-### 14.3 初始信用、交易费信用和 burn 信用
+### 14.3 初始信用与交易费信用
 
-Distributor 不使用 NetNet 的 Treasury RFV。它使用固定初始信用、按 `initialAnchor` 折算的 Eligible trade-fee USDG 和 BurnNet 实际销毁共同限制长期排放。
+Distributor 不使用 NetNet 的 Treasury RFV。它使用固定初始信用，以及按 `initialAnchor` 折算的**累计已激活** Eligible trade-fee USDG 限制长期排放。墙成交和实际销毁不再增加、也不扣减这笔额度。
 
 初始信用：
 
@@ -767,14 +769,13 @@ reserveReferencePrice
 
 ```text
 reserveCredit
-= (eligibleTradeFeeReserveUSDG - consumedEligibleTradeFeeUSDG)
+= totalEligibleTradeFeeActivatedUSDG
   / initialAnchor
 
 availableCredit
 = max(
     37.5M
     + reserveCredit
-    + BurnNet.totalBurned
     - Distributor.totalMinted,
     0
   )
@@ -798,14 +799,17 @@ initialAnchor ≈ 0.000055862470929 USDG
 mintAmount = min(formulaReward, availableCredit)
 ```
 
-全部七档买入价格都低于部署该 generation 时的 anchor。结算后实际销毁会降低净供应并增加 burn credit，但本机制不声称 reserve credit 与全体 Token 供应之间存在法定偿付或完全抵押关系。
+全部七档买入价格都低于部署该 generation 时的 anchor。结算后实际销毁会降低净供应，但不再增加 Distributor credit。本机制不声称 reserve credit 与全体 Token 供应之间存在法定偿付或完全抵押关系。
 
-只有 BurnNet 已经实际销毁的 Token 才进入 burn credit：
+Eligible 手续费按发行价计入额度，与 NetNet「1 USDG 地板对应 1 NET」同一结构，只是地板换成 `initialAnchor`：
 
 ```text
-1 Token actual BurnNet burn
-= 1 Token future Distributor credit
+1 USDG Eligible trade-fee activated
+= 1 USDG / initialAnchor Token credit
+≈ 17,901.106 Token credit
 ```
+
+墙随后买回并销毁多少 Token，都不增加、不扣减这笔已经激活的额度。
 
 不产生 USDG 型 reserve credit 的项目：
 
@@ -816,24 +820,24 @@ mintAmount = min(formulaReward, availableCredit)
 - 基础永久 POL 中的15,000 USDG；
 - BondDepository、PremiumSeller、pTEAM/IndexBondDesk 的全部 USDG 收入；
 - permissionless `addPendingUSDG`、管理员补款、直接转账和其他外部注资；
-- 仓位获得但尚未实际 burn 的 Token 不额外增加 `totalBurned`；其对应的 Eligible trade-fee 本金只能沿用原 reserve credit，不能再按 Token 数量重复计入；
+- BurnNet 实际销毁的 Token；销毁只减少流通，不恢复或增加 Distributor credit；
 - 用户主动 burn；
 - 非官方池交易及任何无法由官方池 swap callback 证明来源的 USDG。
 
-上述 non-eligible USDG 仍可通过指定 poolId 的 Pending/Active 账本进入 BurnNet、部署回购墙和购买 Token，但激活后也不得增加 `eligibleTradeFeeReserveUSDG`。如果这些资金以后实际买回并销毁 Token，已销毁数量仍按 `1 Token burn = 1 Token burn credit` 进入 Distributor；这只允许补发已经真实退出供应的数量，不会因一笔 USDG 注资直接扩大净供应。
+上述 non-eligible USDG 仍可通过指定 poolId 的 Pending/Active 账本进入 BurnNet、部署回购墙和购买 Token，但激活后也不得增加 `totalEligibleTradeFeeActivatedUSDG`。这些资金以后实际买回并销毁 Token，同样不产生 Distributor credit。
 
 Eligible 来源必须在官方池手续费结算时确定，之后不可由 keeper、管理员、poke 或资金迁移修改。任何 non-eligible 资金都不能通过先进入 Pending、与交易费混合部署、跨 poolId 转账或会计重分类而变成 Eligible。
 
 ### 14.4 长期行为
 
-如果价格长期高于 anchor 且 BurnNet 从未成交，Distributor 不再固定停止于 `37.5M`：官方池持续产生的 Eligible trade-fee USDG 会按 `initialAnchor` 持续提供额外信用。若没有新的合格交易费也没有实际销毁，则仍会在耗尽现有信用后停止。Bond、PremiumSeller、pTEAM 和外部补款无论金额多大，都只能增加回购能力，不能直接延长质押增发。
+如果价格长期高于 anchor 且 BurnNet 从未成交，Distributor 不再固定停止于 `37.5M`：官方池持续产生的 Eligible trade-fee USDG 会按 `initialAnchor` 持续提供额外信用。若没有新的合格交易费，则仍会在耗尽现有信用后停止。Bond、PremiumSeller、pTEAM 和外部补款无论金额多大，都只能增加回购能力，不能直接延长质押增发。
 
 因此：
 
 ```text
 价格相对max(initialAnchor, currentAnchor)决定排放速度
-按initialAnchor折算的Eligible trade-fee reserve决定尚未成交时的储备信用
-实际销毁降低净供应并恢复未来排放信用
+累计已激活 Eligible trade-fee / initialAnchor 决定增发上限
+实际销毁只减少流通，不增加排放信用
 ```
 
 这是一套排放节流机制，不是 NetNet 的 RFV 偿付约束。它只限制 Distributor 新增量，不把 initialAnchor 或 currentAnchor 宣称为全体 Token 的兑付 NAV，不要求 BurnNet 储备能够托底全部供应，也不计算基础 POL 或指数资产价值。
@@ -1078,7 +1082,7 @@ TagAI 可调用 setIndexFundImplementation(newImpl)
 
 | 模块             | 触发条件                                               | 接收方                 | 额度                                                                                                   |
 | -------------- | -------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
-| Distributor    | `TWAP > max(initialAnchor, currentAnchor)`，且储备快照有效 | Staking/质押者         | 每8小时最高总供应量0.45%；新 mint 后不得超过当时的 `37.5M + effectiveEligibleTradeFeeUSDG / initialAnchor + actualBurn` |
+| Distributor    | `TWAP > max(initialAnchor, currentAnchor)`，且 `mintingAvailable` | Staking/质押者         | 每8小时最高总供应量0.45%；新 mint 后不得超过当时的 `37.5M + totalEligibleTradeFeeActivatedUSDG / initialAnchor` |
 | BondDepository | 有效 TWAP、用户支付 USDG                                  | Bond vesting escrow | 折扣3%；每8小时0.25%；滚动30天5%                                                                               |
 | PremiumSeller  | `TWAP > 2 × anchor`                                | 卖入官方池               | 每次基础 POL 当前 Token inventory 的0.25%；间隔1小时                                                             |
 | pTEAM          | 上市24小时后、`TWAP >= 1.2 × anchor`                     | IndexBondDesk       | 无 strike；折扣6.5%；动态10% × totalSupply；Desk 未售库存不超过总供应量0.5%                                             |
@@ -1176,7 +1180,7 @@ totalEligibleTradeFeeAccrued
  + eligibleUSDGSpentOnKeeper
 ```
 
-只有官方池 Hook fee 中已经分配给 BurnNet 的份额可以增加 `totalEligibleTradeFeeAccrued`。poke 只是把 Eligible 从 Pending 搬到 Active，仓位迁移只改变其位置，任何操作都不能凭空增加该累计值。keeper bounty 若从混合资金支付，必须按支付前的固定来源比例同时减少 Eligible 与 non-eligible 子账，只有净部署的 Eligible 金额进入 reserve credit。不得增加“其他成本”兜底扣款。
+只有官方池 Hook fee 中已经分配给 BurnNet 的份额可以增加 `totalEligibleTradeFeeAccrued`。poke 只是把 Eligible 从 Pending 搬到 Active，仓位迁移只改变其位置，任何操作都不能凭空增加该累计值。keeper bounty 若从混合资金支付，必须按支付前的固定来源比例同时减少 Eligible 与 non-eligible 子账，只有净部署的 Eligible 金额计入 `totalEligibleTradeFeeActivatedUSDG`。不得增加“其他成本”兜底扣款。
 
 共享 Hook 不得用自身聚合 `USDG.balanceOf()` 推断任何单个 poolId 的 Pending 或 Active reserve。必须满足跨池总账：
 
@@ -1197,7 +1201,7 @@ BurnNet.totalBurned
 = 所有成功Token.burn()数量之和
 ```
 
-Distributor 只能读取实际销毁累计量，不能根据仓位估算未来 burn。
+`totalBurned` 只用于墙的销毁审计。Distributor 不得读取它，也不能根据仓位估算未来 burn 来增加 credit。
 
 ### 20.4 Distributor
 
@@ -1212,16 +1216,12 @@ reserveReferencePrice
 = initialAnchor
 
 reserveCredit
-= (validEligibleTradeFeeReserveUSDG - consumedEligibleTradeFeeUSDG)
+= totalEligibleTradeFeeActivatedUSDG
   / initialAnchor
-
-validEligibleTradeFeeReserveUSDG <= validReserveSnapshotUSDG
-consumedEligibleTradeFeeUSDG <= validEligibleTradeFeeReserveUSDG
 
 currentCreditLimit
 = 37.5M
  + reserveCredit
- + BurnNet.totalBurned
 
 availableCredit
 = max(currentCreditLimit - Distributor.totalMinted, 0)
@@ -1230,7 +1230,9 @@ availableCredit
 Distributor.totalMintedAfter <= currentCreditLimit
 ```
 
-`currentAnchor` 的任何上调或下调都不得改变既有 Eligible trade-fee USDG 的折算结果。若交易费本金被仓位成交消耗，而对应 Token 尚未完成实际 burn，`currentCreditLimit` 可能暂时低于既有 `totalMinted`；合约不得下溢、回滚历史分配或让 Staking rebase 失败，`availableCredit` 必须饱和为0，直到实际 burn 或新的 Eligible 交易费使额度恢复。因此永久不变量是“无信用时不能新增”。
+`totalEligibleTradeFeeActivatedUSDG` 只在有效 poke 把官方池 Eligible 手续费从 Pending 激活时增加，且已扣除 keeper bounty。墙成交、harvest、consumed 计数和 `totalBurned` 都不得改变该累计值，也不得改变既有 `reserveCredit`。`currentAnchor` 的任何上调或下调都不得重估这笔折算。
+
+`availableCredit` 必须饱和为0，合约不得下溢或回滚历史分配。永久不变量是“无信用时不能新增”。
 
 所有 Pending USDG、non-eligible Active USDG、过期快照、错误 generation/anchorVersion、spot 推导的临时仓位余额和其他 poolId 的资金均不得进入 `reserveCredit`。只有由本 poolId 官方池 swap callback 产生且经过有效 poke 激活的 BurnNet 交易费份额可以进入。
 
@@ -1294,7 +1296,7 @@ IndexRewardClaimed
 IndexRealizedSplit
 ```
 
-`PendingUSDGAdded` 至少索引 `poolId`、Token、funder 和不可变的资金来源类型，并记录 requested amount、actual received amount 与 `eligibleForDistributor`。`PendingUSDGDeferred` 必须记录未部署数量和固定原因枚举，只允许 `ROUNDING_DUST` 或 `TIER_CONSTRAINT`。`ReserveSnapshotUpdated` 至少记录 `poolId`、generation、anchorVersion、固定 `initialAnchor`、Active reserve USDG 总额、Eligible trade-fee USDG 及折算 reserve credit。
+`PendingUSDGAdded` 至少索引 `poolId`、Token、funder 和不可变的资金来源类型，并记录 requested amount、actual received amount 与 `eligibleForDistributor`。`PendingUSDGDeferred` 必须记录未部署数量和固定原因枚举，只允许 `ROUNDING_DUST` 或 `TIER_CONSTRAINT`。`ReserveSnapshotUpdated` 至少记录 `poolId`、generation、anchorVersion、固定 `initialAnchor`、Active reserve USDG 总额和当期 Eligible trade-fee USDG。Distributor 额度不从该快照推导，而是从只增不减的 `totalEligibleTradeFeeActivatedUSDG` 按 `initialAnchor` 折算。
 
 Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和 anchor 均应进入相应事件。回调内部事件必须记录外部 keeper，而不是 PoolManager 地址。
 
@@ -1315,7 +1317,7 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 11. Generation 重启和连续重启；
 12. 24小时 mint freeze 与 post-reset TWAP；
 13. BurnNet USDG/Token 会计守恒 invariant；
-14. Distributor 在 `TWAP <= max(initialAnchor, currentAnchor)` 时零排放、`37.5M + eligibleTradeFeeReserve/initialAnchor + actualBurn` 约束、anchor 上下调整时 reserve credit 保持不变、饱和归零，以及 `warmup=0` 的 epoch 快照进入/退出边界；
+14. Distributor 在 `TWAP <= max(initialAnchor, currentAnchor)` 时零排放、`37.5M + totalEligibleTradeFeeActivatedUSDG/initialAnchor` 约束、墙成交/烧毁不改变该额度、anchor 上下调整时 reserve credit 保持不变、饱和归零，以及 `warmup=0` 的 epoch 快照进入/退出边界；
 15. Bond epoch/30天双上限；
 16. PremiumSeller clip 只使用永久基础 POL；
 17. pTEAM 无 strike、Desk 折扣6.5%、动态10% × totalSupply、24小时启动限制和0.5% Desk inventory；Bond 折扣固定3%；创建者 `sellIndex` 与 `claimHolderFees`（包装原生币换 USDG）所得均抽 1% 给创建者、99% 进 BurnNet；认购 remittance 不抽；IndexFund Listing 时冻结，TagAI 换实现不影响旧 Token，Desk 溢出 USDG 只能进入已绑定 IndexFund；
@@ -1327,7 +1329,7 @@ Keeper、创建者、Token、poolId、generation、USDG 数量、Token 数量和
 23. Eligible 交易费 USDG 在有效 poke 激活前不产生信用，激活后只进入指定 poolId；
 24. BondDepository、PremiumSeller、pTEAM、`addPendingUSDG`、管理员补款和直接转账在激活前后均不产生 USDG 型 reserve credit；
 25. Eligible 与 non-eligible USDG 混合部署、部分成交和 harvest 时按仓位固化比例消耗，任何调用顺序都不能把 non-eligible 本金重分类为 Eligible；
-26. non-eligible USDG 买回并实际 burn 后只按真实 burn 数量产生1:1 burn credit，不能同时产生 reserve credit；
+26. non-eligible USDG 买回并实际 burn 后不产生 Distributor credit，也不能被重分类为 Eligible；
 27. 高 `TWAP / initialAnchor`、高质押集中度和创建者自交易组合下的 wash-trading 经济仿真，确认链上发行仍受 epoch rate 与 credit 双重上限约束；
 28. USDG 6 decimals 下 Curve 买卖、手续费三方分账、退款、Bond、pTEAM、reserve credit 与所有向上/向下舍入边界；
 29. Uniswap v4 exact-input 的买入 `beforeSwap` 收费、卖出 `afterSwap` 收费、Hook returns-delta 权限位和 PoolManager delta 全部结清；
@@ -1425,8 +1427,8 @@ Robinhood mainnet fork 验收覆盖：创建 Token、售满 `750M`、锁入基�
 | 排放最高速率 | 总供应量的 `0.45% / 8 hours` |
 | 满速 premium | `TWAP / max(initialAnchor, currentAnchor) >= 1.75` |
 | 初始 Distributor credit | `37.5M Token` |
-| Eligible reserve 折算 | 最近一次 poke 快照减去快照后 consumed；永久按 `initialAnchor` 折算 |
-| Burn credit | 只读取 BurnNet 已实际销毁的累计 Token，按 `1:1` 增加 credit |
+| Eligible reserve 折算 | 累计 `totalEligibleTradeFeeActivatedUSDG`（poke 净激活、已扣 keeper bounty），永久按 `initialAnchor` 折算；墙成交不扣减 |
+| Burn credit | 无。`totalBurned` 只审计销毁，不进入 Distributor 额度 |
 | poke 同区块门禁 | `snapshotAt` 所在时间戳 mint 不可用；Distributor 返回 0，Treasury 再次防御检查 |
 
 Staking 沿用 NetNet 的 queued-reward 快照：某次 epoch 到期先把上一期 `distribute` rebase 给当时 sToken 持有人，再为下一期请求 Distributor mint。零 sToken 时不 mint、不消耗 credit；已排队但尚未 rebase 的底层 Token 留在 Staking，直到后续存在质押者并跨过有效 epoch。

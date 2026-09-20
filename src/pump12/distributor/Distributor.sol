@@ -24,13 +24,12 @@ interface IHookDistributor {
 interface IBurnNetDistributor {
     function anchor() external view returns (uint256);
     function mintingAvailable() external view returns (bool);
-    function eligibleTradeFeeReserveUSDG() external view returns (uint256);
-    function consumedEligibleTradeFeeUSDG() external view returns (uint256);
-    function totalBurned() external view returns (uint256);
+    /// @dev Lifetime eligible trade-fee USDG activated by poke, after keeper bounty.
+    function totalEligibleTradeFeeActivatedUSDG() external view returns (uint256);
 }
 
 /// @title Distributor
-/// @notice Premium-throttled staking emissions constrained by eligible reserve and actual-burn credit.
+/// @notice Premium-throttled staking emissions capped by bootstrap credit plus listing-price eligible fees.
 contract Distributor {
     uint256 public constant WAD = 1e18;
     uint256 public constant MAX_RATE_WAD = 45e14; // 0.45% per 8 hours.
@@ -136,15 +135,14 @@ contract Distributor {
         return Math.mulDiv(MAX_RATE_WAD, premium - WAD, FULL_RATE_PREMIUM_WAD - WAD);
     }
 
+    /// @notice Eligible fees convert at listing `initialAnchor` forever: 1 USDG ≈ 17,901 tokens.
+    ///         Wall fills and burns do not consume or add this credit.
     function reserveCredit() public view returns (uint256) {
-        uint256 eligible = burnNet.eligibleTradeFeeReserveUSDG();
-        uint256 consumed = burnNet.consumedEligibleTradeFeeUSDG();
-        if (consumed >= eligible) return 0;
-        return Math.mulDiv(eligible - consumed, RAW_USDG_TO_TOKEN_WAD_SCALE, initialAnchor);
+        return Math.mulDiv(burnNet.totalEligibleTradeFeeActivatedUSDG(), RAW_USDG_TO_TOKEN_WAD_SCALE, initialAnchor);
     }
 
     function currentCreditLimit() public view returns (uint256) {
-        return BOOTSTRAP_CREDIT + reserveCredit() + burnNet.totalBurned();
+        return BOOTSTRAP_CREDIT + reserveCredit();
     }
 
     function availableCredit() public view returns (uint256) {

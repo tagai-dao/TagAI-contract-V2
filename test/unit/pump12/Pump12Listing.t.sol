@@ -623,7 +623,9 @@ contract Pump12ListingTest is Test {
         assertEq(burnNet.eligibleUSDGSpentOnKeeper(), 3_500);
         assertEq(burnNet.reserveSnapshotUSDG(), activated);
         assertEq(burnNet.eligibleTradeFeeReserveUSDG(), 3_496_500);
+        assertEq(burnNet.totalEligibleTradeFeeActivatedUSDG(), 3_496_500);
         assertEq(distributor.reserveCredit(), Math.mulDiv(3_496_500, 1e30, burnNet.initialAnchor()));
+        assertEq(distributor.currentCreditLimit(), distributor.BOOTSTRAP_CREDIT() + distributor.reserveCredit());
         assertEq(burnNet.anchorVersion(), 2);
         assertEq(burnNet.generation(), 1);
         assertEq(burnNet.anchor(), expectedAnchor);
@@ -837,6 +839,16 @@ contract Pump12ListingTest is Test {
         assertGt(burnNet.totalUSDGConvertedToToken(), 0);
         assertEq(burnNet.consumedActiveUSDG(), 0);
         assertEq(burnNet.consumedEligibleTradeFeeUSDG(), 0);
+        (,,, address distributorAddress,,,,,) = pump.tokenEmissionModules(address(token));
+        Distributor distributor = Distributor(distributorAddress);
+        // Burns do not mint extra staking credit; leftover eligible still converts at listing price.
+        assertEq(
+            distributor.currentCreditLimit(), distributor.BOOTSTRAP_CREDIT() + distributor.reserveCredit()
+        );
+        assertEq(
+            distributor.reserveCredit(),
+            Math.mulDiv(burnNet.totalEligibleTradeFeeActivatedUSDG(), 1e30, burnNet.initialAnchor())
+        );
         assertEq(burnNet.activeReserveUSDG(), burnNet.activeLiquidUSDG() + burnNet.activePositionPrincipalUSDG());
     }
 

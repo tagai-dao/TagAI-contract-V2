@@ -107,6 +107,9 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
     uint256 public eligibleUSDGSpentOnKeeper;
 
     Tier[7] private _tiers;
+    /// @notice Cumulative eligible trade-fee USDG pulled from Pending by poke, after keeper bounty.
+    ///         Never decreases when the wall spends that USDG or burns tokens.
+    uint256 public totalEligibleTradeFeeActivatedUSDG;
 
     event BurnNetInitialized(
         PoolId indexed poolId, address indexed token, uint256 initialAnchor, uint40 listTime, uint40 nextPokeAt
@@ -229,6 +232,7 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
             activeLiquidUSDG += activated;
             activeEligibleTradeFeeUSDG += eligibleActivated;
             activeEligibleLiquidUSDG += eligibleActivated;
+            totalEligibleTradeFeeActivatedUSDG += eligibleActivated;
             totalKeeperPaidUSDG += keeperBounty;
             eligibleUSDGSpentOnKeeper += eligibleKeeperPaid;
         }

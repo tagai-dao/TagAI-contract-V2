@@ -44,8 +44,7 @@ contract DistributorMockHook {
 contract DistributorMockBurnNet {
     uint256 public anchor = 1e18;
     bool public mintingAvailable = true;
-    uint256 public eligibleTradeFeeReserveUSDG;
-    uint256 public consumedEligibleTradeFeeUSDG;
+    uint256 public totalEligibleTradeFeeActivatedUSDG;
     uint256 public totalBurned;
 
     function setAnchor(uint256 value) external {
@@ -56,9 +55,8 @@ contract DistributorMockBurnNet {
         mintingAvailable = value;
     }
 
-    function setCreditInputs(uint256 eligibleRaw, uint256 consumedRaw, uint256 burned) external {
-        eligibleTradeFeeReserveUSDG = eligibleRaw;
-        consumedEligibleTradeFeeUSDG = consumedRaw;
+    function setActivatedAndBurned(uint256 eligibleRaw, uint256 burned) external {
+        totalEligibleTradeFeeActivatedUSDG = eligibleRaw;
         totalBurned = burned;
     }
 }
@@ -144,7 +142,7 @@ contract DistributorTest is Test {
         assertEq(distributor.totalMinted(), 0);
     }
 
-    function test_creditClampsThenEligibleAndBurnRestoreExactly() public {
+    function test_creditIsCumulativeEligibleAtListingPriceAndIgnoresBurns() public {
         hook.setPrice(2e18);
         for (uint256 i; i < 20 && distributor.availableCredit() != 0; ++i) {
             distributor.distribute();
@@ -152,17 +150,23 @@ contract DistributorTest is Test {
         assertEq(distributor.totalMinted(), distributor.BOOTSTRAP_CREDIT());
         assertEq(distributor.availableCredit(), 0);
 
-        burnNet.setCreditInputs(100e6, 0, 20e18);
+        // 100 USDG activated + 20 tokens burned: only the listing-price conversion mints.
+        burnNet.setActivatedAndBurned(100e6, 20e18);
         assertEq(distributor.reserveCredit(), 100e18);
-        assertEq(distributor.availableCredit(), 120e18);
-        assertEq(distributor.distribute(), 120e18);
+        assertEq(distributor.availableCredit(), 100e18);
+        assertEq(distributor.currentCreditLimit(), distributor.BOOTSTRAP_CREDIT() + 100e18);
+        assertEq(distributor.distribute(), 100e18);
         assertEq(distributor.availableCredit(), 0);
 
-        burnNet.setCreditInputs(100e6, 50e6, 20e18);
-        assertEq(distributor.reserveCredit(), 50e18);
+        // Later fills/burns must not shrink or grow the already-activated floor.
+        burnNet.setActivatedAndBurned(100e6, 50e18);
+        assertEq(distributor.reserveCredit(), 100e18);
         assertEq(distributor.availableCredit(), 0);
-        burnNet.setCreditInputs(100e6, 200e6, 20e18);
-        assertEq(distributor.reserveCredit(), 0);
+
+        // A second poke activating another 50 USDG adds 50 tokens of credit.
+        burnNet.setActivatedAndBurned(150e6, 50e18);
+        assertEq(distributor.reserveCredit(), 150e18);
+        assertEq(distributor.availableCredit(), 50e18);
     }
 
     function test_onlyStakingMayDistribute() public {

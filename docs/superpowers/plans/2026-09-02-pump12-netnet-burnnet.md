@@ -200,12 +200,12 @@ script/DeployPump12RH.s.sol
 - Create: `test/unit/pump12/StakingRebase.t.sol`
 
 **Interfaces:**
-- Consumes: `Hook.validTWAP(poolId)`、`reserveSnapshot`、`initialAnchor`、`actualBurn`。
+- Consumes: `Hook.validTWAP(poolId)`、`totalEligibleTradeFeeActivatedUSDG`、`initialAnchor`。
 - Produces:
   - `Treasury.mint(to, amount)` 仅授权模块。
   - `emissionAnchor = max(initialAnchor, currentAnchor)`。
   - `rate = 0.45% * clamp((P-1)/(1.75-1), 0, 1)` per 8h；`P = TWAP / emissionAnchor`；`TWAP <= emissionAnchor` → 0。
-  - credit：`37.5M + eligibleTradeFeeUSDG / initialAnchor + actualBurn`（Token 18 decimals 整数）。
+  - credit：`37.5M + totalEligibleTradeFeeActivatedUSDG / initialAnchor`（Token 18 decimals 整数）。墙成交和 `totalBurned` 不改额度。
   - `stakingWarmupEpochs = 0`；rebase 快照语义。
   - 无质押者不 mint。
 
@@ -214,7 +214,7 @@ script/DeployPump12RH.s.sol
 - [x] **Step 3:** 进入/退出 sToken 跨 epoch 边界。
 - [x] **Step 4:** 已并入整合 Commit `feat: complete Pump12 NetNet BurnNet modules`
 
-**本层完成标准：** 只有官方池 eligible 手续费和真实 burn 能延长排放；Bond 尚未存在所以用 mock `addPendingUSDG` 证明 non-eligible 不加 credit。
+**本层完成标准：** 只有官方池 eligible 手续费经 poke 激活后能按 `initialAnchor` 延长排放；烧毁和非 eligible 资金不加 credit。Bond 尚未存在所以用 mock `addPendingUSDG` 证明 non-eligible 不加 credit。
 
 ---
 
