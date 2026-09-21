@@ -321,6 +321,8 @@ contract DeployBSCIndexBrokerNFTV2Script is Script {
         require(factory.defaultRenderer() == renderer, "Factory Renderer mismatch");
         require(factory.ammTemplate() == address(ammTemplate), "Factory AMM mismatch");
         require(factory.nutboxRouter() == nutboxRouter, "Factory Router mismatch");
+        require(factory.indexV3Router() == pancakeV3SmartRouter, "Factory V3 Router mismatch");
+        require(factory.indexV3Fee() == bnbUsdtV3Fee, "Factory V3 fee mismatch");
         require(factory.basketSwapRouterForVersion(2) == basketSwapRouterV2, "Factory Basket V2 mismatch");
         require(factory.basketSwapRouterForVersion(3) == basketSwapRouterV3, "Factory Basket V3 mismatch");
         require(factory.basketSwapRouterForVersion(4) == basketSwapRouterV4, "Factory Basket V4 mismatch");

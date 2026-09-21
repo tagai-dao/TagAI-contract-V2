@@ -567,6 +567,68 @@ contract IndexBrokerNFTTest is Test {
         poolFactory.setNutboxRouter(address(incompatible));
     }
 
+    function test_FactoryOwnerUpdatesIndexPurchaseRouterForExistingAMMs() public {
+        uint24 replacementFee = 500;
+        IndexBrokerIndexV3FactoryMock replacementFactory = new IndexBrokerIndexV3FactoryMock();
+        IndexBrokerIndexV3RouterMock replacementRouter =
+            new IndexBrokerIndexV3RouterMock(address(replacementFactory), address(wrappedNative));
+        replacementFactory.setPool(
+            address(wrappedNative), address(indexSettlementToken), replacementFee, address(v2Pair)
+        );
+        uint256 routerLiquidity = 1_000_000 ether;
+        assertTrue(indexSettlementToken.transfer(address(replacementRouter), routerLiquidity));
+
+        vm.prank(paidUser);
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
+        poolFactory.setIndexV3Router(address(replacementRouter), replacementFee);
+
+        poolFactory.setIndexV3Router(address(replacementRouter), replacementFee);
+        assertEq(poolFactory.indexV3Router(), address(replacementRouter));
+        assertEq(poolFactory.indexV3Fee(), replacementFee);
+        assertEq(address(amm.indexV3Router()), address(replacementRouter));
+        assertEq(amm.indexV3Fee(), replacementFee);
+
+        vm.deal(address(amm), 1 ether);
+        vm.prank(paidUser);
+        amm.buyIndexWithNativeReserve(0, 0, bytes(""));
+        assertLt(indexSettlementToken.balanceOf(address(replacementRouter)), routerLiquidity);
+
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidIndexV3Router.selector);
+        poolFactory.setIndexV3Router(paidUser, replacementFee);
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidIndexV3Router.selector);
+        poolFactory.setIndexV3Router(address(replacementRouter), replacementFee + 1);
+
+        IndexBrokerCommunityToken otherWrappedNative = new IndexBrokerCommunityToken();
+        IndexBrokerIndexV3RouterMock incompatible =
+            new IndexBrokerIndexV3RouterMock(address(replacementFactory), address(otherWrappedNative));
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidIndexV3Router.selector);
+        poolFactory.setIndexV3Router(address(incompatible), replacementFee);
+    }
+
+    function test_FactoryOwnerUpdatesDefaultsAndAMMTemplate() public {
+        IndexBrokerPumpMock replacementPump = new IndexBrokerPumpMock();
+        IndexBrokerNFTRenderer replacementRenderer = new IndexBrokerNFTRenderer();
+        IndexBrokerNFTAMM replacementAMMTemplate = new IndexBrokerNFTAMM();
+
+        poolFactory.setDefaultPump(address(replacementPump));
+        poolFactory.setDefaultRenderer(address(replacementRenderer));
+        poolFactory.setAMMTemplate(address(replacementAMMTemplate));
+
+        assertEq(poolFactory.pump(), address(replacementPump));
+        assertTrue(poolFactory.supportedPump(address(replacementPump)));
+        assertEq(poolFactory.defaultRenderer(), address(replacementRenderer));
+        assertEq(poolFactory.ammTemplate(), address(replacementAMMTemplate));
+
+        vm.expectRevert(IndexBrokerNFTFactory.CannotRemoveDefaultPump.selector);
+        poolFactory.removePump(address(replacementPump));
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidPump.selector);
+        poolFactory.setDefaultPump(paidUser);
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidRenderer.selector);
+        poolFactory.setDefaultRenderer(paidUser);
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidAMMTemplate.selector);
+        poolFactory.setAMMTemplate(address(burnTemplate));
+    }
+
     function test_StakeTemplateUsesCreatorSelectedTokenAndHasNoActivation() public {
         IndexBrokerNFTStake stakePool = _addStakePool();
 
@@ -1853,7 +1915,7 @@ contract IndexBrokerNFTTest is Test {
         assertEq(IndexBrokerNFTAMM(payable(customPool.ammVault())).indexToken(), address(defaultIndexToken));
     }
 
-    function test_FactorySelectsAndSnapshotsBasketRouterByVersion() public {
+    function test_FactoryUpdatesBasketRouterForExistingAndFutureAMMsByVersion() public {
         (IndexBrokerIndexTokenMock version3Token,, IndexBrokerBasketSwapRouterMock version3Router) =
             _addIndexBasketVersion(3, "V3-INDEX");
 
@@ -1887,8 +1949,14 @@ contract IndexBrokerNFTTest is Test {
         IndexBrokerNFTBurn laterPool =
             _addPoolWithIndex(NATIVE_PRICE, 3, 0, false, accounts, allowances, address(version3Token));
         IndexBrokerNFTAMM laterAMM = IndexBrokerNFTAMM(payable(laterPool.ammVault()));
-        assertEq(address(firstAMM.basketSwapRouter()), address(version3Router));
+        assertEq(address(firstAMM.basketSwapRouter()), address(replacement));
         assertEq(address(laterAMM.basketSwapRouter()), address(replacement));
+
+        uint256 replacementBalanceBefore = indexSettlementToken.balanceOf(address(replacement));
+        vm.deal(address(firstAMM), 1 ether);
+        vm.prank(paidUser);
+        firstAMM.buyIndexWithNativeReserve(0, 0, bytes(""));
+        assertGt(indexSettlementToken.balanceOf(address(replacement)), replacementBalanceBefore);
     }
 
     function test_FactoryDefaultIndexCanSwitchAcrossBasketVersions() public {
@@ -1956,6 +2024,25 @@ contract IndexBrokerNFTTest is Test {
 
         vm.expectRevert(IndexBrokerNFTFactory.InvalidBasketRouterConfiguration.selector);
         poolFactory.setBasketSwapRouter(3, address(version4Router));
+    }
+
+    function test_FactoryRejectsReplacementRouterThatChangesHookOrSettlement() public {
+        IndexBrokerBasketHookMock differentHook = new IndexBrokerBasketHookMock(
+            address(basketRegistry), address(indexSettlementToken), DEFAULT_BASKET_VERSION
+        );
+        IndexBrokerBasketSwapRouterMock differentHookRouter =
+            new IndexBrokerBasketSwapRouterMock(address(indexSettlementToken), address(differentHook));
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidBasketRouterConfiguration.selector);
+        poolFactory.setBasketSwapRouter(DEFAULT_BASKET_VERSION, address(differentHookRouter));
+
+        IndexBrokerCommunityToken differentSettlement = new IndexBrokerCommunityToken();
+        IndexBrokerBasketHookMock differentSettlementHook = new IndexBrokerBasketHookMock(
+            address(basketRegistry), address(differentSettlement), DEFAULT_BASKET_VERSION
+        );
+        IndexBrokerBasketSwapRouterMock differentSettlementRouter =
+            new IndexBrokerBasketSwapRouterMock(address(differentSettlement), address(differentSettlementHook));
+        vm.expectRevert(IndexBrokerNFTFactory.InvalidBasketRouterConfiguration.selector);
+        poolFactory.setBasketSwapRouter(DEFAULT_BASKET_VERSION, address(differentSettlementRouter));
     }
 
     function test_FactoryRejectsUnregisteredCustomIndexToken() public {

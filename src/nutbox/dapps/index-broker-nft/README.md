@@ -16,11 +16,11 @@ Index Broker NFT 是一种与 Nutbox 社区绑定的固定总量 NFT 矿池。�
 
 | 组件                          | 作用                                                                                            |
 | --------------------------- | --------------------------------------------------------------------------------------------- |
-| `IndexBrokerNFTFactory`     | 管理可用 NFT 模板，创建 NFT 矿池和一对一的 AMM，并管理全局平台费、默认指数代币、Basket 版本 Router 和保留名称                         |
+| `IndexBrokerNFTFactory`     | 管理可用 NFT/AMM 模板，创建 NFT 矿池和一对一的 AMM，并管理全局平台费、默认 Pump、默认 Renderer、默认指数代币和运行时 Router 配置             |
 | `IndexBrokerNFTBase`        | 两类 NFT 模板共享的 ERC-721、铸造、推荐升级、社区挖矿、奖励注入、揭图和元数据逻辑                                           |
 | `IndexBrokerNFTBurn`        | 销毁型模板；销毁社区代币增加指数权重，转移后保留 80% 并需要重新激活                                                        |
 | `IndexBrokerNFTStake`       | 质押型模板；质押创建者指定的 ERC-20 增加指数权重，本金、权重和奖励跟随 NFT，转移不衰减                                         |
-| `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备，并固化所选指数代币版本及其 BasketSwapRouter，用 BNB 储备回购指数奖励              |
+| `IndexBrokerNFTAMM`         | 使用固定数量社区代币买卖 NFT，保存 NFT 库存和社区代币储备；指数代币和版本固定，Router 与执行费率在运行时从 Factory 读取，用 BNB 储备回购指数奖励 |
 | [`NutboxRouter`](../../../router/README.md) | 平台级公共询价与交易路由；由平台登记共享价格池并维护最多五跳、可双向使用的默认路径，任何合约或账户均可使用 |
 | Renderer                    | 为NFT提供SVG、`tokenURI` 和 `contractURI`；矿池创建时可选默认或自定义 Renderer                                   |
 
@@ -279,25 +279,27 @@ struct AMMConfig {
 | `priceSourceType` | AMM 保存的社区代币第一跳池类型                    |
 | `priceSourceData` | 社区代币第一跳池对应的 ABI 编码数据                |
 | `indexToken`      | 指数挖矿奖励代币；零地址表示使用创建当时的 Factory 默认指数代币 |
-| `pump`            | 官方社区代币所属的受支持 Pump；外部代币填零地址。当前构造函数传入的默认 Pump 可自动识别 |
+| `pump`            | 官方社区代币所属的受支持 Pump；外部代币填零地址。Factory 当前默认 Pump 可自动识别 |
 
 
 `indexToken` 必须是 `basketRegistry` 认可的 Basket，并且 Factory 必须已经为
 `basketRegistry.basketVersion(indexToken)` 登记兼容的 BasketSwapRouter。Factory 会进一步核对指数代币的
 `protocolVersion`、Registry、Engine/Hook、结算代币与 Router 是否一致，不能把 V2 指数交给 V3 Router。
 
-矿池创建时，指数代币、版本和对应 Router 会一起固定在专属 AMM 中。以后 Factory 修改默认指数代币，或替换某个版本的 Router，
-都不会改变已有矿池。当前 V2、V3 使用相同的外层 Token/Router 接口；未来 V4 保持同一接口和资金语义时，平台只需登记 V4 Router，
-不需要重新部署 NFT 模板。
+矿池创建时，指数代币和版本固定在专属 AMM 中。AMM 每次回购会根据固定版本从 Factory 读取当前 BasketSwapRouter，
+并读取当前 Pancake V3 Router、费率和 NutboxRouter。Factory 替换这些运行时依赖后会同时作用于既有和未来 AMM；
+同版本 BasketSwapRouter 只能替换为使用相同 Hook 和结算币的 Router，避免破坏既有指数代币。当前 V2、V3、V4
+使用相同的外层 Token/Router 接口，新增兼容版本只需在 Factory 登记对应 Router，不需要重新部署 NFT 模板。
 
 ## 6. 官方 Pump 代币与外部代币的 AMM 激活规则
 
 Factory 维护 `supportedPump(address)` 注册表。构造函数传入的 `pump` 会自动加入注册表，Owner 后续可以通过
-`addPump(newPump)` 和 `removePump(oldPump)` 增删支持的 Pump 版本，查询和校验复杂度均为 O(1)。
+`addPump(newPump)` 和 `removePump(oldPump)` 增删支持的 Pump 版本，并通过 `setDefaultPump(newPump)` 修改默认 Pump，
+查询和校验复杂度均为 O(1)。当前默认 Pump 不能直接删除，应先切换默认值。
 
 创建时可以在 `ammConfig.pump` 中显式指定 Pump。该地址必须已注册，并且
 `Pump.createdTokens(communityToken)` 必须返回 `true`。为了兼容原有创建参数，当 `ammConfig.pump` 为零且
-社区代币由构造函数传入的默认 Pump 创建时，Factory 会自动选中该默认 Pump；其他零地址配置按外部代币处理。
+社区代币由 Factory 当前默认 Pump 创建时，Factory 会自动选中该默认 Pump；其他零地址配置按外部代币处理。
 每个 AMM 会永久保存创建时选中的 Pump。Factory 后续移除某个 Pump 只阻止该版本创建新的 NFT 矿池，
 不会影响已经创建的 AMM 激活、报价或交易。
 
@@ -963,13 +965,18 @@ NFT Pool owner 不能修改：
 Factory owner可以：
 
 - 调整所有矿池公开铸造所读取的 `platformFeeBps`；
+- 通过 `setDefaultPump`、`setDefaultRenderer` 和 `setAMMTemplate` 更新以后新建矿池的默认组件；
+- 通过 `setNutboxRouter` 更新既有和未来 AMM 使用的共享价格 Router；
+- 通过 `setIndexV3Router` 更新既有和未来 AMM 使用的 BNB 到结算币 Router 与费率；
 - 修改以后新建矿池使用的默认指数代币；
-- 通过 `setBasketSwapRouter(version, router)` 新增或替换未来矿池使用的 Basket 版本 Router；
-- 通过 `removeBasketSwapRouter(version)` 停止未来矿池选择某个非默认版本；
+- 通过 `setBasketSwapRouter(version, router)` 新增或替换既有和未来矿池使用的 Basket 版本 Router；
+- 通过 `removeBasketSwapRouter(version)` 暂停某个非默认版本的指数回购并阻止新矿池选择该版本；
 - 通过 `addNFTTemplate(template)` 和 `removeNFTTemplate(template)` 管理以后新建矿池可选择的 NFT 模板；
 - 添加或删除精确匹配的保留集合名称。
 
-修改默认指数代币、版本 Router 或模板名单都不会改变既有矿池。当前默认指数所属版本不能被删除；应先切换到另一个有效默认指数。
+修改默认指数代币、默认 Pump、默认 Renderer、AMM/NFT 模板名单不会改变既有矿池保存的业务配置。
+NutboxRouter、Pancake V3 Router/费率和版本 Router 是运行时配置，会影响既有 AMM。当前默认指数所属版本不能被删除；
+应先切换到另一个有效默认指数。
 可通过 `basketSwapRouterForVersion(version)` 查询版本 Router，并通过 `nftTemplateCount()`、`nftTemplateAt(index)` 和
 `supportedNFTTemplate(template)` 查询当前模板名单；模板删除采用 swap-and-pop，枚举顺序不稳定。
 
@@ -1039,7 +1046,9 @@ Router 路由属于共享动态配置，管理操作会影响所有依赖对应�
 | `priceSourceType()` / `priceSourceData()` | AMM 创建时固定的第一跳 DEX 池  |
 | `priceQuoteToken()`                       | 第一跳池识别出的报价币           |
 | `indexBasketVersion()`                    | AMM 创建时固化的 Basket 版本   |
-| `basketSwapRouter()`                      | 与该版本和指数代币匹配的固定 Router |
+| `basketSwapRouter()`                      | Factory 当前为该版本配置的 Router |
+| `nutboxRouter()`                          | Factory 当前配置的共享价格 Router |
+| `indexV3Router()` / `indexV3Fee()`        | Factory 当前配置的 BNB 到结算币执行器和费率 |
 
 
 
@@ -1054,6 +1063,11 @@ Router 路由属于共享动态配置，管理操作会影响所有依赖对应�
 - `IndexBrokerNFTAMMCreated`
 - `IndexBasketRouterSelected`
 - `BasketSwapRouterChanged`
+- `NutboxRouterChanged`
+- `IndexV3RouterChanged`
+- `DefaultPumpChanged`
+- `DefaultRendererChanged`
+- `AMMTemplateChanged`
 - `NFTTemplateAdded`
 - `NFTTemplateRemoved`
 

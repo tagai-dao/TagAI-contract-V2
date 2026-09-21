@@ -93,8 +93,11 @@ interface IIndexBrokerWrappedNative {
     function withdraw(uint256 amount) external;
 }
 
-interface IIndexBrokerNutboxRouterProvider {
+interface IIndexBrokerAMMConfigProvider {
     function nutboxRouter() external view returns (address);
+    function basketSwapRouterForVersion(uint32 version) external view returns (address);
+    function indexV3Router() external view returns (address);
+    function indexV3Fee() external view returns (uint24);
 }
 
 /**
@@ -132,11 +135,8 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
     address public priceQuoteToken;
     bool public active;
     address public basketRegistry;
-    IIndexBrokerBasketSwapRouter public basketSwapRouter;
-    IIndexBrokerPancakeV3Router public indexV3Router;
     address public indexWrappedNative;
     address public indexSettlementToken;
-    uint24 public indexV3Fee;
     address public indexToken;
     uint32 public indexBasketVersion;
 
@@ -206,7 +206,28 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
 
     /// @notice Returns the Factory-managed Router so owner updates also apply to existing AMMs.
     function nutboxRouter() public view returns (address) {
-        return IIndexBrokerNutboxRouterProvider(factory).nutboxRouter();
+        return IIndexBrokerAMMConfigProvider(factory).nutboxRouter();
+    }
+
+    /// @notice Returns the current Basket Router for this AMM's fixed index version.
+    function basketSwapRouter() public view returns (IIndexBrokerBasketSwapRouter) {
+        return IIndexBrokerBasketSwapRouter(
+            IIndexBrokerAMMConfigProvider(factory).basketSwapRouterForVersion(indexBasketVersion)
+        );
+    }
+
+    /// @notice Returns the Factory-managed Pancake V3 executor.
+    function indexV3Router() public view returns (IIndexBrokerPancakeV3Router) {
+        return IIndexBrokerPancakeV3Router(IIndexBrokerAMMConfigProvider(factory).indexV3Router());
+    }
+
+    function indexV3Fee() public view returns (uint24) {
+        return IIndexBrokerAMMConfigProvider(factory).indexV3Fee();
+    }
+
+    /// @notice Identifies a compatible clone implementation to the Factory.
+    function ammTemplateInterfaceId() external pure returns (bytes4) {
+        return IndexBrokerNFTAMM.initialize.selector;
     }
 
     function initialize(
@@ -255,6 +276,11 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         address settlement = router.settlementToken();
         address basketHook = router.basketHook();
         uint32 basketVersion = registry.basketVersion(indexToken_);
+        IIndexBrokerAMMConfigProvider configProvider = IIndexBrokerAMMConfigProvider(factory);
+        if (
+            configProvider.basketSwapRouterForVersion(basketVersion) != basketSwapRouter_
+                || configProvider.indexV3Router() != indexV3Router_ || configProvider.indexV3Fee() != indexV3Fee_
+        ) revert InvalidConfig();
         IIndexBrokerPancakeV3Router v3Router = IIndexBrokerPancakeV3Router(indexV3Router_);
         address wrappedNative = v3Router.WETH9();
         address v3Factory = v3Router.factory();
@@ -269,11 +295,8 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
                     == 0
         ) revert InvalidConfig();
 
-        basketSwapRouter = router;
-        indexV3Router = v3Router;
         indexWrappedNative = wrappedNative;
         indexSettlementToken = settlement;
-        indexV3Fee = indexV3Fee_;
         indexBasketVersion = basketVersion;
 
         bool officialTagAIToken = pump_ != address(0);
@@ -393,13 +416,23 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         uint256 nativeToInvest = nativeReserve - callerReward;
         uint256 indexBalanceBefore = IERC20(indexToken).balanceOf(address(this));
 
+        IIndexBrokerPancakeV3Router currentV3Router = indexV3Router();
+        IIndexBrokerBasketSwapRouter currentBasketRouter = basketSwapRouter();
+        uint24 currentV3Fee = indexV3Fee();
+        if (
+            address(currentV3Router).code.length == 0 || address(currentBasketRouter).code.length == 0
+                || currentV3Router.WETH9() != indexWrappedNative
+                || currentBasketRouter.settlementToken() != indexSettlementToken
+                || currentBasketRouter.basketHook() != IIndexBrokerBasketToken(indexToken).engine()
+        ) revert InvalidConfig();
+
         IERC20 settlementToken = IERC20(indexSettlementToken);
         uint256 settlementBalanceBefore = settlementToken.balanceOf(address(this));
-        settlementOut = indexV3Router.exactInputSingle{value: nativeToInvest}(
+        settlementOut = currentV3Router.exactInputSingle{value: nativeToInvest}(
             IIndexBrokerPancakeV3Router.ExactInputSingleParams({
                 tokenIn: indexWrappedNative,
                 tokenOut: indexSettlementToken,
-                fee: indexV3Fee,
+                fee: currentV3Fee,
                 recipient: address(this),
                 amountIn: nativeToInvest,
                 amountOutMinimum: minSettlementOut,
@@ -409,9 +442,10 @@ contract IndexBrokerNFTAMM is Initializable, ReentrancyGuard, IERC721Receiver {
         if (settlementOut == 0 || settlementToken.balanceOf(address(this)) - settlementBalanceBefore != settlementOut) {
             revert InvalidIndexPurchase();
         }
-        settlementToken.forceApprove(address(basketSwapRouter), settlementOut);
-        indexOut = basketSwapRouter.buyExactSettlement(indexToken, settlementOut, minIndexOut, hookData, address(this));
-        settlementToken.forceApprove(address(basketSwapRouter), 0);
+        settlementToken.forceApprove(address(currentBasketRouter), settlementOut);
+        indexOut =
+            currentBasketRouter.buyExactSettlement(indexToken, settlementOut, minIndexOut, hookData, address(this));
+        settlementToken.forceApprove(address(currentBasketRouter), 0);
         if (indexOut == 0 || IERC20(indexToken).balanceOf(address(this)) - indexBalanceBefore != indexOut) {
             revert InvalidIndexPurchase();
         }
