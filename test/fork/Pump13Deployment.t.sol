@@ -30,7 +30,7 @@ contract Pump13DeploymentForkTest is Pump13MainnetForkTest {
             Config.initialConfig()
         );
         address[] memory defaults = Config.constituentAssets();
-        Pump defaultPump = new Pump(IPSHARE, platform, defaults);
+        Pump defaultPump = new Pump(IPSHARE, platform, defaults, address(0));
         assertEq(defaults.length, 16);
         for (uint256 i; i < defaults.length; ++i) {
             assertTrue(defaultPump.approvedConstituent(defaults[i]));

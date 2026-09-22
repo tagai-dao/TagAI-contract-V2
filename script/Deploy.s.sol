@@ -78,7 +78,7 @@ contract Deploy is Script {
         console.log("MockVault:", address(mockVault));
 
         // ─── Phase 8: Deploy Pump ───
-        Pump pump = new Pump(address(ipshare), deployer, new address[](0));
+        Pump pump = new Pump(address(ipshare), deployer, new address[](0), address(0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
         console.log("Pump:", address(pump));

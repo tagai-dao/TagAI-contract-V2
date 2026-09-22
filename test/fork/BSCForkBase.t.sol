@@ -96,7 +96,7 @@ abstract contract BSCForkBase is Test {
     function _deployProductionStack() internal virtual {
         calculator = new HourlyTickCalculator(COMMUNITY_FACTORY);
 
-        pump = new Pump(IPSHARE, FEE_RECEIVER, new address[](0));
+        pump = new Pump(IPSHARE, FEE_RECEIVER, new address[](0), address(0));
         pump.adminSetPoolManager(CL_POOL_MANAGER);
         pump.adminSetVault(VAULT);
 

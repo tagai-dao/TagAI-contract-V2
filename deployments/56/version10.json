@@ -24,5 +24,12 @@
   "BSCNFTMiningRenderer": "0x9e2878532240d79470bf4dE615eAc2A1E85546C9",
   "BasketTVLMiningPoolFactory": "0x6B1B18336E774164dF01EfDC0901559909f2d074",
   "BasketTVLMiningPoolTemplate": "0xcbe3A0441D2f60dCc09A707C7F9B2dA42C3b8af1",
-  "BasketStakePoolTemplate": "0x34E5fC87f95816c3144EA16a8EDD52F2Df9D1D28"
+  "BasketStakePoolTemplate": "0x34E5fC87f95816c3144EA16a8EDD52F2Df9D1D28",
+  "SocialCurationClaimSigner": "0x1C3864ea7a54eC4E3cEb27553A6F2927bBe4222e",
+  "SocialCurationClaimSignerVerifiedAtBlock": 123331057,
+  "RoleAddressSnapshotScope": "Current on-chain roles at the recorded block, not historical deployment-time roles.",
+  "ListingKeeper": null,
+  "ListingKeeperStatus": "not-exposed-by-pump",
+  "ListingKeeperCheckedAtBlock": 123331057,
+  "ListingKeeperNote": "Pump.listingKeeper() reverted with empty data; this legacy Pump does not expose the V13 listing keeper interface. Do not substitute the V13 keeper."
 }

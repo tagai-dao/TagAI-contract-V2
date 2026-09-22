@@ -71,7 +71,7 @@ contract DeployBSCPumpRefreshScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        Pump pump = new Pump(ipshare, feeReceiver, new address[](0));
+        Pump pump = new Pump(ipshare, feeReceiver, new address[](0), address(0));
         pump.adminSetPoolManager(clPoolManager);
         pump.adminSetVault(vault);
         console.log("Pump:", address(pump));
