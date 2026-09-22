@@ -9,11 +9,10 @@ import "../../CommunityFactory.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /**
- * @dev Factory contract of Nutbox ERC20 locking pool.
- *      Deploys ERC20Locking implementation once for EIP-1167 clones.
- *
- * meta layout: [address stakeToken (20 bytes)][uint256 lockDuration (32 bytes)]
- * Total meta length: 52 bytes
+ * @dev Factory for Nutbox social-curation pools.
+ *      Deploys one SocialCuration EIP-1167 clone per community.
+ *      Clones share the factory owner's `claimSigner`; users claim with EIP-712 signatures.
+ *      This is not a staking or locking pool. `createPool` does not decode `meta`.
  */
 contract SocialCurationFactory is IPoolFactory, Ownable2Step {
     address public immutable communityFactory;
