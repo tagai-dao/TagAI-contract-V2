@@ -2,7 +2,6 @@
 pragma solidity ^0.8.26;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {VmSafe} from "forge-std/Vm.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ICommittee} from "../src/interfaces/ICommittee.sol";
@@ -54,11 +53,11 @@ interface IIndexBrokerV2PancakeV3Factory {
  *   forge script script/DeployBSCIndexBrokerNFTV2.s.sol:DeployBSCIndexBrokerNFTV2Script \
  *     --rpc-url $BSC_RPC_URL --chain-id 56 -vv
  *
- * Broadcast, verify and record in deployments/56/version13.json:
- *   WRITE_DEPLOYMENTS=true forge script \
+ * Broadcast and verify. Record confirmed receipts in deployments/56/version13.json afterwards:
+ *   forge script \
  *     script/DeployBSCIndexBrokerNFTV2.s.sol:DeployBSCIndexBrokerNFTV2Script \
  *     --rpc-url $BSC_RPC_URL --chain-id 56 --broadcast --legacy \
- *     --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
+ *     --with-gas-price 0.05gwei --verify --etherscan-api-key $BSCSCAN_API_KEY -vv
  *
  * INDEX_BROKER_V2_OWNER must be set explicitly. When it differs from the deployer,
  * the deployment starts an Ownable2Step handover. The Committee multisig must also
@@ -91,6 +90,7 @@ contract DeployBSCIndexBrokerNFTV2Script is Script {
 
     function run() external {
         require(block.chainid == 56, "BSC mainnet only");
+        require(!vm.envOr("WRITE_DEPLOYMENTS", false), "Record only after confirmed broadcast receipts");
         _loadDeployments();
 
         uint256 privateKey = vm.envUint("PRIVATE_KEY_MAIN");
@@ -98,11 +98,6 @@ contract DeployBSCIndexBrokerNFTV2Script is Script {
         require(vm.envExists("INDEX_BROKER_V2_OWNER"), "INDEX_BROKER_V2_OWNER must be explicit");
         address targetOwner = vm.envAddress("INDEX_BROKER_V2_OWNER");
         require(targetOwner != address(0), "Index Broker V2 owner missing");
-
-        bool writeDeployments = vm.envOr("WRITE_DEPLOYMENTS", false);
-        bool isBroadcast =
-            vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume);
-        bool shouldWrite = writeDeployments && isBroadcast;
 
         _validateDependencies();
 
@@ -172,16 +167,7 @@ contract DeployBSCIndexBrokerNFTV2Script is Script {
             console2.log("ACTION REQUIRED: target owner must accept Factory ownership", targetOwner);
         }
 
-        if (shouldWrite) {
-            _writeDeployment(
-                factory, burnTemplate, stakeTemplate, ammTemplate, deployer, targetOwner, committeeWhitelisted
-            );
-            console2.log("Index Broker V2 deployment recorded", VERSION13_PATH);
-        } else if (writeDeployments) {
-            console2.log("Dry run: WRITE_DEPLOYMENTS ignored outside broadcast/resume context");
-        } else {
-            console2.log("Dry run: deployment record not written");
-        }
+        console2.log("Record deployment only after all broadcast receipts are confirmed");
     }
 
     function _loadDeployments() internal {
@@ -329,47 +315,5 @@ contract DeployBSCIndexBrokerNFTV2Script is Script {
         require(factory.basketSwapRouter() == basketSwapRouterV2, "Factory default Basket Router mismatch");
         require(factory.defaultIndexToken() == defaultIndexToken, "Factory index mismatch");
         if (targetOwner != factory.owner()) require(factory.pendingOwner() == targetOwner, "Owner handover missing");
-    }
-
-    function _writeDeployment(
-        IndexBrokerNFTFactory factory,
-        IndexBrokerNFTBurn burnTemplate,
-        IndexBrokerNFTStake stakeTemplate,
-        IndexBrokerNFTAMM ammTemplate,
-        address deployer,
-        address targetOwner,
-        bool committeeWhitelisted
-    ) internal {
-        string memory json = vm.readFile(VERSION13_PATH);
-        require(vm.parseJsonUint(json, ".version") == 13, "V13 changed before write");
-        require(vm.parseJsonAddress(json, ".Pump") == pump13, "Pump13 changed before write");
-        require(vm.parseJsonAddress(json, ".NutboxRouter") == nutboxRouter, "NutboxRouter changed before write");
-        require(
-            vm.parseJsonAddress(json, ".BasketSwapRouterV4") == basketSwapRouterV4,
-            "BasketSwapRouterV4 changed before write"
-        );
-
-        _writeAddress(".IndexBrokerV2Deployer", deployer);
-        _writeAddress(".IndexBrokerV2TargetOwner", targetOwner);
-        _writeBool(".IndexBrokerV2OwnershipAccepted", targetOwner == deployer);
-        _writeBool(".IndexBrokerV2FactoryWhitelisted", committeeWhitelisted);
-        _writeAddress(".IndexBrokerV2Factory", address(factory));
-        _writeAddress(".IndexBrokerV2BurnTemplate", address(burnTemplate));
-        _writeAddress(".IndexBrokerV2StakeTemplate", address(stakeTemplate));
-        _writeAddress(".IndexBrokerV2AMMTemplate", address(ammTemplate));
-        _writeAddress(".IndexBrokerV2Renderer", renderer);
-        _writeAddress(".IndexBrokerV2NutboxRouter", nutboxRouter);
-        _writeAddress(".IndexBrokerV2Pump", pump13);
-        _writeAddress(".IndexBrokerV2BasketSwapRouterV2", basketSwapRouterV2);
-        _writeAddress(".IndexBrokerV2BasketSwapRouterV3", basketSwapRouterV3);
-        _writeAddress(".IndexBrokerV2BasketSwapRouterV4", basketSwapRouterV4);
-    }
-
-    function _writeAddress(string memory key, address value) internal {
-        vm.writeJson(string.concat('"', vm.toString(value), '"'), VERSION13_PATH, key);
-    }
-
-    function _writeBool(string memory key, bool value) internal {
-        vm.writeJson(value ? "true" : "false", VERSION13_PATH, key);
     }
 }
