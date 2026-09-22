@@ -220,13 +220,24 @@ Published in [tagai-contract README](https://github.com/tagai-dao/tagai-contract
 - **New Pump + Hook deployment**: Fresh factory and `TagAISwapHook` with updated listing and fee/injection logic on PCS V4
 - **Same IPShare layer**: Creator shares still flow through the production IPShare v1 contract
 
+## BSC Mainnet — Index Broker NFT V2
+
+The new Factory is deployed and verified at
+[`0x835E047D4BE6548E95F2Cbb9Ac02d62EFa2508A0`](https://bscscan.com/address/0x835e047d4be6548e95f2cbb9ac02d62efa2508a0).
+The multisig `0x871fb7006C5964B21695Ba20006021777A26146C` accepted ownership and
+authorized it in the Committee in
+[`0x6da67a3c9f7dddff51c434ebb40ef215f4e78d06f05982d06d3704cfc9979a9d`](https://bscscan.com/tx/0x6da67a3c9f7dddff51c434ebb40ef215f4e78d06f05982d06d3704cfc9979a9d).
+Deployment addresses and transaction records are in
+[`deployments/56/version13.json`](deployments/56/version13.json).
+
 ## BSC Mainnet — V11 deployment
 
 Chain: **BNB Smart Chain (56)**
 
 V11 deployment snapshot: [`deployments/56/version11.json`](deployments/56/version11.json)
 
-Status: Pump V11 is live. The upgraded Index Broker NFT stack is deployed, source-verified and fork-tested; its Factory authorization remains disabled until the final ownership handover.
+Status: Pump V11 is live. The V11 Index Broker NFT addresses below are historical;
+new NFT pools use the V2 Factory above.
 
 | Contract | Address |
 |----------|---------|
