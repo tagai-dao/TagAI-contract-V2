@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {TagAITradeRouter} from "../router/TagAITradeRouter.sol";
 import {ICommentBuyAdapter} from "./CommentTradeVault.sol";
 
@@ -31,22 +32,55 @@ interface ICommentImportWrapper is ICommentFeeWrapper {
 
 /// @notice Permissionless buy dispatcher. Each call spends only its attached BNB.
 /// Executor selects the trade kind off-chain and submits through CommentTradeVault.execute.
-/// 0 = bonding-curve inner, 1 = V13 listed main pool, 2 = imported/external wrapper DEX.
+/// 0 = bonding-curve inner, 1 = compatible Pump listed main pool, 2 = imported/external wrapper DEX.
 /// Router/hook/wrapper fees are embedded in the quoted input; do not charge them twice in the vault.
-contract CommentBuyAdapter is ICommentBuyAdapter, ReentrancyGuard {
+contract CommentBuyAdapter is ICommentBuyAdapter, ReentrancyGuard, Ownable2Step {
     using SafeERC20 for IERC20;
 
     enum Kind { Inner, V13Main, External } 
 
     TagAITradeRouter public immutable router;
     ICommentImportWrapper public immutable wrapper;
+    /// @notice Initial Hook hash retained for legacy readers; hookPolicies controls admission.
     bytes32 public immutable approvedHookCodeHash;
+    struct HookPolicy {
+        bytes32 codeHash;
+        uint16 platformBps;
+        uint16 subjectBps;
+        uint16 buybackBps;
+    }
+    mapping(address => HookPolicy) public hookPolicies;
+    event HookPolicySet(address indexed hook, bytes32 codeHash, uint16 platformBps, uint16 subjectBps, uint16 buybackBps);
 
     constructor(address router_, address reviewedHook, address wrapper_) {
         require(router_.code.length > 0 && reviewedHook.code.length > 0 && wrapper_.code.length > 0);
         router = TagAITradeRouter(payable(router_));
         approvedHookCodeHash = reviewedHook.codehash;
         wrapper = ICommentImportWrapper(wrapper_);
+        _setHookPolicy(reviewedHook, true, 30, 30, 30);
+    }
+
+    /// @notice Quote metadata for reviewed Hooks; this does not change any Hook's actual fees.
+    function setHookPolicy(address hook, bool enabled, uint16 platformBps, uint16 subjectBps, uint16 buybackBps)
+        external onlyOwner {
+        _setHookPolicy(hook, enabled, platformBps, subjectBps, buybackBps);
+    }
+
+    function _setHookPolicy(address hook, bool enabled, uint16 platformBps, uint16 subjectBps, uint16 buybackBps) private {
+        if (enabled) {
+            require(hook.code.length > 0 && uint256(platformBps) + subjectBps + buybackBps <= 1000, "INVALID_HOOK_POLICY");
+            hookPolicies[hook] = HookPolicy(hook.codehash, platformBps, subjectBps, buybackBps);
+        } else {
+            delete hookPolicies[hook];
+        }
+        HookPolicy memory policy = hookPolicies[hook];
+        emit HookPolicySet(hook, policy.codeHash, policy.platformBps, policy.subjectBps, policy.buybackBps);
+    }
+
+    function _hookPolicy(address token) private view returns (HookPolicy memory policy) {
+        address hook = ICommentToken(token).listingHook();
+        policy = hookPolicies[hook];
+        require(policy.codeHash != bytes32(0) && hook.code.length > 0 && hook.codehash == policy.codeHash, "UNREVIEWED_HOOK");
     }
 
     function isValidSubject(address, address subject) public view returns (bool) {
@@ -75,8 +109,8 @@ contract CommentBuyAdapter is ICommentBuyAdapter, ReentrancyGuard {
             require(block.timestamp >= ICommentToken(token).createdAt() + 15, "ANTI_SNIPE_WINDOW");
             (platformBps, subjectBps) = ICommentToken(token).getBuyFeeRatios();
         } else if (kind == uint8(Kind.V13Main)) {
-            require(ICommentToken(token).listingHook().codehash == approvedHookCodeHash, "UNREVIEWED_HOOK");
-            platformBps = 30; subjectBps = 30; buybackBps = 30;
+            HookPolicy memory policy = _hookPolicy(token);
+            platformBps = policy.platformBps; subjectBps = policy.subjectBps; buybackBps = policy.buybackBps;
         } else if (kind == uint8(Kind.External)) {
             platformBps = wrapper.tagaiRatio();
             subjectBps = wrapper.sellsmanRatio();
@@ -110,6 +144,7 @@ contract CommentBuyAdapter is ICommentBuyAdapter, ReentrancyGuard {
         } else if (kind == uint8(Kind.V13Main)) {
             TagAITradeRouter.Leg[] memory legs = abi.decode(route, (TagAITradeRouter.Leg[]));
             require(legs.length == 1 && legs[0].routeIndex == 0, "MAIN_POOL_ONLY");
+            _hookPolicy(token);
             router.buy{value: msg.value}(token, legs, minimum, deadline, recipient, subject);
         } else if (kind == uint8(Kind.External)) {
             (uint8 sourceType, bytes memory sourceData) = abi.decode(route, (uint8, bytes));

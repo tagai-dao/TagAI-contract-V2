@@ -385,6 +385,90 @@ contract TagAITradeRouterTest is Test {
         }
     }
 
+    function test_multiPumpBuySellAndRevocation() public {
+        TradePump next = new TradePump();
+        next.register(address(token));
+        router.setPump(address(pump), false);
+        assertFalse(router.supportsToken(address(token)));
+        TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
+        vm.expectRevert(TagAITradeRouter.InvalidToken.selector);
+        _buy(legs, 1 ether, 1);
+        router.setPump(address(next), true);
+        assertTrue(router.supportsToken(address(token)));
+        assertGt(_buy(legs, 1 ether, 1), 0);
+        assertGt(_sell(_one(0, 100 ether, false), 100 ether, 1), 0);
+        router.setPump(address(pump), true);
+        router.setPump(address(next), false);
+        assertTrue(router.supportsToken(address(token)));
+        assertGt(_buy(legs, 1 ether, 1), 0);
+        _empty();
+    }
+
+    function test_registryOwnerTwoStepAndDuplicate() public {
+        TradePump next = new TradePump();
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        router.setPump(address(next), true);
+        router.setPump(address(next), true);
+        router.setPump(address(next), true);
+        assertEq(router.supportedPumpCount(), 2);
+        router.transferOwnership(user);
+        assertEq(router.owner(), address(this));
+        vm.prank(user);
+        router.acceptOwnership();
+        vm.prank(user);
+        router.setPump(address(next), false);
+        assertEq(router.supportedPumpCount(), 1);
+        assertFalse(router.supportsToken(address(123)));
+        assertFalse(router.supportsToken(address(assets[0])));
+    }
+
+    function test_newPumpDoesNotBypassInfrastructureOrListingChecks() public {
+        TradePump next = new TradePump();
+        next.register(address(token));
+        router.setPump(address(pump), false);
+        router.setPump(address(next), true);
+        TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);
+        token.configure(true, address(123));
+        vm.expectRevert(TagAITradeRouter.InvalidToken.selector);
+        _buy(legs, 1 ether, 1);
+        token.configure(false, address(venue));
+        vm.expectRevert(TagAITradeRouter.InvalidToken.selector);
+        _buy(legs, 1 ether, 1);
+        token.configure(true, address(venue));
+        assertGt(_buy(legs, 1 ether, 1), 0);
+    }
+
+    function test_registryRejectsInvalidAndHasReusableCapacity() public {
+        vm.expectRevert(TagAITradeRouter.InvalidConfiguration.selector);
+        router.setPump(address(123), true);
+        vm.expectRevert(TagAITradeRouter.InvalidConfiguration.selector);
+        router.setPump(address(token), true);
+        for (uint256 i = 1; i < router.MAX_PUMPS(); ++i) router.setPump(address(new TradePump()), true);
+        TradePump extra = new TradePump();
+        vm.expectRevert(TagAITradeRouter.InvalidConfiguration.selector);
+        router.setPump(address(extra), true);
+        router.setPump(address(pump), false);
+        router.setPump(address(extra), true);
+        assertEq(router.supportedPumpCount(), router.MAX_PUMPS());
+    }
+
+    function test_brokenPumpDoesNotBlockOtherPumps() public {
+        TradePump next = new TradePump();
+        next.register(address(token));
+        router.setPump(address(next), true);
+        vm.etch(address(pump), hex"60006000fd");
+        assertTrue(router.supportsToken(address(token)));
+        // Malformed bool, short return data, and an infinite loop cannot block later Pumps.
+        vm.etch(address(pump), hex"60ff60005260206000f3");
+        assertTrue(router.supportsToken(address(token)));
+        vm.etch(address(pump), hex"60016000f3");
+        assertTrue(router.supportsToken(address(token)));
+        vm.etch(address(pump), hex"5b600056");
+        assertTrue(router.supportsToken(address(token)));
+        assertGt(_buy(_one(0, 1 ether, true), 1 ether, 1), 0);
+    }
+
     function test_mainForwardsSubjectBuyAndSell() public {
         address subject = address(0xabcd);
         TagAITradeRouter.Leg[] memory legs = _one(0, 1 ether, true);

@@ -21,12 +21,17 @@ contract CommentMarketsForkTest is Test {
     address constant CYBER = 0xbc59192DfaD0eF94db82B6dD1a2Dd97e040D3333;
     bool ready;
     CommentBuyAdapter adapter;
+    TagAITradeRouter multiRouter;
     function setUp() public {
         string memory rpc = vm.envOr("BSC_RPC_URL", string(""));
         if (bytes(rpc).length == 0) return;
         vm.createSelectFork(rpc);
         require(block.chainid == 56);
-        adapter = new CommentBuyAdapter(ROUTER, HOOK, IMPORTED);
+        multiRouter = new TagAITradeRouter(0x2c2f4e8D85c02a065f109c74d9b27186AE65Adfa,
+            0x72dc4F38A7E4159e97d826a6ab594748C6b68f17, V2_FACTORY);
+        multiRouter.setPump(0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34, true);
+        adapter = new CommentBuyAdapter(address(multiRouter), HOOK, IMPORTED);
+        adapter.setHookPolicy(0x2F0b231CAE7EdE4be0c52aA7eD5bAC62d1000Cc1, true, 30, 30, 30);
         vm.deal(address(this), 1 ether);
         ready = true;
     }
@@ -66,7 +71,7 @@ contract CommentMarketsForkTest is Test {
     function testForkCyberCab() public onFork {
         (uint256 gross,,,) = adapter.quoteInput(CYBER, 0.0001 ether, 1);
         TagAITradeRouter.Leg[] memory legs = new TagAITradeRouter.Leg[](1);
-        legs[0] = TagAITradeRouter.Leg(0, gross, 0, 1, TagAITradeRouter(payable(ROUTER)).routeHash(address(0), CYBER));
+        legs[0] = TagAITradeRouter.Leg(0, gross, 0, 1, multiRouter.routeHash(address(0), CYBER));
         _buy(CYBER, 1, abi.encode(legs));
     }
     function testForkImportedV2NonNativeQuote() public onFork {
