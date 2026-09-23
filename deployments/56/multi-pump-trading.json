@@ -142,5 +142,6 @@
   ],
   "MultisigStatus": "submitted-by-user-awaiting-signatures",
   "MultisigStatusSource": "User report; on-chain execution not yet verified.",
-  "MultisigCallsFile": "deployments/56/multi-pump-trading-multisig-calls.json"
+  "MultisigCallsFile": "deployments/56/multi-pump-trading-multisig-calls.json",
+  "ArchivedSourceCommit": "7caabdc90ce7b256da49a2f6c76992abde0295d0"
 }
