@@ -443,6 +443,8 @@ newAnchor = max(
 
 正常 generation 内 anchor 不随下跌向下移动。
 
+2026-09-29 补充：anchor 更新优先于第七层保留规则。先按有效 TWAP 判断正常上调或向下重启；需要更新时，按旧 generation/salt 结算全部旧仓位（包含部分成交的第七层）、销毁已获得的 Token，再更新 anchor/generation 并按新档位迁移资金。只有 anchor 不变时，才适用第七层不撤不加规则。不能用 spot 代替有效 TWAP 计算新 anchor。
+
 ### 11.3 向下重启
 
 当市场参考价格已经位于当前最深档以下，旧回购墙失去有效做市位置，BurnNet 按 generation 规则结算旧仓位并使用有效保守 Oracle 价格重设 anchor。
@@ -563,7 +565,7 @@ Distributor 禁止在 `distribute()` 中使用当前 spot、PoolManager 聚合�
 #### 场景 B：价格低于 Anchor、但仍高于最深档
 
 - 市价上方已经失效或已经越过的档位不再新增 USDG；
-- 当前价格所在档只部署可正常结算的部分；
+- 前六档的部分成交仍按原规则结算；第七层使用下文的保留规则；
 - 其余资金部署到当前价格以下仍然有效的档位；
 - 已经获得并结算到 BurnNet 的 Token 立即销毁；
 - 存活资金迁移到新位置，但 generation 不变。
@@ -576,6 +578,31 @@ Distributor 禁止在 `distribute()` 中使用当前 spot、PoolManager 聚合�
 ```
 
 相对 `0.00006` 上市价约低 `11.5511%`。
+
+#### 第七层保留规则（2026-09-29）
+
+以下表格适用于 **本次 poke 不触发 anchor 更新** 的情况；触发更新时优先执行上一节的全量结算、更新和迁移流程。
+
+本节“价格”指 Token 的 USDG 价格，与 Token/USDG 在池中的地址排序无关。第七层最高价是开始买入 Token 的区间入口，最低价是全部成交的区间出口。使用实际 `sqrtPriceX96` 与区间边界比较，避免 `slot0.tick` 在边界因 swap 方向出现偏差。
+
+| 当前价格 | 第七层行为 |
+| --- | --- |
+| 严格高于第七层最高价 | 可以按既有分配/迁移规则补充纯 USDG；未迁移时沿用同一范围和 salt |
+| 等于最高价，或处于最高价和最低价之间 | 保留已有仓位，不撤出、不追加、不结算该层 Token |
+| 等于或低于最低价（完全跌穿） | 可以撤出并销毁已获得的 Token；重启 anchor/generation 仍须满足原有有效 TWAP 条件 |
+
+若没有可用的单边 USDG 档位，新增资金继续留在 Hook 的 `pendingUSDG`，Eligible 子账也留在 Pending；本次不拉取这些资金、不支付对应 keeper bounty、不增加 `totalEligibleTradeFeeActivatedUSDG` / Distributor 手续费额度。价格恢复后，下一次满足 8 小时间隔且 TWAP 有效的 poke 再激活和部署。已经结算回 BurnNet、但暂时无法重新挂单的 USDG 留在 `activeLiquidUSDG`，其 Eligible 来源子账不变。
+
+所有挂单入口都必须检查目标区间是否满足单边 USDG 条件；没有有效 fallback 时不能尝试给层内区间强行加纯 USDG，也不能因重建失败而清空受保护的第七层。如果有效 TWAP 达到 anchor 更新条件，则第七层也参与全量结算；若新 anchor 下没有合法挂单区间，已结算资金保留在 activeLiquidUSDG，新资金保留在 Hook Pending，不因此阻止 anchor 更新。
+
+第七层未结算的 Token 不计入 `totalBurned`；仓位未成交本金仍沿用结算账本口径，不伪装成 spot 下的实际 USDG 余额。价格反弹时，仓位中的 Token 可能重新换回 USDG，这是保留原位置流动性的明确取舍。完全跌穿后的 `harvest()` 仍不依赖新鲜 Oracle。
+
+对应回归：`test/unit/pump12/BurnNetDeepest.t.sol`。使用真实本地 PoolManager 交易，初次挂墙后单独控制 Oracle 返回值以覆盖 spot/TWAP 分歧；验证两种地址排序、最高价边界及两侧、最低价边界及前一个 sqrt-price 单位、anchor 不变时的连续 poke、部分成交时 anchor 上调/向下重启优先（旧仓位清零和新 generation 仓位核对）、恢复后原位补仓、完全跌穿后 harvest/reset、混合 Eligible/non-eligible 资金及 PoolManager 实际仓位。层内价格 fuzz 每例 256 轮。未使用主网 fork 或广播交易。
+
+```bash
+FOUNDRY_ETH_RPC_URL='' forge test --offline --match-path 'test/unit/pump12/*.t.sol'
+```
+
 
 #### 场景 C：价格位于最深档以下
 

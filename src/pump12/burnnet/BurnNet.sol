@@ -206,6 +206,8 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
         INetNetHookBurnNet hook_ = INetNetHookBurnNet(hook);
         uint256 marketPrice = hook_.validTWAP(poolId);
 
+        // Anchor policy takes precedence over partial-tier protection. Settle all
+        // positions under their old generation/salts before updating the anchor.
         bool downwardReset = marketPrice < Math.mulDiv(anchor, DEEPEST_TIER_PRICE_BPS, BPS);
         bool anchorWillMove = downwardReset || _normalAnchorCandidate(marketPrice) != anchor;
         uint256[7] memory migrationUSDG;
@@ -220,12 +222,15 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
         _updateAnchor(marketPrice);
 
         uint256 pendingBefore = hook_.pendingUSDG(poolId);
-        uint256 keeperBounty = Math.mulDiv(pendingBefore, KEEPER_BOUNTY_BPS, BPS);
-        if (keeperBounty > MAX_KEEPER_BOUNTY_RAW) keeperBounty = MAX_KEEPER_BOUNTY_RAW;
+        uint256 keeperBounty;
 
         uint256 eligibleActivated;
         uint256 eligibleKeeperPaid;
-        if (pendingBefore != 0) {
+        // Do not activate Pending, award credit or pay a keeper for funds which
+        // have no eligible maker range. They remain in the Hook until a later poke.
+        if (pendingBefore != 0 && _deepestValidTier() != type(uint8).max) {
+            keeperBounty = Math.mulDiv(pendingBefore, KEEPER_BOUNTY_BPS, BPS);
+            if (keeperBounty > MAX_KEEPER_BOUNTY_RAW) keeperBounty = MAX_KEEPER_BOUNTY_RAW;
             (activated, eligibleActivated, eligibleKeeperPaid) = hook_.pullPendingUSDG(poolId, msg.sender, keeperBounty);
             if (pendingBefore != keeperBounty + activated) revert PendingAccountingMismatch();
             activeReserveUSDG += activated;
@@ -374,6 +379,9 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
     }
 
     function _placeTier(uint8 tier, uint256 budget, uint256 eligibleBudget) private {
+        // Migration and fresh funding share this guard. Unplaceable settled USDG
+        // stays in activeLiquidUSDG, with its eligible-source accounting intact.
+        if (!_tierIsPureUSDG(tier)) return;
         Tier storage state = _tiers[tier];
         (int24 tickLower, int24 tickUpper) = _tierTicks(tier);
         uint160 sqrtLower = TickMath.getSqrtPriceAtTick(tickLower);
@@ -425,10 +433,10 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
     }
 
     function _harvestCrossed() private returns (uint256 burned, uint256 returnedUSDG) {
-        int24 spot = _spotTick();
+        uint160 sqrtSpot = _spotSqrtPrice();
         for (uint8 i; i < TIER_COUNT; ++i) {
             Tier storage state = _tiers[i];
-            if (state.liquidity == 0 || !_fullyCrossed(state, spot)) continue;
+            if (state.liquidity == 0 || !_fullyCrossed(state, sqrtSpot)) continue;
             (uint256 tierBurned, uint256 tierReturned,) = _removeTier(i);
             burned += tierBurned;
             returnedUSDG += tierReturned;
@@ -443,10 +451,13 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
     }
 
     function _settleTouched() private returns (uint256[7] memory returnedUSDG, uint256[7] memory returnedEligible) {
-        int24 spot = _spotTick();
+        uint160 sqrtSpot = _spotSqrtPrice();
         for (uint8 i; i < TIER_COUNT; ++i) {
             Tier storage state = _tiers[i];
-            if (state.liquidity == 0 || !_touched(state, spot)) continue;
+            if (state.liquidity == 0 || !_touched(state, sqrtSpot)) continue;
+            // This path only runs when the anchor is unchanged. Anchor updates
+            // use _settleAll and must include the deepest tier, even if partial.
+            if (i == TIER_COUNT - 1 && !_fullyCrossed(state, sqrtSpot)) continue;
             (, returnedUSDG[i], returnedEligible[i]) = _removeTier(i);
         }
     }
@@ -501,10 +512,10 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
     }
 
     function _hasFullyCrossedTier() private view returns (bool) {
-        int24 spot = _spotTick();
+        uint160 sqrtSpot = _spotSqrtPrice();
         for (uint8 i; i < TIER_COUNT; ++i) {
             Tier storage state = _tiers[i];
-            if (state.liquidity != 0 && _fullyCrossed(state, spot)) return true;
+            if (state.liquidity != 0 && _fullyCrossed(state, sqrtSpot)) return true;
         }
         return false;
     }
@@ -517,20 +528,24 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
     }
 
     function _hasTouchedTier() private view returns (bool) {
-        int24 spot = _spotTick();
+        uint160 sqrtSpot = _spotSqrtPrice();
         for (uint8 i; i < TIER_COUNT; ++i) {
             Tier storage state = _tiers[i];
-            if (state.liquidity != 0 && _touched(state, spot)) return true;
+            if (state.liquidity != 0 && _touched(state, sqrtSpot)) return true;
         }
         return false;
     }
 
-    function _touched(Tier storage state, int24 spot) private view returns (bool) {
-        return usdgIsCurrency0 ? spot > state.tickLower : spot < state.tickUpper;
+    function _touched(Tier storage state, uint160 sqrtSpot) private view returns (bool) {
+        return usdgIsCurrency0
+            ? sqrtSpot > TickMath.getSqrtPriceAtTick(state.tickLower)
+            : sqrtSpot < TickMath.getSqrtPriceAtTick(state.tickUpper);
     }
 
-    function _fullyCrossed(Tier storage state, int24 spot) private view returns (bool) {
-        return usdgIsCurrency0 ? spot >= state.tickUpper : spot <= state.tickLower;
+    function _fullyCrossed(Tier storage state, uint160 sqrtSpot) private view returns (bool) {
+        return usdgIsCurrency0
+            ? sqrtSpot >= TickMath.getSqrtPriceAtTick(state.tickUpper)
+            : sqrtSpot <= TickMath.getSqrtPriceAtTick(state.tickLower);
     }
 
     function _deepestValidTier() private view returns (uint8) {
@@ -543,8 +558,12 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
 
     function _tierIsPureUSDG(uint8 tier) private view returns (bool) {
         (int24 lower, int24 upper) = _tierTicks(tier);
-        int24 spot = _spotTick();
-        return usdgIsCurrency0 ? spot <= lower : spot >= upper;
+        uint160 sqrtSpot = _spotSqrtPrice();
+        uint160 entry = TickMath.getSqrtPriceAtTick(usdgIsCurrency0 ? lower : upper);
+        // Tier 7 only accepts USDG when Token price is strictly ABOVE its highest
+        // price. Use sqrtPrice, not slot0.tick, which is directional at boundaries.
+        if (tier == TIER_COUNT - 1) return usdgIsCurrency0 ? sqrtSpot < entry : sqrtSpot > entry;
+        return usdgIsCurrency0 ? sqrtSpot <= entry : sqrtSpot >= entry;
     }
 
     function _tierTicks(uint8 tier) private view returns (int24 lower, int24 upper) {
@@ -560,8 +579,8 @@ contract BurnNet is IUnlockCallback, ReentrancyGuard {
         return TickMath.getTickAtSqrtPrice(uint160(FixedPointMathLib.sqrt(ratioX192)));
     }
 
-    function _spotTick() private view returns (int24 tick) {
-        (, tick,,) = poolManager.getSlot0(poolId);
+    function _spotSqrtPrice() private view returns (uint160 sqrtPriceX96) {
+        (sqrtPriceX96,,,) = poolManager.getSlot0(poolId);
     }
 
     function _poolKey() private view returns (PoolKey memory key) {
