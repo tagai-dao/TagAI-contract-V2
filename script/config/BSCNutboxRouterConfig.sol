@@ -101,7 +101,7 @@ library BSCNutboxRouterConfig {
     }
 
     function assetConfigs() internal pure returns (AssetConfig[] memory assets) {
-        assets = new AssetConfig[](16);
+        assets = new AssetConfig[](20);
         assets[0] = AssetConfig({
             symbol: "ETH",
             token: 0x2170Ed0880ac9A755fd29B2688956BD959F933F8,
@@ -230,6 +230,47 @@ library BSCNutboxRouterConfig {
             quoteToken: USDT,
             fee: 2_500,
             pool: 0x29967c54c5Bf12E8158c8894376064b30ebaB297
+        });
+        AssetConfig[] memory additions = stockExpansionAssets();
+        for (uint256 i; i < additions.length; ++i) {
+            assets[16 + i] = additions[i];
+        }
+    }
+
+    /// @notice 2026-09-29 additions; existing routers require owner configuration.
+    function stockExpansionAssets() internal pure returns (AssetConfig[] memory assets) {
+        assets = new AssetConfig[](4);
+        assets[0] = AssetConfig({
+            symbol: "INTCB",
+            token: 0xe614E2fc6C787035FF51f452e8E826Bfd32D5283,
+            decimals: 18,
+            quoteToken: USDT,
+            fee: 2_500,
+            pool: 0x4dD8e7C67033Ef4A745bB9f82a7C57c676eB2481
+        });
+        assets[1] = AssetConfig({
+            symbol: "AMZNB",
+            token: 0x1a4b499833A79A09ad7Cf1D42D7DacF71e92eb00,
+            decimals: 18,
+            quoteToken: USDT,
+            fee: 2_500,
+            pool: 0x7530beb7Bde5843f668cf31b996fa1F748C9b6B1
+        });
+        assets[2] = AssetConfig({
+            symbol: "SNDKB",
+            token: 0x3eE4dF61bd4F867E349BEaE8bFE07bc31b4850fb,
+            decimals: 18,
+            quoteToken: USDT,
+            fee: 2_500,
+            pool: 0xE4B5403f5103b02d1E8193B0D7D76D49F3F8ad77
+        });
+        assets[3] = AssetConfig({
+            symbol: "METAB",
+            token: 0x7425889FE94F9d693E8daefE88BCCed6AcFEf4c0,
+            decimals: 18,
+            quoteToken: USDT,
+            fee: 2_500,
+            pool: 0xC2151a561E928D16576d75Ea88544543ac63D80B
         });
     }
 
