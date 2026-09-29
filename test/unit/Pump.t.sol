@@ -62,7 +62,7 @@ contract PumpTest is Version13LegacyTestSetup {
         mockVault = new MockVault();
 
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0), address(0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 
@@ -254,7 +254,7 @@ contract PumpTest is Version13LegacyTestSetup {
 
     function test_createToken_revertsIfNutboxNotConfigured() public {
         // Deploy fresh Pump without adminSetNutbox to set calculator/community factory
-        Pump freshPump = new Pump(address(ipshare), feeRecipient, new address[](0));
+        Pump freshPump = new Pump(address(ipshare), feeRecipient, new address[](0), address(0));
         _configureLegacyV13Index(freshPump);
         freshPump.adminSetCalculator(address(0)); // explicitly clear calculator
         // The check `hourlyTickCalculator == address(0)` will trigger NutboxNotConfigured
@@ -376,7 +376,7 @@ contract PumpWithFeesTest is Version13LegacyTestSetup {
         // Set IPShare createFee to 0 to isolate nutboxFees testing
         ipshare.adminSetCreateFee(0);
 
-        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0), address(0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 

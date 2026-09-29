@@ -1,0 +1,147 @@
+{
+  "chainId": 56,
+  "status": "deployed-pending-owner-acceptance-and-vault-switch",
+  "TagAITradeRouter": "0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf",
+  "CommentBuyAdapter": "0x226D3e94569c44578a892A5158F0a3Defe49B8ca",
+  "ExistingCommentTradeVault": "0xAB2A0FF3BDbdD68E7100B6875Ac4a58db851d363",
+  "PreviousCommentBuyAdapter": "0x4b3A35677480Eb695F07B96D63411271c84b15e6",
+  "PreviousTagAITradeRouter": "0x7D5480C10A98b0Feb4e5fA77aF3F01aE3a5E86F4",
+  "ImportedTokenSwapWrapper": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+  "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "targetOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "TagAITradeRouterOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "TagAITradeRouterPendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "CommentBuyAdapterOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "CommentBuyAdapterPendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "VaultOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "VaultAdapterAtVerification": "0x4b3A35677480Eb695F07B96D63411271c84b15e6",
+  "VaultSwitched": false,
+  "VaultRedeployed": false,
+  "SupportedPumps": [
+    {
+      "version": 13,
+      "address": "0x2c2f4e8D85c02a065f109c74d9b27186AE65Adfa",
+      "enabled": true
+    },
+    {
+      "version": 14,
+      "address": "0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34",
+      "enabled": true
+    }
+  ],
+  "HookPolicies": [
+    {
+      "version": 13,
+      "address": "0xaC29EaEb5764A83f7Ed03240EA2aF54018210cc1",
+      "codeHash": "0x67303886d5808344550afe53411613b549332030fb22857b8f4444a466addf50",
+      "codeHashMatches": true,
+      "platformBps": 30,
+      "subjectBps": 30,
+      "buybackBps": 30
+    },
+    {
+      "version": 14,
+      "address": "0x2F0b231CAE7EdE4be0c52aA7eD5bAC62d1000Cc1",
+      "codeHash": "0xfc08d7c30c88123e798a014a7ac30d48da51ab878d279eb9e469da4e7fff9300",
+      "codeHashMatches": true,
+      "platformBps": 30,
+      "subjectBps": 30,
+      "buybackBps": 30
+    }
+  ],
+  "DeploymentVerifiedAtBlock": 123531168,
+  "DeploymentTransactionCount": 6,
+  "DeploymentGasUsed": 5501001,
+  "DeploymentCostWei": "275050050000000",
+  "SourceCommit": "4302d3561566291b02d41e3396e5444983eb1dd4",
+  "SourceIncludesUncommittedChanges": true,
+  "SourceFilesSha256": {
+    "src/router/TagAITradeRouter.sol": "f805992acb2922f40f8863f6c738c89e57ef29bedc91e811001fa0ad3c08b6de",
+    "src/helper/CommentBuyAdapter.sol": "059d8ddabc8583eaa9a4f9fa5d078395e8443aca0f572b809fd5d54123d44dc6",
+    "script/DeployBSCMultiPumpTrading.s.sol": "5b517a1c4cb8a367c5d1a479a2be4fa697050c0ae46ce9ccdab2365626e1d36d"
+  },
+  "SourceVerificationStatus": "not-submitted-pending-user-authorization",
+  "PendingOwnerActions": [
+    {
+      "contract": "0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf",
+      "function": "acceptOwnership()"
+    },
+    {
+      "contract": "0x226D3e94569c44578a892A5158F0a3Defe49B8ca",
+      "function": "acceptOwnership()"
+    },
+    {
+      "contract": "0xAB2A0FF3BDbdD68E7100B6875Ac4a58db851d363",
+      "function": "setAdapter(address)",
+      "arguments": [
+        "0x226D3e94569c44578a892A5158F0a3Defe49B8ca"
+      ]
+    }
+  ],
+  "DeploymentTransactions": [
+    {
+      "hash": "0x2406c16857a405960c476ef2aa74f64be0cc6dd7a1a0d9fa753bc41b9b84f795",
+      "contract": "TagAITradeRouter",
+      "address": "0xb70544bfdacabd8718261d7a6be5208b7d2f6ebf",
+      "type": "CREATE",
+      "function": null,
+      "block": 123531055,
+      "gasUsed": 3554858,
+      "effectiveGasPrice": 50000000
+    },
+    {
+      "hash": "0x395cebc496b906b17c71cd3e60bf76d28e0326cc11f3ea3971989aa50d974742",
+      "contract": "TagAITradeRouter",
+      "address": "0xb70544bfdacabd8718261d7a6be5208b7d2f6ebf",
+      "type": "CALL",
+      "function": "setPump(address,bool)",
+      "block": 123531058,
+      "gasUsed": 82150,
+      "effectiveGasPrice": 50000000
+    },
+    {
+      "hash": "0xb14882fb884b1e20a00ab14abe77749e796a27c658a07b3701ef3dc15319a9ec",
+      "contract": "CommentBuyAdapter",
+      "address": "0x226d3e94569c44578a892a5158f0a3defe49b8ca",
+      "type": "CREATE",
+      "function": null,
+      "block": 123531065,
+      "gasUsed": 1693295,
+      "effectiveGasPrice": 50000000
+    },
+    {
+      "hash": "0xc10fd7c5533f323331e3e25c44d73334d97fe98adda425fc98ed1d577e5e2410",
+      "contract": "CommentBuyAdapter",
+      "address": "0x226d3e94569c44578a892a5158f0a3defe49b8ca",
+      "type": "CALL",
+      "function": "setHookPolicy(address,bool,uint16,uint16,uint16)",
+      "block": 123531070,
+      "gasUsed": 74930,
+      "effectiveGasPrice": 50000000
+    },
+    {
+      "hash": "0x0047d812048ec61d8b760f47d25be54eda31b40e5d17623f0e6e93cfa5cfd4a7",
+      "contract": "TagAITradeRouter",
+      "address": "0xb70544bfdacabd8718261d7a6be5208b7d2f6ebf",
+      "type": "CALL",
+      "function": "transferOwnership(address)",
+      "block": 123531072,
+      "gasUsed": 47966,
+      "effectiveGasPrice": 50000000
+    },
+    {
+      "hash": "0x297b23adc4c93f50516cf1821d55c61ab5c963e3ae109b824c0958e32929303d",
+      "contract": "CommentBuyAdapter",
+      "address": "0x226d3e94569c44578a892a5158f0a3defe49b8ca",
+      "type": "CALL",
+      "function": "transferOwnership(address)",
+      "block": 123531077,
+      "gasUsed": 47802,
+      "effectiveGasPrice": 50000000
+    }
+  ],
+  "MultisigStatus": "submitted-by-user-awaiting-signatures",
+  "MultisigStatusSource": "User report; on-chain execution not yet verified.",
+  "MultisigCallsFile": "deployments/56/multi-pump-trading-multisig-calls.json",
+  "ArchivedSourceCommit": "7caabdc90ce7b256da49a2f6c76992abde0295d0"
+}

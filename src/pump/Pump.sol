@@ -62,16 +62,28 @@ interface INutboxCommunityAdmin {
 
 contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     uint256 private constant BPS = 10_000;
-    /// @notice Maximum number of constituent assets in a newly created Pump13 token.
+    /// @notice Maximum number of constituent assets in a newly created token.
     uint256 public constant MAX_COMPONENTS = 4;
+    uint256 public constant MAX_OPTIONAL_POOLS = 2;
+    uint16 public constant MAX_OPTIONAL_POOL_RATIO = 8_000;
+    uint256 public constant VERSION = 14;
+
+    struct OptionalPoolFactory {
+        string name;
+        uint16 maxRewardRatio;
+        bool enabled;
+    }
+
+    mapping(address => OptionalPoolFactory) public optionalPoolFactories;
     uint16 private constant MAX_LISTING_SWAP_SLIPPAGE_BPS = 1_000;
 
-    address public override nutboxRouter;
-    address public override basketHookV4;
-    address public override pancakeV2Factory;
-    address public override settlementToken;
+    // Existing BSC V13 infrastructure, initialized during deployment; owner setters remain available.
+    address public override nutboxRouter = 0x72dc4F38A7E4159e97d826a6ab594748C6b68f17;
+    address public override basketHookV4 = 0x76983475f199C58d7BbA975220593c1c8B25f75e;
+    address public override pancakeV2Factory = 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73;
+    address public override settlementToken = 0x55d398326f99059fF775485246999027B3197955;
     uint16 public override listingSwapSlippageBps = 300;
-    address public override listingKeeper;
+    address public override listingKeeper = 0x8047FcC508446E2673195B8125d3388defc23688;
     address public override buybackRouter;
     mapping(address => bool) public listingFinalized;
     mapping(address => address) public override indexTokenOf;
@@ -87,7 +99,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
 
     // BSC Nutbox stack
     address public nutboxCommunityFactory = 0x5597e814399906095ecaA5769A40394F58E5E0Cf;
-    address public hourlyTickCalculator; // HourlyTickCalculator (replaces linearTimeCalculator)
+    address public hourlyTickCalculator = 0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d;
     address public erc20StakingFactory = 0xDc3f940ac6Da516d5C9cc59c8AFE0F85A576E2A4;
     address public nutboxCommittee = 0xe10F967DD356504EDB731612789D0D0f0ba2929f;
 
@@ -105,8 +117,17 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
      * @param _ipshare IPShare contract address
      * @param _feeReceiver Fee receiver address, pass address(0) to use default
      * @param initialConstituents Assets approved atomically during deployment; independent of the per-token limit.
+     * @param existingTokenImplementation Existing compatible Token template; zero deploys a fresh template.
      */
-    constructor(address _ipshare, address _feeReceiver, address[] memory initialConstituents) {
+    constructor(
+        address _ipshare,
+        address _feeReceiver,
+        address[] memory initialConstituents,
+        address existingTokenImplementation
+    ) {
+        if (existingTokenImplementation != address(0) && existingTokenImplementation.code.length == 0) {
+            revert InvalidTokenImplementation();
+        }
         for (uint256 i; i < initialConstituents.length; ++i) {
             address asset = initialConstituents[i];
             if (asset.code.length == 0 || approvedConstituent[asset]) revert InvalidIndexConfig();
@@ -114,7 +135,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
             emit ConstituentApprovalSet(asset, true);
         }
         ipshare = _ipshare;
-        tokenImplementation = address(new Token());
+        tokenImplementation = existingTokenImplementation == address(0) ? address(new Token()) : existingTokenImplementation;
         if (_feeReceiver != address(0)) feeReceiver = _feeReceiver;
     }
 
@@ -259,6 +280,22 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         revert IndexConfigRequired();
     }
 
+    /// @notice Configure optional pool types for future tokens; existing communities are unaffected.
+    /// @dev The factory must also be approved by the Nutbox Committee when a pool is created.
+    function adminSetOptionalPoolFactory(address factory, string calldata name, uint16 maxRewardRatio, bool enabled)
+        external
+        override
+        onlyOwner
+    {
+        if (
+            factory == address(0) || maxRewardRatio > MAX_OPTIONAL_POOL_RATIO
+                || (enabled && (factory.code.length == 0 || maxRewardRatio == 0 || bytes(name).length == 0))
+                || bytes(name).length > 64
+        ) revert InvalidOptionalPoolConfig();
+        optionalPoolFactories[factory] = OptionalPoolFactory(name, maxRewardRatio, enabled);
+        emit OptionalPoolFactorySet(factory, name, maxRewardRatio, enabled);
+    }
+
     function createToken(string calldata tick, bytes32 salt, IndexConfig calldata indexConfig)
         external
         payable
@@ -266,6 +303,24 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         nonReentrant
         returns (address)
     {
+        return _createToken(tick, salt, indexConfig, new OptionalPoolConfig[](0));
+    }
+
+    function createToken(
+        string calldata tick,
+        bytes32 salt,
+        IndexConfig calldata indexConfig,
+        OptionalPoolConfig[] calldata optionalPools
+    ) external payable override nonReentrant returns (address) {
+        return _createToken(tick, salt, indexConfig, optionalPools);
+    }
+
+    function _createToken(
+        string calldata tick,
+        bytes32 salt,
+        IndexConfig calldata indexConfig,
+        OptionalPoolConfig[] memory optionalPools
+    ) private returns (address) {
         require(msg.sender == tx.origin, "Only EOA");
         _validateInfrastructure();
         _validateIndexConfig(indexConfig);
@@ -274,6 +329,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
             nutboxCommunityFactory == address(0) || hourlyTickCalculator == address(0)
                 || erc20StakingFactory == address(0) || nutboxCommittee == address(0)
         ) revert NutboxNotConfigured();
+        uint256 optionalRatio = _validateOptionalPools(optionalPools);
         if (createdTicks[tick]) revert TickHasBeenCreated();
 
         bytes32 cloneSalt = keccak256(abi.encode(msg.sender, salt));
@@ -287,7 +343,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
         uint256 ipshareCreateFee = needCreateIPShare ? ipshareContract.createFee() : 0;
         uint256 componentCount = indexConfig.constituentAssets.length;
         uint256 nutboxFees = ICommittee(nutboxCommittee).getCreateCommunityFee()
-            + ICommittee(nutboxCommittee).getCommunitySettingsFee() * componentCount;
+            + ICommittee(nutboxCommittee).getCommunitySettingsFee() * (componentCount + optionalPools.length);
         uint256 totalFixedFee = createFee + ipshareCreateFee + nutboxFees;
         if (msg.value < totalFixedFee) revert InsufficientCreateFee();
 
@@ -335,39 +391,96 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
             }
         }
 
+        _createCommunity(instance, indexConfig, optionalPools, optionalRatio);
+        createdTokens[instance] = true;
+        ++totalTokens;
+        return instance;
+    }
+
+    function _createCommunity(
+        address instance,
+        IndexConfig calldata indexConfig,
+        OptionalPoolConfig[] memory optionalPools,
+        uint256 optionalRatio
+    ) private {
+        Token token = Token(payable(instance));
+        uint256 componentCount = indexConfig.constituentAssets.length;
         uint256 createCommunityFee = ICommittee(nutboxCommittee).getCreateCommunityFee();
         uint256 settingsFee = ICommittee(nutboxCommittee).getCommunitySettingsFee();
         address community = ICommunityFactory(nutboxCommunityFactory).createCommunity{value: createCommunityFee}(
             false, instance, address(0), bytes(""), hourlyTickCalculator, bytes("")
         );
+        uint16[] memory finalRatios = _poolRatios(indexConfig.targetWeights, optionalPools, optionalRatio);
         for (uint256 i; i < componentCount; ++i) {
             (,, address pair) = token.componentAt(i);
             uint16[] memory ratios = new uint16[](i + 1);
-            if (i + 1 == componentCount) {
-                for (uint256 j; j < componentCount; ++j) {
-                    ratios[j] = indexConfig.targetWeights[j];
-                }
-            }
+            if (i + 1 == finalRatios.length) ratios = finalRatios;
             ICommunity(community).adminAddPool{value: settingsFee}(
                 "V2 LP Staking", ratios, erc20StakingFactory, abi.encodePacked(pair)
             );
             address pool = ICommunity(community).activedPools(i);
-            emit NutboxStakingPoolLinked(instance, pool, pair, indexConfig.targetWeights[i]);
+            emit NutboxStakingPoolLinked(instance, pool, pair, finalRatios[i]);
+        }
+        for (uint256 i; i < optionalPools.length; ++i) {
+            OptionalPoolConfig memory config = optionalPools[i];
+            uint256 poolIndex = componentCount + i;
+            uint16[] memory ratios = new uint16[](poolIndex + 1);
+            if (poolIndex + 1 == finalRatios.length) ratios = finalRatios;
+            ICommunity(community).adminAddPool{value: settingsFee}(
+                optionalPoolFactories[config.factory].name, ratios, config.factory, config.meta
+            );
+            emit NutboxOptionalPoolLinked(
+                instance, ICommunity(community).activedPools(poolIndex), config.factory, config.rewardRatio
+            );
         }
         token.setNutboxCommunity(community);
         emit NutboxLinked(instance, community);
 
         INutboxCommunityAdmin nutboxCommunity = INutboxCommunityAdmin(community);
-        nutboxCommunity.adminSetDev(creator);
+        nutboxCommunity.adminSetDev(msg.sender);
         if (indexConfig.retainCommunityOwnership) {
-            nutboxCommunity.transferOwnership(creator);
+            nutboxCommunity.transferOwnership(msg.sender);
         } else {
             nutboxCommunity.renounceOwnership();
         }
+    }
 
-        createdTokens[instance] = true;
-        ++totalTokens;
-        return instance;
+    function _validateOptionalPools(OptionalPoolConfig[] memory pools) private view returns (uint256 totalRatio) {
+        if (pools.length > MAX_OPTIONAL_POOLS) revert InvalidOptionalPoolConfig();
+        for (uint256 i; i < pools.length; ++i) {
+            OptionalPoolConfig memory config = pools[i];
+            OptionalPoolFactory storage registered = optionalPoolFactories[config.factory];
+            if (
+                !registered.enabled || config.factory.code.length == 0 || config.rewardRatio == 0
+                    || config.rewardRatio > registered.maxRewardRatio
+                    || !ICommittee(nutboxCommittee).verifyContract(config.factory)
+            ) revert InvalidOptionalPoolConfig();
+            for (uint256 j; j < i; ++j) {
+                if (pools[j].factory == config.factory) revert InvalidOptionalPoolConfig();
+            }
+            totalRatio += config.rewardRatio;
+        }
+        if (totalRatio > MAX_OPTIONAL_POOL_RATIO) revert InvalidOptionalPoolConfig();
+    }
+
+    function _poolRatios(uint16[] calldata weights, OptionalPoolConfig[] memory pools, uint256 optionalRatio)
+        private
+        pure
+        returns (uint16[] memory ratios)
+    {
+        ratios = new uint16[](weights.length + pools.length);
+        uint256 cumulativeWeight;
+        uint256 allocated;
+        for (uint256 i; i < weights.length; ++i) {
+            cumulativeWeight += weights[i];
+            // Cumulative rounding preserves exactly 10,000 bps, with <1 bps error per LP pool.
+            uint256 cumulativeRatio = cumulativeWeight * (BPS - optionalRatio) / BPS;
+            ratios[i] = uint16(cumulativeRatio - allocated);
+            allocated = cumulativeRatio;
+        }
+        for (uint256 i; i < pools.length; ++i) {
+            ratios[weights.length + i] = pools[i].rewardRatio;
+        }
     }
 
     function finalizeTokenListing() external override nonReentrant returns (address indexToken) {

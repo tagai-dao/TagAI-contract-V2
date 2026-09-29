@@ -15,7 +15,7 @@
 
 ## 协议版本关系
 
-这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V13；已经存在的外部 ERC20 通过 ImportHelper V10 接入 Nutbox。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
+这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V14（已部署，2026-09-29 合并至 main；下文多签状态为 2026-09-23 历史快照）；已经存在的外部 ERC20 通过 ImportHelper V10 接入 Nutbox。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
 
 | 版本 | 状态 | 功能定位 |
 | --- | --- | --- |
@@ -24,7 +24,84 @@
 | V9 | 历史发行入口 | 通过 Pump 创建新社区代币，支持开放 bonding curve 交易、反狙击、PCS V4 上市、TagAISwapHook 和 Nutbox 奖励注入；既有 Token 保持原实现。 |
 | V10 | 当前外部代币导入入口 | 通过 ImportHelper 将已部署 ERC20 接入 Nutbox，创建不可增发 Community 和默认 SocialCuration Pool；不创建 Token、bonding curve、PCS V4 池或 Hook。 |
 | V11 | 历史发行入口，既有 Token 继续使用 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。该批部署及验证记录见下文。 |
-| V13 | 当前 BSC 新发行源码基线 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
+| V13 | 既有发行入口，已创建 Token 继续使用 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
+| V14 | 已部署，源码已合并 main；权限状态见历史快照 | 创建代币时可选交易策展矿池；复用 V13 Token 模板；配套多 Pump Router / Adapter 支持由 owner 配置后续兼容版本。 |
+
+---
+
+## V14 — BSC 交易策展与多 Pump 交易路由（部署：2026-09-22 / 2026-09-23；源码发布：2026-09-29）
+
+### 2026-09-29 源码合并与发布记录
+
+| 项目 | 记录 |
+| --- | --- |
+| 发布分支 | `bsc-version14` 合并至 `main`，使用非快进合并保留版本历史 |
+| 发布标签 | `version14`，annotated tag，指向包含本节记录的合并提交 |
+| 合并前 main | `70a9f7466d7a15b0898b6e1cc63c1624c13db6c3` |
+| 已归档的版本分支提交 | `015f68b8a50c683867e829ec23139d51384bfc44` |
+| 纳入的版本提交 | `b0be01b`（Pump14 / 交易策展与部署记录）、`4302d35`（注释）、`7caabdc`（多 Pump Router / Adapter 与部署记录）、`015f68b`（版本历史） |
+| 发布范围 | Pump14 可选矿池、TradeCuration、多 Pump Router / Adapter、配套 ABI、部署脚本、测试、地址及角色记录 |
+
+本次发布保留 V13 Token 模板复用、可选池合计最高 80%、最多 4 个成分 LP 池加 2 个可选池，以及既有 `feeFree` 规则。部署源码提交、部署地址和交易记录保持原值；`version14` 标签用于固定本次主分支源码归档，不替代已部署字节码的来源记录。
+
+本次为源码合并，没有重新部署合约、切换 Vault Adapter 或执行管理权交易。下文的 owner、pendingOwner、授权和浏览器验证状态均为 **2026-09-23 历史快照**，本次未重新核验其当前链上状态，也不据此判定现在仍待签核。此前测试报告保留原日期；本次验证结果单独记录如下。
+
+2026-09-29 实际验证：Foundry `1.6.0-v1.7.0`、Solidity `0.8.26`，本地回归 **40 个套件、701 通过、0 失败、2 个原有用例跳过**。Fuzz 每例 256 轮；不变量按仓库默认配置执行。跳过项为 `test_reentrancy_protectedDuringRegisterPool` 和 `test_receive_revertsWhenListed`。本次未重跑主网 fork 测试，下文 2026-09-23 的 fork 结果仅作为历史记录。
+
+```bash
+FOUNDRY_ETH_RPC_URL='' forge test --offline \
+  --no-match-path 'test/fork/*' --no-match-contract CommentMarketsForkTest
+```
+
+合并后的代码、测试、ABI 和部署快照与归档分支完全一致，仅 `VERSION_HISTORY.md` 增加本次发布记录；合并无冲突，差异空白检查通过。
+
+### 2026-09-22 / 2026-09-23 部署记录
+
+| 项目 | 记录 |
+| --- | --- |
+| 状态（2026-09-23 快照） | Pump14 与配套 Router / Adapter 已部署；当时用户已发起多签，等待签核，尚未核验链上执行完成 |
+| 网络 / 发布分支 | BNB Smart Chain（chain ID `56`）/ `bsc-version14` |
+| Pump14 版本源码与部署记录提交 | `b0be01b3105c0acb8f7dcd21586930c6b7db8fa2`；已逐项核对该提交源码与 V14 部署快照 SHA-256 一致 |
+| 多 Pump Router / Adapter 版本源码与部署记录提交 | `7caabdc90ce7b256da49a2f6c76992abde0295d0` |
+| 部署时基础提交 | Pump14：`70a9f7466d7a15b0898b6e1cc63c1624c13db6c3`；Router / Adapter：`4302d3561566291b02d41e3396e5444983eb1dd4`。部署时均包含未提交改动，以各部署记录的源码 SHA-256 和上述归档提交定位源码 |
+| 部署快照 | [Pump14](deployments/56/version14.json)、[多 Pump Router / Adapter](deployments/56/multi-pump-trading.json) |
+| 多签待办 | [8 项调用及 calldata](deployments/56/multi-pump-trading-multisig-calls.json)，全部通过区块 `123532032` 的只读模拟；助手未提交或执行多签交易 |
+| 目标 owner | `0x871fb7006C5964B21695Ba20006021777A26146C` |
+
+### 本次功能与兼容范围
+
+- Pump14 创建代币时可选交易策展矿池，可选池合计奖励比例上限 80%；剩余份额按指数成分权重分配给 LP 质押矿池。不选可选池时沿用 V13 分配方式。
+- 最多 4 个成分 LP 池加 2 个可选池，共 6 池；TradeCuration 按社区创建，使用与 SocialCuration 相同的官方 signer，`feeFree` 保持原社交策展语义。
+- 复用 V13 Token implementation；Hook 和 BuybackRouter 为 Pump14 新部署。keeper、signer 和角色快照记录在 V14 地址 JSON 中。
+- 新 TagAITradeRouter 支持 owner 管理多个兼容 Pump，已配置 Pump13、Pump14；新 CommentBuyAdapter 支持按地址和代码哈希配置 Hook。V13/V14 费率均为 30/30/30 bps，未改变现有收费。
+- 后续 Pump 沿用兼容 Token 接口、基础设施和收费规则时，可通过配置接入；新交易机制仍需适配。旧代币和外部代币保留现有分流路径。
+- 本次未重新部署 Vault，用户余额和授权留在原 Vault；待 owner 执行 `setAdapter(newAdapter)` 后切换 Au-Pay 入口。
+
+### 主网地址与部署批次
+
+| 合约 | 地址 | 部署 / 复用 |
+| --- | --- | --- |
+| Pump14 | `0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34` | 2026-09-22，区块 123333750 |
+| Token implementation | `0xcC8f585593feAb2a27f9e699a6b578d46446c88C` | 复用 V13 |
+| TagAISwapHook14 | `0x2F0b231CAE7EdE4be0c52aA7eD5bAC62d1000Cc1` | 2026-09-22，区块 123333753 |
+| TagAIBuybackRouter14 | `0x60381FCD630a4cF2002C44971d14a91bd4C78ab4` | 2026-09-22，区块 123333761 |
+| TradeCurationFactory | `0x774A48Ba391a1013Ae43289eBdf871618822CD67` | 2026-09-22，区块 123333767 |
+| TradeCuration implementation | `0x2FfAa2659c760D958999262e3941163F46E9845B` | Factory 内部创建 |
+| 多 Pump TagAITradeRouter | `0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf` | 2026-09-23，区块 123531055 |
+| 多 Pump CommentBuyAdapter | `0x226D3e94569c44578a892A5158F0a3Defe49B8ca` | 2026-09-23，区块 123531065 |
+| Au-Pay CommentTradeVault | `0xAB2A0FF3BDbdD68E7100B6875Ac4a58db851d363` | 复用，不迁移用户余额或授权 |
+
+Pump14 批次共 9 笔交易，创建 5 个合约，费用 0.00053861455 BNB；新 Router / Adapter 批次共 6 笔交易，创建 2 个合约，费用 0.00027505005 BNB。完整交易哈希和 gas 记录见对应部署快照。
+
+### 管理权、授权与验证状态
+
+链上快照显示 Pump14、TradeCurationFactory、新 Router、新 Adapter 的 owner 仍为部署账户 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，pendingOwner 为上述多签。待办包括四份合约接受管理权、Committee 授权 TradeCurationFactory、NutboxRouter 添加 Pump14 operator、Basket Registry 授权 Pump14 creator forwarder，以及最后切换 Vault Adapter。用户随后已发起多签；**发起 / 签核不等于链上执行成功**，执行后需重新核验并更新状态。
+
+Pump14 批次的 5 个新合约已记录 BscScan 源码验证完成；新 Router / Adapter 的源码验证尚未提交，等待用户授权向 BscScan 公开源码，不能将部署成功记作源码验证通过。
+
+2026-09-23 多 Pump 配套改动验证：本地合约测试 701 通过、2 个原有用例跳过；真实 BSC 分叉测试 7 通过（包括旧代币、外部代币和 Pump14 搭配 V13 Token 模板的创建、上市、买入、卖出）；server 相关测试 28 通过。三个部署脚本编译通过，ABI 与产物一致。交易策展 server/API/前端实现及迁移需另行发布，并在多签执行后做生产端到端验证。
+
+详细说明：[Pump14 部署检查](docs/PumpVersion14DeploymentReadiness.md)、[多 Pump 交易路由](docs/MultiPumpTrading.md)。
 
 ---
 

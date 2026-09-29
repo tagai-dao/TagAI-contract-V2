@@ -18,8 +18,11 @@ contract DeployBSCTagAITradeRouterScript is Script {
         address factory = vm.envOr("TRADE_ROUTER_V2_FACTORY", address(0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73));
         require(ITradePumpDeployment(pump).nutboxRouter() == router, "Pump router mismatch");
         require(ITradePumpDeployment(pump).pancakeV2Factory() == factory, "Pump factory mismatch");
+        address targetOwner = vm.envOr("TRADE_ROUTER_OWNER", address(0x871fb7006C5964B21695Ba20006021777A26146C));
+        require(targetOwner != address(0), "Owner missing");
         vm.startBroadcast(vm.envUint("PRIVATE_KEY_MAIN"));
         executor = new TagAITradeRouter(pump, router, factory);
+        if (executor.owner() != targetOwner) executor.transferOwnership(targetOwner);
         vm.stopBroadcast();
         console2.log("TagAITradeRouter", address(executor));
         console2.log("Pump", pump);

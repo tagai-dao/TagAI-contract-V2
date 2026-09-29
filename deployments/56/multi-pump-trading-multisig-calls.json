@@ -1,0 +1,100 @@
+{
+  "status": "submitted-by-user-awaiting-signatures",
+  "chainId": 56,
+  "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "verifiedAtBlock": 123532032,
+  "calls": [
+    {
+      "description": "Accept Pump14 ownership",
+      "to": "0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34",
+      "value": "0",
+      "operation": 0,
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "data": "0x79ba5097",
+      "simulation": "eth_call-success"
+    },
+    {
+      "description": "Accept TradeCurationFactory ownership",
+      "to": "0x774A48Ba391a1013Ae43289eBdf871618822CD67",
+      "value": "0",
+      "operation": 0,
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "data": "0x79ba5097",
+      "simulation": "eth_call-success"
+    },
+    {
+      "description": "Accept TagAITradeRouter ownership",
+      "to": "0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf",
+      "value": "0",
+      "operation": 0,
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "data": "0x79ba5097",
+      "simulation": "eth_call-success"
+    },
+    {
+      "description": "Accept CommentBuyAdapter ownership",
+      "to": "0x226D3e94569c44578a892A5158F0a3Defe49B8ca",
+      "value": "0",
+      "operation": 0,
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "data": "0x79ba5097",
+      "simulation": "eth_call-success"
+    },
+    {
+      "description": "Whitelist TradeCurationFactory",
+      "to": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+      "value": "0",
+      "operation": 0,
+      "function": "adminAddContract(address)",
+      "arguments": [
+        "0x774A48Ba391a1013Ae43289eBdf871618822CD67"
+      ],
+      "data": "0x54a7d6b1000000000000000000000000774a48ba391a1013ae43289ebdf871618822cd67",
+      "simulation": "eth_call-success"
+    },
+    {
+      "description": "Authorize Pump14 in NutboxRouter",
+      "to": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "value": "0",
+      "operation": 0,
+      "function": "addOperator(address)",
+      "arguments": [
+        "0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34"
+      ],
+      "data": "0x9870d7fe000000000000000000000000cd4e721fc418f4d723c04c71e8d8eccb75c3cd34",
+      "simulation": "eth_call-success"
+    },
+    {
+      "description": "Authorize Pump14 in Basket Registry",
+      "to": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "value": "0",
+      "operation": 0,
+      "function": "setCreatorForwarderApproval(address,bool)",
+      "arguments": [
+        "0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34",
+        true
+      ],
+      "data": "0x30897036000000000000000000000000cd4e721fc418f4d723c04c71e8d8eccb75c3cd340000000000000000000000000000000000000000000000000000000000000001",
+      "simulation": "eth_call-success"
+    },
+    {
+      "description": "Switch existing Vault to new CommentBuyAdapter (activates new trading path)",
+      "to": "0xAB2A0FF3BDbdD68E7100B6875Ac4a58db851d363",
+      "value": "0",
+      "operation": 0,
+      "function": "setAdapter(address)",
+      "arguments": [
+        "0x226D3e94569c44578a892A5158F0a3Defe49B8ca"
+      ],
+      "data": "0xab1da79c000000000000000000000000226d3e94569c44578a892a5158f0a3defe49b8ca",
+      "simulation": "eth_call-success"
+    }
+  ],
+  "completed": [],
+  "note": "Each call uses operation 0 and value 0. Vault adapter switch is last. Calls were eth_call simulated at verifiedAtBlock; the assistant did not submit or execute them.",
+  "statusSource": "User reported multisig initiation; no Safe transaction hash supplied. On-chain execution has not been reverified since verifiedAtBlock."
+}

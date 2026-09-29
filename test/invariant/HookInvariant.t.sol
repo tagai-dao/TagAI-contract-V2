@@ -125,7 +125,7 @@ contract HookInvariantTest is StdInvariant, Version13LegacyTestSetup {
         mockPoolManager = new MockCLPoolManager();
         mockVault = new MockVault();
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0), address(0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
         hook = new TagAISwapHook(ICLPoolManager(address(mockPoolManager)), IVault(address(mockVault)), address(pump));

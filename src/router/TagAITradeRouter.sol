@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
 import {IPoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
 import {IVault} from "infinity-core/src/interfaces/IVault.sol";
@@ -40,11 +41,11 @@ interface ITradeFactory {
     function getPair(address, address) external view returns (address);
 }
 
-/// @notice Atomic exact-input BNB buys / BNB-output sells for one Pump V13 deployment.
-/// @dev Routing and optimization happen off chain. No arbitrary call targets, custody,
-/// platform fee, owner or upgrade mechanism. The main pool receives IPShare hookData directly; Nutbox handles external
+/// @notice Atomic exact-input BNB buys / BNB-output sells for registered compatible Pumps.
+/// @dev Routing and optimization happen off chain. No arbitrary call targets, custody or
+/// platform fee. The owner manages Pump admission, not execution targets. The main pool receives IPShare hookData directly; Nutbox handles external
 /// component routes; the registered Pancake V2 component pairs are executed directly for tax support.
-contract TagAITradeRouter is ReentrancyGuard, ILockCallback {
+contract TagAITradeRouter is ReentrancyGuard, Ownable2Step, ILockCallback {
     using PoolIdLibrary for PoolKey;
     using BalanceDeltaLibrary for BalanceDelta;
     using SafeERC20 for IERC20;
@@ -73,7 +74,12 @@ contract TagAITradeRouter is ReentrancyGuard, ILockCallback {
     address private _activeVault;
     bytes32 private _callbackHash;
 
+    /// @notice Initial Pump, retained for legacy clients. Use supportsToken for admission.
     IPump public immutable pump;
+    address[] public supportedPumps;
+    mapping(address => bool) public pumpEnabled;
+    uint256 public constant MAX_PUMPS = 32;
+    event PumpSupportSet(address indexed pump, bool enabled);
     INutboxRouter public immutable nutboxRouter;
     address public immutable pancakeV2Factory;
     uint256 public constant MAX_ROUTE_POOLS = 8;
@@ -106,6 +112,53 @@ contract TagAITradeRouter is ReentrancyGuard, ILockCallback {
         pump = IPump(pump_);
         nutboxRouter = INutboxRouter(router_);
         pancakeV2Factory = factory_;
+        _setPump(pump_, true);
+    }
+
+    function supportedPumpCount() external view returns (uint256) { return supportedPumps.length; }
+
+    /// @notice Admit only reviewed Pumps with compatible Token/listing interfaces and infrastructure.
+    function setPump(address candidate, bool enabled) external onlyOwner {
+        _setPump(candidate, enabled);
+    }
+
+    function _setPump(address candidate, bool enabled) private {
+        if (pumpEnabled[candidate] == enabled) return;
+        if (enabled) {
+            if (candidate.code.length == 0 || supportedPumps.length >= MAX_PUMPS) revert InvalidConfiguration();
+            // Reject non-Pump contracts before adding them to the registry.
+            try IPump(candidate).createdTokens(address(0)) returns (bool created) {
+                if (created) revert InvalidConfiguration();
+            } catch { revert InvalidConfiguration(); }
+            supportedPumps.push(candidate);
+        } else {
+            for (uint256 i; i < supportedPumps.length; ++i) {
+                if (supportedPumps[i] == candidate) {
+                    supportedPumps[i] = supportedPumps[supportedPumps.length - 1];
+                    supportedPumps.pop();
+                    break;
+                }
+            }
+        }
+        pumpEnabled[candidate] = enabled;
+        emit PumpSupportSet(candidate, enabled);
+    }
+
+    /// @notice Membership only; execution additionally validates listing, pools and infrastructure.
+    function supportsToken(address token) public view returns (bool) {
+        if (token.code.length == 0) return false;
+        for (uint256 i; i < supportedPumps.length; ++i) {
+            // One broken registry must not prevent trading tokens from another Pump.
+            (bool ok, bytes memory result) = supportedPumps[i].staticcall{gas: 30000}(
+                abi.encodeCall(IPump.createdTokens, (token))
+            );
+            if (ok && result.length == 32) {
+                uint256 created;
+                assembly ("memory-safe") { created := mload(add(result, 32)) }
+                if (created == 1) return true;
+            }
+        }
+        return false;
     }
 
     receive() external payable {
@@ -195,7 +248,7 @@ contract TagAITradeRouter is ReentrancyGuard, ILockCallback {
     ) private view {
         if (block.timestamp > deadline) revert DeadlineExpired();
         if (recipient == address(0) || recipient == address(this)) revert InvalidRecipient();
-        if (!pump.createdTokens(token) || !ITradeToken(token).listed()) revert InvalidToken();
+        if (!supportsToken(token) || !ITradeToken(token).listed()) revert InvalidToken();
         (address router,,,) = ITradeToken(token).listingInfrastructure();
         if (router != address(nutboxRouter) || ITradeToken(token).pancakeV2Factory() != pancakeV2Factory) {
             revert InvalidToken();

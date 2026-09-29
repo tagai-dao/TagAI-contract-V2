@@ -63,7 +63,7 @@ contract DeployBSCPump13Script is Script {
         );
 
         vm.startBroadcast(privateKey);
-        Pump pump = new Pump(ipshare, feeReceiver, constituents);
+        Pump pump = new Pump(ipshare, feeReceiver, constituents, address(0));
         address tokenImplementation = pump.tokenImplementation();
         pump.adminSetPoolManager(poolManager);
         pump.adminSetVault(vault);

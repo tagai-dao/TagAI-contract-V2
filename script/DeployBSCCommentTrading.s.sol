@@ -49,6 +49,7 @@ contract DeployBSCCommentTradingScript is Script {
         vault = new CommentTradeVault(EXECUTOR, feeReceiver, address(adapter));
 
         if (targetOwner != deployer) {
+            adapter.transferOwnership(targetOwner);
             vault.transferOwnership(targetOwner);
         }
 
@@ -59,14 +60,17 @@ contract DeployBSCCommentTradingScript is Script {
         require(vault.feeReceiver() == feeReceiver, "Fee receiver mismatch");
 
         if (targetOwner == deployer) {
+            require(adapter.owner() == targetOwner, "Adapter owner mismatch");
             require(vault.owner() == targetOwner, "Owner mismatch");
         } else {
+            require(adapter.pendingOwner() == targetOwner, "Adapter pending owner mismatch");
             require(vault.pendingOwner() == targetOwner, "Vault pending owner mismatch");
         }
 
         console2.log("CommentBuyAdapter", address(adapter));
         console2.log("CommentTradeVault", address(vault));
         if (targetOwner != deployer) {
+            console2.log("ACTION: target owner must accept ownership on CommentBuyAdapter", targetOwner);
             console2.log("ACTION: target owner must accept ownership on CommentTradeVault", targetOwner);
         }
     }

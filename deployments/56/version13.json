@@ -32,7 +32,7 @@
   "Create2Deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
   "ListingKeeper": "0x8047FcC508446E2673195B8125d3388defc23688",
   "ListingKeeperIsTemporary": false,
-  "ListingKeeperVerifiedAtBlock": 120528361,
+  "ListingKeeperVerifiedAtBlock": 123331057,
   "ListingSwapSlippageBps": 300,
   "MaxComponents": 4,
   "PumpDeployTransaction": "0x2bf0fe3d387f91b609ffc43f1caf8b5b738ecdab27d36578a1d86a34c0d0689e",
@@ -93,5 +93,10 @@
   "IndexBrokerV2BurnTemplateVerified": true,
   "IndexBrokerV2StakeTemplateVerified": true,
   "IndexBrokerV2AMMTemplateVerified": true,
-  "IndexBrokerV2FactoryVerified": true
+  "IndexBrokerV2FactoryVerified": true,
+  "SocialCurationFactory": "0xc4674D3fBbD201Ea401a8B7e7285F956178593D8",
+  "SocialCurationClaimSigner": "0x1C3864ea7a54eC4E3cEb27553A6F2927bBe4222e",
+  "SocialCurationClaimSignerVerifiedAtBlock": 123331057,
+  "RoleAddressSnapshotScope": "Current on-chain roles at the recorded block, not historical deployment-time roles.",
+  "ListingKeeperStatus": "verified-on-chain"
 }

@@ -118,13 +118,21 @@ contract Pump13MainnetForkTest is Test {
         bool[] allowFailedLegs;
     }
 
-    function setUp() public {
+    function _defaultForkBlock() internal pure virtual returns (uint256) {
+        return DEFAULT_BLOCK;
+    }
+
+    function _tokenTemplate() internal pure virtual returns (address) {
+        return address(0);
+    }
+
+    function setUp() public virtual {
         string memory rpc = vm.envOr("BSC_RPC_URL", string(""));
         if (bytes(rpc).length == 0) {
             vm.skip(true);
             return;
         }
-        vm.createSelectFork(rpc, vm.envOr("PUMP13_FORK_BLOCK", DEFAULT_BLOCK));
+        vm.createSelectFork(rpc, vm.envOr("PUMP13_FORK_BLOCK", _defaultForkBlock()));
         require(block.chainid == 56 && LIVE_ROUTER.code.length > 0, "WRONG_FORK");
         creator = makeAddr("pump13-mainnet-creator");
         keeper = makeAddr("pump13-keeper");
@@ -152,7 +160,7 @@ contract Pump13MainnetForkTest is Test {
         // Permission setup is simulated on the fork, exactly as an authorized deployment must do.
         vm.prank(ForkOwner(COMMITTEE).owner());
         ICommittee(COMMITTEE).adminAddContract(STAKING_FACTORY);
-        pump = new Pump(IPSHARE, platform, _defaultConstituents());
+        pump = new Pump(IPSHARE, platform, _defaultConstituents(), _tokenTemplate());
         pump.adminSetPoolManager(MANAGER);
         pump.adminSetVault(VAULT);
         hook = new TagAISwapHook(ICLPoolManager(MANAGER), IVault(VAULT), address(pump));

@@ -68,7 +68,7 @@ contract TokenTest is Version13LegacyTestSetup {
         mockVault = new MockVault();
 
         ipshare = new IPShare(feeRecipient);
-        pump = new Pump(address(ipshare), feeRecipient, new address[](0));
+        pump = new Pump(address(ipshare), feeRecipient, new address[](0), address(0));
         pump.adminSetPoolManager(address(mockPoolManager));
         pump.adminSetVault(address(mockVault));
 

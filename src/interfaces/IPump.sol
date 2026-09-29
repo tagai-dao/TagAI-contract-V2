@@ -15,6 +15,7 @@ interface IPump {
     error RefundFail();
     error TokenNotListed();
     error NutboxNotConfigured();
+    error InvalidTokenImplementation();
 
     // ─── Events ──────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,28 @@ interface IPump {
     function createToken(string calldata tick, bytes32 salt) external payable returns (address);
 
     function adminSetConstituentApproval(address asset, bool approved) external;
+
+    struct OptionalPoolConfig {
+        address factory;
+        uint16 rewardRatio; // Basis points of total community pool rewards, not index weights.
+        bytes meta; // Factory-specific data, validated by the selected factory.
+    }
+
+    event OptionalPoolFactorySet(address indexed factory, string name, uint16 maxRewardRatio, bool enabled);
+    event NutboxOptionalPoolLinked(
+        address indexed token, address indexed pool, address indexed factory, uint16 rewardRatio
+    );
+    error InvalidOptionalPoolConfig();
+
+    function adminSetOptionalPoolFactory(address factory, string calldata name, uint16 maxRewardRatio, bool enabled)
+        external;
+
+    function createToken(
+        string calldata tick,
+        bytes32 salt,
+        IndexConfig calldata indexConfig,
+        OptionalPoolConfig[] calldata optionalPools
+    ) external payable returns (address);
 
     struct IndexConfig {
         string name;

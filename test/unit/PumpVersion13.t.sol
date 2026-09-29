@@ -248,7 +248,7 @@ contract PumpVersion13Test is Test {
         committee.adminAddContract(address(calculator));
         committee.adminAddContract(address(stakingFactory));
         ipshare = new IPShare(feeReceiver);
-        pump = new Pump(address(ipshare), feeReceiver, new address[](0));
+        pump = new Pump(address(ipshare), feeReceiver, new address[](0), address(0));
         vault = new MockVault();
         manager = new MockCLPoolManager();
         pump.adminSetPoolManager(address(manager));

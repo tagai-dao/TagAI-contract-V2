@@ -131,5 +131,12 @@
   "IndexBrokerNFTBurnTemplateVerified": true,
   "IndexBrokerNFTStakeTemplateVerified": true,
   "IndexBrokerForkTested": true,
-  "IndexBrokerForkTestBlock": 116653696
+  "IndexBrokerForkTestBlock": 116653696,
+  "SocialCurationClaimSigner": "0x1C3864ea7a54eC4E3cEb27553A6F2927bBe4222e",
+  "SocialCurationClaimSignerVerifiedAtBlock": 123331057,
+  "RoleAddressSnapshotScope": "Current on-chain roles at the recorded block, not historical deployment-time roles.",
+  "ListingKeeper": null,
+  "ListingKeeperStatus": "not-exposed-by-pump",
+  "ListingKeeperCheckedAtBlock": 123331057,
+  "ListingKeeperNote": "Pump.listingKeeper() reverted with empty data; this legacy Pump does not expose the V13 listing keeper interface. Do not substitute the V13 keeper."
 }
