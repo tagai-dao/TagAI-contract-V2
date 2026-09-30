@@ -34,6 +34,7 @@ import {TickMath as PancakeV4TickMath} from "infinity-core/src/pool-cl/libraries
 
 import "./INutboxRouter.sol";
 import "./NutboxSpotPrice.sol";
+import {NutboxPriceReader} from "./NutboxPriceReader.sol";
 
 interface INutboxV2Router {
     function factory() external view returns (address);
@@ -83,6 +84,93 @@ interface INutboxWrappedNative {
 contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCallback, ILockCallback {
     using Address for address payable;
     using PancakeV4BalanceDeltaLibrary for PancakeV4BalanceDelta;
+    NutboxPriceReader public immutable priceReader;
+    mapping(address => bool) public operators;
+    mapping(address => address) public v3RouterForFactory;
+    event OperatorSet(address indexed operator, bool enabled);
+    event V2RouterSet(address indexed factory, address router, bool enabled);
+    event V3RouterSet(address indexed factory, address router, bool enabled);
+    event UniswapV4ManagerSet(address indexed manager, bool enabled);
+    event PancakeV4ManagerSet(address indexed manager, address vault, bool enabled);
+    error OperatorScope();
+
+    modifier onlyOwnerOrOperator() {
+        if (!operators[msg.sender]) _checkOwner();
+        _;
+    }
+
+    function addOperator(address operator) external onlyOwner {
+        if (operator.code.length == 0) revert InvalidAddress();
+        operators[operator] = true;
+        emit OperatorSet(operator, true);
+    }
+
+    function removeOperator(address operator) external onlyOwner {
+        operators[operator] = false;
+        emit OperatorSet(operator, false);
+    }
+
+    // Operators may only create NEW entries for tokens created by that Pump.
+    // Replacing/removing shared pools and routes remains an owner operation.
+    function _checkOperatorScope(address a, address b) private view {
+        if (msg.sender == owner()) return;
+        if (!operators[msg.sender] || !(_createdByCaller(a) || _createdByCaller(b))) revert OperatorScope();
+    }
+
+    function _createdByCaller(address token) private view returns (bool) {
+        (bool ok, bytes memory result) =
+            msg.sender.staticcall{gas: 30000}(abi.encodeWithSignature("createdTokens(address)", token));
+        if (!ok || result.length != 32) return false;
+        uint256 value;
+        assembly ("memory-safe") { value := mload(add(result, 32)) }
+        return value == 1;
+    }
+
+    function setV2Router(address factory, address router, bool enabled) external onlyOwner nonReentrant {
+        if (
+            enabled
+                && (factory.code.length == 0
+                    || router.code.length == 0
+                    || INutboxV2Router(router).factory() != factory
+                    || INutboxV2Router(router).WETH() != wrappedNative)
+        ) {
+            revert InvalidAddress();
+        }
+        allowedV2Factory[factory] = enabled;
+        v2RouterForFactory[factory] = enabled ? router : address(0);
+        emit V2RouterSet(factory, router, enabled);
+    }
+
+    /// @notice Compatible exactInputSingle routers (SwapRouter02-style, no deadline in tuple).
+    function setV3Router(address factory, address router, bool enabled) external onlyOwner nonReentrant {
+        if (
+            enabled
+                && (factory.code.length == 0
+                    || router.code.length == 0
+                    || INutboxPancakeV3Router(router).factory() != factory
+                    || INutboxPancakeV3Router(router).WETH9() != wrappedNative)
+        ) revert InvalidAddress();
+        allowedV3Factory[factory] = enabled;
+        v3RouterForFactory[factory] = enabled ? router : address(0);
+        emit V3RouterSet(factory, router, enabled);
+    }
+
+    function setUniswapV4Manager(address manager, bool enabled) external onlyOwner nonReentrant {
+        if (enabled && manager.code.length == 0) revert InvalidAddress();
+        allowedUniswapV4Manager[manager] = enabled;
+        emit UniswapV4ManagerSet(manager, enabled);
+    }
+
+    // Vault admission is for receiving native output only. Callback admission checks Manager too.
+    function setPancakeV4Manager(address manager, bool enabled) external onlyOwner nonReentrant {
+        if (manager.code.length == 0) revert InvalidAddress();
+        address managerVault = address(IPancakeV4CLPoolManager(manager).vault());
+        if (enabled && managerVault.code.length == 0) revert InvalidAddress();
+        allowedPancakeV4CLManager[manager] = enabled;
+        if (enabled) allowedPancakeV4Vault[managerVault] = true;
+        emit PancakeV4ManagerSet(manager, managerVault, enabled);
+    }
+
     using SafeERC20 for IERC20;
     using UniswapV4BalanceDeltaLibrary for UniswapV4BalanceDelta;
 
@@ -176,6 +264,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         if (wrappedNative_.code.length == 0) {
             revert InvalidAddress();
         }
+        priceReader = new NutboxPriceReader();
         wrappedNative = wrappedNative_;
         pancakeV3Router = pancakeV3Router_;
         _allow(v2Factories_, allowedV2Factory);
@@ -194,6 +283,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
                 revert InvalidSource();
             }
             pancakeV3Factory = factory;
+            v3RouterForFactory[factory] = pancakeV3Router_;
         } // else: pancakeV3Factory 保持 address(0)
 
         if (initialConfig_.length != 0) {
@@ -284,10 +374,11 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
     function addPricePool(SourceType sourceType, bytes calldata sourceData)
         external
         override
-        onlyOwner
+        onlyOwnerOrOperator
         returns (bytes32 poolId)
     {
         (address token0, address token1, bytes32 resolvedPoolId) = _validatePricePool(sourceType, sourceData);
+        _checkOperatorScope(token0, token1);
         poolId = resolvedPoolId;
         if (_pricePools[poolId].enabled) revert PricePoolAlreadyExists();
 
@@ -350,7 +441,12 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         return forward ? route.poolIds[index] : route.poolIds[length - 1 - index];
     }
 
-    function addRoute(address tokenIn, address tokenOut, bytes32[] calldata poolIds) external override onlyOwner {
+    function addRoute(address tokenIn, address tokenOut, bytes32[] calldata poolIds)
+        external
+        override
+        onlyOwnerOrOperator
+    {
+        _checkOperatorScope(tokenIn, tokenOut);
         (bytes32 routeKey, bool forward, address canonicalToken0) = _routeKey(tokenIn, tokenOut);
         if (_routes[routeKey].enabled) revert RouteAlreadyExists();
         address canonicalToken1 = _otherEndpoint(tokenIn, tokenOut, canonicalToken0);
@@ -587,7 +683,8 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
     {
         if (tokenIn == address(0) || tokenOut == address(0)) revert UnsupportedSwapSource();
         (address factory, address v3Pool) = abi.decode(sourceData, (address, address));
-        if (factory != pancakeV3Factory) revert UnsupportedSwapSource();
+        address executor = v3RouterForFactory[factory];
+        if (!allowedV3Factory[factory] || executor == address(0)) revert UnsupportedSwapSource();
         INutboxV3Pool pool = INutboxV3Pool(v3Pool);
         uint24 fee = pool.fee();
         if (pool.factory() != factory || INutboxV3Factory(factory).getPool(tokenIn, tokenOut, fee) != v3Pool) {
@@ -596,8 +693,8 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
 
         IERC20 outputToken = IERC20(tokenOut);
         uint256 balanceBefore = outputToken.balanceOf(address(this));
-        IERC20(tokenIn).forceApprove(pancakeV3Router, amountIn);
-        amountOut = INutboxPancakeV3Router(pancakeV3Router)
+        IERC20(tokenIn).forceApprove(executor, amountIn);
+        amountOut = INutboxPancakeV3Router(executor)
             .exactInputSingle(
                 INutboxPancakeV3Router.ExactInputSingleParams({
                 tokenIn: tokenIn,
@@ -609,7 +706,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
                 sqrtPriceLimitX96: 0
             })
             );
-        IERC20(tokenIn).forceApprove(pancakeV3Router, 0);
+        IERC20(tokenIn).forceApprove(executor, 0);
         if (amountOut == 0 || outputToken.balanceOf(address(this)) - balanceBefore != amountOut) {
             revert InvalidSwapOutput();
         }
@@ -773,7 +870,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
             visited[i + 1] = nextToken;
 
             (address actualTokenIn, address actualTokenOut) = _actualPoolDirection(currentToken, pool);
-            NutboxSpotPrice.quote(
+            priceReader.quote(
                 INutboxRouter(address(this)), actualTokenIn, actualTokenOut, 0, pool.sourceType, pool.sourceData
             );
             currentToken = nextToken;
@@ -796,7 +893,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
             StoredPricePool storage pool = _pricePools[poolId];
             if (!pool.enabled) revert PricePoolNotFound();
             (address actualTokenIn, address actualTokenOut) = _actualPoolDirection(currentToken, pool);
-            currentAmount = NutboxSpotPrice.quote(
+            currentAmount = priceReader.quote(
                 INutboxRouter(address(this)),
                 actualTokenIn,
                 actualTokenOut,
@@ -965,12 +1062,12 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         view
         returns (address token0, address token1, bytes32 poolId)
     {
-        (token0, token1) = NutboxSpotPrice.sourceTokens(sourceType, sourceData);
+        (token0, token1) = priceReader.sourceTokens(sourceType, sourceData);
         if (!_validPoolTokens(token0, token1)) revert InvalidPair();
 
         address validateIn = token0 == address(0) ? token1 : token0;
         address validateOut = token0 == address(0) ? token0 : token1;
-        NutboxSpotPrice.quote(INutboxRouter(address(this)), validateIn, validateOut, 0, sourceType, sourceData);
+        priceReader.quote(INutboxRouter(address(this)), validateIn, validateOut, 0, sourceType, sourceData);
         poolId = _pricePoolId(token0, token1);
     }
 

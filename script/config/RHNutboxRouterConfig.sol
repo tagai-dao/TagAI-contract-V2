@@ -70,6 +70,15 @@ library RHNutboxRouterConfig {
         return RH_V3_ROUTER;
     }
 
+    /// @notice Initial RH V14 constituents, matching this Router's bootstrap routes.
+    function constituentAssets() internal pure returns (address[] memory assets) {
+        address[9] memory stocks = [NVDA, SPCX, GME, TSLA, AMZN, MSFT, QQQ, SPY, AAPL];
+        assets = new address[](stocks.length);
+        for (uint256 i; i < stocks.length; ++i) {
+            assets[i] = stocks[i];
+        }
+    }
+
     function initialConfig() internal pure returns (bytes memory) {
         return abi.encode(initialPricePools(), initialRoutes());
     }
