@@ -6,6 +6,8 @@
 
 本次不修改 BSC 合约，也不广播真实链上交易。
 
+后续 BSC 对照复核与加强测试见 [RH_VERSION14_BSC_PARITY.md](RH_VERSION14_BSC_PARITY.md)：597 项本地通过、3 项 RH fork 通过，并补充全部默认股票、六池冷状态 gas 与 Router 异常路径验证。
+
 ## 用户确认的经济参数
 
 - 总量 10 亿：内盘 6.5 亿；V4 主池 1.2 亿；成分 V2 币股池合计 8000 万；Hook / 社区预算 1.5 亿。
@@ -63,6 +65,7 @@ forge build --skip test --skip script
 FOUNDRY_ETH_RPC_URL='' forge test --no-match-path 'test/fork/*'
 
 # 只读 fork：默认固定 RH 区块 76263063；本地模拟授权，不提交多签交易
+# 公共 RPC 若已裁剪历史状态，使用 RH14_FORK_BLOCK 指定可访问的新快照；本轮复核为 76298453。
 RUN_RH14_FORK=true FOUNDRY_ETH_RPC_URL='' forge test --match-contract RHVersion14ForkTest -vv
 
 # 主网状态部署模拟；显式设置上述两个公开角色地址，不加 --broadcast
@@ -76,7 +79,7 @@ FOUNDRY_PROFILE=rh_fork forge script script/DeployRHPump14.s.sol:DeployRHPump14S
 
 新增 TradeCuration 单元、恶意回调及长期账务 invariant 测试复用 BSC 的对应测试向量，在 RH 仓库的现有 Nutbox 合约上运行。不能把本地 mock 通过视为真实主网验证，也不能把 fork 内模拟 owner 授权描述为主网已授权。
 
-## 本轮验证记录（2026-09-30）
+## 首轮迁移验证记录（2026-09-30）
 
 - 完整本地回归：39 个测试套件，**542 通过、0 失败、2 跳过**；跳过的是默认关闭的两项旧 RH fork 测试。新增 RH V14 的主网 fork 测试单独执行并通过。
 - RH 主网区块 `76263063` 的 fork 生命周期测试通过：真实 NVDA / TSLA 购股、V2 成分池上市、V4 主池买卖、回购、指数首次铸造及 BasketSwapRouter 卖出。授权在本地 fork 中模拟。

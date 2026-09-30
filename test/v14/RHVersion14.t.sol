@@ -32,6 +32,17 @@ import {
     RouterPancakeV3RouterMock
 } from "../unit/NutboxRouter.t.sol";
 
+import {TradeCuration} from "../../src/nutbox/dapps/trade-curation/TradeCuration.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+import {IToken} from "../../src/v14/IToken.sol";
+import {PoolKey} from "v4-core/src/types/PoolKey.sol";
+import {Currency} from "v4-core/src/types/Currency.sol";
+import {IHooks} from "v4-core/src/interfaces/IHooks.sol";
+import {PoolDonateTest} from "v4-core/src/test/PoolDonateTest.sol";
+import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
+
 // Test venue enforcing the Uniswap V2 30 bps constant-product invariant and LP accounting.
 // Actual V4 PoolManager, Token, Pump, Hook, NutboxRouter and Nutbox contracts are used below.
 contract RH14Pair is ERC20 {
@@ -522,6 +533,320 @@ contract RHVersion14Test is Test {
         address t = pump.createToken{value: fee}("RETRY", bytes32(uint256(88)), c, opts);
         assertTrue(pump.createdTokens(t));
         assertEq(pump.totalTokens(), 1);
+    }
+
+    function _maxConfig() internal returns (IPump.IndexConfig memory c, IPump.OptionalPoolConfig[] memory opts) {
+        c = _config();
+        c.constituentAssets = new address[](4);
+        c.targetWeights = new uint16[](4);
+        c.constituentAssets[0] = address(a);
+        c.constituentAssets[1] = address(b);
+        for (uint256 i = 2; i < 4; ++i) {
+            address asset = address(new RouterTestToken("Extra", "E"));
+            _assetRoute(RouterV3FactoryMock(router.pancakeV3Factory()), asset);
+            pump.adminSetConstituentApproval(asset, true);
+            c.constituentAssets[i] = asset;
+        }
+        for (uint256 i; i < 4; ++i) {
+            c.targetWeights[i] = 2500;
+        }
+        TradeCurationFactory second = new TradeCurationFactory(cf, vm.addr(0xdef));
+        committee.adminAddContract(address(second));
+        pump.adminSetOptionalPoolFactory(address(second), "Second", 8000, true);
+        opts = new IPump.OptionalPoolConfig[](2);
+        opts[0] = IPump.OptionalPoolConfig(address(tradeFactory), 4000, "");
+        opts[1] = IPump.OptionalPoolConfig(address(second), 4000, "");
+    }
+
+    function testFuzz_sixPoolIndependentAllocationOracle(uint256 seed) public {
+        (IPump.IndexConfig memory c, IPump.OptionalPoolConfig[] memory opts) = _maxConfig();
+        uint256 optionalTotal = bound(uint256(keccak256(abi.encode(seed, "total"))), 2, 8000);
+        opts[0].rewardRatio = uint16(bound(uint256(keccak256(abi.encode(seed, "first"))), 1, optionalTotal - 1));
+        opts[1].rewardRatio = uint16(optionalTotal - opts[0].rewardRatio);
+        uint256 remaining = 10000;
+        for (uint256 i; i < 4; ++i) {
+            c.targetWeights[i] =
+                uint16(i == 3 ? remaining : bound(uint256(keccak256(abi.encode(seed, i))), 1, remaining - (3 - i)));
+            remaining -= c.targetWeights[i];
+        }
+        uint256 fee = pump.createFee() + ipshare.createFee();
+        vm.prank(creator, creator);
+        Token t = Token(payable(pump.createToken{value: fee}("SIXFUZZ", bytes32(uint256(201)), c, opts)));
+        Community community = Community(payable(t.nutboxCommunity()));
+        uint256 total;
+        for (uint256 i; i < 6; ++i) {
+            uint256 ratio = community.poolRatios(community.activedPools(i));
+            if (i < 4) {
+                uint256 numerator = uint256(c.targetWeights[i]) * (10000 - optionalTotal);
+                assertGe(ratio, numerator / 10000);
+                assertLe(ratio, (numerator + 9999) / 10000);
+                (, uint16 indexWeight,) = t.componentAt(i);
+                assertEq(indexWeight, c.targetWeights[i]);
+            } else {
+                assertEq(ratio, opts[i - 4].rewardRatio);
+            }
+            total += ratio;
+        }
+        assertEq(total, 10000);
+    }
+
+    function test_lastOfSixFailureRollsBackFeesClonesAndFactoryMappings() public {
+        (IPump.IndexConfig memory c, IPump.OptionalPoolConfig[] memory opts) = _maxConfig();
+        committee.adminSetCreateCommunityFee(0.001 ether);
+        committee.adminSetCommunitySettingsFee(0.001 ether);
+        uint256 fee = pump.createFee() + ipshare.createFee() + 0.007 ether;
+        uint256 beforeCreator = creator.balance;
+        uint256 beforeRecipient = address(0xfee).balance;
+        address expectedCommunity = vm.computeCreateAddress(cf, vm.getNonce(cf));
+        bytes32 salt = bytes32(uint256(202));
+        address expectedToken = Clones.predictDeterministicAddress(
+            pump.tokenImplementation(), keccak256(abi.encode(creator, salt)), address(pump)
+        );
+        opts[1].meta = hex"01";
+        vm.prank(creator, creator);
+        vm.expectRevert("Unexpected meta");
+        pump.createToken{value: fee + 1 ether}("SIXRETRY", salt, c, opts);
+        assertEq(creator.balance, beforeCreator);
+        assertEq(address(0xfee).balance, beforeRecipient);
+        assertEq(pump.totalTokens(), 0);
+        assertFalse(pump.createdTicks("SIXRETRY"));
+        assertFalse(ipshare.ipshareCreated(creator));
+        assertEq(expectedToken.code.length, 0);
+        assertEq(expectedCommunity.code.length, 0);
+        for (uint256 i; i < 2; ++i) {
+            assertFalse(TradeCurationFactory(opts[i].factory).createdPoolOfCommunity(expectedCommunity));
+        }
+        opts[1].meta = "";
+        vm.prank(creator, creator);
+        address deployed = pump.createToken{value: fee + 1 ether}("SIXRETRY", salt, c, opts);
+        assertEq(deployed, expectedToken);
+        assertEq(Token(payable(deployed)).nutboxCommunity(), expectedCommunity);
+    }
+
+    function test_sixPoolRewardsReachRealCommunityAndTradePools() public {
+        (IPump.IndexConfig memory c, IPump.OptionalPoolConfig[] memory opts) = _maxConfig();
+        c.targetWeights[0] = 1;
+        c.targetWeights[1] = 1;
+        c.targetWeights[2] = 1;
+        c.targetWeights[3] = 9997;
+        uint256 fee = pump.createFee() + ipshare.createFee();
+        vm.prank(creator, creator);
+        Token t = Token(payable(pump.createToken{value: fee + 1 ether}("SIXREWARDS", bytes32(uint256(203)), c, opts)));
+        Community community = Community(payable(t.nutboxCommunity()));
+        vm.startPrank(creator, creator);
+        t.approve(address(calculator), 168_000 ether);
+        calculator.inject(address(community), 168_000 ether);
+        vm.stopPrank();
+        vm.warp(block.timestamp + 168 hours);
+        for (uint256 i; i < 2; ++i) {
+            TradeCuration optional = TradeCuration(payable(community.activedPools(4 + i)));
+            optional.harvestRewards();
+            assertEq(t.balanceOf(address(optional)), 67_200 ether);
+        }
+        assertEq(t.balanceOf(address(community)), 33_600 ether);
+        assertEq(address(pump).balance, 0);
+    }
+
+    function test_optionalFactoryDisabledDuplicateAndAggregateLimit() public {
+        IPump.IndexConfig memory c = _config();
+        IPump.OptionalPoolConfig[] memory opts = new IPump.OptionalPoolConfig[](2);
+        opts[0] = IPump.OptionalPoolConfig(address(tradeFactory), 4000, "");
+        opts[1] = opts[0];
+        uint256 fee = pump.createFee() + ipshare.createFee();
+        vm.prank(creator, creator);
+        vm.expectRevert(IPump.InvalidOptionalPoolConfig.selector);
+        pump.createToken{value: fee}("INVALID", bytes32(uint256(204)), c, opts);
+        TradeCurationFactory second = new TradeCurationFactory(cf, vm.addr(0xdef));
+        committee.adminAddContract(address(second));
+        pump.adminSetOptionalPoolFactory(address(second), "Second", 8000, true);
+        opts[1] = IPump.OptionalPoolConfig(address(second), 4001, "");
+        vm.prank(creator, creator);
+        vm.expectRevert(IPump.InvalidOptionalPoolConfig.selector);
+        pump.createToken{value: fee}("INVALID", bytes32(uint256(204)), c, opts);
+        opts[1].rewardRatio = 4000;
+        pump.adminSetOptionalPoolFactory(address(second), "Second", 8000, false);
+        vm.prank(creator, creator);
+        vm.expectRevert(IPump.InvalidOptionalPoolConfig.selector);
+        pump.createToken{value: fee}("INVALID", bytes32(uint256(204)), c, opts);
+        pump.adminSetOptionalPoolFactory(address(second), "Second", 8000, true);
+        committee.adminRemoveContract(address(second));
+        vm.prank(creator, creator);
+        vm.expectRevert(IPump.InvalidOptionalPoolConfig.selector);
+        pump.createToken{value: fee}("INVALID", bytes32(uint256(204)), c, opts);
+        assertEq(pump.totalTokens(), 0);
+        assertFalse(pump.createdTicks("INVALID"));
+    }
+
+    function test_recoveredListingCanExitAndFullCapCanRetry() public {
+        token = _create(pump, 0);
+        _fill(token, pump);
+        vm.prank(creator);
+        vm.expectRevert("Ownable: caller is not the owner");
+        pump.adminRecoverFailedListing(address(token));
+        uint256 snap = vm.snapshotState();
+        pump.adminRecoverFailedListing(address(token));
+        assertFalse(token.listingPending());
+        uint256 beforeNative = creator.balance;
+        vm.prank(creator, creator);
+        token.sellToken(1_000_000 ether, 0, creator, 0);
+        assertGt(creator.balance, beforeNative);
+        assertEq(token.bondingCurveSupply(), 649_000_000 ether);
+        vm.prank(creator, creator);
+        token.buyToken{value: 0.01 ether}(0, creator, 0);
+        assertGt(token.bondingCurveSupply(), 649_000_000 ether);
+        assertTrue(vm.revertToStateAndDelete(snap));
+        pump.adminRecoverFailedListing(address(token));
+        uint256[] memory mins = new uint256[](2);
+        mins[0] = 1;
+        mins[1] = 1;
+        pump.finalizeTokenListing(address(token), mins, block.timestamp);
+        assertTrue(token.listed());
+    }
+
+    function test_existingTokenKeepsInfrastructureAcrossPumpReconfiguration() public {
+        Token original = _create(pump, 0);
+        address originalHook = address(hook);
+        address originalManager = address(manager);
+        address originalFactory = address(factory);
+        manager = IPoolManager(address(new PoolManager(address(this))));
+        RH14Factory nextFactory = new RH14Factory();
+        RH14BasketDouble nextBasket = new RH14BasketDouble(address(usdg), address(nextFactory), address(router));
+        pump.adminSetPoolManager(address(manager));
+        pump.adminSetIndexInfrastructure(address(router), address(nextBasket), address(nextFactory), address(usdg));
+        TagAISwapHook nextHook = _hook(pump);
+        pump.adminSetHookAddress(address(nextHook));
+        router.setUniswapV4Manager(address(manager), true);
+        trade.setFactory(address(nextFactory), 30, true);
+        IPump.IndexConfig memory c = _config();
+        uint256 fee = pump.createFee();
+        vm.prank(creator, creator);
+        Token next = Token(payable(pump.createToken{value: fee}("NEXT", bytes32(uint256(205)), c)));
+        assertEq(original.listingHook(), originalHook);
+        (,,, address savedManager) = original.listingInfrastructure();
+        assertEq(savedManager, originalManager);
+        assertEq(original.pancakeV2Factory(), originalFactory);
+        assertEq(next.listingHook(), address(nextHook));
+        (,,, savedManager) = next.listingInfrastructure();
+        assertEq(savedManager, address(manager));
+        assertEq(next.pancakeV2Factory(), address(nextFactory));
+        _list(pump, original);
+        _list(pump, next);
+        trade.buy{value: 0.005 ether}(
+            address(original), _legs(original, 0, 0.005 ether, true), 1, block.timestamp, address(this), creator
+        );
+        trade.buy{value: 0.005 ether}(
+            address(next), _legs(next, 0, 0.005 ether, true), 1, block.timestamp, address(this), creator
+        );
+        assertGt(original.balanceOf(address(this)), 0);
+        assertGt(next.balanceOf(address(this)), 0);
+    }
+
+    function test_optionalPoolFixedFeesNoAccidentalPremineAndUnderpaymentRollback() public {
+        committee.adminSetCreateCommunityFee(0.001 ether);
+        committee.adminSetCommunitySettingsFee(0.002 ether);
+        IPump.IndexConfig memory c = _config();
+        IPump.OptionalPoolConfig[] memory opts = new IPump.OptionalPoolConfig[](1);
+        opts[0] = IPump.OptionalPoolConfig(address(tradeFactory), 3000, "");
+        uint256 fee = pump.createFee() + ipshare.createFee() + 0.007 ether;
+        vm.prank(creator, creator);
+        vm.expectRevert(IPump.InsufficientCreateFee.selector);
+        pump.createToken{value: fee - 1}("FEE", bytes32(uint256(206)), c, opts);
+        assertFalse(pump.createdTicks("FEE"));
+        assertFalse(ipshare.ipshareCreated(creator));
+        uint256 feeBefore = address(0xfee).balance;
+        vm.prank(creator, creator);
+        Token t = Token(payable(pump.createToken{value: fee}("FEE", bytes32(uint256(206)), c, opts)));
+        assertEq(address(0xfee).balance - feeBefore, fee);
+        assertEq(t.balanceOf(creator), 0);
+        assertEq(t.bondingCurveSupply(), 0);
+        assertEq(address(pump).balance, 0);
+    }
+
+    function test_otherOptionalPoolTypeAndRenouncedCommunityOwnership() public {
+        address social = deployCode("SocialCurationFactory.sol:SocialCurationFactory", abi.encode(cf, vm.addr(0xddd)));
+        committee.adminAddContract(social);
+        pump.adminSetOptionalPoolFactory(social, "Social", 2000, true);
+        IPump.IndexConfig memory c = _config();
+        c.retainCommunityOwnership = false;
+        IPump.OptionalPoolConfig[] memory opts = new IPump.OptionalPoolConfig[](2);
+        opts[0] = IPump.OptionalPoolConfig(address(tradeFactory), 6000, "");
+        opts[1] = IPump.OptionalPoolConfig(social, 2000, "");
+        uint256 fee = pump.createFee() + ipshare.createFee();
+        vm.prank(creator, creator);
+        Token t = Token(payable(pump.createToken{value: fee}("SOCIAL", bytes32(uint256(207)), c, opts)));
+        Community community = Community(payable(t.nutboxCommunity()));
+        assertEq(community.owner(), address(0));
+        assertEq(community.poolRatios(community.activedPools(2)), 6000);
+        assertEq(community.poolRatios(community.activedPools(3)), 2000);
+        pump.adminSetOptionalPoolFactory(address(tradeFactory), "Trade", 8000, false);
+        assertEq(TradeCuration(payable(community.activedPools(2))).factory(), address(tradeFactory));
+    }
+
+    function _realKey() internal view returns (PoolKey memory) {
+        return PoolKey(Currency.wrap(address(0)), Currency.wrap(address(token)), 0, 60, IHooks(address(hook)));
+    }
+
+    function test_collectFeesRealV4DonationAndRepeatNoDoublePayout() public {
+        token = _create(pump, 0);
+        _list(pump, token);
+        PoolDonateTest donor = new PoolDonateTest(manager);
+        vm.startPrank(creator, creator);
+        token.approve(address(donor), 100 ether);
+        donor.donate{value: 1 ether}(_realKey(), 1 ether, 100 ether, "");
+        vm.stopPrank();
+        uint256 feeBefore = address(0xfee).balance;
+        uint256 callerBefore = address(this).balance;
+        uint256 hookBefore = token.balanceOf(address(hook));
+        (uint256 nativeFees, uint256 tokenFees) = token.collectFees();
+        assertApproxEqAbs(nativeFees, 1 ether, 1);
+        assertApproxEqAbs(tokenFees, 100 ether, 1);
+        assertEq(address(this).balance - callerBefore, nativeFees * 50 / 10000);
+        assertEq(address(0xfee).balance - feeBefore, nativeFees - nativeFees * 50 / 10000);
+        assertEq(token.balanceOf(address(hook)) - hookBefore, tokenFees);
+        (nativeFees, tokenFees) = token.collectFees();
+        assertEq(nativeFees, 0);
+        assertEq(tokenFees, 0);
+    }
+
+    function test_hookAllFourSwapModesSettleRealV4() public {
+        token = _create(pump, 0);
+        _list(pump, token);
+        PoolSwapTest swapper = new PoolSwapTest(manager);
+        vm.prank(creator);
+        token.approve(address(swapper), type(uint256).max);
+        for (uint256 i; i < 4; ++i) {
+            bool buy = i < 2;
+            bool exactIn = i % 2 == 0;
+            uint256 specified = buy == exactIn ? 0.01 ether : 1000 ether;
+            uint256 beforeNative = creator.balance;
+            uint256 beforeToken = token.balanceOf(creator);
+            uint256 beforeReserve = hook.buybackBnbReserve(address(token));
+            uint256 beforeFee = address(0xfee).balance;
+            IPoolManager.SwapParams memory params = IPoolManager.SwapParams(
+                buy,
+                exactIn ? -int256(specified) : int256(specified),
+                buy ? TickMath.MIN_SQRT_PRICE + 1 : TickMath.MAX_SQRT_PRICE - 1
+            );
+            vm.prank(creator, creator);
+            BalanceDelta delta = swapper.swap{value: buy ? 1 ether : 0}(
+                _realKey(), params, PoolSwapTest.TestSettings(false, false), abi.encode(creator)
+            );
+            uint256 reserveAdded = hook.buybackBnbReserve(address(token)) - beforeReserve;
+            assertGt(reserveAdded, 0);
+            // IPShare value capture also charges its own protocol/subject fees, as on BSC.
+            assertEq(
+                address(0xfee).balance - beforeFee, reserveAdded + reserveAdded * ipshare.protocolFeePercent() / 10000
+            );
+            uint256 subjectFee = reserveAdded * ipshare.subjectFeePercent() / 10000;
+            if (buy) {
+                assertEq(beforeNative - creator.balance, uint256(-int256(delta.amount0())) - subjectFee);
+                assertEq(token.balanceOf(creator) - beforeToken, uint256(uint128(delta.amount1())));
+            } else {
+                assertEq(creator.balance - beforeNative, uint256(uint128(delta.amount0())) + subjectFee);
+                assertEq(beforeToken - token.balanceOf(creator), uint256(-int256(delta.amount1())));
+            }
+            assertEq(address(swapper).balance, 0);
+        }
     }
     receive() external payable {}
 }
