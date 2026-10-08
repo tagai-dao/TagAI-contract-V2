@@ -372,7 +372,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
     }
 
     function addPricePool(SourceType sourceType, bytes calldata sourceData)
-        external
+        public
         override
         onlyOwnerOrOperator
         returns (bytes32 poolId)
@@ -389,6 +389,14 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         pool.sourceType = sourceType;
         pool.sourceData = sourceData;
         emit PricePoolAdded(poolId, token0, token1, sourceType, sourceData);
+    }
+
+    /// @notice Atomically register a group of pools using the same validation as individual adds.
+    function addPricePools(InitialPricePool[] calldata pools) external onlyOwner {
+        for (uint256 i; i < pools.length; ++i) {
+            bytes32 id = addPricePool(pools[i].sourceType, pools[i].sourceData);
+            if (id != _pricePoolId(pools[i].token0, pools[i].token1)) revert InvalidPair();
+        }
     }
 
     function replacePricePool(SourceType sourceType, bytes calldata sourceData)
@@ -442,7 +450,7 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
     }
 
     function addRoute(address tokenIn, address tokenOut, bytes32[] calldata poolIds)
-        external
+        public
         override
         onlyOwnerOrOperator
     {
@@ -453,6 +461,13 @@ contract NutboxRouter is INutboxRouter, Ownable2Step, ReentrancyGuard, IUnlockCa
         _setRoute(routeKey, canonicalToken0, canonicalToken1, forward, poolIds);
         bytes32[] memory canonicalPoolIds = _copyRoutePoolIds(_routes[routeKey]);
         emit RouteAdded(canonicalToken0, canonicalToken1, keccak256(abi.encode(canonicalPoolIds)), canonicalPoolIds);
+    }
+
+    /// @notice Atomically register a group of routes; any invalid entry reverts the entire group.
+    function addRoutes(InitialRoute[] calldata routes) external onlyOwner {
+        for (uint256 i; i < routes.length; ++i) {
+            addRoute(routes[i].tokenIn, routes[i].tokenOut, routes[i].poolIds);
+        }
     }
 
     function replaceRoute(address tokenIn, address tokenOut, bytes32[] calldata poolIds) external override onlyOwner {

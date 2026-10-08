@@ -80,13 +80,14 @@ contract RHPumpV14 is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     mapping(address => OptionalPoolFactory) public optionalPoolFactories;
     uint16 private constant MAX_LISTING_SWAP_SLIPPAGE_BPS = 1_000;
 
-    // RH infrastructure is explicitly wired before launch; no cross-chain defaults.
+    // RH infrastructure is explicitly wired before launch.
     address public override nutboxRouter;
     address public override basketHookV4;
     address public override pancakeV2Factory;
     address public override settlementToken;
     uint16 public override listingSwapSlippageBps = 300;
-    address public override listingKeeper;
+    // Shared operator with BSC V14; owner may rotate it after deployment.
+    address public override listingKeeper = 0x8047FcC508446E2673195B8125d3388defc23688;
     address public override buybackRouter;
     mapping(address => bool) public listingFinalized;
     mapping(address => address) public override indexTokenOf;

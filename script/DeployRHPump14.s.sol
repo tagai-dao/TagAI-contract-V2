@@ -11,6 +11,8 @@ import {TagAITradeRouter} from "../src/router/TagAITradeRouter.sol";
 import {TagAILiquidityRouter} from "../src/router/TagAILiquidityRouter.sol";
 import {TagAIBuybackRouter} from "../src/router/TagAIBuybackRouter.sol";
 import {RHNutboxRouterConfig} from "./config/RHNutboxRouterConfig.sol";
+import {RHVersion14StockConfig} from "./config/RHVersion14StockConfig.sol";
+import {INutboxRouter} from "../src/router/INutboxRouter.sol";
 import {HookMiner} from "../src/utils/HookMiner.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 
@@ -39,7 +41,6 @@ contract DeployRHPump14Script is Script {
 
     struct Config {
         address owner;
-        address keeper;
         address signer;
         address feeReceiver;
         address ipshare;
@@ -88,7 +89,6 @@ contract DeployRHPump14Script is Script {
         c.feeReceiver = vm.parseJsonAddress(j, ".feeAddress");
         c.owner = IRH14Owner(vm.parseJsonAddress(j, ".Pump")).owner();
         c.signer = IRH14Signer(vm.parseJsonAddress(j, ".SocialCurationFactory")).claimSigner();
-        c.keeper = vm.envOr("RH14_LISTING_KEEPER", address(0));
         c.registry = vm.parseJsonAddress(b, ".BasketRegistry");
         c.routes = vm.parseJsonAddress(b, ".BasketRouteRegistry");
         c.auction = vm.parseJsonAddress(b, ".BasketFeeAuction");
@@ -96,19 +96,29 @@ contract DeployRHPump14Script is Script {
         c.launcher = vm.parseJsonAddress(b, ".launcher");
     }
 
-    function run() external returns (Stack memory s) {
+    function run() external virtual returns (Stack memory s) {
         require(block.chainid == 4663, "RH_MAINNET_ONLY");
+        require(block.timestamp <= RHVersion14StockConfig.SNAPSHOT_TIMESTAMP + 1 days, "REFRESH_STOCK_SNAPSHOT");
         Config memory c = loadConfig();
-        require(c.keeper != address(0), "RH14_LISTING_KEEPER_REQUIRED");
         address deployer = vm.envAddress("RH14_DEPLOYER");
         vm.startBroadcast(deployer);
         s = deployStack(c, CREATE2_DEPLOYER);
+        _handover(c, s);
+        vm.stopBroadcast();
+        _report(c, s);
+    }
+
+    function _handover(Config memory c, Stack memory s) internal {
         s.pump.transferOwnership(c.owner);
         s.router.transferOwnership(c.owner);
         s.tradeFactory.transferOwnership(c.owner);
         s.tradeRouter.transferOwnership(c.owner);
-        vm.stopBroadcast();
+    }
+
+    function _report(Config memory c, Stack memory s) internal view {
         console2.log("Pump", address(s.pump));
+        console2.log("ListingKeeper", s.pump.listingKeeper());
+        console2.log("ApprovedConstituents", RHVersion14StockConfig.constituentAssets().length);
         console2.log("TokenImplementation", s.pump.tokenImplementation());
         console2.log("Hook", address(s.hook));
         console2.log("NutboxRouter", address(s.router));
@@ -140,7 +150,7 @@ contract DeployRHPump14Script is Script {
 
     function deployStack(Config memory c, address saltDeployer) public returns (Stack memory s) {
         require(block.chainid == 4663, "RH_MAINNET_ONLY");
-        require(c.owner != address(0) && c.keeper != address(0) && c.signer != address(0), "ROLES_REQUIRED");
+        require(c.owner != address(0) && c.signer != address(0), "ROLES_REQUIRED");
         require(
             c.ipshare.code.length > 0 && c.communityFactory.code.length > 0 && c.calculator.code.length > 0
                 && c.stakingFactory.code.length > 0 && c.committee.code.length > 0 && c.registry.code.length > 0
@@ -163,29 +173,79 @@ contract DeployRHPump14Script is Script {
             v3,
             pm,
             new address[](0),
-            RHNutboxRouterConfig.initialConfig()
+            bytes("")
         );
+        _initializeStockRouter(s.router);
+        return _deployRemaining(c, saltDeployer, s.router);
+    }
+
+    /// @dev Keep each administrative transaction below a modest gas budget, without constructor payload bloat.
+    function _initializeStockRouter(NutboxRouter router) internal {
+        uint256 batchSize = 16;
+        INutboxRouter.InitialPricePool[] memory pools = RHVersion14StockConfig.initialPricePools();
+        for (uint256 start; start < pools.length; start += batchSize) {
+            uint256 count = pools.length - start;
+            if (count > batchSize) count = batchSize;
+            INutboxRouter.InitialPricePool[] memory batch = new INutboxRouter.InitialPricePool[](count);
+            for (uint256 i; i < count; ++i) {
+                batch[i] = pools[start + i];
+            }
+            router.addPricePools(batch);
+        }
+        INutboxRouter.InitialRoute[] memory routes = RHVersion14StockConfig.initialRoutes();
+        for (uint256 start; start < routes.length; start += batchSize) {
+            uint256 count = routes.length - start;
+            if (count > batchSize) count = batchSize;
+            INutboxRouter.InitialRoute[] memory batch = new INutboxRouter.InitialRoute[](count);
+            for (uint256 i; i < count; ++i) {
+                batch[i] = routes[start + i];
+            }
+            router.addRoutes(batch);
+        }
+    }
+
+    function _deployRemaining(Config memory c, address saltDeployer, NutboxRouter router)
+        internal
+        returns (Stack memory s)
+    {
+        s.router = router;
+        _deployBasket(c, saltDeployer, s);
+        _deployPump(c, saltDeployer, s);
+        _deployBusinessRouters(c, s);
+    }
+
+    function _deployBasket(Config memory c, address saltDeployer, Stack memory s) internal {
         // Rebind the unchanged Basket V3 implementation to the new extensible Router.
         s.basketExecutor = _deployArtifact(
             "BasketRebalanceExecutor.sol/BasketRebalanceExecutor.json",
             abi.encode(
-                pm[0],
+                RHNutboxRouterConfig.poolManager(),
                 c.registry,
                 c.routes,
                 RHNutboxRouterConfig.usdg(),
                 address(0),
                 RHNutboxRouterConfig.wrappedNative(),
-                v3[0],
-                v2[0],
+                RHNutboxRouterConfig.v3Factory(),
+                RHNutboxRouterConfig.v2Factory(),
                 RHNutboxRouterConfig.v3Router(),
                 address(s.router)
             )
         );
         BasketFactoryConfig memory bc = BasketFactoryConfig(
-            c.launcher, c.auction, c.basketDeployer, v3[0], RHNutboxRouterConfig.v3Router(), s.basketExecutor
+            c.launcher,
+            c.auction,
+            c.basketDeployer,
+            RHNutboxRouterConfig.v3Factory(),
+            RHNutboxRouterConfig.v3Router(),
+            s.basketExecutor
         );
         bytes memory basketArgs = abi.encode(
-            pm[0], c.registry, c.routes, RHNutboxRouterConfig.usdg(), RHNutboxRouterConfig.wrappedNative(), bc
+            RHNutboxRouterConfig.poolManager(),
+            c.registry,
+            c.routes,
+            RHNutboxRouterConfig.usdg(),
+            RHNutboxRouterConfig.wrappedNative(),
+            bc
         );
         bytes memory basketCode = vm.getCode("../robinhood-basket-contract/out/BasketHook.sol/BasketHook.json");
         (address expected, bytes32 salt) = HookMiner.find(saltDeployer, 0x2a88, basketCode, basketArgs);
@@ -195,27 +255,49 @@ contract DeployRHPump14Script is Script {
         require(bh == expected && bh.code.length > 0, "BASKET_HOOK_DEPLOY_FAILED");
         s.basketHook = bh;
         s.basketRouter = _deployArtifact(
-            "BasketSwapRouter.sol/BasketSwapRouter.json", abi.encode(pm[0], bh, RHNutboxRouterConfig.usdg())
+            "BasketSwapRouter.sol/BasketSwapRouter.json",
+            abi.encode(RHNutboxRouterConfig.poolManager(), bh, RHNutboxRouterConfig.usdg())
         );
-        address[] memory constituents = RHNutboxRouterConfig.constituentAssets();
+    }
+
+    function _deployPump(Config memory c, address saltDeployer, Stack memory s) internal {
+        address[] memory constituents = RHVersion14StockConfig.constituentAssets();
+        require(
+            type(Pump).creationCode.length + abi.encode(c.ipshare, c.feeReceiver, constituents, address(0)).length
+                <= 49152,
+            "PUMP_INITCODE_TOO_LARGE"
+        );
         s.pump = new Pump(c.ipshare, c.feeReceiver, constituents, address(0));
-        s.pump.adminSetPoolManager(pm[0]);
+        for (uint256 i; i < constituents.length; ++i) {
+            // Fail the deployment simulation if a configured stock has no usable quote route.
+            s.router.validateRoute(address(0), constituents[i]);
+            s.router.validateRoute(RHNutboxRouterConfig.usdg(), constituents[i]);
+        }
+        s.pump.adminSetPoolManager(RHNutboxRouterConfig.poolManager());
         s.pump.adminSetNutbox(c.communityFactory, c.calculator, c.stakingFactory, c.committee);
-        s.pump.adminSetIndexInfrastructure(address(s.router), bh, v2[0], RHNutboxRouterConfig.usdg());
-        s.pump.adminSetListingKeeper(c.keeper);
-        (expected, salt) = HookMiner.find(
-            saltDeployer, 0x20cc, type(SwapHook).creationCode, abi.encode(IPoolManager(pm[0]), address(s.pump))
+        s.pump
+            .adminSetIndexInfrastructure(
+                address(s.router), s.basketHook, RHNutboxRouterConfig.v2Factory(), RHNutboxRouterConfig.usdg()
+            );
+        (address expected, bytes32 salt) = HookMiner.find(
+            saltDeployer,
+            0x20cc,
+            type(SwapHook).creationCode,
+            abi.encode(IPoolManager(RHNutboxRouterConfig.poolManager()), address(s.pump))
         );
-        s.hook = new SwapHook{salt: salt}(IPoolManager(pm[0]), address(s.pump));
+        s.hook = new SwapHook{salt: salt}(IPoolManager(RHNutboxRouterConfig.poolManager()), address(s.pump));
         require(address(s.hook) == expected, "PUMP_HOOK_DEPLOY_FAILED");
         s.pump.adminSetHookAddress(address(s.hook));
+    }
+
+    function _deployBusinessRouters(Config memory c, Stack memory s) internal {
         s.buybackRouter =
             new TagAIBuybackRouter(address(s.pump), address(s.router), s.basketRouter, RHNutboxRouterConfig.usdg());
         s.pump.adminSetBuybackRouter(address(s.buybackRouter));
         s.tradeFactory = new TradeCurationFactory(c.communityFactory, c.signer);
         s.pump.adminSetOptionalPoolFactory(address(s.tradeFactory), "Trade Curation", 8000, true);
         s.router.addOperator(address(s.pump));
-        s.tradeRouter = new TagAITradeRouter(address(s.pump), address(s.router), v2[0]);
+        s.tradeRouter = new TagAITradeRouter(address(s.pump), address(s.router), RHNutboxRouterConfig.v2Factory());
         s.liquidityRouter = new TagAILiquidityRouter(s.tradeRouter);
     }
 

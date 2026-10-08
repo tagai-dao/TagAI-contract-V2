@@ -229,6 +229,7 @@ contract RHVersion14Test is Test {
         assets[0] = address(a);
         assets[1] = address(b);
         p = new Pump(address(ipshare), address(0xfee), assets, address(0));
+        assertEq(p.listingKeeper(), 0x8047FcC508446E2673195B8125d3388defc23688);
         p.adminSetPoolManager(address(manager));
         p.adminSetNutbox(cf, address(calculator), address(staking), address(committee));
         p.adminSetIndexInfrastructure(address(router), bh, f, address(usdg));
@@ -306,10 +307,29 @@ contract RHVersion14Test is Test {
         assertLe(address(router.priceReader()).code.length, 24576);
         assertLe(address(trade).code.length, 24576);
         assertLe(address(liquidity).code.length, 24576);
-        address[] memory assets = new address[](9);
+        address[] memory assets = new address[](0); // Empty fixture; RHVersion14StockConfigTest checks all 52 assets.
         assertLe(
             type(Pump).creationCode.length + abi.encode(address(ipshare), creator, assets, address(0)).length, 49152
         );
+    }
+
+    function test_defaultKeeperAndOwnerOnlyRotation() public {
+        Pump p = new Pump(address(ipshare), address(0xfee), new address[](0), pump.tokenImplementation());
+        address defaultKeeper = 0x8047FcC508446E2673195B8125d3388defc23688;
+        assertEq(p.listingKeeper(), defaultKeeper);
+        // The default keeper passes authorization; arbitrary callers do not.
+        uint256[] memory mins = new uint256[](0);
+        vm.prank(defaultKeeper);
+        vm.expectRevert(IPump.OnlyCreatedToken.selector);
+        p.finalizeTokenListing(address(0), mins, block.timestamp);
+        vm.prank(creator);
+        vm.expectRevert("Ownable: caller is not the owner");
+        p.adminSetListingKeeper(creator);
+        p.adminSetListingKeeper(creator);
+        assertEq(p.listingKeeper(), creator);
+        vm.prank(defaultKeeper);
+        vm.expectRevert(IPump.OnlyListingKeeper.selector);
+        p.finalizeTokenListing(address(0), mins, block.timestamp);
     }
 
     function test_allocationRealV4AndCurveGap() public {

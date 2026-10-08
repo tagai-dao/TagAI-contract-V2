@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1791437255488,
+  "meta": {
+    "name": "RH V14 governance activation",
+    "description": "Approve TradeCurationFactory in Committee, register BasketHookV3, and approve Pump V14 and BasketSwapRouter as creator forwarders. Four authorization calls; no ETH transfers. Ownership acceptance belongs to the deployment account and is handled separately.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "createdFromOwnerAddress": ""
+  },
+  "transactions": [
+    {
+      "to": "0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0",
+      "value": "0",
+      "data": "0x54a7d6b100000000000000000000000073cb7a6ad01686659f72011eb952fba53fe6212b",
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "_c",
+            "type": "address",
+            "internalType": "address"
+          }
+        ],
+        "name": "adminAddContract",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "_c": "0x73cb7A6Ad01686659F72011eb952fBa53fe6212B"
+      }
+    },
+    {
+      "to": "0x1f997dEb6C8Ac7Bb4134Bc7c6bF23F623Cda25C6",
+      "value": "0",
+      "data": "0x38585c9a00000000000000000000000023627bae70f110407a46ee05970771cb3b25ea880000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "registrar",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setRegistrarApproval",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "registrar": "0x23627BAE70F110407A46Ee05970771Cb3b25Ea88",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0x1f997dEb6C8Ac7Bb4134Bc7c6bF23F623Cda25C6",
+      "value": "0",
+      "data": "0x30897036000000000000000000000000d72826378cb53182319f7a8b2882de4997ffc8960000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "forwarder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setCreatorForwarderApproval",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "forwarder": "0xD72826378Cb53182319f7a8B2882de4997fFC896",
+        "approved": "true"
+      }
+    },
+    {
+      "to": "0x1f997dEb6C8Ac7Bb4134Bc7c6bF23F623Cda25C6",
+      "value": "0",
+      "data": "0x3089703600000000000000000000000047fcc4e4396bfb306e4cb60e53d366c7caf179710000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": {
+        "inputs": [
+          {
+            "name": "forwarder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approved",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ],
+        "name": "setCreatorForwarderApproval",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "forwarder": "0x47Fcc4e4396bFb306e4cb60e53D366c7CaF17971",
+        "approved": "true"
+      }
+    }
+  ]
+}

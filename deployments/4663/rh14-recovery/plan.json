@@ -1,0 +1,54 @@
+{
+  "chainId": 4663,
+  "router": "0xfc82178523687Edd56F7474d6529a14F7655Ab15",
+  "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "expectedNonce": 332,
+  "routerCodeHash": "0x642edc1cfe4d295bc5a7be96d70d26b65af138ff47923c03a5c9ea8647c0b4c9",
+  "configHash": "0xb01e85dd6d5f7676861b3e96085f8fe43d0c7dc97831a7aa3188a3e866463b89",
+  "auditedBlock": 83031403,
+  "confirmedTransactions": 154,
+  "configuredPools": 53,
+  "configuredRoutes": 100,
+  "missingRoutes": [
+    {
+      "tokenIn": "0x5e81213613b6B86EaB4c6c50d718d34359459786",
+      "tokenOut": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "poolIds": [
+        "0x828cca12f1619916b02b5d7314362b0c6dd16c34445a9324f2baf5f76193e8d4",
+        "0x4da4a638e94cad699f10557e89f680b4315347872eea579ca6537f3c61105642"
+      ]
+    },
+    {
+      "tokenIn": "0xf23250dac154D05Bb671CB0d0eBEf3c635c79CE2",
+      "tokenOut": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "poolIds": [
+        "0xfcae675fc9b35954bc6129d15bc88d653af6a58d21882aabbc8cd9cf8f458ca2"
+      ]
+    },
+    {
+      "tokenIn": "0xf23250dac154D05Bb671CB0d0eBEf3c635c79CE2",
+      "tokenOut": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "poolIds": [
+        "0xfcae675fc9b35954bc6129d15bc88d653af6a58d21882aabbc8cd9cf8f458ca2",
+        "0x4da4a638e94cad699f10557e89f680b4315347872eea579ca6537f3c61105642"
+      ]
+    },
+    {
+      "tokenIn": "0xd917B029C761D264c6A312BBbcDA868658eF86a6",
+      "tokenOut": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "poolIds": [
+        "0x0e3c210f15c156f859bf062a30b31563deeded6314e25554ee51dc8abc59590e"
+      ]
+    },
+    {
+      "tokenIn": "0xd917B029C761D264c6A312BBbcDA868658eF86a6",
+      "tokenOut": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "poolIds": [
+        "0x0e3c210f15c156f859bf062a30b31563deeded6314e25554ee51dc8abc59590e",
+        "0x4da4a638e94cad699f10557e89f680b4315347872eea579ca6537f3c61105642"
+      ]
+    }
+  ],
+  "originalBroadcast": "original-broadcast.json",
+  "checkedAt": "2026-10-08T04:24:21.347Z"
+}

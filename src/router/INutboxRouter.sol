@@ -27,7 +27,7 @@ interface INutboxRouter {
         bytes32 parameters;
     }
 
-    /// @dev Constructor-only bootstrap entry. Runtime administration continues to use addPricePool().
+    /// @dev Bootstrap or batch-administration entry.
     struct InitialPricePool {
         address token0;
         address token1;
@@ -35,7 +35,7 @@ interface INutboxRouter {
         bytes sourceData;
     }
 
-    /// @dev Constructor-only bootstrap entry. Pool IDs must reference entries initialized first.
+    /// @dev Bootstrap or batch route entry. Pool IDs must reference pools initialized first.
     struct InitialRoute {
         address tokenIn;
         address tokenOut;

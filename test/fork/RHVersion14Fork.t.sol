@@ -8,6 +8,7 @@ import {IIPShare} from "../../src/interfaces/IIPShare.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {TagAITradeRouter} from "../../src/router/TagAITradeRouter.sol";
 import {RHNutboxRouterConfig} from "../../script/config/RHNutboxRouterConfig.sol";
+import {RHVersion14StockConfig} from "../../script/config/RHVersion14StockConfig.sol";
 
 interface IForkBasketRouter {
     function sellExactBasket(address, uint256, uint256, bytes calldata, address) external returns (uint256);
@@ -53,12 +54,12 @@ contract RHVersion14ForkTest is DeployRHPump14Script, ColdCallGas {
         }
         vm.createSelectFork(
             vm.envOr("RH14_RPC_URL", string("https://rpc.mainnet.chain.robinhood.com")),
-            vm.envOr("RH14_FORK_BLOCK", uint256(76263063))
+            vm.envOr("RH14_FORK_BLOCK", RHVersion14StockConfig.VALIDATED_BLOCK)
         );
         vm.chainId(4663);
         cfg = loadConfig();
-        cfg.keeper = address(this);
         stack = deployStack(cfg, address(this));
+        assertEq(stack.pump.listingKeeper(), 0x8047FcC508446E2673195B8125d3388defc23688);
         vm.prank(IRH14Owner(cfg.committee).owner());
         IRH14Committee(cfg.committee).adminAddContract(address(stack.tradeFactory));
         address registryOwner = IRH14Owner(cfg.registry).owner();
@@ -77,10 +78,9 @@ contract RHVersion14ForkTest is DeployRHPump14Script, ColdCallGas {
         c.symbol = "RH14";
         c.basketFeeBps = 100;
         c.retainCommunityOwnership = true;
-        address[] memory assets = RHNutboxRouterConfig.constituentAssets();
         c.constituentAssets = new address[](2);
-        c.constituentAssets[0] = assets[0];
-        c.constituentAssets[1] = assets[3];
+        c.constituentAssets[0] = 0xe93237C50D904957Cf27E7B1133b510C669c2e74; // MSFT V3
+        c.constituentAssets[1] = 0x322F0929c4625eD5bAd873c95208D54E1c003b2d; // TSLA V4
         c.targetWeights = new uint16[](2);
         c.targetWeights[0] = 5000;
         c.targetWeights[1] = 5000;
@@ -142,8 +142,8 @@ contract RHVersion14ForkTest is DeployRHPump14Script, ColdCallGas {
         assertEq(token.balanceOf(address(stack.tradeRouter)), 0);
     }
 
-    function test_allNineBootstrapStocksRoundTrip() public {
-        address[] memory assets = RHNutboxRouterConfig.constituentAssets();
+    function test_allBootstrapStocksRoundTrip() public {
+        address[] memory assets = RHVersion14StockConfig.constituentAssets();
         for (uint256 i; i < assets.length; ++i) {
             assertTrue(stack.pump.approvedConstituent(assets[i]));
             stack.router.validateRoute(address(0), assets[i]);
@@ -154,6 +154,20 @@ contract RHVersion14ForkTest is DeployRHPump14Script, ColdCallGas {
                 address(0), assets[i], 0.01 ether, quote * 90 / 100, address(this), block.timestamp
             );
             assertEq(IERC20(assets[i]).balanceOf(address(this)), output);
+            // Cover both route endpoints, including WETH-quoted stocks such as RBLX.
+            IERC20(assets[i]).approve(address(stack.router), output);
+            address settlement = RHNutboxRouterConfig.usdg();
+            uint256 usdgQuote = stack.router.quote(assets[i], settlement, output);
+            uint256 usdgOut = stack.router
+                .swapExactInput(assets[i], settlement, output, usdgQuote * 90 / 100, address(this), block.timestamp);
+            assertGt(usdgOut, 0);
+            IERC20(settlement).approve(address(stack.router), usdgOut);
+            uint256 stockQuote = stack.router.quote(settlement, assets[i], usdgOut);
+            output = stack.router
+                .swapExactInput(settlement, assets[i], usdgOut, stockQuote * 90 / 100, address(this), block.timestamp);
+            assertGt(output, 0);
+            assertEq(IERC20(settlement).balanceOf(address(this)), 0);
+            assertEq(IERC20(settlement).balanceOf(address(stack.router)), 0);
             IERC20(assets[i]).approve(address(stack.router), output);
             uint256 received =
                 stack.router.swapExactInput(assets[i], address(0), output, 1, address(this), block.timestamp);
@@ -171,13 +185,12 @@ contract RHVersion14ForkTest is DeployRHPump14Script, ColdCallGas {
         c.symbol = "1234567890123456";
         c.basketFeeBps = 100;
         c.retainCommunityOwnership = true;
-        address[] memory assets = RHNutboxRouterConfig.constituentAssets();
         c.constituentAssets = new address[](4);
         c.targetWeights = new uint16[](4);
-        c.constituentAssets[0] = assets[0];
-        c.constituentAssets[1] = assets[3];
-        c.constituentAssets[2] = assets[7];
-        c.constituentAssets[3] = assets[8];
+        c.constituentAssets[0] = 0xe93237C50D904957Cf27E7B1133b510C669c2e74; // MSFT V3
+        c.constituentAssets[1] = 0x322F0929c4625eD5bAd873c95208D54E1c003b2d; // TSLA V4
+        c.constituentAssets[2] = 0x117cc2133c37B721F49dE2A7a74833232B3B4C0C; // SPY
+        c.constituentAssets[3] = 0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9; // AAPL V4
         for (uint256 i; i < 4; ++i) {
             c.targetWeights[i] = 2500;
         }

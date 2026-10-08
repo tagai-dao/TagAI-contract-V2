@@ -1,0 +1,4154 @@
+{
+  "chainId": 4663,
+  "snapshotSha256": "5dbccb02ec387c22bf691cd1ac7cd922c0fb02a3d7132f97ec377a72765df325",
+  "snapshotCompletedAt": "2026-10-08T04:04:13.998139+00:00",
+  "validatedAt": "2026-10-08T04:04:20.302Z",
+  "blockNumber": 83020129,
+  "blockHash": "0xcfdc3f8521078253aed90b435f8d55b1eacde015e792e25c07e01bd3ded3ba99",
+  "minPoolTvlUsdExclusive": 50000,
+  "selectedCount": 52,
+  "stockCount": 50,
+  "assets": [
+    "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
+    "0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B",
+    "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+    "0x12f190a9F9d7D37a250758b26824B97CE941bF54",
+    "0x156E175DD063a8cE274C50654eF40e0032b3fbcF",
+    "0x4D21483a44Bf67a86b77E3dA301411880797D452",
+    "0xad25Ac6C84D497db898fa1E8387bf6Af3532a1c4",
+    "0x822CC93fFD030293E9842c30BBD678F530701867",
+    "0xceF9027c7d6985b85f0BA431125073529A947A68",
+    "0x6330D8C3178a418788dF01a47479c0ce7CCF450b",
+    "0x4EA005168D7F09a7A0Ba9D1DEf21a479950E44C2",
+    "0xdF0992E440dD0be65BD8439b609d6D4366bf1CB5",
+    "0x941AE714EC6D8130c7B75d67160Ca08f1e7d11Dd",
+    "0x1D11f0496982706C5e14A514D4E79F2e6BdE4516",
+    "0x25C288E6D899b9BC30160965aD9644c67e73bE0C",
+    "0x41F4267525a8AFf329540eF24fD83d9044758B33",
+    "0x2D427692E928fa156ec22acfaBaFA0447C5805B7",
+    "0x1b0E319c6A659F002271B69dB8A7df2F911c153E",
+    "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3",
+    "0xCceE82fE024c36fA15E1005edE3E9e4787e23D09",
+    "0x980dcf6766FA79f5Cf0c4AAdb3ab477ff15a9619",
+    "0xc72b96e0E48ecd4DC75E1e45396e26300BC39681",
+    "0x8005d266423c7ea827372c9c864491e5786600ea",
+    "0x329fcACEb9AD6F9580DD5F643fed0646900D043c",
+    "0x4e62068525Ab11FE768e29dfD00ef909B9803016",
+    "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35",
+    "0x43B07D15cE533bEc5476d70C22a78a1B2B662155",
+    "0xe93237C50D904957Cf27E7B1133b510C669c2e74",
+    "0xec262a75e413fAfD0dF80480274532C79D42da09",
+    "0xfF080c8ce2E5feadaCa0Da81314Ae59D232d4afD",
+    "0x9D9c6684F596F66a64C030B93A886D51Fd4D7931",
+    "0xE0444EF8BF4eD74f74FD73686e2ddF4C1c5591E8",
+    "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+    "0xb0992820E760d836549ba69BC7598b4af75dEE03",
+    "0x7066A64c24e4206CD62E83bf198c1E7EB361F51e",
+    "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A",
+    "0x0f17206447090e464C277571124dD2688E48AEA9",
+    "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68",
+    "0x59818904ab4cE163b3cE4FfB64f2D6Ca02c434B4",
+    "0xF0C4BF4C582cb3836e98394b1d4e7B7281101bE8",
+    "0x05b37Fb53A299a1b874A619e1c4C404D52C36F4C",
+    "0xB1BF26c1D20ff267A4f93550d1E0d06ac40a114B",
+    "0x84CAb63bc87912E71ad199ff14A0bA45de68FeF8",
+    "0xF6589F11Bc40b669e584073F428B05562F568733",
+    "0xB90A19fF0Af67f7779afF50A882A9CfF42446400",
+    "0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa",
+    "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+    "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
+    "0x58FfE4a942d3885bAa22D7520691F611EF09e7AA",
+    "0x5e81213613b6B86EaB4c6c50d718d34359459786",
+    "0xf23250dac154D05Bb671CB0d0eBEf3c635c79CE2",
+    "0xd917B029C761D264c6A312BBbcDA868658eF86a6"
+  ],
+  "tvlUsdCents": [
+    71452951,
+    43468353,
+    57113363,
+    79044186,
+    16157662,
+    10870737,
+    9004051,
+    10884843,
+    7998201,
+    78903078,
+    59541347,
+    204250140,
+    37313448,
+    36586298,
+    10814701,
+    13144643,
+    14356914,
+    56990075,
+    88245089,
+    101361892,
+    20326469,
+    40872230,
+    25658052,
+    8848922,
+    8823073,
+    378480622,
+    18568241,
+    49765193,
+    132663941,
+    130354104,
+    12483769,
+    23724301,
+    238224742,
+    13034993,
+    7383547,
+    63601173,
+    5997772,
+    114828068,
+    11299749,
+    20588310,
+    110109638,
+    6771351,
+    7406355,
+    11001233,
+    23666838,
+    168692103,
+    329903391,
+    88648744,
+    17730218,
+    16165695,
+    9306014,
+    9419960
+  ],
+  "hub": {
+    "pool": {
+      "chainId": 4663,
+      "poolId": "0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca",
+      "token0": {
+        "chainId": 4663,
+        "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+        "symbol": "WETH",
+        "decimals": 18,
+        "name": "Wrapped Ethereum",
+        "type": "TOKEN_TYPE_ERC20",
+        "project": {
+          "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+        }
+      },
+      "token1": {
+        "chainId": 4663,
+        "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "symbol": "USDG",
+        "decimals": 6,
+        "name": "Global Dollar",
+        "type": "TOKEN_TYPE_ERC20",
+        "project": {
+          "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+        }
+      },
+      "protocolVersion": "PROTOCOL_VERSION_V3",
+      "tickSpacing": 1,
+      "feeTier": 100,
+      "currentTick": -197833,
+      "sqrtPriceX96": "4010630362332848077590719",
+      "liquidity": "3879172035705813062",
+      "protocolFee": 25,
+      "effectiveFee": 100,
+      "currentLpFee": 100
+    },
+    "stats": {
+      "tvl": 22583046.7893773,
+      "volume1d": 221627683.10282,
+      "volume30d": 11744641002.625603,
+      "apr": 26.8655415787101,
+      "totalApr": 26.8655415787101,
+      "volume1dTvlRatio": 9.813896467108686
+    }
+  },
+  "selected": [
+    {
+      "symbol": "AAPL",
+      "underlying": "AAPL",
+      "issuer": "robinhood",
+      "address": "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
+      "category": "stock",
+      "tvlUsdCents": 71452951,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc748f4671a867db48b552f6b7650bf3255e05f80f00e3f7aad1b17ccb7898fdb",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
+          "symbol": "AAPL",
+          "decimals": 18,
+          "name": "Apple",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174123/large/0xaf3d76f1834a1d425780943c99ea8a608f8a93f9.png?1782444598"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 218140,
+        "sqrtPriceX96": "4320252224894199950329230116396525",
+        "liquidity": "586757627725607540",
+        "protocolFee": 500,
+        "effectiveFee": 3500,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "586757627725607540"
+    },
+    {
+      "symbol": "AMC",
+      "underlying": "AMC",
+      "issuer": "robinhood",
+      "address": "0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B",
+      "category": "stock",
+      "tvlUsdCents": 43468353,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xaA34feA710a1A737840329051D81D3B0B7C564d5",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x05a3d1Cd21d0C88145E82600E62e7E496e0F222B",
+          "symbol": "AMC",
+          "decimals": 18,
+          "name": "AMC Entertainment",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175476/large/AMC.png?1786375197"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -265741,
+        "sqrtPriceX96": "134485893594612695164168",
+        "liquidity": "1177355968401123688",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "1177355968401123688"
+    },
+    {
+      "symbol": "AMD",
+      "underlying": "AMD",
+      "issuer": "robinhood",
+      "address": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+      "category": "stock",
+      "tvlUsdCents": 57113363,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xde9f85fdd9e05a943a52f2c69ffafe3064a3287df03d02c9b431bc92d4781274",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+          "symbol": "AMD",
+          "decimals": 18,
+          "name": "AMD",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174114/large/0x86923f96303d656e4aa86d9d42d1e57ad2023fdc.png?1782444575"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 211659,
+        "sqrtPriceX96": "3124496025545822733051437429974309",
+        "liquidity": "269660847878223959",
+        "protocolFee": 1000,
+        "effectiveFee": 11000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "269660847878223959"
+    },
+    {
+      "symbol": "AMZN",
+      "underlying": "AMZN",
+      "issuer": "robinhood",
+      "address": "0x12f190a9F9d7D37a250758b26824B97CE941bF54",
+      "category": "stock",
+      "tvlUsdCents": 79044186,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8AC92DA74AB5F3b1d024Dc1943Ad7e15Dc4179Ef",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x12f190a9F9d7D37a250758b26824B97CE941bF54",
+          "symbol": "AMZN",
+          "decimals": 18,
+          "name": "Amazon",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174126/large/0x12f190a9f9d7d37a250758b26824b97ce941bf54.png?1782444606"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -220731,
+        "sqrtPriceX96": "1276476470634714208763987",
+        "liquidity": "891617873949743876",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "891617873949743876"
+    },
+    {
+      "symbol": "AVGO",
+      "underlying": "AVGO",
+      "issuer": "robinhood",
+      "address": "0x156E175DD063a8cE274C50654eF40e0032b3fbcF",
+      "category": "stock",
+      "tvlUsdCents": 16157662,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x5B7C404f1d7d77F9f3885aB13d7764F8a173028c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x156E175DD063a8cE274C50654eF40e0032b3fbcF",
+          "symbol": "AVGO",
+          "decimals": 18,
+          "name": "Broadcom",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174164/large/0x156e175dd063a8ce274c50654ef40e0032b3fbcf.png?1782444707"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -216998,
+        "sqrtPriceX96": "1538430741207755332369306",
+        "liquidity": "33950364897604916",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "33950364897604916"
+    },
+    {
+      "symbol": "BA",
+      "underlying": "BA",
+      "issuer": "robinhood",
+      "address": "0x4D21483a44Bf67a86b77E3dA301411880797D452",
+      "category": "stock",
+      "tvlUsdCents": 10870737,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc6517047b189c72D3bAa9eF37D1d28F27a63638a",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x4D21483a44Bf67a86b77E3dA301411880797D452",
+          "symbol": "BA",
+          "decimals": 18,
+          "name": "Boeing",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174190/large/0x4d21483a44bf67a86b77e3da301411880797d452.png?1782444776"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -223965,
+        "sqrtPriceX96": "1085898815497265561243188",
+        "liquidity": "97028475293214521",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "97028475293214521"
+    },
+    {
+      "symbol": "BABA",
+      "underlying": "BABA",
+      "issuer": "robinhood",
+      "address": "0xad25Ac6C84D497db898fa1E8387bf6Af3532a1c4",
+      "category": "stock",
+      "tvlUsdCents": 9004051,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xa57ab582b310dd6f9e934EA1EEEa152741545E6A",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xad25Ac6C84D497db898fa1E8387bf6Af3532a1c4",
+          "symbol": "BABA",
+          "decimals": 18,
+          "name": "Alibaba",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174135/large/0xad25ac6c84d497db898fa1e8387bf6af3532a1c4.png?1782444629"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 229637,
+        "sqrtPriceX96": "7676196847563159500623008256067458",
+        "liquidity": "39444868248856867",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "39444868248856867"
+    },
+    {
+      "symbol": "BE",
+      "underlying": "BE",
+      "issuer": "robinhood",
+      "address": "0x822CC93fFD030293E9842c30BBD678F530701867",
+      "category": "stock",
+      "tvlUsdCents": 10884843,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x1baD145C8F06444E0dF81c28257cd20231Bd1f16",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x822CC93fFD030293E9842c30BBD678F530701867",
+          "symbol": "BE",
+          "decimals": 18,
+          "name": "Bloom Energy",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174131/large/0x822cc93ffd030293e9842c30bbd678f530701867.png?1782444619"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 219631,
+        "sqrtPriceX96": "4654524895480062307996374551291764",
+        "liquidity": "61891981163927218",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "61891981163927218"
+    },
+    {
+      "symbol": "BULL",
+      "underlying": "BULL",
+      "issuer": "robinhood",
+      "address": "0xceF9027c7d6985b85f0BA431125073529A947A68",
+      "category": "stock",
+      "tvlUsdCents": 7998201,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xdfc620485cebd394955e7cde9e3d336ec8dabe24a7c80c4b9de71ea896208e79",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xceF9027c7d6985b85f0BA431125073529A947A68",
+          "symbol": "BULL",
+          "decimals": 18,
+          "name": "Webull",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175340/large/BULL.png?1786119809"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 50,
+        "feeTier": 8000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 258526,
+        "sqrtPriceX96": "32540914360241326531382459419181865",
+        "liquidity": "11579193971692295",
+        "protocolFee": 1000,
+        "effectiveFee": 9000,
+        "currentLpFee": 8000
+      },
+      "chainLiquidity": "11579193971692295"
+    },
+    {
+      "symbol": "COIN",
+      "underlying": "COIN",
+      "issuer": "robinhood",
+      "address": "0x6330D8C3178a418788dF01a47479c0ce7CCF450b",
+      "category": "stock",
+      "tvlUsdCents": 78903078,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x007a13fa152f6dc383cad20a8eaab4e1e2538b606936eae2a424f8aa47d6db31",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x6330D8C3178a418788dF01a47479c0ce7CCF450b",
+          "symbol": "COIN",
+          "decimals": 18,
+          "name": "Coinbase",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174136/large/0x6330d8c3178a418788df01a47479c0ce7ccf450b.png?1782444632"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 224436,
+        "sqrtPriceX96": "5918376075885027763332366867165432",
+        "liquidity": "394215886724779640",
+        "protocolFee": 1000,
+        "effectiveFee": 11000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "394215886724779640"
+    },
+    {
+      "symbol": "COST",
+      "underlying": "COST",
+      "issuer": "robinhood",
+      "address": "0x4EA005168D7F09a7A0Ba9D1DEf21a479950E44C2",
+      "category": "stock",
+      "tvlUsdCents": 59541347,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x0a2121A50A09eD0796ae81F9c53fF9398355a398",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x4EA005168D7F09a7A0Ba9D1DEf21a479950E44C2",
+          "symbol": "COST",
+          "decimals": 18,
+          "name": "Costco",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174152/large/0x4ea005168d7f09a7a0ba9d1def21a479950e44c2.png?1782444675"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -207840,
+        "sqrtPriceX96": "2431761226661180057905193",
+        "liquidity": "204210564601444302",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "204210564601444302"
+    },
+    {
+      "symbol": "CRCL",
+      "underlying": "CRCL",
+      "issuer": "robinhood",
+      "address": "0xdF0992E440dD0be65BD8439b609d6D4366bf1CB5",
+      "category": "stock",
+      "tvlUsdCents": 204250140,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x654E4143e82a5824445Ade0824351C2A9ACD95a8",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xdF0992E440dD0be65BD8439b609d6D4366bf1CB5",
+          "symbol": "CRCL",
+          "decimals": 18,
+          "name": "Circle Internet Group",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174121/large/0xdf0992e440dd0be65bd8439b609d6d4366bf1cb5.png?1782444593"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 232475,
+        "sqrtPriceX96": "8846463173535421264554440121122816",
+        "liquidity": "1157970024382185895",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "1157970024382185895"
+    },
+    {
+      "symbol": "DELL",
+      "underlying": "DELL",
+      "issuer": "robinhood",
+      "address": "0x941AE714EC6D8130c7B75d67160Ca08f1e7d11Dd",
+      "category": "stock",
+      "tvlUsdCents": 37313448,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc30c89cB7815A1488b7998D15eEC73961707Fc5a",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x941AE714EC6D8130c7B75d67160Ca08f1e7d11Dd",
+          "symbol": "DELL",
+          "decimals": 18,
+          "name": "Dell",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174139/large/0x941ae714ec6d8130c7b75d67160ca08f1e7d11dd.png?1782444640"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 212726,
+        "sqrtPriceX96": "3295616323056877377503873788191163",
+        "liquidity": "180841311351199063",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "180841311351199063"
+    },
+    {
+      "symbol": "DJT",
+      "underlying": "DJT",
+      "issuer": "robinhood",
+      "address": "0x1D11f0496982706C5e14A514D4E79F2e6BdE4516",
+      "category": "stock",
+      "tvlUsdCents": 36586298,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x31a89afd92F9397465649AD03226c52292fc1ae5",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x1D11f0496982706C5e14A514D4E79F2e6BdE4516",
+          "symbol": "DJT",
+          "decimals": 18,
+          "name": "Trump Media & Technology Group",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175474/large/DJT.png?1786375153"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": -255285,
+        "sqrtPriceX96": "226845313417160195922766",
+        "liquidity": "611841328146536091",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "611841328146536091"
+    },
+    {
+      "symbol": "F",
+      "underlying": "F",
+      "issuer": "robinhood",
+      "address": "0x25C288E6D899b9BC30160965aD9644c67e73bE0C",
+      "category": "stock",
+      "tvlUsdCents": 10814701,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x4dbAC19E895322ac5b93abad9008691632bFFC05",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x25C288E6D899b9BC30160965aD9644c67e73bE0C",
+          "symbol": "F",
+          "decimals": 18,
+          "name": "Ford Motor",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174185/large/0x25c288e6d899b9bc30160965ad9644c67e73be0c.png?1782444763"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -251392,
+        "sqrtPriceX96": "275584939429579620609315",
+        "liquidity": "410363759533130601",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "410363759533130601"
+    },
+    {
+      "symbol": "FIG",
+      "underlying": "FIG",
+      "issuer": "robinhood",
+      "address": "0x41F4267525a8AFf329540eF24fD83d9044758B33",
+      "category": "stock",
+      "tvlUsdCents": 13144643,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xca5904C0a9d42F0Ec1Bf760FDf779907877144fD",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x41F4267525a8AFf329540eF24fD83d9044758B33",
+          "symbol": "FIG",
+          "decimals": 18,
+          "name": "Figma",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175289/large/FIG.png?1786070068"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -245571,
+        "sqrtPriceX96": "368686893400703755885810",
+        "liquidity": "331569667458840600",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "331569667458840600"
+    },
+    {
+      "symbol": "GLXY",
+      "underlying": "GLXY",
+      "issuer": "robinhood",
+      "address": "0x2D427692E928fa156ec22acfaBaFA0447C5805B7",
+      "category": "stock",
+      "tvlUsdCents": 14356914,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xC67C2D200E0b7E5D99F4CFBede8CB09B48892f2c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x2D427692E928fa156ec22acfaBaFA0447C5805B7",
+          "symbol": "GLXY",
+          "decimals": 18,
+          "name": "Galaxy Digital Inc.",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175402/large/GLXY.png?1786287575"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -245729,
+        "sqrtPriceX96": "365772748049927617325218",
+        "liquidity": "212679653827906259",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "212679653827906259"
+    },
+    {
+      "symbol": "GME",
+      "underlying": "GME",
+      "issuer": "robinhood",
+      "address": "0x1b0E319c6A659F002271B69dB8A7df2F911c153E",
+      "category": "stock",
+      "tvlUsdCents": 56990075,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xE9713f453aDB9245B19559790c96F470a18F2fDF",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x1b0E319c6A659F002271B69dB8A7df2F911c153E",
+          "symbol": "GME",
+          "decimals": 18,
+          "name": "GameStop",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174150/large/0x1b0e319c6a659f002271b69db8a7df2f911c153e.png?1782444670"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": -244290,
+        "sqrtPriceX96": "393061717370789778905892",
+        "liquidity": "1783968580714079384",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "1783968580714079384"
+    },
+    {
+      "symbol": "GOOGL",
+      "underlying": "GOOGL",
+      "issuer": "robinhood",
+      "address": "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3",
+      "category": "stock",
+      "tvlUsdCents": 88245089,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x34D0dC122CF9A8Eb296fC5e0D3A233625D7d19b7",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x2e0847E8910a9732eB3fb1bb4b70a580ADAD4FE3",
+          "symbol": "GOOGL",
+          "decimals": 18,
+          "name": "Alphabet Class A",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174124/large/0x2e0847e8910a9732eb3fb1bb4b70a580adad4fe3.png?1782444601"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 10,
+        "feeTier": 500,
+        "currentTick": -217742,
+        "sqrtPriceX96": "1482230020277999219454876",
+        "liquidity": "1256379950448204437",
+        "protocolFee": 125,
+        "effectiveFee": 500,
+        "currentLpFee": 500
+      },
+      "chainLiquidity": "1256379950448204437"
+    },
+    {
+      "symbol": "HIMS",
+      "underlying": "HIMS",
+      "issuer": "robinhood",
+      "address": "0xCceE82fE024c36fA15E1005edE3E9e4787e23D09",
+      "category": "stock",
+      "tvlUsdCents": 101361892,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xC8C90d3a1c1a24967E773ac2aD0d456BA3E31F64",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xCceE82fE024c36fA15E1005edE3E9e4787e23D09",
+          "symbol": "HIMS",
+          "decimals": 18,
+          "name": "Hims & Hers Health",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175360/large/HIMS.png?1786131590"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 242437,
+        "sqrtPriceX96": "14557443705622989223711367131824168",
+        "liquidity": "2524640775663270188",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "2524640775663270188"
+    },
+    {
+      "symbol": "IBM",
+      "underlying": "IBM",
+      "issuer": "robinhood",
+      "address": "0x980dcf6766FA79f5Cf0c4AAdb3ab477ff15a9619",
+      "category": "stock",
+      "tvlUsdCents": 20326469,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8cD848ce18b829C5c769AFf27164078bB52e0E97",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x980dcf6766FA79f5Cf0c4AAdb3ab477ff15a9619",
+          "symbol": "IBM",
+          "decimals": 18,
+          "name": "IBM",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175357/large/IBM.png?1786131546"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 222343,
+        "sqrtPriceX96": "5330384259987228725033103357148963",
+        "liquidity": "258898948189497410",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "258898948189497410"
+    },
+    {
+      "symbol": "INTC",
+      "underlying": "INTC",
+      "issuer": "robinhood",
+      "address": "0xc72b96e0E48ecd4DC75E1e45396e26300BC39681",
+      "category": "stock",
+      "tvlUsdCents": 40872230,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xf2e329e631d0fb315a5c563ee3a9120f24822b5ef6c502a91cb56b174d5d8c22",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xc72b96e0E48ecd4DC75E1e45396e26300BC39681",
+          "symbol": "INTC",
+          "decimals": 18,
+          "name": "Intel",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174118/large/0xc72b96e0e48ecd4dc75e1e45396e26300bc39681.png?1782444585"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 229004,
+        "sqrtPriceX96": "7436967052646387039801079296204741",
+        "liquidity": "396691975150402997",
+        "protocolFee": 1000,
+        "effectiveFee": 11000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "396895955490306811"
+    },
+    {
+      "symbol": "LLY",
+      "underlying": "LLY",
+      "issuer": "robinhood",
+      "address": "0x8005d266423c7ea827372c9c864491e5786600ea",
+      "category": "stock",
+      "tvlUsdCents": 25658052,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xF212D02146a897F5F686E9d629F6A73da534324a",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x8005d266423c7ea827372c9c864491e5786600ea",
+          "symbol": "LLY",
+          "decimals": 18,
+          "name": "Eli Lilly",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174175/large/0x8005d266423c7ea827372c9c864491e5786600ea.png?1782444737"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 10,
+        "feeTier": 500,
+        "currentTick": 205515,
+        "sqrtPriceX96": "2298156408339482242306921743836911",
+        "liquidity": "91849853275197724",
+        "protocolFee": 125,
+        "effectiveFee": 500,
+        "currentLpFee": 500
+      },
+      "chainLiquidity": "91849853275197724"
+    },
+    {
+      "symbol": "LMT",
+      "underlying": "LMT",
+      "issuer": "robinhood",
+      "address": "0x329fcACEb9AD6F9580DD5F643fed0646900D043c",
+      "category": "stock",
+      "tvlUsdCents": 8848922,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x0b118d2480ebdb11374d3ad2ea1b935e9458a9f704222004b3b8de07bc98f1eb",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x329fcACEb9AD6F9580DD5F643fed0646900D043c",
+          "symbol": "LMT",
+          "decimals": 18,
+          "name": "Lockheed",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175412/large/LMT.png?1786295459"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 50,
+        "feeTier": 5000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -214140,
+        "sqrtPriceX96": "1774702289786370824640637",
+        "liquidity": "23413750928775452",
+        "protocolFee": 900,
+        "effectiveFee": 5900,
+        "currentLpFee": 5000
+      },
+      "chainLiquidity": "23413750928775452"
+    },
+    {
+      "symbol": "LULU",
+      "underlying": "LULU",
+      "issuer": "robinhood",
+      "address": "0x4e62068525Ab11FE768e29dfD00ef909B9803016",
+      "category": "stock",
+      "tvlUsdCents": 8823073,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x0F4227D27082B3BCA6818381b9ea6460275e49f4",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x4e62068525Ab11FE768e29dfD00ef909B9803016",
+          "symbol": "LULU",
+          "decimals": 18,
+          "name": "Lululemon",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174187/large/0x4e62068525ab11fe768e29dfd00ef909b9803016.png?1782444768"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -231155,
+        "sqrtPriceX96": "758002301919861555192957",
+        "liquidity": "20145070069435892",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "20145070069435892"
+    },
+    {
+      "symbol": "META",
+      "underlying": "META",
+      "issuer": "robinhood",
+      "address": "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35",
+      "category": "stock",
+      "tvlUsdCents": 378480622,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x5875d407a42965b0e768c8925cea290e06fa50603ef34fc99eb92a1050e6ae36",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xc0D6457C16Cc70d6790Dd43521C899C87ce02f35",
+          "symbol": "META",
+          "decimals": 18,
+          "name": "Meta Platforms",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174122/large/0xc0d6457c16cc70d6790dd43521c899c87ce02f35.png?1782444595"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 210482,
+        "sqrtPriceX96": "2945958625944290049966108389935840",
+        "liquidity": "2329463397555088407",
+        "protocolFee": 500,
+        "effectiveFee": 3500,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "2329463397555088407"
+    },
+    {
+      "symbol": "MRNA",
+      "underlying": "MRNA",
+      "issuer": "robinhood",
+      "address": "0x43B07D15cE533bEc5476d70C22a78a1B2B662155",
+      "category": "stock",
+      "tvlUsdCents": 18568241,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xB40196272A6d2EB5edF6d93bc4DC39856AD95E0E",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x43B07D15cE533bEc5476d70C22a78a1B2B662155",
+          "symbol": "MRNA",
+          "decimals": 18,
+          "name": "Moderna",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175366/large/MRNA.png?1786131713"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -223592,
+        "sqrtPriceX96": "1106354962339208207252682",
+        "liquidity": "179552472463053215",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "179552472463053215"
+    },
+    {
+      "symbol": "MSFT",
+      "underlying": "MSFT",
+      "issuer": "robinhood",
+      "address": "0xe93237C50D904957Cf27E7B1133b510C669c2e74",
+      "category": "stock",
+      "tvlUsdCents": 49765193,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xeb60bCD1D920ad6E102690CCFC6fB488899E1510",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xe93237C50D904957Cf27E7B1133b510C669c2e74",
+          "symbol": "MSFT",
+          "decimals": 18,
+          "name": "Microsoft",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174116/large/0xe93237c50d904957cf27e7b1133b510c669c2e74.png?1782444580"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 213599,
+        "sqrtPriceX96": "3442703559285028570378171116589484",
+        "liquidity": "234789194624544690",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "234789194624544690"
+    },
+    {
+      "symbol": "MSTR",
+      "underlying": "MSTR",
+      "issuer": "robinhood",
+      "address": "0xec262a75e413fAfD0dF80480274532C79D42da09",
+      "category": "stock",
+      "tvlUsdCents": 132663941,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x319bac87e616a89e241c10aeb8afd4892a852cdd8b373cd9765ecddc40b87cfe",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xec262a75e413fAfD0dF80480274532C79D42da09",
+          "symbol": "MSTR",
+          "decimals": 18,
+          "name": "Strategy Inc.",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174143/large/0xec262a75e413fafd0df80480274532c79d42da09.png?1782444651"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 25,
+        "feeTier": 2500,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 226081,
+        "sqrtPriceX96": "6425861360699030673398955149189112",
+        "liquidity": "635075384290568495",
+        "protocolFee": 400,
+        "effectiveFee": 2900,
+        "currentLpFee": 2500
+      },
+      "chainLiquidity": "634546176295125849"
+    },
+    {
+      "symbol": "MU",
+      "underlying": "MU",
+      "issuer": "robinhood",
+      "address": "0xfF080c8ce2E5feadaCa0Da81314Ae59D232d4afD",
+      "category": "stock",
+      "tvlUsdCents": 130354104,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xd057B1Bc54917855BBee58eAd58647f47caB35E5",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xfF080c8ce2E5feadaCa0Da81314Ae59D232d4afD",
+          "symbol": "MU",
+          "decimals": 18,
+          "name": "Micron Technology",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174111/large/0xff080c8ce2e5feadaca0da81314ae59d232d4afd.png?1782444567"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 206437,
+        "sqrtPriceX96": "2406568948773204161427789973775470",
+        "liquidity": "369530148798233847",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "369530148798233847"
+    },
+    {
+      "symbol": "NBIS",
+      "underlying": "NBIS",
+      "issuer": "robinhood",
+      "address": "0x9D9c6684F596F66a64C030B93A886D51Fd4D7931",
+      "category": "stock",
+      "tvlUsdCents": 12483769,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x7c2f9ce1214ba9baf56d1b6a1fc640c1b63e9a711172c0c7d10e5a9c4a3d4f0c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x9D9c6684F596F66a64C030B93A886D51Fd4D7931",
+          "symbol": "NBIS",
+          "decimals": 18,
+          "name": "Nebius Group",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174160/large/0x9d9c6684f596f66a64c030b93a886d51fd4d7931.png?1782444697"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 99,
+        "feeTier": 9900,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 221659,
+        "sqrtPriceX96": "5151266025901265032698075262210803",
+        "liquidity": "24107288111850228",
+        "protocolFee": 1000,
+        "effectiveFee": 10900,
+        "currentLpFee": 9900
+      },
+      "chainLiquidity": "24107288111850228"
+    },
+    {
+      "symbol": "NFLX",
+      "underlying": "NFLX",
+      "issuer": "robinhood",
+      "address": "0xE0444EF8BF4eD74f74FD73686e2ddF4C1c5591E8",
+      "category": "stock",
+      "tvlUsdCents": 23724301,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x59895C0302F41aEaa129D2fa2442CEc01E7eF45E",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xE0444EF8BF4eD74f74FD73686e2ddF4C1c5591E8",
+          "symbol": "NFLX",
+          "decimals": 18,
+          "name": "Netflix",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174165/large/0xe0444ef8bf4ed74f74fd73686e2ddf4c1c5591e8.png?1782444710"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 233865,
+        "sqrtPriceX96": "9483051220866483340187559041960707",
+        "liquidity": "630511262609744449",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "630511262609744449"
+    },
+    {
+      "symbol": "NVDA",
+      "underlying": "NVDA",
+      "issuer": "robinhood",
+      "address": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+      "category": "stock",
+      "tvlUsdCents": 238224742,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xd4EB21209C4D6093f80B5b84f5C45cc093EA14a3",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+          "symbol": "NVDA",
+          "decimals": 18,
+          "name": "NVIDIA",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174110/large/0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec.png?1782444565"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 10,
+        "feeTier": 500,
+        "currentTick": 221632,
+        "sqrtPriceX96": "5144321542890350296364814865311764",
+        "liquidity": "2872340702487803005",
+        "protocolFee": 125,
+        "effectiveFee": 500,
+        "currentLpFee": 500
+      },
+      "chainLiquidity": "2872340702487803005"
+    },
+    {
+      "symbol": "ORCL",
+      "underlying": "ORCL",
+      "issuer": "robinhood",
+      "address": "0xb0992820E760d836549ba69BC7598b4af75dEE03",
+      "category": "stock",
+      "tvlUsdCents": 13034993,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc2ce4784e1e72cf0221b51b30c8aaadf6c0b12863cf03ab3687854fb7b1d850a",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xb0992820E760d836549ba69BC7598b4af75dEE03",
+          "symbol": "ORCL",
+          "decimals": 18,
+          "name": "Oracle",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174128/large/0xb0992820e760d836549ba69bc7598b4af75dee03.png?1782444611"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 226669,
+        "sqrtPriceX96": "6617480400817998384368040460462493",
+        "liquidity": "68572273525451846",
+        "protocolFee": 1000,
+        "effectiveFee": 11000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "68572273525451846"
+    },
+    {
+      "symbol": "PFE",
+      "underlying": "PFE",
+      "issuer": "robinhood",
+      "address": "0x7066A64c24e4206CD62E83bf198c1E7EB361F51e",
+      "category": "stock",
+      "tvlUsdCents": 7383547,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xC7d573Fcda6D2107C97fb582ae18411F9Db32E7f",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x7066A64c24e4206CD62E83bf198c1E7EB361F51e",
+          "symbol": "PFE",
+          "decimals": 18,
+          "name": "Pfizer",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175439/large/PFE.png?1786301478"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 242983,
+        "sqrtPriceX96": "14959887349330165825165460935606971",
+        "liquidity": "323867968053478470",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "323867968053478470"
+    },
+    {
+      "symbol": "PLTR",
+      "underlying": "PLTR",
+      "issuer": "robinhood",
+      "address": "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A",
+      "category": "stock",
+      "tvlUsdCents": 63601173,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xee430ee1003e1985e1828a01b9a20dad67ad4302994fe2abb4a173de4ac54623",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A",
+          "symbol": "PLTR",
+          "decimals": 18,
+          "name": "Palantir Technologies",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174117/large/0x894e1ec2d74ffe5aef8dc8a9e84686accb964f2a.png?1782444583"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 223728,
+        "sqrtPriceX96": "5712615974132236700203099542202081",
+        "liquidity": "941747669432746360",
+        "protocolFee": 1000,
+        "effectiveFee": 11000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "941747669432746360"
+    },
+    {
+      "symbol": "QCOM",
+      "underlying": "QCOM",
+      "issuer": "robinhood",
+      "address": "0x0f17206447090e464C277571124dD2688E48AEA9",
+      "category": "stock",
+      "tvlUsdCents": 5997772,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x106af997d180cf37a574c42c04179f267b9245cf221b1c57fb3e491137915de6",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0f17206447090e464C277571124dD2688E48AEA9",
+          "symbol": "QCOM",
+          "decimals": 18,
+          "name": "Qualcomm",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174137/large/0x0f17206447090e464c277571124dd2688e48aea9.png?1782444635"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 71,
+        "feeTier": 3500,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -224527,
+        "sqrtPriceX96": "1055806001905939134003882",
+        "liquidity": "41528622166857460",
+        "protocolFee": 600,
+        "effectiveFee": 4100,
+        "currentLpFee": 3500
+      },
+      "chainLiquidity": "41528622166857460"
+    },
+    {
+      "symbol": "QQQ",
+      "underlying": "QQQ",
+      "issuer": "robinhood",
+      "address": "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68",
+      "category": "legacy-etf",
+      "tvlUsdCents": 114828068,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xD60A5d14dB690B7Afad71F76B108071D7175597d",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68",
+          "symbol": "QQQ",
+          "decimals": 18,
+          "name": "Invesco QQQ",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174119/large/0xd5f3879160bc7c32ebb4dc785f8a4f505888de68.png?1782444588"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 10,
+        "feeTier": 500,
+        "currentTick": 210017,
+        "sqrtPriceX96": "2878239901935503599244308594793683",
+        "liquidity": "1099190276312678748",
+        "protocolFee": 125,
+        "effectiveFee": 500,
+        "currentLpFee": 500
+      },
+      "chainLiquidity": "1099190276312678748"
+    },
+    {
+      "symbol": "QUBT",
+      "underlying": "QUBT",
+      "issuer": "robinhood",
+      "address": "0x59818904ab4cE163b3cE4FfB64f2D6Ca02c434B4",
+      "category": "stock",
+      "tvlUsdCents": 11299749,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x227Bbce9A81B3694b01754298a983Be3F9E44A93",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x59818904ab4cE163b3cE4FfB64f2D6Ca02c434B4",
+          "symbol": "QUBT",
+          "decimals": 18,
+          "name": "Quantum Computing",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174141/large/0x59818904ab4ce163b3ce4ffb64f2d6ca02c434b4.png?1782444645"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -255917,
+        "sqrtPriceX96": "219784984215165363771244",
+        "liquidity": "309748930082754272",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "309748930082754272"
+    },
+    {
+      "symbol": "RBLX",
+      "underlying": "RBLX",
+      "issuer": "robinhood",
+      "address": "0xF0C4BF4C582cb3836e98394b1d4e7B7281101bE8",
+      "category": "stock",
+      "tvlUsdCents": 20588310,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x6d25417718A8D6c529130a8ccC4BfBf0a18219D3",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xF0C4BF4C582cb3836e98394b1d4e7B7281101bE8",
+          "symbol": "RBLX",
+          "decimals": 18,
+          "name": "Roblox",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174202/large/0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8.png?1782444808"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 40109,
+        "sqrtPriceX96": "588586367984029387283684844570",
+        "liquidity": "1539175292728783506884",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "1539175292728783506884"
+    },
+    {
+      "symbol": "RDDT",
+      "underlying": "RDDT",
+      "issuer": "robinhood",
+      "address": "0x05b37Fb53A299a1b874A619e1c4C404D52C36F4C",
+      "category": "stock",
+      "tvlUsdCents": 110109638,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xa8744E76aED23B05F0126335E7BD38f7935D19fe",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x05b37Fb53A299a1b874A619e1c4C404D52C36F4C",
+          "symbol": "RDDT",
+          "decimals": 18,
+          "name": "Reddit",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174197/large/0x05b37fb53a299a1b874a619e1c4c404d52c36f4c.png?1782444795"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": -226025,
+        "sqrtPriceX96": "979617808089040045025973",
+        "liquidity": "1098018483732999917",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "1098018483732999917"
+    },
+    {
+      "symbol": "RIVN",
+      "underlying": "RIVN",
+      "issuer": "robinhood",
+      "address": "0xB1BF26c1D20ff267A4f93550d1E0d06ac40a114B",
+      "category": "stock",
+      "tvlUsdCents": 6771351,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xb30A75B200D98A600a3766869344928E35823E23",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xB1BF26c1D20ff267A4f93550d1E0d06ac40a114B",
+          "symbol": "RIVN",
+          "decimals": 18,
+          "name": "Rivian Automotive",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174195/large/0xb1bf26c1d20ff267a4f93550d1e0d06ac40a114b.png?1782444790"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 249647,
+        "sqrtPriceX96": "20875532322969803551725577239991239",
+        "liquidity": "104170882914834276",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "104170882914834276"
+    },
+    {
+      "symbol": "SKYHY",
+      "underlying": "SKYHY",
+      "issuer": "robinhood",
+      "address": "0x84CAb63bc87912E71ad199ff14A0bA45de68FeF8",
+      "category": "stock",
+      "tvlUsdCents": 7406355,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x994db79a9e80b73d726171d0e834dfe6fdce7987539dcf5cceef7b2b95c5fd95",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x84CAb63bc87912E71ad199ff14A0bA45de68FeF8",
+          "symbol": "SKHY",
+          "decimals": 18,
+          "name": "SK hynix Inc. American Depositary Shares",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175527/large/SKYHY.png?1786610155"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 89,
+        "feeTier": 8880,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 224409,
+        "sqrtPriceX96": "5910575842313594228550248311377196",
+        "liquidity": "37967307138644227",
+        "protocolFee": 1000,
+        "effectiveFee": 9880,
+        "currentLpFee": 8880
+      },
+      "chainLiquidity": "37967307138644227"
+    },
+    {
+      "symbol": "SNAP",
+      "underlying": "SNAP",
+      "issuer": "robinhood",
+      "address": "0xF6589F11Bc40b669e584073F428B05562F568733",
+      "category": "stock",
+      "tvlUsdCents": 11001233,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x2e4cc4c65587faca7a08b69a13c86ca8c86599d90ad818ceaa1a875176f5fb52",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xF6589F11Bc40b669e584073F428B05562F568733",
+          "symbol": "SNAP",
+          "decimals": 18,
+          "name": "Snap",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175399/large/SNAP.png?1786287522"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 20,
+        "feeTier": 1950,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 258718,
+        "sqrtPriceX96": "32855169505127544762198037221057560",
+        "liquidity": "581001203928788663",
+        "protocolFee": 324,
+        "effectiveFee": 2274,
+        "currentLpFee": 1950
+      },
+      "chainLiquidity": "581001203928788663"
+    },
+    {
+      "symbol": "SNDK",
+      "underlying": "SNDK",
+      "issuer": "robinhood",
+      "address": "0xB90A19fF0Af67f7779afF50A882A9CfF42446400",
+      "category": "stock",
+      "tvlUsdCents": 23666838,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x2707cb88a6a40fa0f948f58958051ba097d6f6a3cf7f87929bd68ccc5becea24",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xB90A19fF0Af67f7779afF50A882A9CfF42446400",
+          "symbol": "SNDK",
+          "decimals": 18,
+          "name": "Sandisk Corporation",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174113/large/0xb90a19ff0af67f7779aff50a882a9cff42446400.png?1782444573"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 201916,
+        "sqrtPriceX96": "1919639506236165437407672689475724",
+        "liquidity": "40405476256504219",
+        "protocolFee": 1000,
+        "effectiveFee": 11000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "40405476256504219"
+    },
+    {
+      "symbol": "SPCX",
+      "underlying": "SPCX",
+      "issuer": "robinhood",
+      "address": "0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa",
+      "category": "stock",
+      "tvlUsdCents": 168692103,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc61284332117c3FB23A2A56cceFFD07F7aF60029",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x4a0E65A3EcceC6dBe60AE065F2e7bb85Fae35eEa",
+          "symbol": "SPCX",
+          "decimals": 18,
+          "name": "Space Exploration Technologies Corp. Class A Common Stock",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174129/large/0x4a0e65a3eccec6dbe60ae065f2e7bb85fae35eea.png?1782444614"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 10,
+        "feeTier": 500,
+        "currentTick": -225093,
+        "sqrtPriceX96": "1026366823803642803350386",
+        "liquidity": "1917532692982340257",
+        "protocolFee": 125,
+        "effectiveFee": 500,
+        "currentLpFee": 500
+      },
+      "chainLiquidity": "1917532692982340257"
+    },
+    {
+      "symbol": "SPY",
+      "underlying": "SPY",
+      "issuer": "robinhood",
+      "address": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+      "category": "legacy-etf",
+      "tvlUsdCents": 329903391,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xfe2a80bb5618fd14984b92ca6d45bf5ba67443ddb1435e28b2e48df2fc1526cd",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+          "symbol": "SPY",
+          "decimals": 18,
+          "name": "SPDR S&P 500 ETF Trust",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174115/large/0x117cc2133c37b721f49de2a7a74833232b3b4c0c.png?1782444578"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -209754,
+        "sqrtPriceX96": "2209900241187316452869169",
+        "liquidity": "5215426140177707826",
+        "protocolFee": 500,
+        "effectiveFee": 3500,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "5215426140177707826"
+    },
+    {
+      "symbol": "TSLA",
+      "underlying": "TSLA",
+      "issuer": "robinhood",
+      "address": "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
+      "category": "stock",
+      "tvlUsdCents": 88648744,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8517f8071ae5b831b738052f12125e8e3d6c158b78728aa44ce3b25e5104d32e",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
+          "symbol": "TSLA",
+          "decimals": 18,
+          "name": "Tesla",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174112/large/0x322f0929c4625ed5bad873c95208d54e1c003b2d.png?1782444570"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -217000,
+        "sqrtPriceX96": "1538290246294274603946595",
+        "liquidity": "688060586409067666",
+        "protocolFee": 500,
+        "effectiveFee": 3500,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "688060586409067666"
+    },
+    {
+      "symbol": "TSM",
+      "underlying": "TSM",
+      "issuer": "robinhood",
+      "address": "0x58FfE4a942d3885bAa22D7520691F611EF09e7AA",
+      "category": "stock",
+      "tvlUsdCents": 17730218,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x0ba5d53d2f6255f334b7c8ead4f56b6aef5af3402c5e4d11180afd38c6b85fb1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x58FfE4a942d3885bAa22D7520691F611EF09e7AA",
+          "symbol": "TSM",
+          "decimals": 18,
+          "name": "Taiwan Semiconductor Manufacturing",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174148/large/0x58ffe4a942d3885baa22d7520691f611ef09e7aa.png?1782444664"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 75,
+        "feeTier": 7500,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -214650,
+        "sqrtPriceX96": "1730008974038459005796349",
+        "liquidity": "55737517403604964",
+        "protocolFee": 1000,
+        "effectiveFee": 8500,
+        "currentLpFee": 7500
+      },
+      "chainLiquidity": "55737517403604964"
+    },
+    {
+      "symbol": "TTWO",
+      "underlying": "TTWO",
+      "issuer": "robinhood",
+      "address": "0x5e81213613b6B86EaB4c6c50d718d34359459786",
+      "category": "stock",
+      "tvlUsdCents": 16165695,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xD9Ab4b7fAe6DC2f7020134Ec744A8F53Ef3E5E24",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5e81213613b6B86EaB4c6c50d718d34359459786",
+          "symbol": "TTWO",
+          "decimals": 18,
+          "name": "Take-Two Interactive Software",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174176/large/0x5e81213613b6b86eab4c6c50d718d34359459786.png?1782444740"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -223120,
+        "sqrtPriceX96": "1132794853822639578942885",
+        "liquidity": "81224338143788732",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "81224338143788732"
+    },
+    {
+      "symbol": "UPS",
+      "underlying": "UPS",
+      "issuer": "robinhood",
+      "address": "0xf23250dac154D05Bb671CB0d0eBEf3c635c79CE2",
+      "category": "stock",
+      "tvlUsdCents": 9306014,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x3Ab74C45DceCC6A62898204Dd42143a816B44CB1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xf23250dac154D05Bb671CB0d0eBEf3c635c79CE2",
+          "symbol": "UPS",
+          "decimals": 18,
+          "name": "UPS",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174201/large/0xf23250dac154d05bb671cb0d0ebef3c635c79ce2.png?1782444806"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 231013,
+        "sqrtPriceX96": "8222869886499414430088296148318378",
+        "liquidity": "72774839550541875",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "chainLiquidity": "72774839550541875"
+    },
+    {
+      "symbol": "USAR",
+      "underlying": "USAR",
+      "issuer": "robinhood",
+      "address": "0xd917B029C761D264c6A312BBbcDA868658eF86a6",
+      "category": "stock",
+      "tvlUsdCents": 9419960,
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x04391780F519B7d3ba59c9590459D76e23d225C4",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xd917B029C761D264c6A312BBbcDA868658eF86a6",
+          "symbol": "USAR",
+          "decimals": 18,
+          "name": "USA Rare Earth",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174132/large/0xd917b029c761d264c6a312bbbcda868658ef86a6.png?1782444621"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 250462,
+        "sqrtPriceX96": "21743585755093021258829754742286578",
+        "liquidity": "99168821459417679",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "chainLiquidity": "99168821459417679"
+    }
+  ],
+  "excluded": [
+    {
+      "symbol": "AAOI",
+      "underlying": "AAOI",
+      "issuer": "robinhood",
+      "address": "0x521Cf887E6531c6F667b5BC4D896E5d9bfE8EB2E",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AAAPL",
+      "underlying": "AAPL",
+      "issuer": "anchored",
+      "address": "0x17683e492d0C8910F7c0157D04af31Cb7A23Ad71",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ABCL",
+      "underlying": "ABCL",
+      "issuer": "robinhood",
+      "address": "0x3139D77Ace0cbAA5bDfD38bD1F1911a794AF0B0e",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ADBE",
+      "underlying": "ADBE",
+      "issuer": "robinhood",
+      "address": "0x232B8ed6377BE97813853B0Ac104c4Cda8378d1B",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AEHR",
+      "underlying": "AEHR",
+      "issuer": "robinhood",
+      "address": "0x5F604fBA1162193A4388A5DFa56F556f3E133cC2",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AEIS",
+      "underlying": "AEIS",
+      "issuer": "robinhood",
+      "address": "0xfAf9cb261B5FCC1f404Bb10CD39C5c6C1974E612",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AAI",
+      "underlying": "AI",
+      "issuer": "anchored",
+      "address": "0x59A036FC042b5b15Cb36a4E1fe1bcCfCf18F8d63",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ALAB",
+      "underlying": "ALAB",
+      "issuer": "robinhood",
+      "address": "0x748c32c3ca24eDf31ea597Db1F3d330a7a6DA3Dc",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMAT",
+      "underlying": "AMAT",
+      "issuer": "robinhood",
+      "address": "0x36046893810a7E7fCE501229d57dc3FC8c8716d0",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMBA",
+      "underlying": "AMBA",
+      "issuer": "robinhood",
+      "address": "0x99D9D8663545151603863C5AcbD6FC3218899009",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AAMD",
+      "underlying": "AMD",
+      "issuer": "anchored",
+      "address": "0xbdf82C0DAFCf73834d10639c0F0Bf14b84808C43",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMKR",
+      "underlying": "AMKR",
+      "issuer": "robinhood",
+      "address": "0xDd356AA38F40A7b7076755aC854B6FBb1F0D305B",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AAMZN",
+      "underlying": "AMZN",
+      "issuer": "anchored",
+      "address": "0x06f272082339A90e81e1DCB8AB892fD1a8c5E4C0",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ANET",
+      "underlying": "ANET",
+      "issuer": "robinhood",
+      "address": "0x28bABD556b60E53663B8615036479a29c2CDd1Bf",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AANET",
+      "underlying": "ANET",
+      "issuer": "anchored",
+      "address": "0xB8e03AD48dDdC2E415715F6DbeFb51839E756C25",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "APLD",
+      "underlying": "APLD",
+      "issuer": "robinhood",
+      "address": "0xb8DBf92F9741c9ac1c32115E78581f23509916FD",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "APP",
+      "underlying": "APP",
+      "issuer": "robinhood",
+      "address": "0xA249BAF1063Af884807C1E1400AEf7784836917E",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AARM",
+      "underlying": "ARM",
+      "issuer": "anchored",
+      "address": "0x37bb22aF99a6C2B23Cfc2EA0cCB7151752a0fd5a",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASML",
+      "underlying": "ASML",
+      "issuer": "robinhood",
+      "address": "0x47F93d52cBeC7C6D2CfC080e154002370a60dAEA",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AASML",
+      "underlying": "ASML",
+      "issuer": "anchored",
+      "address": "0xFAE6ba6D36a6388c5a944a9366E55B6597E4f8af",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASTS",
+      "underlying": "ASTS",
+      "issuer": "robinhood",
+      "address": "0x1AF6446f07eb1d97c546AFC8c9544cBDF3AD5137",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AUR",
+      "underlying": "AUR",
+      "issuer": "robinhood",
+      "address": "0x373C06c4f7BDe527D7Dae4BA169E42b55E393CeD",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AVAV",
+      "underlying": "AVAV",
+      "issuer": "robinhood",
+      "address": "0xF6290b5e7C26502e2dA514C31509849718EA76A5",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AAVGO",
+      "underlying": "AVGO",
+      "issuer": "anchored",
+      "address": "0x4dfbCd033662BC41de8996886E751613C2B8e8e5",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AXON",
+      "underlying": "AXON",
+      "issuer": "robinhood",
+      "address": "0xC27dBD474aF5181c5A8777903690D8D262D12648",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AXTI",
+      "underlying": "AXTI",
+      "issuer": "robinhood",
+      "address": "0x141eEa040c2250eEc0314e336975e81f85f6585e",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "BB",
+      "underlying": "BB",
+      "issuer": "robinhood",
+      "address": "0x48E39E56aCdbA37b09020C0b734A613C9a2f100A",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ABETR",
+      "underlying": "BETR",
+      "issuer": "anchored",
+      "address": "0xD70B950Fd70e96933Ebd991005fE6F37aeF1354f",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ABOT",
+      "underlying": "BOT",
+      "issuer": "anchored",
+      "address": "0x5F3b897dEeA4ea0Cb6AEFe50bd2AE556CF6F4b63",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ABULL",
+      "underlying": "BULL",
+      "issuer": "anchored",
+      "address": "0xff7fb9f9044523dfCAB1F65f204Ac79e6327a1CC",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CBRS",
+      "underlying": "CBRS",
+      "issuer": "robinhood",
+      "address": "0x5c90450Bbb4273D7b2f17CF6917AEB237A569679",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ACCJ",
+      "underlying": "CCJ",
+      "issuer": "anchored",
+      "address": "0xDaBa319970C3502e152088E45e5a803e78Cf51D8",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CCL",
+      "underlying": "CCL",
+      "issuer": "robinhood",
+      "address": "0x9651342CeA770aE9a2969Ba2A52611523146aef9",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ACD",
+      "underlying": "CD",
+      "issuer": "anchored",
+      "address": "0xA69b48373F8a34A6A53DBE188DB3A664a4e6a7fc",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CEG",
+      "underlying": "CEG",
+      "issuer": "robinhood",
+      "address": "0xaE517A2903E68bd929Dfd15be875F8369D53e94a",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CELH",
+      "underlying": "CELH",
+      "issuer": "robinhood",
+      "address": "0x8cF07C5A878945185d327aAa6e33FAa95F95e7bF",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CIEN",
+      "underlying": "CIEN",
+      "issuer": "robinhood",
+      "address": "0x44f6D488021f8233B9416294d1FE9b1fEe28382d",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ACIEN",
+      "underlying": "CIEN",
+      "issuer": "anchored",
+      "address": "0xd90007E68aa0557E3e9FBf17140d00611DC793EC",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CLOV",
+      "underlying": "CLOV",
+      "issuer": "robinhood",
+      "address": "0x62200915e7DEab1eC7f79fb246daDbB80eACdDd0",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CLS",
+      "underlying": "CLS",
+      "issuer": "robinhood",
+      "address": "0xBf449977089c718C004a66C554B26B94ef3Ad4De",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CLSK",
+      "underlying": "CLSK",
+      "issuer": "robinhood",
+      "address": "0xcBB95BBF36099d34dA091dc6Fa6F49EfA257Cee3",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "COHR",
+      "underlying": "COHR",
+      "issuer": "robinhood",
+      "address": "0x92F9F459F1a9a5AD266b182BE7Bffd1C6c666894",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ACOIN",
+      "underlying": "COIN",
+      "issuer": "anchored",
+      "address": "0xD8c1DAe1c55B2fA349F78Ce34553E075AAD6b8A2",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ACRCL",
+      "underlying": "CRCL",
+      "issuer": "anchored",
+      "address": "0x72e4F625B68f8d7A08dFb5A88065D6bB90052098",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CRDO",
+      "underlying": "CRDO",
+      "issuer": "robinhood",
+      "address": "0x4D67253bc223e6b0e104F1084c1fb2b669dDC41b",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CRM",
+      "underlying": "CRM",
+      "issuer": "robinhood",
+      "address": "0xd95B44124e475743a7589e68F3D74008A5536D44",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ACRM",
+      "underlying": "CRM",
+      "issuer": "anchored",
+      "address": "0x8339D77b003589cF90F17729595AFE05AD951ac5",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CRWV",
+      "underlying": "CRWV",
+      "issuer": "robinhood",
+      "address": "0x5f10A1C971B69e47e059e1dC91901B59b3fB49C3",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CSCO",
+      "underlying": "CSCO",
+      "issuer": "robinhood",
+      "address": "0xF543967EEBB6f1917992eF0E68De63ab07a5a0dA",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ACSCO",
+      "underlying": "CSCO",
+      "issuer": "anchored",
+      "address": "0x991c1f370Adbab08E1F7978B01Cb1DC022b902BB",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CTSH",
+      "underlying": "CTSH",
+      "issuer": "robinhood",
+      "address": "0x63D5a3b6939a33f1e75d8Bcd85759858239600DB",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "CVNA",
+      "underlying": "CVNA",
+      "issuer": "robinhood",
+      "address": "0xa4f319104089FE321dc8093C6E707d4fE190A988",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "DDOG",
+      "underlying": "DDOG",
+      "issuer": "robinhood",
+      "address": "0x27c99fBde9D0d2AA4f4Bfb4943f237843DdF6958",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ADELL",
+      "underlying": "DELL",
+      "issuer": "anchored",
+      "address": "0x87Db2cEAC8b2321443d0BfEf67340096867C91BA",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "DOCN",
+      "underlying": "DOCN",
+      "issuer": "robinhood",
+      "address": "0xc02f12B9fe9E707079EC0d546f3050d3F6C1F8bD",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AEBAY",
+      "underlying": "EBAY",
+      "issuer": "anchored",
+      "address": "0x33f74aC6aa7a73Aca8aB09C52D9158061F634ff3",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ELF",
+      "underlying": "ELF",
+      "issuer": "robinhood",
+      "address": "0x39EC44Bee4F6A116c6F9B8De566848a985C53C60",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AETN",
+      "underlying": "ETN",
+      "issuer": "anchored",
+      "address": "0x678ed8ccc3f3D8FF2873D6BeaB5748E4321C1670",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "FICO",
+      "underlying": "FICO",
+      "issuer": "robinhood",
+      "address": "0xa48F22A46C0F1C46CA7D111CB6c137c271987180",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "FISV",
+      "underlying": "FISV",
+      "issuer": "robinhood",
+      "address": "0x9ECe29A4A2397C0a35fb5fA8EE2b9509130a98cc",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "FIX",
+      "underlying": "FIX",
+      "issuer": "robinhood",
+      "address": "0x93Dbb1d2Dc5D63F4abACFF30485273f538Df68Ac",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "FLNC",
+      "underlying": "FLNC",
+      "issuer": "robinhood",
+      "address": "0x282e87451E10fA6679BC7D76C69BE44cD3fC777C",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AFLNC",
+      "underlying": "FLNC",
+      "issuer": "anchored",
+      "address": "0xFA63f789664F761e38E39F83A3617DBc1c8e0226",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AFLWS",
+      "underlying": "FLWS",
+      "issuer": "anchored",
+      "address": "0x3a013978CbD3ed7b270C92009E6A6D1bE8E6ac25",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "FLY",
+      "underlying": "FLY",
+      "issuer": "robinhood",
+      "address": "0x03BC731Ffb162cdd7B98D3C6542bFC291126075d",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AFORM",
+      "underlying": "FORM",
+      "issuer": "anchored",
+      "address": "0xbe10e0C583e46ff8D9A5a6aB578A89b7e49ad005",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "FTNT",
+      "underlying": "FTNT",
+      "issuer": "robinhood",
+      "address": "0x3FB8976980d486084b2eb4a404BD12e72823958f",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "FUTU",
+      "underlying": "FUTU",
+      "issuer": "robinhood",
+      "address": "0xeB30663bDFf0622Ef4e4E5cBb4E975F19f33f51D",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "GE",
+      "underlying": "GE",
+      "issuer": "robinhood",
+      "address": "0x63b814DDBd6BF339f25Fed8c36158a008D5B373e",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "GEV",
+      "underlying": "GEV",
+      "issuer": "robinhood",
+      "address": "0x94B8AAE43A1cCc08Aa64B7D1F29b4D920aF4a0C9",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AGEV",
+      "underlying": "GEV",
+      "issuer": "anchored",
+      "address": "0xdBd41398c970a1649C7Eec1D72c9D50E0Aa3B095",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "GLW",
+      "underlying": "GLW",
+      "issuer": "robinhood",
+      "address": "0x7c04E6A3368F2A1DE3874f0e80d2e0A1a9915da6",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AGME",
+      "underlying": "GME",
+      "issuer": "anchored",
+      "address": "0x8E18aC2b7EbDd781e7a15C333f3b80EEd8De4A27",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AGOOGL",
+      "underlying": "GOOGL",
+      "issuer": "anchored",
+      "address": "0xBDe676CDF5564Ef64CCD8555Aa9B56867D8D1aD5",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AGRPN",
+      "underlying": "GRPN",
+      "issuer": "anchored",
+      "address": "0x8eee4aAb4acBe84182c0f2CdbC906e39c6B076E8",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "HII",
+      "underlying": "HII",
+      "issuer": "robinhood",
+      "address": "0xEB61c0Ed490A367d4E3631cCf8a74B3bfc7E775D",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AHOOD",
+      "underlying": "HOOD",
+      "issuer": "anchored",
+      "address": "0x5a4860adDCc094FcE026384caeEcb1e634DD9af4",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "HPE",
+      "underlying": "HPE",
+      "issuer": "robinhood",
+      "address": "0x59dd09d4900C2E4B5F75b7c0d4E6796fcc234Cb1",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AHTZ",
+      "underlying": "HTZ",
+      "issuer": "anchored",
+      "address": "0x9B76297343f272481f23Dd0BBd4f20a9a227b392",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "HWM",
+      "underlying": "HWM",
+      "issuer": "robinhood",
+      "address": "0xAEa445c5F3DB1a462998ccC422A875A361ee5d99",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "IBRX",
+      "underlying": "IBRX",
+      "issuer": "robinhood",
+      "address": "0x7c148F74ac7445D1F28366b7FcDC6792a9Fcd0Cf",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AIBRX",
+      "underlying": "IBRX",
+      "issuer": "anchored",
+      "address": "0xE8Bc8f7CE09d0B3b9F2CC017BBBf0EF0535ca573",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AINDI",
+      "underlying": "INDI",
+      "issuer": "anchored",
+      "address": "0x7Fe49b79e7acF9Fbd840c8F11035c618425c36ca",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "INFQ",
+      "underlying": "INFQ",
+      "issuer": "robinhood",
+      "address": "0xB853bC83a753342a4f8320ea680b4B1E84118D21",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "INOD",
+      "underlying": "INOD",
+      "issuer": "robinhood",
+      "address": "0xf1953DAB6FaD537488d5A022361FfAa8B4c95eC6",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AINTC",
+      "underlying": "INTC",
+      "issuer": "anchored",
+      "address": "0x126250964E05B9E34d025e9D3b309349cf92402A",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "INTU",
+      "underlying": "INTU",
+      "issuer": "robinhood",
+      "address": "0x56d23beE5f41A7120170b0c603Dae30128e460e9",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "IONQ",
+      "underlying": "IONQ",
+      "issuer": "robinhood",
+      "address": "0x558378E000D634A36593E338eBacdd6207640EfE",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AIONQ",
+      "underlying": "IONQ",
+      "issuer": "anchored",
+      "address": "0xC8c3bbd0aF3f10293d75dd468C51F3f81Fc22FEe",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "IREN",
+      "underlying": "IREN",
+      "issuer": "robinhood",
+      "address": "0xF0AB0c93bE6F41369d302e55db1A96b3c430212D",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "JBL",
+      "underlying": "JBL",
+      "issuer": "robinhood",
+      "address": "0xEAf2512dFC1bEAc608F8794B3793CD4E02894Aa6",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "JNJ",
+      "underlying": "JNJ",
+      "issuer": "robinhood",
+      "address": "0x03DfbBE0AC4E7bCDaFd08eD41A400326B77D8c80",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "JOBY",
+      "underlying": "JOBY",
+      "issuer": "robinhood",
+      "address": "0xb334C5cE741B80B5B671F47F5C269Cb193fe8E24",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "KLAC",
+      "underlying": "KLAC",
+      "issuer": "robinhood",
+      "address": "0x96b933C74eCB4A0926b9210cef7b743EF46be2E9",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "KSS",
+      "underlying": "KSS",
+      "issuer": "robinhood",
+      "address": "0x12e3c047bf9AeCAF9dDC98c05C31BFD1dd043993",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "KTOS",
+      "underlying": "KTOS",
+      "issuer": "robinhood",
+      "address": "0x7FD06a4d81cCfA3F351394E144d5191874C31313",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ALCID",
+      "underlying": "LCID",
+      "issuer": "anchored",
+      "address": "0x490c6311948aE3E3A6a96D3842e333302034D4d3",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "LHX",
+      "underlying": "LHX",
+      "issuer": "robinhood",
+      "address": "0x48d60243c66437c6ac3c2495Be94747aEd5Dfe25",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "LITE",
+      "underlying": "LITE",
+      "issuer": "robinhood",
+      "address": "0x8eF20885F94e3D9bc7eB3080279188Bd5ED7c08C",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "LRCX",
+      "underlying": "LRCX",
+      "issuer": "robinhood",
+      "address": "0x57b0030166DB0C31690d1A5aA167e2e26e2C29a4",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "LUNR",
+      "underlying": "LUNR",
+      "issuer": "robinhood",
+      "address": "0xa5D4968421bA94814Be3B136b15cf422101aC1a3",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "MDB",
+      "underlying": "MDB",
+      "issuer": "robinhood",
+      "address": "0xDdf2266b79abf0B48898959B0ed6E6adf512be74",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMETA",
+      "underlying": "META",
+      "issuer": "anchored",
+      "address": "0xa1847139cbd660ABC2f7b889d7CBCF18C56407fb",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMETC",
+      "underlying": "METC",
+      "issuer": "anchored",
+      "address": "0x297Df276F30a22c1F94EAB7daf1e280E54bC439a",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "MOD",
+      "underlying": "MOD",
+      "issuer": "robinhood",
+      "address": "0xc6Cbad1016b38B797610c25E1dc7D95988B1f362",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "MPWR",
+      "underlying": "MPWR",
+      "issuer": "robinhood",
+      "address": "0x52D50D0280AD1054b43f052bD70a49a212A1b128",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMRNA",
+      "underlying": "MRNA",
+      "issuer": "anchored",
+      "address": "0xDa230A7EC7aFf66E62ff3e225C3D9C42093C23ae",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "MRVL",
+      "underlying": "MRVL",
+      "issuer": "robinhood",
+      "address": "0x62fd0668e10D8B72339BE2DCF7643001688ff13B",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMRVL",
+      "underlying": "MRVL",
+      "issuer": "anchored",
+      "address": "0x870e3495f5D7F0872Ad7c0fbDD163016AE9122b5",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMSFT",
+      "underlying": "MSFT",
+      "issuer": "anchored",
+      "address": "0x73E9EB2C7a4B4E8c68232b31Ea0F1246963D0375",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMSTR",
+      "underlying": "MSTR",
+      "issuer": "anchored",
+      "address": "0x294F40996134D067B56dcbACBf6a36396BBBeA7a",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "MTSI",
+      "underlying": "MTSI",
+      "issuer": "robinhood",
+      "address": "0xC93f4d80e268AB922e871bd169156C3CC41894e6",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AMU",
+      "underlying": "MU",
+      "issuer": "anchored",
+      "address": "0xc54ce75193a68602bC01FfD2B112DA3948EB14a7",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "MXL",
+      "underlying": "MXL",
+      "issuer": "robinhood",
+      "address": "0x48961813349333209994750ffA89b3c5C22eC969",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "NAVN",
+      "underlying": "NAVN",
+      "issuer": "robinhood",
+      "address": "0xf7181b63Fdb858558A74ba96BC42732684cd7965",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ANBIS",
+      "underlying": "NBIS",
+      "issuer": "anchored",
+      "address": "0x822594e4bC4C8237E77e5620744d3f383e77d4fe",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ANEGG",
+      "underlying": "NEGG",
+      "issuer": "anchored",
+      "address": "0x6031e48580FD0d8eD23d6A9AD89b69758adCF7b2",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "NET",
+      "underlying": "NET",
+      "issuer": "robinhood",
+      "address": "0x116F00968269B7bfbaD4109cE591d6E74c0601d4",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "NNE",
+      "underlying": "NNE",
+      "issuer": "robinhood",
+      "address": "0xBEF75684C43c4ea7BD18Dd532a2244674Ee8b926",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "NOW",
+      "underlying": "NOW",
+      "issuer": "robinhood",
+      "address": "0x0C3260aF4B8f13a69c4c2dFb84fD667890CDFa14",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ANOW",
+      "underlying": "NOW",
+      "issuer": "anchored",
+      "address": "0x6B97A52C6877FaF6F3836377B37e4A0A27EdDE01",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "NU",
+      "underlying": "NU",
+      "issuer": "robinhood",
+      "address": "0x408c14038a04f7bD235329E26d2bf569ee20e250",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ANVDA",
+      "underlying": "NVDA",
+      "issuer": "anchored",
+      "address": "0x701193374879131f923532987c7Ef363a91a80eB",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "NVTS",
+      "underlying": "NVTS",
+      "issuer": "robinhood",
+      "address": "0xbE6702d7b70315376dC48a3293f24f0982F86386",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "OKLO",
+      "underlying": "OKLO",
+      "issuer": "robinhood",
+      "address": "0x8B2f88497f15A18E9D4FFa1a8fFB8538399aE774",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ON",
+      "underlying": "ON",
+      "issuer": "robinhood",
+      "address": "0xbBD09F72b025360FeE5C928053Dca6248d35be54",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AONDS",
+      "underlying": "ONDS",
+      "issuer": "anchored",
+      "address": "0x049cBB2180DcceD2B69FcaD0a98f6D046cCE1C6e",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ONTO",
+      "underlying": "ONTO",
+      "issuer": "robinhood",
+      "address": "0x8ff63eAeEe3fE54Ba450c4F5538064Ec5A893Aef",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AORKA",
+      "underlying": "ORKA",
+      "issuer": "anchored",
+      "address": "0x344FCa3683cd01aa5833E67179F826080bda98fc",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "OUST",
+      "underlying": "OUST",
+      "issuer": "robinhood",
+      "address": "0x40E7a279850e443f582059ae5dC1c3b6563E6395",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "P",
+      "underlying": "P",
+      "issuer": "robinhood",
+      "address": "0x1Cdad396DB64BDa184d5182A97Dd9B3C62100b7D",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "PANW",
+      "underlying": "PANW",
+      "issuer": "robinhood",
+      "address": "0xB039597eD45CBa7B6E2fb9E8BE51802969CEe5Be",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "APANW",
+      "underlying": "PANW",
+      "issuer": "anchored",
+      "address": "0xB66340a2BC5F95b127534Ba5F24827802B9Bc7EE",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "PATH",
+      "underlying": "PATH",
+      "issuer": "robinhood",
+      "address": "0xfb2664f07B6Aadd29ea7a59D8859b1AeB8645cDa",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "APCT",
+      "underlying": "PCT",
+      "issuer": "anchored",
+      "address": "0x13077A525AE6Ca771e04fc91871b2f8F55ECFE3a",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "PENG",
+      "underlying": "PENG",
+      "issuer": "robinhood",
+      "address": "0x9b23573b156B52565012F5cE02CDF60AFBaa70Be",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "PL",
+      "underlying": "PL",
+      "issuer": "robinhood",
+      "address": "0xAA4d64474c172010aB57719cb9951E6142a100d3",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "APLTR",
+      "underlying": "PLTR",
+      "issuer": "anchored",
+      "address": "0xB95956daacE89226185FB696C2Cc3F0d9BBFD4e3",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "POET",
+      "underlying": "POET",
+      "issuer": "robinhood",
+      "address": "0xcf6B2D875361be807EAfa57458c80f28521F9333",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "POWL",
+      "underlying": "POWL",
+      "issuer": "robinhood",
+      "address": "0x237c16D66590F67B886d978ACD362EAeaD8B18c7",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "PR",
+      "underlying": "PR",
+      "issuer": "robinhood",
+      "address": "0x4189F0c66EBBB0bfeF1C31f763131361EF32f77C",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "APUMP",
+      "underlying": "PUMP",
+      "issuer": "anchored",
+      "address": "0xAB7d864BC08f4322DE2F94FABaF14D71a687d7C5",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "PWR",
+      "underlying": "PWR",
+      "issuer": "robinhood",
+      "address": "0x9Ab02Ead789b6903c3c44d0ED32F9c707CDF12FD",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "QBTS",
+      "underlying": "QBTS",
+      "issuer": "robinhood",
+      "address": "0xC583c60aeF9Dc401Da72cEC1B404743a93cea1Cc",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AQBTS",
+      "underlying": "QBTS",
+      "issuer": "anchored",
+      "address": "0xdfA678fA8d208eD3125e84a184fb39f2a22817A4",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AQUBT",
+      "underlying": "QUBT",
+      "issuer": "anchored",
+      "address": "0x11917C87B177e134116d1A538aCc9F832B76D0F2",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "RCAT",
+      "underlying": "RCAT",
+      "issuer": "robinhood",
+      "address": "0xFDE6b5d9BB419B10C23268c74e369AbFF39C0460",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ARDDT",
+      "underlying": "RDDT",
+      "issuer": "anchored",
+      "address": "0x167ef0d9AE3D001146865eC8Aa4A7a78b048B615",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "RDW",
+      "underlying": "RDW",
+      "issuer": "robinhood",
+      "address": "0x92Ef19E82bD8fF36661DE838D5eaE7e5CEF0EfFE",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "RGTI",
+      "underlying": "RGTI",
+      "issuer": "robinhood",
+      "address": "0x284358abc07F9359f19f4b5b4aC91901Be2597Ba",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ARGTI",
+      "underlying": "RGTI",
+      "issuer": "anchored",
+      "address": "0xC3b236FB3cd15e3D996f3B49C0eE034Bc18ACCF9",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "RKLB",
+      "underlying": "RKLB",
+      "issuer": "robinhood",
+      "address": "0x3b14C39E89D60D627b42a1A4CA45b5bb45Fc12e2",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ARKLB",
+      "underlying": "RKLB",
+      "issuer": "anchored",
+      "address": "0x8bCe7712CA1eFc613CE73F9471aD2388DAc09413",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "RUN",
+      "underlying": "RUN",
+      "issuer": "robinhood",
+      "address": "0x756Bc80af765C82da966a788858d65aDF14f3793",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ARXRX",
+      "underlying": "RXRX",
+      "issuer": "anchored",
+      "address": "0xA886aAAc8752548CbD9fFD7940b99B9B46EAb219",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ARXT",
+      "underlying": "RXT",
+      "issuer": "anchored",
+      "address": "0xB2eaa18aaAb01d049EDf2b845c9Ea0480F72c18A",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SATS",
+      "underlying": "SATS",
+      "issuer": "robinhood",
+      "address": "0x95052ddcd5DC25641657424A8Cf04834997E1730",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASDS",
+      "underlying": "SDS",
+      "issuer": "anchored",
+      "address": "0x9B5803E173b3118d70A17C3be0BABdd912A4000E",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASERV",
+      "underlying": "SERV",
+      "issuer": "anchored",
+      "address": "0x1076356059c5Fe9faD3a053c4C84a32EfD116274",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SHOP",
+      "underlying": "SHOP",
+      "issuer": "robinhood",
+      "address": "0xF53F66751B1Eff985311b693531E3290F600c410",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SIMO",
+      "underlying": "SIMO",
+      "issuer": "robinhood",
+      "address": "0x77E655E37F4d913fB9540e0d541D824171a60e81",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASKHY",
+      "underlying": "SKHY",
+      "issuer": "anchored",
+      "address": "0x6E8568ba7B43138d9210959a9523155e274550C9",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SLS",
+      "underlying": "SLS",
+      "issuer": "robinhood",
+      "address": "0x285b231728c7E4333799183DF1094d775246a535",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SMCI",
+      "underlying": "SMCI",
+      "issuer": "robinhood",
+      "address": "0xc01aA1fECeC0605b13bc84874ff7256C0f5F562a",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASMCI",
+      "underlying": "SMCI",
+      "issuer": "anchored",
+      "address": "0xfd38813A547b30155914383919cebE83a98435fA",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SMR",
+      "underlying": "SMR",
+      "issuer": "robinhood",
+      "address": "0x1Eebee7F74517e0279dFb09d25B0407bEEc3FDd6",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASNDK",
+      "underlying": "SNDK",
+      "issuer": "anchored",
+      "address": "0x57e2613fa6193c11913299CBdC1C8cb4916c15e8",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SNOW",
+      "underlying": "SNOW",
+      "issuer": "robinhood",
+      "address": "0xBa0CAB75495255d0cB58E22B648bFED4ECD1F47E",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SOFI",
+      "underlying": "SOFI",
+      "issuer": "robinhood",
+      "address": "0x98E75885157C80992A8D41b696D8c9C6Fb30A926",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "SOUN",
+      "underlying": "SOUN",
+      "issuer": "robinhood",
+      "address": "0x6E3Dfd9f7e1649BaA14D25cac18C94d62dB10A54",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASOUN",
+      "underlying": "SOUN",
+      "issuer": "anchored",
+      "address": "0x3197Fb576B8daa0a5A9C1C5923e91A4D41d25D71",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASPCX",
+      "underlying": "SPCX",
+      "issuer": "anchored",
+      "address": "0x12473790e09D415ABAc7441401F7AbeC64Fa959C",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASQQQ",
+      "underlying": "SQQQ",
+      "issuer": "anchored",
+      "address": "0x3D054231Ed348b1C52684E2477f935FE06DAfd85",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ASTX",
+      "underlying": "STX",
+      "issuer": "anchored",
+      "address": "0xC060d393df9ca0E96fb5434FF3223c085c4B2e2A",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ATBT",
+      "underlying": "TBT",
+      "issuer": "anchored",
+      "address": "0xC614D4aD49ec4F4854D70cb4fd788DDb5c3Fe41e",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "TE",
+      "underlying": "TE",
+      "issuer": "robinhood",
+      "address": "0xb1969f6604CA1AE7a2cD3F1827876e914594CA2D",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "TEAM",
+      "underlying": "TEAM",
+      "issuer": "robinhood",
+      "address": "0x5B97476b922F3305131B8f0B9D333172E87f4aaE",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "TEM",
+      "underlying": "TEM",
+      "issuer": "robinhood",
+      "address": "0xB1CC0EC7Db69Cf43539119814df40071b9d61793",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "TER",
+      "underlying": "TER",
+      "issuer": "robinhood",
+      "address": "0x2778C5024D5cA2CdB0f8eAD671ffc69963AdCD9C",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ATQQQ",
+      "underlying": "TQQQ",
+      "issuer": "anchored",
+      "address": "0xB57B6C37526CECDDDbf92DA1783b7F4b4B53d45F",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "TSEM",
+      "underlying": "TSEM",
+      "issuer": "robinhood",
+      "address": "0x89776d4Cd68193597A2fC132cfaC1fDe36CCeA8a",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ATSLA",
+      "underlying": "TSLA",
+      "issuer": "anchored",
+      "address": "0x10FAD4A60Adb421F8F5Ca6f9f2eAf2DbC110E146",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "TTD",
+      "underlying": "TTD",
+      "issuer": "robinhood",
+      "address": "0x0b5fb4031cae9163db10B169Ee72685F0EdC8545",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "UMC",
+      "underlying": "UMC",
+      "issuer": "robinhood",
+      "address": "0x0E6e67Ba88e7b5d9B67636A215c76779B948dE79",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "UNH",
+      "underlying": "UNH",
+      "issuer": "robinhood",
+      "address": "0xcF364ea52787e289De6F32077834056E3E70D6A8",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "VICR",
+      "underlying": "VICR",
+      "issuer": "robinhood",
+      "address": "0x6006ed4B2F94110851ff7509D97D034f0EeD9226",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "VRT",
+      "underlying": "VRT",
+      "issuer": "robinhood",
+      "address": "0xFA78C12E6488814A0262E4e802749a4a737d5fB7",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AVRT",
+      "underlying": "VRT",
+      "issuer": "anchored",
+      "address": "0x0b45e5aFEa928030988704ef60995d8925b91CD6",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "VSAT",
+      "underlying": "VSAT",
+      "issuer": "robinhood",
+      "address": "0x26dCbfb34FC83CAbD6990f449674efDc6097fF85",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "VST",
+      "underlying": "VST",
+      "issuer": "robinhood",
+      "address": "0x561e2a49212b7cCF47f2744Ccb83e200722fADBc",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AVST",
+      "underlying": "VST",
+      "issuer": "anchored",
+      "address": "0x49ccCd75B2b0Fb9ccD8c1d2a5D313e050C52fA89",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "WDAY",
+      "underlying": "WDAY",
+      "issuer": "robinhood",
+      "address": "0x82DA4646242e1D962e96e932269Dc644c94a9CaA",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "WDC",
+      "underlying": "WDC",
+      "issuer": "robinhood",
+      "address": "0xF52597345A8Edf418bc4071b4a35112472277D3e",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWDC",
+      "underlying": "WDC",
+      "issuer": "anchored",
+      "address": "0x49E30F2D4a1b9a1766F0675ADaF04f70681Fbb63",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWDH",
+      "underlying": "WDH",
+      "issuer": "anchored",
+      "address": "0x6458D4844ccaaD06dbf566D1df93D8815f89D9b0",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWEN",
+      "underlying": "WEN",
+      "issuer": "anchored",
+      "address": "0x4644Fd1eab16A21969B4c16Be8A2D5c986033F2a",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWGS",
+      "underlying": "WGS",
+      "issuer": "anchored",
+      "address": "0xd13163B837A3736C0aC4da9239b108Fe0E04DBaE",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWMT",
+      "underlying": "WMT",
+      "issuer": "anchored",
+      "address": "0xbDcd7e902861094164D4b4048Ac62D3897a32721",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWOOF",
+      "underlying": "WOOF",
+      "issuer": "anchored",
+      "address": "0x2f5d2EacE3890E5E53dd4e5462Ba252C3746FEeF",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWRLD",
+      "underlying": "WRLD",
+      "issuer": "anchored",
+      "address": "0x72584A4d919B7969cE030fb58F7f56E2137af9B0",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWTF",
+      "underlying": "WTF",
+      "issuer": "anchored",
+      "address": "0xE1E495fa46EEd2B6dA96fCEdc051DE23166fA892",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "WULF",
+      "underlying": "WULF",
+      "issuer": "robinhood",
+      "address": "0x348Be1A8663f15edDe5CDf8A96BB69078f7aB6Fd",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "WYFI",
+      "underlying": "WYFI",
+      "issuer": "robinhood",
+      "address": "0x9e7ABD3C9139D14E4c86DcE0e455AAB7A0C2FB3E",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AWYFI",
+      "underlying": "WYFI",
+      "issuer": "anchored",
+      "address": "0xA359B67304F183D3308577d856eED0D98DfB715D",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "XNDU",
+      "underlying": "XNDU",
+      "issuer": "robinhood",
+      "address": "0xA8eB3BCcbf2017eE7CBfb652eB51CF2E1B153289",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "XOM",
+      "underlying": "XOM",
+      "issuer": "robinhood",
+      "address": "0xf9B46d3D1B22199D4D1025a9cEDB540A33F1a2d5",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AXPOF",
+      "underlying": "XPOF",
+      "issuer": "anchored",
+      "address": "0x5D04786d76a9eA0C91C6a2f25fD4922846527C4C",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "AXRX",
+      "underlying": "XRX",
+      "issuer": "anchored",
+      "address": "0x5C55e3Da9d7bBFAd6C5FdB4B6b4dac85c9d6e5C7",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ZM",
+      "underlying": "ZM",
+      "issuer": "robinhood",
+      "address": "0x44c4F142009036cF477eD2d09932051843137CF1",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    },
+    {
+      "symbol": "ZS",
+      "underlying": "ZS",
+      "issuer": "robinhood",
+      "address": "0x7dc013eB55e436f30d7ED1AFE4E36d6e45e3c3f7",
+      "category": "stock",
+      "reason": "No indexed active hookless V3/V4 USDG/WETH pool with TVL strictly above $50,000"
+    }
+  ]
+}

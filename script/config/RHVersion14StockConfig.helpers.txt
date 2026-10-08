@@ -1,0 +1,33 @@
+    function initialRoutes() internal pure returns (INutboxRouter.InitialRoute[] memory routes) {
+        address[] memory assets = constituentAssets();
+        INutboxRouter.InitialPricePool[] memory pools = initialPricePools();
+        routes = new INutboxRouter.InitialRoute[](assets.length * 2 + 1);
+        bytes32 hub = _id(Infra.usdg(), Infra.wrappedNative());
+        routes[0] = _route(Infra.usdg(), Infra.wrappedNative(), hub, bytes32(0));
+        for (uint256 i; i < assets.length; ++i) {
+            INutboxRouter.InitialPricePool memory p = pools[i + 1];
+            address quote = p.token0 == assets[i] ? p.token1 : p.token0;
+            address other = quote == Infra.usdg() ? Infra.wrappedNative() : Infra.usdg();
+            bytes32 stockPool = _id(assets[i], quote);
+            routes[i * 2 + 1] = _route(assets[i], quote, stockPool, bytes32(0));
+            routes[i * 2 + 2] = _route(assets[i], other, stockPool, hub);
+        }
+    }
+    function _v3(address a, address b, address pool) private pure returns (INutboxRouter.InitialPricePool memory) {
+        return INutboxRouter.InitialPricePool(a, b, INutboxRouter.SourceType.V3_POOL, abi.encode(Infra.v3Factory(), pool));
+    }
+    function _v4(address a, address b, uint24 fee, int24 spacing) private pure returns (INutboxRouter.InitialPricePool memory) {
+        return INutboxRouter.InitialPricePool(a, b, INutboxRouter.SourceType.UNISWAP_V4,
+            abi.encode(INutboxRouter.UniswapV4Source(Infra.poolManager(), a, b, fee, spacing, address(0))));
+    }
+    function _route(address input, address output, bytes32 first, bytes32 second)
+        private pure returns (INutboxRouter.InitialRoute memory) {
+        bytes32[] memory ids = new bytes32[](second == bytes32(0) ? 1 : 2);
+        ids[0] = first;
+        if (ids.length == 2) ids[1] = second;
+        return INutboxRouter.InitialRoute(input, output, ids);
+    }
+    function _id(address a, address b) private pure returns (bytes32) {
+        return a < b ? keccak256(abi.encode(a,b)) : keccak256(abi.encode(b,a));
+    }
+}

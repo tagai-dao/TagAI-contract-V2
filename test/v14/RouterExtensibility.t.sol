@@ -134,4 +134,99 @@ contract RouterExtensibilityTest is Test {
         vm.expectRevert("Ownable: caller is not the owner");
         router.setV3Router(address(oldFactory), address(oldExecutor), true);
     }
+
+    function _batchPool(address p) internal view returns (INutboxRouter.InitialPricePool memory entry) {
+        (address a, address b) =
+            address(weth) < address(stock) ? (address(weth), address(stock)) : (address(stock), address(weth));
+        entry =
+            INutboxRouter.InitialPricePool(a, b, INutboxRouter.SourceType.V3_POOL, abi.encode(address(oldFactory), p));
+    }
+
+    function test_batchPoolsAndRoutesPreservePricingAndReversePath() public {
+        INutboxRouter.InitialPricePool[] memory pools = new INutboxRouter.InitialPricePool[](1);
+        pools[0] = _batchPool(_pool(oldFactory));
+        router.addPricePools(pools);
+        bytes32 id = router.pricePoolId(address(weth), address(stock));
+        bytes32[] memory ids = new bytes32[](1);
+        ids[0] = id;
+        INutboxRouter.InitialRoute[] memory routes = new INutboxRouter.InitialRoute[](1);
+        routes[0] = INutboxRouter.InitialRoute(address(weth), address(stock), ids);
+        router.addRoutes(routes);
+        assertEq(router.routePoolAt(address(stock), address(weth), 0), id);
+        assertGt(router.quote(address(weth), address(stock), 1 ether), 0);
+        (bool enabled, uint32 references,,,,) = router.pricePool(id);
+        assertTrue(enabled);
+        assertEq(references, 1);
+    }
+
+    function test_batchPoolsRollBackIfLaterEntryIsInvalid() public {
+        INutboxRouter.InitialPricePool[] memory pools = new INutboxRouter.InitialPricePool[](2);
+        pools[0] = _batchPool(_pool(oldFactory));
+        pools[1] = pools[0];
+        vm.expectRevert(NutboxRouter.PricePoolAlreadyExists.selector);
+        router.addPricePools(pools);
+        assertFalse(router.hasPricePool(router.pricePoolId(address(weth), address(stock))));
+    }
+
+    function test_batchRoutesRollBackReferencesOnDuplicate() public {
+        bytes32 id =
+            router.addPricePool(INutboxRouter.SourceType.V3_POOL, abi.encode(address(oldFactory), _pool(oldFactory)));
+        bytes32[] memory ids = new bytes32[](1);
+        ids[0] = id;
+        INutboxRouter.InitialRoute[] memory routes = new INutboxRouter.InitialRoute[](2);
+        routes[0] = INutboxRouter.InitialRoute(address(weth), address(stock), ids);
+        routes[1] = routes[0];
+        vm.expectRevert(NutboxRouter.RouteAlreadyExists.selector);
+        router.addRoutes(routes);
+        assertFalse(router.hasRoute(address(weth), address(stock)));
+        (, uint32 references,,,,) = router.pricePool(id);
+        assertEq(references, 0);
+    }
+
+    function test_batchRejectsWrongPairAndNonOwner() public {
+        INutboxRouter.InitialPricePool[] memory pools = new INutboxRouter.InitialPricePool[](1);
+        pools[0] = _batchPool(_pool(oldFactory));
+        vm.prank(address(0x123));
+        vm.expectRevert("Ownable: caller is not the owner");
+        router.addPricePools(pools);
+        INutboxRouter.InitialRoute[] memory routes = new INutboxRouter.InitialRoute[](0);
+        vm.prank(address(0x123));
+        vm.expectRevert("Ownable: caller is not the owner");
+        router.addRoutes(routes);
+        pools[0].token0 = address(0x456);
+        vm.expectRevert(NutboxRouter.InvalidPair.selector);
+        router.addPricePools(pools);
+        assertFalse(router.hasPricePool(router.pricePoolId(address(weth), address(stock))));
+    }
+
+    function test_sixteenEntryBatchGasAndAllEntriesPresent() public {
+        INutboxRouter.InitialPricePool[] memory pools = new INutboxRouter.InitialPricePool[](16);
+        INutboxRouter.InitialRoute[] memory routes = new INutboxRouter.InitialRoute[](16);
+        for (uint256 i; i < 16; ++i) {
+            address asset = address(new RouterTestToken("Stock", "S"));
+            (address a, address b) = address(weth) < asset ? (address(weth), asset) : (asset, address(weth));
+            RouterV3PoolMock pool = new RouterV3PoolMock(address(oldFactory), a, b, 3000);
+            pool.setState(uint160(1 << 96), 1 ether);
+            oldFactory.setPool(a, b, 3000, address(pool));
+            pools[i] = INutboxRouter.InitialPricePool(
+                a, b, INutboxRouter.SourceType.V3_POOL, abi.encode(address(oldFactory), address(pool))
+            );
+            bytes32[] memory ids = new bytes32[](1);
+            ids[0] = router.pricePoolId(a, b);
+            routes[i] = INutboxRouter.InitialRoute(asset, address(weth), ids);
+        }
+        uint256 gasBefore = gasleft();
+        router.addPricePools(pools);
+        uint256 poolGas = gasBefore - gasleft();
+        gasBefore = gasleft();
+        router.addRoutes(routes);
+        uint256 routeGas = gasBefore - gasleft();
+        assertLt(poolGas, 8_000_000);
+        assertLt(routeGas, 8_000_000);
+        emit log_named_uint("16 pool batch gas (local V3)", poolGas);
+        emit log_named_uint("16 route batch gas (local V3)", routeGas);
+        for (uint256 i; i < routes.length; ++i) {
+            assertEq(router.routePoolAt(routes[i].tokenIn, routes[i].tokenOut, 0), routes[i].poolIds[0]);
+        }
+    }
 }

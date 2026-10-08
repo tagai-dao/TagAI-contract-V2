@@ -1,0 +1,4414 @@
+{
+  "pools": [
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xb9cc006e15f9298478fa337ed2e54d3d33bcbc4979b862c0bf9836f558aef088",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x4B462b9699083f9C369e22686Dbe525104BF0a56",
+          "symbol": "BKXY",
+          "decimals": 18,
+          "name": "Bkxy",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://ipfs.io/ipfs/bafybeibakid3u32ivlingrdoisfbtok3mgtt2iqhwrjjglt6753atnjnwq"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 8,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "currentTick": 166215,
+        "sqrtPriceX96": "322130608649469938389463427025242",
+        "liquidity": "11224406758565465756598",
+        "protocolFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 147836.667182347,
+        "volume1d": 0,
+        "volume30d": 17.707771782633905,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xbb009744d31473057484c39e2d205c047f16383a9540cf6e1a4010be31cb4347",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fC0E91096603e46251FaB54E91f1fb1e227445e",
+          "symbol": "GENS",
+          "decimals": 18,
+          "name": "Genesis Coin",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://ipfs.io/ipfs/bafybeifouh3e6kjwt64rvgb5nofazyrrg3zypj5l3bwre352orqaltq4xm"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 8,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "currentTick": 166215,
+        "sqrtPriceX96": "322129781366155065997318496744923",
+        "liquidity": "11224406758565465756598",
+        "protocolFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 147743.095397296,
+        "volume1d": 0,
+        "volume30d": 0.04525324310997057,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xe8c589d759e7c2fe2d32790720e2abd20979fbc8e8100610b1811c92ed9b20fb",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x03C3F538aBEbfC7E81A4Ee323f013c3943C4d44a",
+          "symbol": "STONK",
+          "decimals": 18,
+          "name": "Stonk up x100",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://ipfs.io/ipfs/bafybeic33th6iexazmzoif4j7dmwbtv2hyldvacnincqv6e7arfo3ogohm"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 8,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "currentTick": -166215,
+        "sqrtPriceX96": "19487724806172602016394785",
+        "liquidity": "11224406758565465756598",
+        "protocolFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 147688.108510211,
+        "volume1d": 0,
+        "volume30d": 382.84975190855647,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xfda39890255a0c5e960d1ad8006e1a4a520f7c04c4f90a7b372b9f8365f87973",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x07Ea46f87b17C51e4f4766BF3e05D43feD5C9c19",
+          "symbol": "ASTEROID",
+          "decimals": 18,
+          "name": "Asteroid Pepe",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://ipfs.io/ipfs/bafybeicpaxpmgadplrzqwoqperfibq23qn6osjahxldiu42sbvjy3mppf4"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 8,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "currentTick": -166215,
+        "sqrtPriceX96": "19487724806172602016394785",
+        "liquidity": "11224406758565465756598",
+        "protocolFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 147582.77152389,
+        "volume1d": 0,
+        "volume30d": 382.84975190855647,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x07e487e95843dfcaa0e1e160a47fe39fe58d9a740a63923b164beeb1e686a530",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x668e060C6cc734f1A598BCcce2D9544248e5E45c",
+          "symbol": "CHAMP",
+          "decimals": 18,
+          "name": "CHAMPDOG",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://ipfs.io/ipfs/bafybeih4oq3w4pktrzpokc3tapjksnfjrkpvupfai6pk7vs6vm66k4hc6e"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 8,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "currentTick": 166215,
+        "sqrtPriceX96": "322120271530271908020241035403882",
+        "liquidity": "11224406758565465756598",
+        "protocolFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 147512.367361152,
+        "volume1d": 0,
+        "volume30d": 0.24549054432761674,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x52FcB1D83191E06ef2d2D9f460609CA22a923558",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x62C71cd34a52c30d894419CBcc55Db2aFA8032eA",
+          "symbol": "YOLO",
+          "decimals": 18,
+          "name": "YOLO",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174641/large/fzvhldxmvphx85ls235mclk6bf3x.?1784363718"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 144590,
+        "sqrtPriceX96": "109260916729613020874308701658358",
+        "liquidity": "39960138953364588147587",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 146371.941524202,
+        "volume1d": 41535.5899245744,
+        "volume30d": 6661517.754595118,
+        "apr": 86.3125938197825,
+        "totalApr": 86.3125938197825,
+        "volume1dTvlRatio": 0.2837674317362707
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc9dad63b6fb9afe1fe888ebc7b023c587c58b9498f5bd17166226c0995dbc4eb",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5e81213613b6B86EaB4c6c50d718d34359459786",
+          "symbol": "TTWO",
+          "decimals": 18,
+          "name": "Take-Two Interactive Software",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174176/large/0x5e81213613b6b86eab4c6c50d718d34359459786.png?1782444740"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 80,
+        "feeTier": 8000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -223143,
+        "sqrtPriceX96": "1131457938024803844352382",
+        "liquidity": "138234144873984846",
+        "protocolFee": 1000,
+        "effectiveFee": 9000,
+        "currentLpFee": 8000
+      },
+      "stats": {
+        "tvl": 146274.493719585,
+        "volume1d": 15704.300569,
+        "volume30d": 1834843.875167,
+        "apr": 31.3183111688903,
+        "totalApr": 31.3183111688903,
+        "volume1dTvlRatio": 0.10736185215657539
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x700dbf43dfb16d906ae8436e5eb1747447a6dbd46e750d00d18ea1e1b3105d5a",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x1850C2D847830E74F07dc94538fCEB1ccCd16a97",
+          "symbol": "HORCRUX",
+          "decimals": 18,
+          "name": "Horcrux",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://ipfs.io/ipfs/bafybeie64afevpoz57hsob6kj6thaxxtnwwcrmnlmvu2se67uevqbz7vaa"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 8,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "currentTick": 166211,
+        "sqrtPriceX96": "322052369537533616592884007382879",
+        "liquidity": "11224406758565465756598",
+        "protocolFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 146240.034494324,
+        "volume1d": 0,
+        "volume30d": 1242.8732253298087,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x93B6d44eC298349ab7d4d2968d511FdD1A6a1B51",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x75CE3Ea0f536671C404E68f8b4bB8BC5326242Ed",
+          "symbol": "CHKN",
+          "decimals": 18,
+          "name": "CHICKEN",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176789/large/dsdd.png?1788714226"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V2",
+        "feeTier": 3000,
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 144275.493845198,
+        "volume1d": 840.164645442055,
+        "volume30d": 83856.80563615992,
+        "apr": 0.531379389897264,
+        "totalApr": 0.531379389897264,
+        "volume1dTvlRatio": 0.005823335779696023
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xC67C2D200E0b7E5D99F4CFBede8CB09B48892f2c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x2D427692E928fa156ec22acfaBaFA0447C5805B7",
+          "symbol": "GLXY",
+          "decimals": 18,
+          "name": "Galaxy Digital Inc.",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175402/large/GLXY.png?1786287575"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -245729,
+        "sqrtPriceX96": "365772748049927617325218",
+        "liquidity": "212679653827906259",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 143569.146464493,
+        "volume1d": 104659.344033,
+        "volume30d": 8668018.971276,
+        "apr": 66.519620532627,
+        "totalApr": 66.519620532627,
+        "volume1dTvlRatio": 0.7289821428233118
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x81b4Caac5d313ea0c831C4D16f8c23937602dCF1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x1D11f0496982706C5e14A514D4E79F2e6BdE4516",
+          "symbol": "DJT",
+          "decimals": 18,
+          "name": "Trump Media & Technology Group",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175474/large/DJT.png?1786375153"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 57452,
+        "sqrtPriceX96": "1400840065872096834498227068969",
+        "liquidity": "1640705922900571005573",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 143262.353726253,
+        "volume1d": 25248.4602184424,
+        "volume30d": 906908.5898387393,
+        "apr": 16.0818382150501,
+        "totalApr": 16.0818382150501,
+        "volume1dTvlRatio": 0.17623932290465774
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x1934f4ed75e98ec2ebf885359f7999938a61a0c8f14c7e31b30f0ca9780c12e5",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x8d1612b4B78eBf08CFBf01A04Fa270CCbB0509A2",
+          "symbol": "RKST",
+          "decimals": 18,
+          "name": "rocket strategy",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176781/large/rocket_strategy_logo_200x200.png?1789012984"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 780,
+        "feeTier": 39000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 334648,
+        "sqrtPriceX96": "1463263338710010314018913650993076336",
+        "liquidity": "1119782836456868197",
+        "protocolFee": 1000,
+        "effectiveFee": 40000,
+        "currentLpFee": 39000
+      },
+      "stats": {
+        "tvl": 140747.500136663,
+        "volume1d": 14048.127862,
+        "volume30d": 1035605.5058960001,
+        "apr": 141.93866663456,
+        "totalApr": 141.93866663456,
+        "volume1dTvlRatio": 0.09981085169086164
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x3ea089420cedb33ece280873519fbc0bce954ea1cb5c27a29f1d62cda91a0714",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xb8Fa8010833463Aac5595b55B9045479239EfF79",
+          "symbol": "WTH",
+          "decimals": 18,
+          "name": "what the hook?",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175551/large/Hook_Logo_Metallic_Black_BG.png?1788414631"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 4400,
+        "feeTier": 440000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 242248,
+        "sqrtPriceX96": "14420340519249710052415143213466870",
+        "liquidity": "443275544303",
+        "protocolFee": 1000,
+        "effectiveFee": 441000,
+        "currentLpFee": 440000
+      },
+      "stats": {
+        "tvl": 139571.749156653,
+        "volume1d": 0,
+        "volume30d": 59.096751999999995,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8fb2273e40a44bd4b442bf7f24b953e46a7ecae7384038b266008ae44ebe62be",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x56910D4409F3a0C78C64DD8D0545FF0705389870",
+          "symbol": "Index",
+          "decimals": 18,
+          "name": "The Index",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174740/large/qffiSdBd_400x400_%281%29.jpg?1784708104"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 120,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x08E52564Bad99E05a694b4809F397edcA417A080",
+        "currentTick": -320333,
+        "sqrtPriceX96": "8775942320398660943803",
+        "liquidity": "2200104699669682458",
+        "protocolFee": 0,
+        "currentLpFee": 6000
+      },
+      "stats": {
+        "tvl": 138591.68943164,
+        "volume1d": 567602.532721,
+        "volume30d": 6754154.558141001,
+        "apr": 897.383448212637,
+        "totalApr": 897.383448212637,
+        "volume1dTvlRatio": 4.095501938454748
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xdB1b57704d5122058FF925C1E765c17B21D065EC",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x51Fb76BE80ab6daAa345D818f4E06441816b4fEa",
+          "symbol": "NASDANQ",
+          "decimals": 18,
+          "name": "NASDANQ",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175256/large/nasdanq.png?1786000485"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 145134,
+        "sqrtPriceX96": "112271897445673107772154716546660",
+        "liquidity": "47119488911143706503635",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 137933.33212569,
+        "volume1d": 6863.4617220951,
+        "volume30d": 2981042.560694507,
+        "apr": 15.1246978016961,
+        "totalApr": 15.1246978016961,
+        "volume1dTvlRatio": 0.04975926859970915
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x2bdaff94f0bb7083e791ccb9f131afbad64d601190944f5687ccc882e2042c59",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5B09e58B94aBd4527F00ABbA9A4172E508b018A0",
+          "symbol": "Quiver",
+          "decimals": 18,
+          "name": "Quiver",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 157117,
+        "sqrtPriceX96": "204398012515809708276533265938021",
+        "liquidity": "0",
+        "protocolFee": 25,
+        "effectiveFee": 125,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 137476.854599499,
+        "volume1d": 0,
+        "volume30d": 211685.86319061866,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x04b7fE59EE6eA605cb64E40F0BbF2E4A43016C97",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x6ad691eB6e540bCe095c6F2F3265526232beB142",
+          "symbol": "ART",
+          "decimals": 6,
+          "name": "Aurum Reserve Token",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -2658,
+        "sqrtPriceX96": "69370021144719988037956029128",
+        "liquidity": "961655032565",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 137122.478097214,
+        "volume1d": 0,
+        "volume30d": 1027.340985,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x3706db9056cfa2de6e6b939ac77e2fffd3787f131929a0c471410b97c53fcb12",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x1937caD42b17D43bB2b347ce16d5288887C46c33",
+          "symbol": "ANTHROPICx1L",
+          "decimals": 18,
+          "name": "ANTHROPIC 1x Long",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 0,
+        "hookAddress": "0xaA79546f3AEB45ECf909d452b7B9837c8D89C5c7",
+        "currentTick": -274913,
+        "sqrtPriceX96": "85023494996205780507492",
+        "liquidity": "0",
+        "protocolFee": 0,
+        "effectiveFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 136505.309085425,
+        "volume1d": 0,
+        "volume30d": 352450.40533599997,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x1BDB8e3A79Cb1a7F228808739311E23098D33d43",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xF0C4BF4C582cb3836e98394b1d4e7B7281101bE8",
+          "symbol": "RBLX",
+          "decimals": 18,
+          "name": "Roblox",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174202/large/0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8.png?1782444808"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 237918,
+        "sqrtPriceX96": "11613288418350434076642168691577178",
+        "liquidity": "214030946002007575",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 135869.883493562,
+        "volume1d": 159564.017858,
+        "volume30d": 6965440.974123,
+        "apr": 107.162943362886,
+        "totalApr": 107.162943362886,
+        "volume1dTvlRatio": 1.1743884204151889
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x58C684D51d184427521555E5FD8D2Cd6c1DF0798",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5b6Ce079Cd0DAd8D0b7de3D73C8fdB5d63b093a2",
+          "symbol": "GIF",
+          "decimals": 18,
+          "name": "Giraffe Wif Cap",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "currentTick": 154459,
+        "sqrtPriceX96": "178964787130929636056945216580570",
+        "liquidity": "67083695638153680707333",
+        "protocolFee": 25,
+        "effectiveFee": 100,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 135341.628319363,
+        "volume1d": 1130601.64728944,
+        "volume30d": 1130601.6472894424,
+        "apr": 22.8856653301019,
+        "totalApr": 22.8856653301019,
+        "volume1dTvlRatio": 8.353687341647623
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x2ef5945cd5664876b6481FdacFaA2942995a4DA8",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xF0C4BF4C582cb3836e98394b1d4e7B7281101bE8",
+          "symbol": "RBLX",
+          "decimals": 18,
+          "name": "Roblox",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174202/large/0xf0c4bf4c582cb3836e98394b1d4e7b7281101be8.png?1782444808"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 237979,
+        "sqrtPriceX96": "11648856889378207813091711150073314",
+        "liquidity": "118918035735400292",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 134185.802597499,
+        "volume1d": 70584.797919,
+        "volume30d": 3757741.2739859996,
+        "apr": 159.998615984451,
+        "totalApr": 159.998615984451,
+        "volume1dTvlRatio": 0.5260228470721655
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xa680edd0574d80e0808ec972c7ce7f426886e7a94eb1a200243bc8b6333a110c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x361F30AB5293702C538EF744b3633F48850E851a",
+          "symbol": "LEV7",
+          "decimals": 18,
+          "name": "LEV7",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102178448/large/lev7-icon.png?1789569627"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "hookAddress": "0x0830A76Ca883F5E56FF1083c372e8B5375b000Cc",
+        "currentTick": -365298,
+        "sqrtPriceX96": "926727203552843024302",
+        "liquidity": "854537306661836564",
+        "protocolFee": 0,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 133985.786735131,
+        "volume1d": 0,
+        "volume30d": 53130.46275899999,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8111082d181841cbd123e82bced032b1331140332b6ce3da37f53a6b24ed736c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x100765a16f42636Bd84EE1e86Bc5107b84bCdBA3",
+          "symbol": "CHOP",
+          "decimals": 18,
+          "name": "Chop",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "currentTick": 199755,
+        "sqrtPriceX96": "1723024771211746886916876856522408",
+        "liquidity": "631311607466119948231408",
+        "protocolFee": 0,
+        "currentLpFee": 7000
+      },
+      "stats": {
+        "tvl": 133815.040941065,
+        "volume1d": 2316073.81196367,
+        "volume30d": 2316073.8119636686,
+        "apr": 4422.19988721098,
+        "totalApr": 4422.19988721098,
+        "volume1dTvlRatio": 17.30802304192186
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x43DcC9f63a59e530Bf3707FA771334e76FB5D8E5",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xFc39e99e78524d7c891669F70d5aa92aB1041eb6",
+          "symbol": "SELECT",
+          "decimals": 18,
+          "name": "Select",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175254/large/hdcb8aaghz9urr1l9ip0kpl203sh.?1785999863"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 158650,
+        "sqrtPriceX96": "220681913667702393109431756608571",
+        "liquidity": "72213651599145747554429",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 132379.233997659,
+        "volume1d": 3340.08779001328,
+        "volume30d": 282526.78518624476,
+        "apr": 7.6744919787067,
+        "totalApr": 7.6744919787067,
+        "volume1dTvlRatio": 0.02523120650533713
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xf41f4a305b46de606243418143e018e33f1a430c8428da8f585f6f4622758938",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x648bF8A42D4546FDB9c840cB6eD78379e80bb0Dd",
+          "symbol": "QPULL",
+          "decimals": 18,
+          "name": "QPULL",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "hookAddress": "0x3536e961b166254e678ddF9f602cbc94D9009Acc",
+        "currentTick": 172683,
+        "sqrtPriceX96": "445103480118168007658709044176437",
+        "liquidity": "144395290781936513956153",
+        "protocolFee": 0,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 131991.965896188,
+        "volume1d": 5669.4996350861,
+        "volume30d": 391210.9790765625,
+        "apr": 4.70339392118909,
+        "totalApr": 4.70339392118909,
+        "volume1dTvlRatio": 0.04295336914327934
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x013E9F1303e76dB3A318cc3012b5de64eccbE50d",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xE77d354898A44808ff3999947002785CD727BEd5",
+          "symbol": "SFI",
+          "decimals": 18,
+          "name": "Spice",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/13117/large/sfi_red_250px.png?1696512904"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 229178,
+        "sqrtPriceX96": "7502026231935647520153800798794194",
+        "liquidity": "6814732899229146",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 131902.476116904,
+        "volume1d": 0,
+        "volume30d": 207228.341224,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x4030f646babe7643c33ee0b9a5123e04ee97a8820a26d0d9dec8b0265f31170d",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xCA9c78Dd337A67F6e0077F65F5E9218719d30eDf",
+          "symbol": "NET",
+          "decimals": 9,
+          "name": "NetNet",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174712/large/netnet_400x400.jpg?1784646716"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x08E52564Bad99E05a694b4809F397edcA417A080",
+        "currentTick": 14486,
+        "sqrtPriceX96": "163467212104290862520966212104",
+        "liquidity": "491608845132",
+        "protocolFee": 0,
+        "currentLpFee": 9000
+      },
+      "stats": {
+        "tvl": 131629.59014261,
+        "volume1d": 289317.095651,
+        "volume30d": 2005597.696258,
+        "apr": 722.031161977975,
+        "totalApr": 722.031161977975,
+        "volume1dTvlRatio": 2.1979639634032773
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x7F310e3D05E575Bd449E4484eF5Da15863ea43B1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x92FD66527192E3e61d4DDd13322Aa222DE86F9B5",
+          "symbol": "SGOV",
+          "decimals": 18,
+          "name": "iShares 0-3 Month Treasury Bond",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174130/large/0x92fd66527192e3e61d4ddd13322aa222de86f9b5.png?1782444616"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 32323,
+        "sqrtPriceX96": "398785172014355477466505356552",
+        "liquidity": "2525716505089236412776",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 131501.979902016,
+        "volume1d": 20401.5725348458,
+        "volume30d": 1278197.1537896025,
+        "apr": 47.1892386510537,
+        "totalApr": 47.1892386510537,
+        "volume1dTvlRatio": 0.1551427024144222
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xca5904C0a9d42F0Ec1Bf760FDf779907877144fD",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x41F4267525a8AFf329540eF24fD83d9044758B33",
+          "symbol": "FIG",
+          "decimals": 18,
+          "name": "Figma",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175289/large/FIG.png?1786070068"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -245571,
+        "sqrtPriceX96": "368686893400703755885810",
+        "liquidity": "331569667458840600",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 131446.433089962,
+        "volume1d": 68522.723514,
+        "volume30d": 3879305.2395830005,
+        "apr": 47.5684153131272,
+        "totalApr": 47.5684153131272,
+        "volume1dTvlRatio": 0.521297702061668
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x68518a0a7081c15381b2d34b70fbf10210c5c7d1706b6fcb65ac953041cbffc1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xD7321801CAae694090694Ff55A9323139F043B88",
+          "symbol": "JUGGERNAUT",
+          "decimals": 18,
+          "name": "The Juggernaut",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174595/large/juggernaut.jpg?1784167487"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 9999,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 330408,
+        "sqrtPriceX96": "1183701050133137682973370799916301759",
+        "liquidity": "3325981752065915540",
+        "protocolFee": 1000,
+        "effectiveFee": 10999,
+        "currentLpFee": 9999
+      },
+      "stats": {
+        "tvl": 131124.605027119,
+        "volume1d": 64967.01652,
+        "volume30d": 15970337.113230001,
+        "apr": 180.6621119192,
+        "totalApr": 180.6621119192,
+        "volume1dTvlRatio": 0.4954601503399276
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x4e2a7c0057cec67170ee71641d23d0e835afb6f1deb6b4c6a182b4c16ec8f594",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x7dbf38976f6D3b9c529e7D9484A71898B409eE6a",
+          "symbol": "ZZZ",
+          "decimals": 18,
+          "name": "ZZZ",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176737/large/zzz-new-logo-black.png?1791254593"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x08E52564Bad99E05a694b4809F397edcA417A080",
+        "currentTick": 322796,
+        "sqrtPriceX96": "809038587265663932342258583651078506",
+        "liquidity": "1628194151496551643",
+        "protocolFee": 0,
+        "currentLpFee": 16000
+      },
+      "stats": {
+        "tvl": 130453.216182806,
+        "volume1d": 127499.174333,
+        "volume30d": 7329623.024342999,
+        "apr": 601.756415128324,
+        "totalApr": 601.756415128324,
+        "volume1dTvlRatio": 0.9773555460245115
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc2ce4784e1e72cf0221b51b30c8aaadf6c0b12863cf03ab3687854fb7b1d850a",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xb0992820E760d836549ba69BC7598b4af75dEE03",
+          "symbol": "ORCL",
+          "decimals": 18,
+          "name": "Oracle",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174128/large/0xb0992820e760d836549ba69bc7598b4af75dee03.png?1782444611"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 226669,
+        "sqrtPriceX96": "6617480400817998384368040460462493",
+        "liquidity": "68572273525451846",
+        "protocolFee": 1000,
+        "effectiveFee": 11000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 130349.935336228,
+        "volume1d": 3663.037103,
+        "volume30d": 804554.1592649999,
+        "apr": 10.2468139367092,
+        "totalApr": 10.2468139367092,
+        "volume1dTvlRatio": 0.028101564404703905
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x0923b1d8044cb4df7fc1493edc7af481e9b88f2de634b34aeb2b0883b633ebe4",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x62c530cD34a50c9d1E296dD8E008aC327cFDc5FF",
+          "symbol": "MM",
+          "decimals": 18,
+          "name": "Market Maker",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 10,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0xFEDB6E7a40716291793ef50D6d294dF62CEC68cC",
+        "currentTick": 387675,
+        "sqrtPriceX96": "20736148132851393924121037468119472192",
+        "liquidity": "141377903661265631",
+        "protocolFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 129887.822282459,
+        "volume1d": 0,
+        "volume30d": 564.3441770000001,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x7522cc06621e42d763e9493d334e8dce8f001b8422a4e08f9b9ba705683eb0cd",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x6E1800D20B1438c7101087cE0C88314f464EAA4f",
+          "symbol": "FILAB",
+          "decimals": 18,
+          "name": "FiLab",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 5212,
+        "feeTier": 521230,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 476090,
+        "sqrtPriceX96": "1724020047183768869271847215360705051583",
+        "liquidity": "208210382226688975",
+        "protocolFee": 1000,
+        "effectiveFee": 522230,
+        "currentLpFee": 521230
+      },
+      "stats": {
+        "tvl": 128741.105737275,
+        "volume1d": 1.3e-05,
+        "volume30d": 2109.881135,
+        "apr": 1.91917273884702e-06,
+        "totalApr": 1.91917273884702e-06,
+        "volume1dTvlRatio": 1.0097784950309037e-10
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x9664D869540E9D0a76f12C6623946C6D5d201e09",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xCEC185eB182c47d1bA1EFc84e6959e18cd620Be4",
+          "symbol": "cbBTC",
+          "decimals": 8,
+          "name": "Coinbase Wrapped BTC",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/40143/large/cbbtc.webp?1726136727"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 10,
+        "feeTier": 500,
+        "currentTick": -67177,
+        "sqrtPriceX96": "2755683469951507070678252176",
+        "liquidity": "48615831940",
+        "protocolFee": 125,
+        "effectiveFee": 500,
+        "currentLpFee": 500
+      },
+      "stats": {
+        "tvl": 128429.95904952,
+        "volume1d": 205689.721812,
+        "volume30d": 4555649.711503,
+        "apr": 21.9215056061506,
+        "totalApr": 21.9215056061506,
+        "volume1dTvlRatio": 1.60157118583749
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x714187EeD11d8fc9500ff6798734c8BB63a8A19b",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x05b37Fb53A299a1b874A619e1c4C404D52C36F4C",
+          "symbol": "RDDT",
+          "decimals": 18,
+          "name": "Reddit",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174197/large/0x05b37fb53a299a1b874a619e1c4c404d52c36f4c.png?1782444795"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -28252,
+        "sqrtPriceX96": "19295110958516147076433534214",
+        "liquidity": "2952462012596237127702",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 127326.512428042,
+        "volume1d": 92512.9588474013,
+        "volume30d": 2316038.6068895934,
+        "apr": 66.3004690370061,
+        "totalApr": 66.3004690370061,
+        "volume1dTvlRatio": 0.7265804825973269
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xEF3063A407599E3181e57BdF75dC2AeBDD0cE40a",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x15d36B6A28d8327ABc7aFABF0F106AE2c9Af5C4d",
+          "symbol": "PARE",
+          "decimals": 18,
+          "name": "Pare",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176704/large/pare.jpg?1788515275"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 136718,
+        "sqrtPriceX96": "73710531599745351511457163509634",
+        "liquidity": "27243044213115319612978",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 127277.771624164,
+        "volume1d": 60897.7291853389,
+        "volume30d": 13187034.203295672,
+        "apr": 145.57735013647,
+        "totalApr": 145.57735013647,
+        "volume1dTvlRatio": 0.4784631943837184
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xfd2fff96a89622853d7322e6829c16182f1c1e6a73be8d3819dc4f5f54ba0d86",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0000000000000000000000000000000000000000",
+          "symbol": "ETH",
+          "decimals": 18,
+          "name": "Ethereum",
+          "type": "TOKEN_TYPE_NATIVE",
+          "project": {
+            "logoUrl": "https://didcmo2jyrnku.cloudfront.net/assets/eth.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 30,
+        "feeTier": 0,
+        "hookAddress": "0x58A6eF29ddCdb064A72b550a78D84a8e065994C0",
+        "currentTick": -197918,
+        "sqrtPriceX96": "3993673637308002739794957",
+        "liquidity": "2328459168345",
+        "protocolFee": 0,
+        "effectiveFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 127152.025062081,
+        "volume1d": 9728.370967,
+        "volume30d": 517761.052044,
+        "apr": 0,
+        "totalApr": 0,
+        "volume1dTvlRatio": 0.07650976036166313
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x9194a557b6a6bb2236b49ea7e2bbccec5d3eeb705aef00903be4b3de1d949579",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xe93237C50D904957Cf27E7B1133b510C669c2e74",
+          "symbol": "MSFT",
+          "decimals": 18,
+          "name": "Microsoft",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174116/large/0xe93237c50d904957cf27e7b1133b510c669c2e74.png?1782444580"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 213596,
+        "sqrtPriceX96": "3442257055934358052718657566549890",
+        "liquidity": "83404250828950062",
+        "protocolFee": 500,
+        "effectiveFee": 3500,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 126919.123331882,
+        "volume1d": 38306.059421,
+        "volume30d": 7160493.2823520005,
+        "apr": 33.0339219013058,
+        "totalApr": 33.0339219013058,
+        "volume1dTvlRatio": 0.30181471802978915
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8927186a3ceccc96e63cac2d6fb37e9fd099321ecb0518fb50fe1131e9795081",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x3183d125610725E1b507Fc78aE5A16376609495F",
+          "symbol": "PAWS",
+          "decimals": 18,
+          "name": "Paws of Sherwood",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102179123/large/paws_400x400.jpg?1791212853"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 0,
+        "hookAddress": "0xF8DA5CCbdcF2240B055331e694e4c32F848e00Cc",
+        "currentTick": -345994,
+        "sqrtPriceX96": "2432724967009113432949",
+        "liquidity": "2121320343559642573",
+        "protocolFee": 0,
+        "effectiveFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 125861.638943405,
+        "volume1d": 207955.111856,
+        "volume30d": 2367611.373215,
+        "apr": 0,
+        "totalApr": 0,
+        "volume1dTvlRatio": 1.6522517393048504
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x81Af43B4A865633Cd16c9758569CDB5846C54CAF",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x416D0C4B431Cfa33b4A4974e3DfC9f5089137148",
+          "symbol": "ARROWFARM",
+          "decimals": 18,
+          "name": "ARROWFARM",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102178970/large/Icon_bg.png?1790777746"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": -238581,
+        "sqrtPriceX96": "522917031223329550299862",
+        "liquidity": "6572652851643921",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 125672.962789055,
+        "volume1d": 23945.629613,
+        "volume30d": 3918061.979315,
+        "apr": 57.9556825826274,
+        "totalApr": 57.9556825826274,
+        "volume1dTvlRatio": 0.1905392304086385
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x7c2f9ce1214ba9baf56d1b6a1fc640c1b63e9a711172c0c7d10e5a9c4a3d4f0c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x9D9c6684F596F66a64C030B93A886D51Fd4D7931",
+          "symbol": "NBIS",
+          "decimals": 18,
+          "name": "Nebius Group",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174160/large/0x9d9c6684f596f66a64c030b93a886d51fd4d7931.png?1782444697"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 99,
+        "feeTier": 9900,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 221659,
+        "sqrtPriceX96": "5151266025901265032698075262210803",
+        "liquidity": "24107288111850228",
+        "protocolFee": 1000,
+        "effectiveFee": 10900,
+        "currentLpFee": 9900
+      },
+      "stats": {
+        "tvl": 124837.697138408,
+        "volume1d": 13649.348721,
+        "volume30d": 691547.636709,
+        "apr": 39.4729193363374,
+        "totalApr": 39.4729193363374,
+        "volume1dTvlRatio": 0.1093367551138573
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x783C9bbB765047CFdD2b84b92b2Ca9F11D34b7Ed",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
+          "symbol": "AAPL",
+          "decimals": 18,
+          "name": "Apple",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174123/large/0xaf3d76f1834a1d425780943c99ea8a608f8a93f9.png?1782444598"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 218137,
+        "sqrtPriceX96": "4319594471915935584719551061367012",
+        "liquidity": "76261006275960073",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 124829.178591934,
+        "volume1d": 24035.59762,
+        "volume30d": 823514.8384650002,
+        "apr": 17.5699969155026,
+        "totalApr": 17.5699969155026,
+        "volume1dTvlRatio": 0.1925479114027679
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xec52A53D7AA278b2027C83449B425Cde8ff8015b",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xcEEBF25B318201f1F949be2FabBFcEe231737139",
+          "symbol": "\u5bcc\u8d35",
+          "decimals": 18,
+          "name": "\u5bcc\u8d35",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102178312/large/puppy.jpg?1789275783"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 148091,
+        "sqrtPriceX96": "130161777463543040050961501676252",
+        "liquidity": "43262963245515825432586",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 119801.487390672,
+        "volume1d": 73322.2707110379,
+        "volume30d": 22966136.949592635,
+        "apr": 186.159547434332,
+        "totalApr": 186.159547434332,
+        "volume1dTvlRatio": 0.6120313888252019
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x55aED1a1406Ad8821B3CD0b3a189757aCF007447",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x862cDCCB67C8a22FDb247D09A08B1dAD09447777",
+          "symbol": "moon",
+          "decimals": 18,
+          "name": "mooncat",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176590/large/cat_400x400.jpg?1788271891"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V2",
+        "feeTier": 3000,
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 118741.60212441,
+        "volume1d": 7969.38576388724,
+        "volume30d": 2438074.4767705062,
+        "apr": 6.12838430871155,
+        "totalApr": 6.12838430871155,
+        "volume1dTvlRatio": 0.06711536328722782
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xa3f8BC2E9FceBFA2e5A67C131DFb0FB8bcF3F964",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xC1A0D0ef8c0c353d03f006B8304A4EfB32016d3C",
+          "symbol": "PLTS",
+          "decimals": 18,
+          "name": "Pilates",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://varo-staging.s3.us-east-1.amazonaws.com/launchpad/0x5be26245a4a7104eda806545876826561ef8db1d/d6/d651d5d3c0c1601edad436fb12a94a09a18d129640dde3dabf8d96f756d5d7f1.jpg"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 145564,
+        "sqrtPriceX96": "114715399368855550329460538088058",
+        "liquidity": "54784382550160148181290",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 118363.595178043,
+        "volume1d": 20.0225467776744,
+        "volume30d": 12527.823605960195,
+        "apr": 0.0514532471101585,
+        "totalApr": 0.0514532471101585,
+        "volume1dTvlRatio": 0.00016916136036216543
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x6f4f676f876ab79a7c78aedf86c1bc4b610ae52b51e5d80f178a8a087c87bbbb",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xcb2DE7c90bEABe0B5CE859060346880D6276e544",
+          "symbol": "APG",
+          "decimals": 18,
+          "name": "Apogee Finance",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 164713,
+        "sqrtPriceX96": "298816821065354771043612685357433",
+        "liquidity": "0",
+        "protocolFee": 25,
+        "effectiveFee": 125,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 117922.465018686,
+        "volume1d": 0,
+        "volume30d": 902351.3652968962,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xe741cb4b3b7b1c6870fd1d0937a937253964d51ef847886f2543ff5af6899d10",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xD9d674b04A72AFfe00E06385535Eaac10B988fCa",
+          "symbol": "DRILL",
+          "decimals": 18,
+          "name": "Project Mars",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "hookAddress": "0xA11BdAE367d2e1c97864dE3b484166546762E0CC",
+        "currentTick": 108853,
+        "sqrtPriceX96": "18301668359722100912779459731840",
+        "liquidity": "5304233617948817151669",
+        "protocolFee": 0,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 117895.957427702,
+        "volume1d": 5006.36229265604,
+        "volume30d": 14651527.673937757,
+        "apr": 4.64983433704254,
+        "totalApr": 4.64983433704254,
+        "volume1dTvlRatio": 0.04246424052093661
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x07e8Ea83D4C1340774c8965125e26e12bf943bf1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x58FfE4a942d3885bAa22D7520691F611EF09e7AA",
+          "symbol": "TSM",
+          "decimals": 18,
+          "name": "Taiwan Semiconductor Manufacturing",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174148/large/0x58ffe4a942d3885baa22d7520691f611ef09e7aa.png?1782444664"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": -214643,
+        "sqrtPriceX96": "1730620195619151739786804",
+        "liquidity": "28367072570010159",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 117789.15246306,
+        "volume1d": 1609.603726,
+        "volume30d": 395783.475091,
+        "apr": 4.15647612495731,
+        "totalApr": 4.15647612495731,
+        "volume1dTvlRatio": 0.013665126986161054
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xee53240450839ada47d40c6335135cbcd5cb924ad048ed6c2a5703970c880546",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x1937caD42b17D43bB2b347ce16d5288887C46c33",
+          "symbol": "ANTHROPICx1L",
+          "decimals": 18,
+          "name": "ANTHROPIC 1x Long",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 16,
+        "feeTier": 1600,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -276514,
+        "sqrtPriceX96": "78481970588679622289003",
+        "liquidity": "1150913597960190320",
+        "protocolFee": 276,
+        "effectiveFee": 1876,
+        "currentLpFee": 1600
+      },
+      "stats": {
+        "tvl": 117245.966347292,
+        "volume1d": 40030.226254,
+        "volume30d": 2591390.5825529993,
+        "apr": 19.9308367602873,
+        "totalApr": 19.9308367602873,
+        "volume1dTvlRatio": 0.34142092475426616
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xE07E023b3548EeA40cF5Bd9153e0665e8DbaaFeE",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x871CEDF1680dCdDe6ADebCf116A076F330063B00",
+          "symbol": "RUBHUB",
+          "decimals": 18,
+          "name": "RubHub",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 167970,
+        "sqrtPriceX96": "351658406878804846014380818648923",
+        "liquidity": "191217514693727622988071",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 116345.044819968,
+        "volume1d": 0,
+        "volume30d": 6409.341925470404,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x34321F090A123D52473ae1a2473e8ed97dD9F770",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x6835dbF2D7D5852f84bF0a80DE00CAB3864F44b1",
+          "symbol": "HH",
+          "decimals": 18,
+          "name": "HyperHood",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176580/large/token-logo-200.png?1788215020"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V2",
+        "feeTier": 3000,
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 115978.190415047,
+        "volume1d": 686.513909411729,
+        "volume30d": 840437.3649721922,
+        "apr": 0.540139434919935,
+        "totalApr": 0.540139434919935,
+        "volume1dTvlRatio": 0.005919336273095193
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xF397c2B570848E1684c7C824745c20d94d3B2Ca1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xC1a0C3929f5e12b5CfD6Ae36f197a45beDf79417",
+          "symbol": "SESTRI",
+          "decimals": 18,
+          "name": "Sestri",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://varo-assets.rialto.xyz/launchpad/0x4f953bdfa27f35a8583041ce4efaafa5b3f0079b/7e/7ee9d453dfc8d6f41e22ddbfcbc2dcd9d063e28c02f8df8420434ca01c3c538c.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 145292,
+        "sqrtPriceX96": "113163412206057488880155612806122",
+        "liquidity": "48596734049860371004036",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 114786.092502916,
+        "volume1d": 6.49926991949161,
+        "volume30d": 235373.2521012227,
+        "apr": 0.0172221322642243,
+        "totalApr": 0.0172221322642243,
+        "volume1dTvlRatio": 5.662070881388792e-05
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xcb69f1b3d627d84795f6ba157faa1051f6160919d7f3cd0e510ff6afcbe03961",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xab093dEF657F15dF31b33922A95e047aDd645B29",
+          "symbol": "SHROOM",
+          "decimals": 18,
+          "name": "MUSHROOM",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176720/large/shroom.jpg?1788592860"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x08E52564Bad99E05a694b4809F397edcA417A080",
+        "currentTick": 325944,
+        "sqrtPriceX96": "946932648082063963481671711352819943",
+        "liquidity": "2258111721964545474",
+        "protocolFee": 0,
+        "currentLpFee": 9900
+      },
+      "stats": {
+        "tvl": 114213.358667455,
+        "volume1d": 88813.000573,
+        "volume30d": 594598.071001,
+        "apr": 280.987952122963,
+        "totalApr": 280.987952122963,
+        "volume1dTvlRatio": 0.777606066481146
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x6c402550eB35Ef0cE7E442654E5431C6d15A1d13",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x4b3A3FF4Ec9D289727e24A8152F406Bada44264D",
+          "symbol": "FIH",
+          "decimals": 18,
+          "name": "Frog In Hood",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102178438/large/FIH_logo.png?1789567661"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 152124,
+        "sqrtPriceX96": "159244728948272645168269829634861",
+        "liquidity": "36833050994078152574939",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 114192.274254308,
+        "volume1d": 24427.7458454761,
+        "volume30d": 2201058.3358428045,
+        "apr": 65.0666262364828,
+        "totalApr": 65.0666262364828,
+        "volume1dTvlRatio": 0.2139176752980252
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x191AE9cDe295b1A568164a078bCD8Ce8D338FE6d",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xfB1bcB6817F7b8fA86896D3253b16aEB7Bd6A5A8",
+          "symbol": "worth",
+          "decimals": 18,
+          "name": "one life, its worth an attempt",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174519/large/worth.jpg?1783855128"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 147689,
+        "sqrtPriceX96": "127573373915082759780115462116741",
+        "liquidity": "36843866012698444929324",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 114063.369497839,
+        "volume1d": 43764.0807701572,
+        "volume30d": 1836562.4848255925,
+        "apr": 116.432146945129,
+        "totalApr": 116.432146945129,
+        "volume1dTvlRatio": 0.3836821668764251
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x0348df3c03a082d15a96d817e95f3bcb5e26b44f049958a6151ab7bfd3dec668",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xcc36dE56897Ed47264b6260eea7d230D080C7b03",
+          "symbol": "LUNAR",
+          "decimals": 18,
+          "name": "Lunar Wallet",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 0,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 887271,
+        "sqrtPriceX96": "1461446703485210103287273052203988822378723970341",
+        "liquidity": "0",
+        "protocolFee": 1,
+        "effectiveFee": 1,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 114033.558536049,
+        "volume1d": 0,
+        "volume30d": 4.149939164021227,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8315627976cab8bd937eB53D44D009e265D0e4DC",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x63C12667638f2Ae6fC6ae09B43D98Ec84a8586eA",
+          "symbol": "wsNET",
+          "decimals": 18,
+          "name": "Wrapped Staked NET",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 207206,
+        "sqrtPriceX96": "2500804717096308210880998799927011",
+        "liquidity": "6626485621884940",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 113842.301980336,
+        "volume1d": 129203.497042,
+        "volume30d": 438662.771451,
+        "apr": 345.209086019096,
+        "totalApr": 345.209086019096,
+        "volume1dTvlRatio": 1.1349339814326431
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x7aebd80541bfaaf23dbb6e99ce13d4d31c1a84c91414f971eadbff7db5f85995",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x2E8c31162b855A2ffa90F6F8634643Ad6F111e18",
+          "symbol": "AI",
+          "decimals": 18,
+          "name": "Artificial Inu",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176647/large/5ou9sb7h478ezv28urbjpzf1fl3e.?1788401429"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 23,
+        "feeTier": 2300,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -298199,
+        "sqrtPriceX96": "26540576780234448902160",
+        "liquidity": "287029874678965509",
+        "protocolFee": 372,
+        "effectiveFee": 2672,
+        "currentLpFee": 2300
+      },
+      "stats": {
+        "tvl": 113640.592100889,
+        "volume1d": 128874.155226,
+        "volume30d": 182847699.361734,
+        "apr": 95.2035283450276,
+        "totalApr": 95.2035283450276,
+        "volume1dTvlRatio": 1.1340503674214122
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x227Bbce9A81B3694b01754298a983Be3F9E44A93",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x59818904ab4cE163b3cE4FfB64f2D6Ca02c434B4",
+          "symbol": "QUBT",
+          "decimals": 18,
+          "name": "Quantum Computing",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174141/large/0x59818904ab4ce163b3ce4ffb64f2d6ca02c434b4.png?1782444645"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -255917,
+        "sqrtPriceX96": "219784984215165363771244",
+        "liquidity": "309748930082754272",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 112997.49650091,
+        "volume1d": 33023.560584,
+        "volume30d": 6638513.526111,
+        "apr": 26.6678466037141,
+        "totalApr": 26.6678466037141,
+        "volume1dTvlRatio": 0.2922503737393337
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xA192102E50a84a17968cd2636a2A2a5102cc861f",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x0Eed5B4F64Cbd0D28255C6a436f8987716c1D2cA",
+          "symbol": "GIGA",
+          "decimals": 18,
+          "name": "GIGACHAD on Hood",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "currentTick": 169020,
+        "sqrtPriceX96": "370618014986179898179639001122463",
+        "liquidity": "201628173254226412902354",
+        "protocolFee": 25,
+        "effectiveFee": 100,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 112250.759947378,
+        "volume1d": 0,
+        "volume30d": 27.262136442542435,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xe4930a6215f21aa3b37c01adbded3362f56ae31b9a60066f5f9641e601d5111f",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xE0444EF8BF4eD74f74FD73686e2ddF4C1c5591E8",
+          "symbol": "NFLX",
+          "decimals": 18,
+          "name": "Netflix",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174165/large/0xe0444ef8bf4ed74f74fd73686e2ddf4c1c5591e8.png?1782444710"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 100,
+        "feeTier": 10000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 233934,
+        "sqrtPriceX96": "9515950636062976150638571021573227",
+        "liquidity": "409455194427863805",
+        "protocolFee": 1000,
+        "effectiveFee": 11000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 111665.783098664,
+        "volume1d": 16690.342957,
+        "volume30d": 1333921.3951050001,
+        "apr": 54.5008778449923,
+        "totalApr": 54.5008778449923,
+        "volume1dTvlRatio": 0.14946694048841258
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x4a35203cfd75ad9f6614e29836c27e9b2a620a3cdf0597e35645a5941f582e10",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x098D7e7330c099c2217cc8f1E830302AA7Bd824d",
+          "symbol": "PUDGY",
+          "decimals": 18,
+          "name": "Pudgy",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -163713,
+        "sqrtPriceX96": "22084488121462942459196351",
+        "liquidity": "0",
+        "protocolFee": 25,
+        "effectiveFee": 125,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 110716.903202428,
+        "volume1d": 0,
+        "volume30d": 417060.6983961468,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xf364c770c9592a6f7a58de9bd857035d20d14b9a3ad50f90626df6be213bce26",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x6052f89fF14995BD808Be648642050063A2e1C01",
+          "symbol": "DRIP",
+          "decimals": 18,
+          "name": "DRIP",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 165543,
+        "sqrtPriceX96": "311487929650885925910280045946307",
+        "liquidity": "100000088127620690885293",
+        "protocolFee": 25,
+        "effectiveFee": 125,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 110234.916075965,
+        "volume1d": 0,
+        "volume30d": 415384.7024062575,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x2e4cc4c65587faca7a08b69a13c86ca8c86599d90ad818ceaa1a875176f5fb52",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xF6589F11Bc40b669e584073F428B05562F568733",
+          "symbol": "SNAP",
+          "decimals": 18,
+          "name": "Snap",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175399/large/SNAP.png?1786287522"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 20,
+        "feeTier": 1950,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 258718,
+        "sqrtPriceX96": "32855169505127544762198037221057560",
+        "liquidity": "581001203928788663",
+        "protocolFee": 324,
+        "effectiveFee": 2274,
+        "currentLpFee": 1950
+      },
+      "stats": {
+        "tvl": 110012.337838765,
+        "volume1d": 74467.498712,
+        "volume30d": 15434931.949374,
+        "apr": 48.1784527531328,
+        "totalApr": 48.1784527531328,
+        "volume1dTvlRatio": 0.6769013382948028
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8f450B8EE34F07681B68bbb97729FCD4e8778417",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x31BE8f7485e36928C9De86566c62da82d4B6BF81",
+          "symbol": "VLAD",
+          "decimals": 18,
+          "name": "The Green Bull",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174476/large/vlad.png?1783762041"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 166666,
+        "sqrtPriceX96": "329466867406925948929055399322898",
+        "liquidity": "36819258015569838458222",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 109675.432138724,
+        "volume1d": 126.972296836101,
+        "volume30d": 18000.470468799285,
+        "apr": 0.352136659364128,
+        "totalApr": 0.352136659364128,
+        "volume1dTvlRatio": 0.0011577095650327494
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x1baD145C8F06444E0dF81c28257cd20231Bd1f16",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x822CC93fFD030293E9842c30BBD678F530701867",
+          "symbol": "BE",
+          "decimals": 18,
+          "name": "Bloom Energy",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174131/large/0x822cc93ffd030293e9842c30bbd678f530701867.png?1782444619"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 219631,
+        "sqrtPriceX96": "4654524895480062307996374551291764",
+        "liquidity": "61891981163927218",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 108848.432631338,
+        "volume1d": 94003.615016,
+        "volume30d": 5847598.023728999,
+        "apr": 78.8064433937741,
+        "totalApr": 78.8064433937741,
+        "volume1dTvlRatio": 0.863619371850614
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc6517047b189c72D3bAa9eF37D1d28F27a63638a",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x4D21483a44Bf67a86b77E3dA301411880797D452",
+          "symbol": "BA",
+          "decimals": 18,
+          "name": "Boeing",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174190/large/0x4d21483a44bf67a86b77e3da301411880797d452.png?1782444776"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -223965,
+        "sqrtPriceX96": "1085898815497265561243188",
+        "liquidity": "97028475293214521",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 108707.372046598,
+        "volume1d": 17785.662401,
+        "volume30d": 4349071.966615001,
+        "apr": 14.9294538496944,
+        "totalApr": 14.9294538496944,
+        "volume1dTvlRatio": 0.16361045314733652
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x4dbAC19E895322ac5b93abad9008691632bFFC05",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x25C288E6D899b9BC30160965aD9644c67e73bE0C",
+          "symbol": "F",
+          "decimals": 18,
+          "name": "Ford Motor",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174185/large/0x25c288e6d899b9bc30160965ad9644c67e73be0c.png?1782444763"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": -251392,
+        "sqrtPriceX96": "275584939429579620609315",
+        "liquidity": "410363759533130601",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 108147.016472195,
+        "volume1d": 10556.595613,
+        "volume30d": 2502932.7699060002,
+        "apr": 8.90722075475766,
+        "totalApr": 8.90722075475766,
+        "volume1dTvlRatio": 0.09761337813433013
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xa9680cd17147fb403c45a56199d06a3669690d1158980e4b5118a2152d09a11c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x9eAd9D86357F7Ee670b614A81b1f15869414E903",
+          "symbol": "BPEPE",
+          "decimals": 18,
+          "name": "Bundle Pepe",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 152311,
+        "sqrtPriceX96": "160735211387356562257456908635931",
+        "liquidity": "100000088127620690885293",
+        "protocolFee": 25,
+        "effectiveFee": 125,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 108137.034162899,
+        "volume1d": 0,
+        "volume30d": 1217255.9459339676,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x387bf619da4d3fb62bb276482693dba1b9b3520f573cabdfe033384a24125982",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0000000000000000000000000000000000000000",
+          "symbol": "ETH",
+          "decimals": 18,
+          "name": "Ethereum",
+          "type": "TOKEN_TYPE_NATIVE",
+          "project": {
+            "logoUrl": "https://didcmo2jyrnku.cloudfront.net/assets/eth.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 10,
+        "feeTier": 500,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": -197836,
+        "sqrtPriceX96": "4010152058377659257029266",
+        "liquidity": "7687562653810287",
+        "protocolFee": 125,
+        "effectiveFee": 625,
+        "currentLpFee": 500
+      },
+      "stats": {
+        "tvl": 107609.3704009,
+        "volume1d": 75770.819145,
+        "volume30d": 13130609.858521998,
+        "apr": 12.8503442055701,
+        "totalApr": 12.8503442055701,
+        "volume1dTvlRatio": 0.7041284496202784
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x5eA30aafd5fbA54bF1d962d349a96893D3Cd6DB5",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x241F3Caad03Db31137F641beF005A32176530024",
+          "symbol": "NPC",
+          "decimals": 18,
+          "name": "Non-Playable Coin",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/31193/large/NPC_200x200.png?1696530021"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V2",
+        "feeTier": 3000,
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 107163.304163637,
+        "volume1d": 2687.73874663835,
+        "volume30d": 203017.91322842642,
+        "apr": 2.28862074144566,
+        "totalApr": 2.28862074144566,
+        "volume1dTvlRatio": 0.025080775248719538
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xdEc8F541FF159D2B4ABD3c3b041CD739BD7C486F",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xedAee44320107CAa714BaAEc486261A87F27022d",
+          "symbol": "PONGO",
+          "decimals": 18,
+          "name": "PONGO",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176709/large/52hr48l6z4kqtfyswqbn9sodd8zz.?1788518468"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 150149,
+        "sqrtPriceX96": "144270078236860139197685600635948",
+        "liquidity": "37775234415449640713420",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 105094.773510939,
+        "volume1d": 27225.5021744825,
+        "volume30d": 3320815.562595932,
+        "apr": 78.7964041225746,
+        "totalApr": 78.7964041225746,
+        "volume1dTvlRatio": 0.2590566710879174
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x6E31E066Aa531BCb11133B4E7fe95A1A1eD50daA",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x7b630F080807DF83908b4aDE46BA6396EE66b098",
+          "symbol": "BLINK",
+          "decimals": 18,
+          "name": "dont blink",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102176626/large/dont-blink-icon-200.png?1788350276"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 155475,
+        "sqrtPriceX96": "188283971405376105031459674911445",
+        "liquidity": "50250017461636010592638",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 104726.889711479,
+        "volume1d": 9844.29257034462,
+        "volume30d": 2150115.4920047484,
+        "apr": 28.5937632815059,
+        "totalApr": 28.5937632815059,
+        "volume1dTvlRatio": 0.09399966520026994
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xdf5c0bcd967d54774c139a4ef803ec994779736346fb4c21b50ed241b1fd2682",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+          "symbol": "NVDA",
+          "decimals": 18,
+          "name": "NVIDIA",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174110/large/0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec.png?1782444565"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 4,
+        "feeTier": 375,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 221629,
+        "sqrtPriceX96": "5143565673047355787495523063000366",
+        "liquidity": "6791648245623048",
+        "protocolFee": 100,
+        "effectiveFee": 475,
+        "currentLpFee": 375
+      },
+      "stats": {
+        "tvl": 104348.80856536,
+        "volume1d": 7254.393785,
+        "volume30d": 2589259.661836999,
+        "apr": 0.951563475398895,
+        "totalApr": 0.951563475398895,
+        "volume1dTvlRatio": 0.0695206192072249
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xc8e88B89f39740afa5313234AAb4891c0e08199E",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xC1A02352582cE5Dcddd40964163E2F893F07Bbd3",
+          "symbol": "VARO",
+          "decimals": 18,
+          "name": "VARO",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://varo-staging.s3.us-east-1.amazonaws.com/launchpad/0x36a6644f3cb7b883df449bcb8d0dad5aa88cf8ee/36/36e62d32da6bdd5cd1bc126adaae29440084d2c626f5b96993c2de7f0d9a1087.jpg"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 147774,
+        "sqrtPriceX96": "128117769400336714287785944876664",
+        "liquidity": "54778673031040617648117",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 103735.527464992,
+        "volume1d": 0,
+        "volume30d": 1508.1190176157288,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xe1c6088c8a16517358f7696e5522df87a5370fb2b8dbc79d5b0d1bfcf77b0652",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xa156048AA84d13b1DE40dFa8288D28B2593fc35c",
+          "symbol": "XBOW",
+          "decimals": 18,
+          "name": "Crossbow",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102178475/large/2026-09-12_10.09.08_4.png?1789699290"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x08E52564Bad99E05a694b4809F397edcA417A080",
+        "currentTick": 338604,
+        "sqrtPriceX96": "1783235658278684761604254446617871169",
+        "liquidity": "14411066280535756496",
+        "protocolFee": 0,
+        "currentLpFee": 25000
+      },
+      "stats": {
+        "tvl": 103426.136403486,
+        "volume1d": 12218.059805,
+        "volume30d": 29885.457733000003,
+        "apr": 107.79653924776,
+        "totalApr": 107.79653924776,
+        "volume1dTvlRatio": 0.11813319369617474
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x729a922Fd514f952d9CAC76aB6225fE9844b34B5",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xc1a0bf772b80Ff771b3837E269813f7b62e047BE",
+          "symbol": "CIAO",
+          "decimals": 18,
+          "name": "c1a0",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://varo-assets.rialto.xyz/launchpad/0xad8a663ae314b9ecad196b17eb3844475d0ec28d/28/282ddda89b28b6f96b38bd311faf1a94d86ac9d1cbfc8fcb661ff43acd3a8f9f.jpg"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 147330,
+        "sqrtPriceX96": "125299837441513878468693002416980",
+        "liquidity": "54778739193839483071552",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 102902.743362267,
+        "volume1d": 0,
+        "volume30d": 4927.711111693001,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x8147584eacbfe717d34539da5a2e8227da28983e8f40ce39e94c8c166e45d221",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xfCE34D21A92069100E3226638140706cF03a266E",
+          "symbol": "GLDSTN",
+          "decimals": 18,
+          "name": "Goldstein",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102179092/large/13C4593B-E474-42D8-82EE-3F3BF3C376A5.jpeg?1791136194"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x08E52564Bad99E05a694b4809F397edcA417A080",
+        "currentTick": 336539,
+        "sqrtPriceX96": "1608365652711389054197355253156109851",
+        "liquidity": "1134648133978194653",
+        "protocolFee": 0,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 102635.493272039,
+        "volume1d": 913.712918,
+        "volume30d": 20009.43126,
+        "apr": 3.24941406172262,
+        "totalApr": 3.24941406172262,
+        "volume1dTvlRatio": 0.008902504278692085
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x815628E8eFAa05Ac097AEB72Ca2aA434D453Df85",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x61a10E8556BEd032eA176330e7F17D6a12a10000",
+          "symbol": "UUSD",
+          "decimals": 18,
+          "name": "Unity USD",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102172413/large/UUSD.png?1773390929"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 10,
+        "feeTier": 500,
+        "currentTick": 78503,
+        "sqrtPriceX96": "4013053543720359937577580780874",
+        "liquidity": "1010158442770879085688",
+        "protocolFee": 125,
+        "effectiveFee": 500,
+        "currentLpFee": 500
+      },
+      "stats": {
+        "tvl": 102401.294209149,
+        "volume1d": 5460.95926113444,
+        "volume30d": 116572.56886900448,
+        "apr": 0.729940773347176,
+        "totalApr": 0.729940773347176,
+        "volume1dTvlRatio": 0.05332900627193961
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x5F8616796053Cb2f12d904Ed14C5D0e555F3f493",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0aa0b791F870d8C6F7Dd310639c61991BB3E5D41",
+          "symbol": "FROTH",
+          "decimals": 18,
+          "name": "Froth",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": -146121,
+        "sqrtPriceX96": "53219116411990809873116460",
+        "liquidity": "12156878853394474279421",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 102176.665231427,
+        "volume1d": 605.952885985041,
+        "volume30d": 1327197.4794207364,
+        "apr": 1.80384306993831,
+        "totalApr": 1.80384306993831,
+        "volume1dTvlRatio": 0.005930442969660209
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x42b19e5e3F28C4148C518444546f102F6ba87aB1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x18E674231A58c239Dc7DaeDcffE15Ec3A24cff5c",
+          "symbol": "HOOKR",
+          "decimals": 18,
+          "name": "Hookr.fun",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102175265/large/hookr.jpg?1786013509"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 117916,
+        "sqrtPriceX96": "28791893980109845696199762086946",
+        "liquidity": "25444516703206028219530",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 102128.707290741,
+        "volume1d": 177610.227843556,
+        "volume30d": 6413617.346989451,
+        "apr": 527.7971639269,
+        "totalApr": 527.7971639269,
+        "volume1dTvlRatio": 1.7390823065833338
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x3F98045d6bc0fEF56bf69E85F1efA7F5100e7c48",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xA80eb66b3E0CF66ccB46f8b8C9e7ff5803eEb820",
+          "symbol": "WEN",
+          "decimals": 18,
+          "name": "Wen Lambo",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174429/large/Screenshot_2026-07-10_at_6.46.16%E2%80%AFAM.png?1783670272"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 160144,
+        "sqrtPriceX96": "237791489368402737753387065132792",
+        "liquidity": "31623628412589315421565",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 101627.101913578,
+        "volume1d": 3486.88822212626,
+        "volume30d": 802889.1183310507,
+        "apr": 3.13084348837966,
+        "totalApr": 3.13084348837966,
+        "volume1dTvlRatio": 0.03431061357128389
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xfF4BA5ff0a3Fc2EFf177F1C6eE09825bf2111434",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x8d4dFaaA4198b6486E0293Fec914C2B6a821D4DC",
+          "symbol": "KITSU",
+          "decimals": 18,
+          "name": "KITSU",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174287/large/kitsu-logo.jpg?1782940070"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 150551,
+        "sqrtPriceX96": "147198580657071379455088100855520",
+        "liquidity": "37384328216578888551939",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 101553.529783201,
+        "volume1d": 8780.08243311521,
+        "volume30d": 1367970.8242593133,
+        "apr": 26.2975438907983,
+        "totalApr": 26.2975438907983,
+        "volume1dTvlRatio": 0.08645767854508996
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x14f8cf472104b8823340025c004d022de12ab0e4d7e8112a6dc73c1979e044ad",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x64E9ae1066c47Ac4a3cc0a5bd7B135908590e088",
+        "currentTick": -197831,
+        "sqrtPriceX96": "4011073577149489449339669",
+        "liquidity": "3856693339503084",
+        "protocolFee": 0,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 101367.654587378,
+        "volume1d": 80671.970906,
+        "volume30d": 4076744.202220001,
+        "apr": 2.90479931695651,
+        "totalApr": 2.90479931695651,
+        "volume1dTvlRatio": 0.795835429303156
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x6c0AC5d0f01eE19fb949dEcEaba6F6f48f31c09c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xC1A0f01DfA14d8c87Ff975d4005fBD7Cd4688420",
+          "symbol": "SHH",
+          "decimals": 18,
+          "name": "Hushed",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://varo-assets.rialto.xyz/launchpad/0xa4297028de050c9bebd6a761f0916decb052ce4c/2b/2b91be1ef4ec6973546e156d2286326ceea9cf50bd398485a253f9032023fc33.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 145579,
+        "sqrtPriceX96": "114798965791261015672831664925382",
+        "liquidity": "35280236635523893150239",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 101231.661745518,
+        "volume1d": 12494.5913801123,
+        "volume30d": 1022320.6427085149,
+        "apr": 37.5419917634524,
+        "totalApr": 37.5419917634524,
+        "volume1dTvlRatio": 0.12342572634559656
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x35af643c2fe42a5f6f6f2c5256f2d159a6b7648d72de078c9a2734235dcab4db",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xF177d86a28b520e3E396E4F3B96cd8e72D7dabd8",
+          "symbol": "UNI",
+          "decimals": 18,
+          "name": "Uniswap",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 35,
+        "feeTier": 3500,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 255681,
+        "sqrtPriceX96": "28225922372119974290770976110695552",
+        "liquidity": "47554445036938976",
+        "protocolFee": 600,
+        "effectiveFee": 4100,
+        "currentLpFee": 3500
+      },
+      "stats": {
+        "tvl": 100738.815219386,
+        "volume1d": 9754.122751,
+        "volume30d": 2109220.7616330003,
+        "apr": 12.3624357480013,
+        "totalApr": 12.3624357480013,
+        "volume1dTvlRatio": 0.09682586329566972
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x26dd43b1be6b08ee36562e6c3ed807bb4b6f526f12413a693c788116e151eeb6",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x80877Fe12eDE96F807422D5D4Ee4f4c47cebC8Ff",
+          "symbol": "KUDO",
+          "decimals": 18,
+          "name": "Kudo",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102179239/large/kudo-token-1024.png?1791368014"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 0,
+        "hookAddress": "0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044",
+        "currentTick": 342334,
+        "sqrtPriceX96": "2148885758767716072825975001446086945",
+        "liquidity": "1284920392163752193",
+        "protocolFee": 0,
+        "effectiveFee": 0,
+        "currentLpFee": 0
+      },
+      "stats": {
+        "tvl": 100490.794993604,
+        "volume1d": 116659.399862,
+        "volume30d": 453306.963964,
+        "apr": 0,
+        "totalApr": 0,
+        "volume1dTvlRatio": 1.1608963773191874
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x1cc6ae1ed3a1b7da59d7360c1cdc1d4e3f65c26efd394a8998d244884be43d1c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x4fAD895a0f16F5Ed350E2ad2bD2ca543fCCB9078",
+          "symbol": "VLADCOIN",
+          "decimals": 18,
+          "name": "Vlad",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 166668,
+        "sqrtPriceX96": "329499286914056141717174995577498",
+        "liquidity": "100000088127620690885293",
+        "protocolFee": 25,
+        "effectiveFee": 125,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 99804.9605212346,
+        "volume1d": 0,
+        "volume30d": 299172.35018357384,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x93497547cd36e049E9D57625b34dd868744Dc990",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xc1a04277dC59718639e36B5C709a8b756a664594",
+          "symbol": "CHAD",
+          "decimals": 18,
+          "name": "GigaCHAD",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://varo-staging.s3.us-east-1.amazonaws.com/launchpad/0x5be26245a4a7104eda806545876826561ef8db1d/80/8012a40cadc79524bb210789546c3c186e5611c5fb05bfe81ca690d75aa3e69d.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 147962,
+        "sqrtPriceX96": "129325833580579859615729389760821",
+        "liquidity": "54778673031040617648117",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 99477.0186336252,
+        "volume1d": 0,
+        "volume30d": 679.4554920833092,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x33e759f5e2aaa9e0d60c73e5285d2687178170f5da77353c389a556549489c27",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xe24CABDf76DD1c2576049167eB1755C84b985C36",
+          "symbol": "pHOOD3x",
+          "decimals": 18,
+          "name": "Arcus HOOD (3x Long)",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102178746/large/3xHOOD_Long.png?1790173769"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 10,
+        "feeTier": 8500,
+        "hookAddress": "0xFA3dA20EC661AA26F9f93E4421Fab6989c4B4800",
+        "currentTick": 228005,
+        "sqrtPriceX96": "7074566661074565792051668440177020",
+        "liquidity": "43423583414965",
+        "protocolFee": 0,
+        "effectiveFee": 8500,
+        "currentLpFee": 8500
+      },
+      "stats": {
+        "tvl": 98363.0105418738,
+        "volume1d": 8857.787415,
+        "volume30d": 3657972.564131,
+        "apr": 27.9386380140719,
+        "totalApr": 27.9386380140719,
+        "volume1dTvlRatio": 0.0900520161613921
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xf7e180365aed9c463022976c37c615f483bfbe57717b665deff31922c877c8b3",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xE77d354898A44808ff3999947002785CD727BEd5",
+          "symbol": "SFI",
+          "decimals": 18,
+          "name": "Spice",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/13117/large/sfi_red_250px.png?1696512904"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x08E52564Bad99E05a694b4809F397edcA417A080",
+        "currentTick": 229109,
+        "sqrtPriceX96": "7476116724152396324551742333680743",
+        "liquidity": "14971443102272453",
+        "protocolFee": 0,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 98211.947593886,
+        "volume1d": 31.05953,
+        "volume30d": 221165.396612,
+        "apr": 0.11543125584759,
+        "totalApr": 0.11543125584759,
+        "volume1dTvlRatio": 0.00031625001602079576
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x42ec221898a6e1552c884e59fdb31d468fc4e24f59b0c7b52742f9e62384eeb7",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xC4EbC1C5f4140b8217376cB759a9c522c864cB97",
+          "symbol": "HMCAT",
+          "decimals": 18,
+          "name": "House Money Cat",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 60,
+        "feeTier": 790000,
+        "hookAddress": "0x0000000000000000000000000000000000000000",
+        "currentTick": 469667,
+        "sqrtPriceX96": "1250477091826918403659115091125786229659",
+        "liquidity": "525666847615671177679",
+        "protocolFee": 1000,
+        "effectiveFee": 791000,
+        "currentLpFee": 790000
+      },
+      "stats": {
+        "tvl": 98189.0580880307,
+        "volume1d": 97.038938,
+        "volume30d": 97.038938,
+        "apr": 28.4687491038629,
+        "totalApr": 28.4687491038629,
+        "volume1dTvlRatio": 0.000988286677656083
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xdaa6926de83ae1c51cc11357548c9f78f46d4fd9fb2a077f4ae966d806f689d7",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x3D40CeF9f3186eeC44404E3e3429Fa0d71486Ba3",
+          "symbol": "Underdog",
+          "decimals": 18,
+          "name": "Underdog",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V4",
+        "tickSpacing": 200,
+        "feeTier": 8388608,
+        "isDynamicFee": true,
+        "hookAddress": "0x4e3468951D49f2EEa976eD0D6e75fFCb44a9a544",
+        "currentTick": 213966,
+        "sqrtPriceX96": "3506550147781051052129729725314406",
+        "liquidity": "970192997392672649111207",
+        "protocolFee": 0,
+        "currentLpFee": 7000
+      },
+      "stats": {
+        "tvl": 95057.1364020996,
+        "volume1d": 11522.5910453668,
+        "volume30d": 5728956.089463073,
+        "apr": 30.9710782748364,
+        "totalApr": 30.9710782748364,
+        "volume1dTvlRatio": 0.12121752749446692
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x91Da0a979Dc925aAC6B318b50BE7224948E8b2b7",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xaEBC764C588c9A480307dd59Bd55F542E2b5b35c",
+          "symbol": "ONE",
+          "decimals": 18,
+          "name": "one coin to rule them all",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "currentTick": 165449,
+        "sqrtPriceX96": "310017318649167736959008772252426",
+        "liquidity": "63246764568802612649417",
+        "protocolFee": 25,
+        "effectiveFee": 100,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 94385.4228603549,
+        "volume1d": 1126462.61710645,
+        "volume30d": 1126462.6171064512,
+        "apr": 32.7247350737603,
+        "totalApr": 32.7247350737603,
+        "volume1dTvlRatio": 11.934709650801414
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x04391780F519B7d3ba59c9590459D76e23d225C4",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xd917B029C761D264c6A312BBbcDA868658eF86a6",
+          "symbol": "USAR",
+          "decimals": 18,
+          "name": "USA Rare Earth",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102174132/large/0xd917b029c761d264c6a312bbbcda868658ef86a6.png?1782444621"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 60,
+        "feeTier": 3000,
+        "currentTick": 250462,
+        "sqrtPriceX96": "21743585755093021258829754742286578",
+        "liquidity": "99168821459417679",
+        "protocolFee": 500,
+        "effectiveFee": 3000,
+        "currentLpFee": 3000
+      },
+      "stats": {
+        "tvl": 94199.6078343896,
+        "volume1d": 24906.373181,
+        "volume30d": 1882197.8011269998,
+        "apr": 24.093737192352,
+        "totalApr": 24.093737192352,
+        "volume1dTvlRatio": 0.2643999667683053
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x9Cb36Ed7c33221CbF2062a07e2aa6dA7a81b8241",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xc61Ff46CcF3A38eb3055A3697C267276093B68c3",
+          "symbol": "BBB",
+          "decimals": 18,
+          "name": "Big Booty Bass",
+          "type": "TOKEN_TYPE_ERC20"
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 1,
+        "feeTier": 100,
+        "currentTick": 159391,
+        "sqrtPriceX96": "229012356017478244783341951470879",
+        "liquidity": "67083695638153680707333",
+        "protocolFee": 25,
+        "effectiveFee": 100,
+        "currentLpFee": 100
+      },
+      "stats": {
+        "tvl": 94161.1925402053,
+        "volume1d": 1283138.44722972,
+        "volume30d": 1283138.4472297183,
+        "apr": 37.5991071514225,
+        "totalApr": 37.5991071514225,
+        "volume1dTvlRatio": 13.62704116859863
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x66879c2a1DBff4439bAbf34CBeA7748b5733a35c",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xC1A0fd2b35DC2C3100305A8345a32E076148EC14",
+          "symbol": "RIALTOES",
+          "decimals": 18,
+          "name": "Rialtoes",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://varo-staging.s3.us-east-1.amazonaws.com/launchpad/0x31f77f253f6b4fd7dc1d32671e327274bd52c429/1f/1ffedfc46f0c475930a3d103d107bb99c382d97945ab86ede7a5ce6d95342b61.png"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 148323,
+        "sqrtPriceX96": "131683624570132086126052779757444",
+        "liquidity": "54778673031040617648117",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 94022.0212739275,
+        "volume1d": 0,
+        "volume30d": 352.19736529608275,
+        "volume1dTvlRatio": 0
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0xDf18D5dBf9c01E875dc889Bd9FcB4663b772A1A1",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+          "symbol": "USDG",
+          "decimals": 6,
+          "name": "Global Dollar",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/51281/large/GDN_USDG_Token_200x200.png?1730484111"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0x6d1f3BAefB22D725b8068E60105b45C8a97Da1fA",
+          "symbol": "ALFA",
+          "decimals": 18,
+          "name": "AlfaClub",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://coin-images.coingecko.com/coins/images/102179003/large/IMG_7752.jpeg?1790840721"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 350702,
+        "sqrtPriceX96": "3265101238598065115849094485706860199",
+        "liquidity": "2015140602843191712",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 93787.8241568634,
+        "volume1d": 27155.051683,
+        "volume30d": 563471.0017339999,
+        "apr": 88.067525052768,
+        "totalApr": 88.067525052768,
+        "volume1dTvlRatio": 0.28953706866663453
+      }
+    },
+    {
+      "pool": {
+        "chainId": 4663,
+        "poolId": "0x28f26FB95Ef30218E0090d0776A5cDF65BA44E73",
+        "token0": {
+          "chainId": 4663,
+          "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+          "symbol": "WETH",
+          "decimals": 18,
+          "name": "Wrapped Ethereum",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/assets/0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2/logo.png"
+          }
+        },
+        "token1": {
+          "chainId": 4663,
+          "address": "0xdaB0E8CE3b999D16898709A6DfC44c953bFc43b1",
+          "symbol": "GIWA",
+          "decimals": 18,
+          "name": "GIWA",
+          "type": "TOKEN_TYPE_ERC20",
+          "project": {
+            "logoUrl": "https://ipfs.io/ipfs/bafkreid4bgvlo4j2bc3pe4kso7amyk5o54tvidhap5lg5me44nmvz6igma"
+          }
+        },
+        "protocolVersion": "PROTOCOL_VERSION_V3",
+        "tickSpacing": 200,
+        "feeTier": 10000,
+        "currentTick": 151857,
+        "sqrtPriceX96": "157132878458137032554828236851849",
+        "liquidity": "38428535168490977796917",
+        "protocolFee": 1667,
+        "effectiveFee": 10000,
+        "currentLpFee": 10000
+      },
+      "stats": {
+        "tvl": 93507.909795203,
+        "volume1d": 36930.2026152677,
+        "volume30d": 3386612.7489971393,
+        "apr": 120.12819721254,
+        "totalApr": 120.12819721254,
+        "volume1dTvlRatio": 0.3949420182330098
+      }
+    }
+  ],
+  "page": {
+    "nextPageToken": "eyJzb3J0VmFsdWUiOiI5MzUwNy45MDk3OTUyMDMwNCIsInBvb2xJZGVudGlmaWVyIjoiMHgyOGYyNkZCOTVFZjMwMjE4RTAwOTBkMDc3NkE1Y0RGNjVCQTQ0RTczIiwiY2hhaW5JZCI6NDY2M30="
+  }
+}
