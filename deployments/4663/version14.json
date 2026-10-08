@@ -88,6 +88,8 @@
   "configuredPricePools": 53,
   "configuredRoutes": 105,
   "recoveryTransactions": 25,
-  "pendingGovernanceOperations": 8,
-  "routerSupportsBatchInitialization": false
+  "pendingGovernanceOperations": 4,
+  "routerSupportsBatchInitialization": false,
+  "governanceVerifiedBlock": 83075041,
+  "governanceVerifiedAt": "2026-10-08T05:39:11.269Z"
 }

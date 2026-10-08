@@ -2,9 +2,9 @@
 
 ## 当前状态（2026-10-08）
 
-用户已完成 RH 主网部署；最近一次链上核验区块为 `83067092`，状态是 **合约已部署、治理待执行**。正式地址见 [version14.json](../deployments/4663/version14.json)。52 个可选成分、53 个价格池、105 条路由均已配置，keeper 与 BSC V14 一致。
+用户已完成 RH 主网部署。全量部署核验区块为 `83067092`；治理专项复核区块为 `83075041`，状态是 **多签 4 项授权已生效、4 项所有权接受待收尾**。正式地址见 [version14.json](../deployments/4663/version14.json)。52 个可选成分、53 个价格池、105 条路由均已配置，keeper 与 BSC V14 一致。
 
-多签导入文件为 [safe-rh14-governance.json](../deployments/4663/safe-rh14-governance.json)，包含 4 项授权；另外 4 项所有权接受由部署账户执行。当前没有收到治理交易执行完成的确认，不应将文件已生成视为授权已完成。下方恢复命令仅用于记录本次部署过程，不应重新执行。
+多签导入文件为 [safe-rh14-governance.json](../deployments/4663/safe-rh14-governance.json)，包含的 4 项授权均已在链上确认生效，无需重复执行；另外 4 项所有权接受由部署账户执行。下方恢复命令仅用于记录本次部署过程，不应重新执行。
 
 ## 范围与兼容
 
@@ -149,12 +149,12 @@ env -u FOUNDRY_ETH_RPC_URL FOUNDRY_PROFILE=rh_fork \
 
 在区块 `83067092` 只读核验：12 个合约地址均有代码，Pump 的 52 个股票/ETF 成分已批准，Router 的 53 个池和 105 条路由与冻结清单一致，keeper 为 `0x8047FcC508446E2673195B8125d3388defc23688`，Pump 的 Router/Hook/Buyback/Basket 绑定、Router operator 和 TradeRouter Pump 准入均符合预期。
 
-当前状态为 `deployed-governance-pending`，尚有 8 项操作，完整 target/data/executor 已保存至 `deployments/4663/rh14-governance.json`：
+部署初次核验时有 8 项待办；区块 `83075041` 专项复核确认前 4 项多签授权已完成，尚有 4 项所有权接受，记录状态仍为 `deployed-governance-pending`。完整 target/data/executor 及逐项完成状态已保存至 `deployments/4663/rh14-governance.json`：
 
-- Committee 与 BasketRegistry 的 owner `0x871fb7006C5964B21695Ba20006021777A26146C`：1 项 Committee 白名单和 3 项 Basket 授权。
+- Committee 与 BasketRegistry 的 owner `0x871fb7006C5964B21695Ba20006021777A26146C`：1 项 Committee 白名单和 3 项 Basket 授权，均已生效。
 - Pump、NutboxRouter、TradeRouter、TradeCurationFactory 的 pendingOwner `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`：4 项 `acceptOwnership()`。此处接收方与原部署者相同，不能假定是上述 Committee 管理账户。
 
-核验脚本不签名、不广播。完成治理后，可再次运行 `node script/verify-rh14-deployment.mjs` 更新权限状态；可通过 `RH14_RPC_URL` 指定 RPC。合约部署完成不代表治理接入已完成，当前还不能切换生产入口。链上 Router 沿用首次部署的旧实现，不支持本轮源码新增的批量初始化接口；验证其源码应使用归档的原始产物。
+核验脚本不签名、不广播。完成治理后，可再次运行 `node script/verify-rh14-deployment.mjs` 更新权限状态；可通过 `RH14_RPC_URL` 指定 RPC。本次治理专项复核未重新完成全量路由验证，部署记录保留原全量核验区块，并单独记录 `governanceVerifiedBlock`。链上 Router 沿用首次部署的旧实现，不支持本轮源码新增的批量初始化接口；验证其源码应使用归档的原始产物。
 
 ### Safe 导入文件与后续操作
 
@@ -165,8 +165,8 @@ env -u FOUNDRY_ETH_RPC_URL FOUNDRY_PROFILE=rh_fork \
 3. BasketRegistry 批准 Pump V14 为 creator forwarder。
 4. BasketRegistry 批准新 BasketSwapRouter 为 creator forwarder。
 
-所有调用 value 为 0；导出 calldata 已与 ABI 重新编码比对，并通过从该多签地址发起的逐项 `eth_call` 模拟。这不是整批 MultiSend 执行回执；文件未由代理提案、签署或广播。由多签导入 Transaction Builder、审核并执行后，重新运行只读核验。
+所有调用 value 为 0；导出 calldata 已与 ABI 重新编码比对，并通过从该多签地址发起的逐项 `eth_call` 模拟。这不是整批 MultiSend 执行回执；文件未由代理提案、签署或广播。用户已执行多签，区块 `83075041` 查询确认这 4 项授权状态均为 true；这是授权状态核验，不是多签交易哈希归档。
 
-`acceptOwnership()` 的 pendingOwner 是部署账户，因此不包含在多签文件中；部署账户需分别对 Pump、NutboxRouter、TagAITradeRouter、TradeCurationFactory 执行。全部 8 项确认完成后，再开展前端、后端与索引接入及生产入口切换。
+`acceptOwnership()` 的 pendingOwner 是部署账户，因此不包含在多签文件中；部署账户需分别对 Pump、NutboxRouter、TagAITradeRouter、TradeCurationFactory 执行。区块 `83075041` 的 owner 与 pendingOwner 均为该部署账户，因此这些调用仅完成对自身的转移、清除 pendingOwner，现有 owner 权限已经有效。前端、后端和索引接入仍按后续迁移计划推进。
 
 当前 `abis/rh-version14/NutboxRouter.json` 对应已部署 Router 的接口。重新运行通用 ABI 导出脚本会导出最新源码新增的批量接口，不能据此认为现有链上 Router 也具备这些接口。其归档源码和产物位于 `deployments/4663/rh14-recovery/original-NutboxRouter.*`。
