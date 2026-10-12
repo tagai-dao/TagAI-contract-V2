@@ -67,5 +67,12 @@
     "calldata": "0xfaab9d3900000000000000000000000070ed7c79d80dede1828a09b3c526df283111cb82",
     "verifiedAtBlock": 86461283,
     "evidenceSource": "Independent RPC receipt, address-scoped RegistrarChanged log and fixed-block Multicall"
+  },
+  "helperOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "wrapperOwnershipTransfer": {
+    "status": "prepared_not_started",
+    "targetSafe": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "preflightRecord": "import-wrapper-ownership-transfer.json",
+    "acceptanceFile": "import-wrapper-accept-ownership.safe.json"
   }
 }

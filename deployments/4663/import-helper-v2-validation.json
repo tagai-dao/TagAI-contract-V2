@@ -17,7 +17,7 @@
   "tests": {
     "localRegressionPassed": 72,
     "rhForkPassed": 4,
-    "multicallRegressionPassed": 4,
+    "multicallRegressionPassed": 6,
     "fuzzRunsPerCase": 256
   },
   "deploymentScriptSimulation": {
@@ -28,7 +28,7 @@
   "sha256": {
     "src/helper/ImportHelperV2.sol": "80cd6ad48f3f4336ba32dc287b5f2790b3e20136018674d24c8f86d55d972d2b",
     "script/DeployRHImportHelperV2.s.sol": "7a3219969f1f3171a666a505170b34e580b0dc07dba2502898c23a9da1d42a52",
-    "script/verify-rh-import-helper-v2.mjs": "3a36d84f9cfb4814c9c5e5fad8ea0f7e77d2aecc777affd370299472fa632fa0",
+    "script/verify-rh-import-helper-v2.mjs": "7cff80a474fc3d237c737d6083e8b737e8ae301a0e0c5fd3189548587a90e0f2",
     "abis/rh-version14/ImportHelperV2.json": "e291c59222d4221f52a80a866132dea0285ead2fd4fafb476d18176c3129a804"
   },
   "preflight": "import-helper-v2-preflight.json",

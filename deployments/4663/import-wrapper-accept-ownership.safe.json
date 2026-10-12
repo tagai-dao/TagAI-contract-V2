@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "chainId": "4663",
+  "createdAt": 1791786733182,
+  "meta": {
+    "name": "RH ImportedTokenSwapWrapper ownership acceptance",
+    "description": "Execute only after Wrapper pendingOwner is this Safe. Accept ownership of the existing RH imported-token Wrapper.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "createdFromOwnerAddress": "",
+    "checksum": ""
+  },
+  "transactions": [
+    {
+      "to": "0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab",
+      "value": "0",
+      "data": "0x79ba5097",
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": {}
+    }
+  ]
+}

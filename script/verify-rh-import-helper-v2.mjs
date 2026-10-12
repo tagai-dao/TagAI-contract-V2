@@ -28,7 +28,7 @@ const getters = parseAbi([
 const multicallAbi = parseAbi(['function aggregate3((address target,bool allowFailure,bytes callData)[] calls) payable returns((bool success,bytes returnData)[])']);
 const check = (ok, message) => { if (!ok) throw new Error(message); };
 const same = (a,b) => String(a).toLowerCase() === String(b).toLowerCase();
-export async function verifyState(rpc, helper = null, activated = false) {
+export async function verifyState(rpc, helper = null, activated = false, expectedHelperOwner = null) {
   check(BigInt(await rpc('eth_chainId', [])) === 4663n, 'Wrong chain');
   const blockTag = await rpc('eth_blockNumber', []);
   check(await rpc('eth_getCode', [addresses.multicall, blockTag]) !== '0x', 'Multicall missing');
@@ -62,14 +62,18 @@ export async function verifyState(rpc, helper = null, activated = false) {
   check(!same(signer,'0x0000000000000000000000000000000000000000'), 'Missing signer');
   check(tradeAllowed && calculatorAllowed, 'Missing Committee approval');
   if (helper) {
-    check(values[9] === 2n && same(values[10],owner), 'Helper version/owner mismatch');
+    check(values[9] === 2n, 'Helper version mismatch');
+    check(!same(values[10],'0x0000000000000000000000000000000000000000'), 'Helper owner missing');
+    // Wrapper and Helper use independent Ownable2Step roles. A later Wrapper transfer
+    // must not silently change the Helper owner's expected deployment/governance record.
+    if (expectedHelperOwner) check(same(values[10],expectedHelperOwner), 'Helper owner mismatch');
     const expected = [addresses.communityFactory,addresses.tradeFactory,addresses.committee,addresses.calculator,addresses.wrapper];
     expected.forEach((value,i) => check(same(values[11+i],value),'Helper dependency mismatch'));
     const defaults = values[17];
     check(values[16] === 1n && defaults.length === 1 && same(defaults[0].factory,addresses.tradeFactory)
       && defaults[0].rewardRatio === 10000 && defaults[0].meta === '0x', 'Unexpected defaults');
   }
-  return {chainId:4663,block:Number(BigInt(blockTag)),blockTag,...addresses,owner,registrar,claimSigner:signer,helper,activated,defaultPools:helper?values[17]:null};
+  return {chainId:4663,block:Number(BigInt(blockTag)),blockTag,...addresses,owner,registrar,claimSigner:signer,helper,helperOwner:helper?values[10]:null,activated,defaultPools:helper?values[17]:null};
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const helper = process.argv.find(x => /^0x[0-9a-fA-F]{40}$/.test(x)) || null;
@@ -82,7 +86,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     check(response.ok, `RPC HTTP ${response.status}`);
     const body = await response.json(); check(!body.error && body.result !== undefined, `RPC ${method} failed`); return body.result;
   };
-  const result = await verifyState(rpc,helper,activated);
+  let expectedHelperOwner = null;
+  const recordPath = 'deployments/4663/import-helper-v2.json';
+  if (helper && fs.existsSync(recordPath)) {
+    const record = JSON.parse(fs.readFileSync(recordPath));
+    if (same(record.helper,helper)) expectedHelperOwner = record.helperOwner;
+  }
+  const result = await verifyState(rpc,helper,activated,expectedHelperOwner);
   const text = JSON.stringify(result,(_,v)=>typeof v==='bigint'?v.toString():v,2)+'\n';
   const outputIndex = process.argv.indexOf('--output');
   if (outputIndex >= 0) fs.writeFileSync(process.argv[outputIndex+1],text);

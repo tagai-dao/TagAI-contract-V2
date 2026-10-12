@@ -164,6 +164,38 @@ FOUNDRY_PROFILE=rh_fork FOUNDRY_ETH_RPC_URL='' RUN_RH_IMPORT_FORK=true \
 - 后续先补齐索引的 additive continuation 及导入 Wrapper 事件识别，更新 API 验证和 RH
   默认 Helper 地址、UI ABI/费用/无 IPShare 门槛；完整导入和奖励闭环仍待真实验收。
 
+### Wrapper owner 移交到 RH 多签（2026-10-12，已准备，尚未执行）
+
+用户要求只移交 Wrapper owner。区块 `86464554` 固定区块 Multicall 确认：
+Wrapper owner 为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，pendingOwner 为零；
+RH Committee owner 为现有 Safe `0x871fb7006C5964B21695Ba20006021777A26146C`，
+Safe 有合约代码，3 个 owner、threshold=2。本次移交模拟由当前 owner 发起，调用通过。
+
+Wrapper 继承 Ownable2Step，移交分两笔：
+
+1. 当前 owner 执行 `Wrapper.transferOwnership(0x871fb7006C5964B21695Ba20006021777A26146C)`，value=0。
+   成功后 pendingOwner 变为 Safe，owner 仍为当前部署账户。
+2. 核验 pendingOwner 后，由该 Safe 执行 `Wrapper.acceptOwnership()`，value=0。
+   核验成功收据及 owner=Safe、pendingOwner=0 后才能记录移交完成。
+
+第一步命令（由操作员执行，交互式输入当前 owner 的私钥）：
+
+```bash
+cast send 0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab \
+  "transferOwnership(address)" 0x871fb7006C5964B21695Ba20006021777A26146C \
+  --rpc-url https://rpc.mainnet.chain.robinhood.com --chain 4663 \
+  --from 0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611 --interactive
+```
+
+预检及状态：[import-wrapper-ownership-transfer.json](../deployments/4663/import-wrapper-ownership-transfer.json)。
+第二步 Safe Transaction Builder 文件已准备：
+[import-wrapper-accept-ownership.safe.json](../deployments/4663/import-wrapper-accept-ownership.safe.json)，
+仅包含一笔 Wrapper `acceptOwnership()`；必须先实际完成并核验第一步，再交付操作员执行。
+
+Wrapper 和 Helper 的 owner 是独立角色。Wrapper owner 变化不会自动移交 Helper owner；
+此次仅处理用户指定的 Wrapper。核验脚本分别记录两者，并按部署记录验证 Helper owner，
+不再错误要求移交后两者始终相等。相关 Multicall / owner 分离回归现为 6 项通过。
+
 ### Blockscout CLI 验证受阻与浏览器验证记录
 
 2026-10-12 操作员执行源码验证时，`getabi` 返回 Cloudflare `Just a moment...` HTML，

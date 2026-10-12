@@ -26,6 +26,8 @@ function fixture(options={}) {
     2n,admin,a.communityFactory,a.tradeFactory,a.committee,a.calculator,a.wrapper,1n,[{factory:a.tradeFactory,rewardRatio:10000,meta:'0x'}]];
   if (options.foreignFactory) values[4]=helper;
   if (options.wrongDefaults) values[17][0].rewardRatio=7000;
+  if (options.wrapperOwner) values[0]=options.wrapperOwner;
+  if (options.helperOwner) values[10]=options.helperOwner;
   const rpc = async(method,params)=>{
     calls.push([method,params]);
     if(method==='eth_chainId') return options.wrongChain?'0x38':'0x1237';
@@ -64,4 +66,14 @@ test('wrong chain, absent Multicall, failed/incomplete reads and foreign factory
 });
 test('unexpected initial reward allocation is rejected',async()=>{
   await assert.rejects(verifyState(fixture({helper:true,wrongDefaults:true}).rpc,helper),/Unexpected defaults/);
+});
+test('Wrapper ownership can move to Safe while Helper retains its recorded owner',async()=>{
+  const safe='0x'+'44'.repeat(20);
+  const {rpc}=fixture({helper:true,activated:true,wrapperOwner:safe});
+  const state=await verifyState(rpc,helper,true,admin);
+  assert.equal(state.owner,safe);assert.equal(state.helperOwner,admin);
+});
+test('unexpected or missing Helper owner still fails after an independent Wrapper transfer',async()=>{
+  for(const unexpected of ['0x'+'55'.repeat(20),'0x'+'00'.repeat(20)])
+    await assert.rejects(verifyState(fixture({helper:true,activated:true,wrapperOwner:'0x'+'44'.repeat(20),helperOwner:unexpected}).rpc,helper,true,admin),/Helper owner/);
 });
