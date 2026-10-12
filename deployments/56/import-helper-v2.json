@@ -36,6 +36,9 @@
   "SourceVerificationEvidence": "User-provided Forge output: Pass - Verified; runtime artifact independently checked on-chain.",
   "SourceBaseCommit": "47d46de973694d25da00de27cd08de18245164af",
   "SourceIncludesUncommittedChanges": true,
+  "ArchivedSourceCommit": "79c65e7e5212a995ec7a47faf63ac7cba98be143",
+  "SourceArchiveDate": "2026-10-12",
+  "SourceArchiveEvidence": "Both deployed source SHA-256 fingerprints match the archived commit; deployment preceded source archival.",
   "SourceFilesSha256": {
     "src/helper/ImportHelperV2.sol": "7fc39bc8020ec1dcddea62f94eeb5c336ffe76970e90116726efd0ea9004e08c",
     "script/DeployBSCImportHelperV2.s.sol": "8e9bf062abf30b361c80e2c76356625bf87a5544b8b4239e8767a3829f51bcc6"

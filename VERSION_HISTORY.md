@@ -15,6 +15,7 @@
 
 ## 2026-10-10 — BSC ImportHelper V2（已部署验证并多签启用）
 
+- 源码归档提交：`79c65e7e5212a995ec7a47faf63ac7cba98be143`（2026-10-12）。部署发生在源码提交之前；Helper 和部署脚本的 SHA-256 均与该归档提交一致，部署时工作区状态保留在 JSON 中。
 - 新增 `ImportHelperV2`：初始默认 TradeCuration 100%；支持 owner 登记矿池类型、调整默认组合，以及调用方显式选择 1–6 个矿池和合计 100% 的比例。社区 owner / dev fund 仍归导入者，继续使用 HourlyTickCalculator。
 - 原 ImportHelper 保留；V2 初始 owner 直接取 Wrapper owner，管理权采用 Ownable2Step。V2 保留原创建 selector 和主池事件，新增全部矿池 linkage 事件，但不接受非零 existingCommunity。已有代币、社交策展矿池、签名领取和待注入奖励不迁移。
 - 复用 Wrapper `0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F` 和 TradeCurationFactory `0x774A48Ba391a1013Ae43289eBdf871618822CD67`。Factory 白名单、社区工厂和 signer 已只读核验。

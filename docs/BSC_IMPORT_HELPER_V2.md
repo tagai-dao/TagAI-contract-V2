@@ -98,7 +98,7 @@ TradeCurationFactory 的 Committee 白名单、所属 CommunityFactory 和 signe
 
 ### 本次源码指纹
 
-以下 SHA-256 对应本次验证的最终代码；提交哈希待代码提交后另行记录。实际部署时应锁定源码提交，并将部署使用的源码指纹与此处核对。
+以下 SHA-256 对应本次验证和部署的代码，已于 2026-10-12 归档到源码提交 `79c65e7e5212a995ec7a47faf63ac7cba98be143`，两份文件指纹均与该提交一致。此次部署早于归档提交，部署时工作区含未提交代码的事实保留在部署 JSON 中。后续部署应先锁定源码提交，再核对指纹。
 
 | 文件 | SHA-256 |
 | --- | --- |
@@ -146,3 +146,13 @@ FOUNDRY_PROFILE=bsc_mainnet forge script \
 - 多签 Transaction Builder 文件：[import-helper-v2.safe.json](../deployments/56/import-helper-v2.safe.json)。仅一笔 `setRegistrar(newHelper)`，value = 0。
 - 多签启用交易：`0x947bfd4789f246bc4f478a4257d534bf162ed51d33243430f83a086a319a62cd`，区块 `126772104`，收据 status = 1；`RegistrarChanged` 从旧 Helper 切换至 V2。最新区块 `126772205` 已再次核验 registrar、Helper owner 和默认交易矿池 100%。
 - API / UI 的代码默认地址已经更新；生产发布结果及首次新导入验收交易待补记。
+
+## 2026-10-12 服务代码发布记录
+
+| 仓库 | 目标远程分支 | 本次升级提交 |
+| --- | --- | --- |
+| tagai-api | `bsc` | `02999b19a3fa9b9b48c55e3a5a8bc1578727980d` |
+| tiptag-server | `main` | `3267e2967a4955998f4b56bb494fd955c7e3de70` |
+| tiptag-ui | `main` | `587037fa` |
+
+UI 提交前钩子的完整类型检查和生产构建通过。上述是源码发布记录，生产服务重启、UI 部署及首次新导入验收仍需单独记录。若设置过旧地址覆盖变量，API 的 `BSC_IMPORT_HELPER` 和 UI 的 `VITE_BSC_IMPORT_HELPER` 应改为正式 V2 地址。
