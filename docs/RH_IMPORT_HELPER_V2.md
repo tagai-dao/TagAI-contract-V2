@@ -1,0 +1,112 @@
+# RH ImportHelperV2
+
+日期：2026-10-12。合约仓库主目录已切到 `rh`；该分支先快进纳入已部署 RH V14 的
+`8bab1cf`，再实现本次升级。BSC V2 保存在 `main` 的 `79c65e7`，本次沿用其业务逻辑，
+仅将原 Helper 的间接 imports 换成 RH 的独立接口 imports。
+
+状态：代码和本地验证完成；**未广播新合约、未切换主网 registrar、未更新 API/UI 默认地址**。
+不得将本地模拟地址填入生产配置。RH 导入币业务版本仍为 V10，Helper 自身版本为 V2。
+
+## 新导入的行为
+
+- 初始默认组合：现有 RH TradeCurationFactory 创建交易策展池，奖励份额 100%。
+- 初始 owner：部署时的 `ImportedTokenSwapWrapper.owner()`，直接设置，不需要 acceptOwnership。
+  之后 owner 转移使用 Ownable2Step；Wrapper owner 后续变更不会自动同步 Helper。
+- 固定使用现有 HourlyTickCalculator，不创建 IPShare，也不收取 IPShare 创建费。
+- owner 可登记最多 32 类矿池，最多选择 6 个不同工厂，每项比例必须大于零且在登记上限以内，
+  总和严格为 10,000。工厂同时受 Helper 登记和 Committee 白名单双重限制。
+- `createCommunityAndPool(token,address(0))` 使用当前默认组合；
+  `createCommunityAndPools(token,configs)` 使用完整显式组合，不附加默认池。
+- 初始只登记交易策展；可由 owner 启用既有 SocialCurationFactory 并配置例如 70% 交易 / 30% 社交。
+- 创建费用为社区创建费 + 设置费 × 实际矿池数，多付 ETH 退回导入者。
+- 每次创建新的不可增发 Community，owner / dev 为导入者；不接受复用已有社区。
+- Wrapper 已登记的币不能再次导入。任一矿池、登记或退款失败时，整个交易回滚。
+- 逐池发出 `ImportedPoolCreated`；兼容 `CommunityCreated` 的 pool 仅为第一个池，
+  API/索引不能从它推断社区仅有一个矿池。
+
+## 复用的主网地址
+
+以下状态在固定区块 **86,435,919** 通过一笔链上 Multicall3 核验；不是实时状态。
+证据：[import-helper-v2-preflight.json](../deployments/4663/import-helper-v2-preflight.json)。
+
+| 对象 | 地址 |
+| --- | --- |
+| 当前旧 Helper | `0xD0baaF8D314b0C6AB6bebd24ddbC86157c9c7b09` |
+| ImportedTokenSwapWrapper | `0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab` |
+| Wrapper owner / 新 Helper 初始 owner | `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611` |
+| CommunityFactory | `0x24328DccA1bA54EeE82e2993F021802e64290486` |
+| TradeCurationFactory | `0x73cb7A6Ad01686659F72011eb952fBa53fe6212B` |
+| 交易奖励 claimSigner | `0x1C3864ea7a54eC4E3cEb27553A6F2927bBe4222e` |
+| Committee | `0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0` |
+| HourlyTickCalculator | `0x3DC52C69C3C8be568372E16d50E9F3FEc796610c` |
+| SocialCurationFactory | `0xddbAba530728b5B8939d7fdDC334432490916e90` |
+| Multicall3 | `0xcA11bde05977b3631167028862bE2a173976CA11` |
+
+交易工厂、计算器的 CommunityFactory 绑定及 Committee 批准均通过；
+Wrapper registrar 仍为旧 Helper。旧社区、矿池、奖励、Wrapper、Pump、Hook 和 Router 均不重部署。
+Wrapper 从登记记录取得 importer / community，不依赖新 Helper 提供 `importerOf`。
+
+## 与旧 RH Helper 的接口差异
+
+旧 RH Helper 的创建入口是 3/4 参数，包含 calculator、distributionPolicy，且会补建 IPShare。
+V2 与 BSC 一致，默认入口改成 2 参数，并提供显式多池入口。
+新 Helper 不实现旧 Helper 的 `importerOf`，也没有旧的 Pump getter/创建参数。
+RH 旧 Helper 和旧 Wrapper 登记记录不迁移，API 必须保留历史收据 allowlist。
+
+本轮只改合约。启用 V2 前仍需完成 RH API 的 TradeCuration / 多池收据验证和投影，
+UI 的新 ABI、固定区块 Multicall 费用计算及增强 Helper 开关切换，
+以及 RH 导入币买入事件的索引与奖励 worker 识别。
+既有 RH TradeCurationFactory 已被 V14 索引覆盖，但不能因此推断新 Helper / 当前导入 Wrapper
+的事件和所有 downstream 路径均已覆盖。索引升级必须沿用精确生产包 continuation，不能重放旧历史。
+
+## 验证
+
+- 新旧 Helper 的 23 项单元测试通过；包括两个各 256 次的 fuzz，默认池、多池比例、费用退款、
+  重复导入、owner 权限、工厂禁用/上限/白名单撤销、后续矿池失败和退款失败整笔回滚。
+- 连同 ImportedTokenSwapWrapper 和 TradeCuration 的相关本地回归共 72 项通过、0 失败。
+- 固定主网区块的 RH fork 使用真实 CommunityFactory、Community implementation、Committee、
+  TradeCurationFactory、SocialCurationFactory、HourlyTickCalculator、旧 Helper 和 Wrapper。
+  测试币只在本地 fork 创建；奖励签名使用测试密钥，工厂 signer 修改也仅在本地 fork。
+  共 4 项通过，覆盖无 IPShare 的默认导入、实际奖励注入/归集/领取、双池默认配置、
+  旧导入记录保留，以及部署 preflight 的精确 Multicall 子调用和 registrar 变化拒绝。
+- Multicall 脚本回归 4 项通过，验证固定 blockTag、目标及全部子调用、错链/失败/缺失结果拒绝、
+  部署后 immutable/owner/default 及 registrar 激活核验。
+- 生产资金交易、正式部署、浏览器验证、owner 激活和 API/UI 首次导入验收仍待执行。
+- 部署脚本在同一固定区块使用显式虚拟密钥 `1`、不带 `--broadcast` 模拟通过，
+  仅生成一笔 Helper 创建交易；未将模拟地址保存为正式部署地址。
+
+本地单元测试不使用默认 localhost fork：
+
+```bash
+make test-rh-import-helper-v2
+```
+
+固定区块 fork：
+
+```bash
+FOUNDRY_PROFILE=rh_fork FOUNDRY_ETH_RPC_URL='' RUN_RH_IMPORT_FORK=true \
+  forge test --match-contract RHImportHelperV2ForkTest -vv
+```
+
+## 部署顺序（操作员每次只执行一个步骤并回传）
+
+1. 确认使用本次 `rh` 源码和已验证的编译配置。新 Helper 可先部署，暂不激活。
+2. 在合约仓库 `rh` 分支运行 `make simulate-rh-import-helper-v2`。
+   复用既有 `.env` 的 `PRIVATE_KEY`，无需手工输入依赖合约地址；脚本仅允许 chain 4663。
+   preflight 在一笔 Multicall 检查 owner、registrar、WETH、工厂、signer、计算器和白名单。
+3. 模拟通过后运行 `make deploy-rh-import-helper-v2`；只部署一个 Helper，
+   不自动切换 registrar。保存成功部署收据的真实地址、交易/区块与源码提交。
+   部署中断时先查收据，不直接重跑创建另一个 Helper。
+4. 运行 `make verify-rh-import-helper-v2 HELPER=<真实新地址>` 补做浏览器源码验证。
+   若验证失败，只重试验证，不重复部署。
+5. 用 `node script/verify-rh-import-helper-v2.mjs <真实新地址>` 核验新 Helper 和旧 registrar。
+   Node 验证器复用相邻 `tiptag-ui` 已安装的 viem；不加载 `.env`、私钥或钱包。
+6. 完成上述 RH API / UI / 索引接入准备后，根据真实新地址生成 owner/Safe 的一笔
+   `Wrapper.setRegistrar(newHelper)`，value=0。生产切换以各依赖的实际验收结果为准。
+   当前 owner 是上述地址；应先核对实际控制方式，不能把历史 owner 快照称为已确认多签。
+   新 Helper 已归该 owner，无需额外 acceptOwnership。
+7. owner 激活后使用 `node script/verify-rh-import-helper-v2.mjs <真实新地址> --activated`，
+   记录激活收据和新地址，再更新正式部署记录与 API/UI 默认地址。
+8. 用小额真实导入、买入、奖励展示及领取验收完整流程。
+
+部署和 owner 激活必须由操作员执行；本次本地 fork / script 模拟不构成主网部署证据。

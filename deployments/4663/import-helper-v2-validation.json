@@ -1,0 +1,40 @@
+{
+  "recordedDate": "2026-10-12",
+  "chainId": 4663,
+  "branch": "rh",
+  "rhBaseCommit": "8bab1cfdf052ffbdafbc3945477fdce9e521e9aa",
+  "bscReferenceCommit": "79c65e7",
+  "status": "locally_validated_not_deployed",
+  "deployedHelper": null,
+  "registrarActivated": false,
+  "pinnedForkBlock": 86435919,
+  "compiler": {
+    "solidity": "0.8.26",
+    "viaIR": true,
+    "optimizer": true,
+    "optimizerRuns": 200
+  },
+  "tests": {
+    "localRegressionPassed": 72,
+    "rhForkPassed": 4,
+    "multicallRegressionPassed": 4,
+    "fuzzRunsPerCase": 256
+  },
+  "deploymentScriptSimulation": {
+    "broadcast": false,
+    "usesSyntheticTestKey": true,
+    "deploymentTransactions": 1
+  },
+  "sha256": {
+    "src/helper/ImportHelperV2.sol": "2668b7737f2670ca43c56eb0575f3803710500f30e2e6b7ac32b4c5b5583fdeb",
+    "script/DeployRHImportHelperV2.s.sol": "7a3219969f1f3171a666a505170b34e580b0dc07dba2502898c23a9da1d42a52",
+    "script/verify-rh-import-helper-v2.mjs": "3a36d84f9cfb4814c9c5e5fad8ea0f7e77d2aecc777affd370299472fa632fa0",
+    "abis/rh-version14/ImportHelperV2.json": "e291c59222d4221f52a80a866132dea0285ead2fd4fafb476d18176c3129a804"
+  },
+  "preflight": "import-helper-v2-preflight.json",
+  "limits": [
+    "No production broadcast or registrar activation",
+    "API/UI/indexer integration is a subsequent phase",
+    "Fork token and signer are test fixtures, not a production trade acceptance"
+  ]
+}

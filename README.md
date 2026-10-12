@@ -1,5 +1,9 @@
 # TagAI Contract V2
 
+RH 分支当前包含已部署的 [RH V14](docs/RH_VERSION14.md)，以及待部署的
+[RH ImportHelperV2](docs/RH_IMPORT_HELPER_V2.md)。V2 默认创建交易策展矿池，支持可配置多池，
+复用既有 RH Wrapper；部署与 owner 激活步骤见该文档。
+
 Smart contracts for **TagAI (TipTag)** on BSC — **Pump Version 9 (V9)**. V9 ties together **community token launches**, **creator IPShare**, **Nutbox community incentives**, and **PancakeSwap V4 on-chain trading**. Users participate through Twitter/X social activity; tokens start on a bonding curve and migrate to the DEX once listing conditions are met, with swap fees flowing back to the community and creators.
 
 > **Earlier Pump versions (V1–V8)** live in the legacy Hardhat repo: [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract). This repository is the Foundry-based **V9** deployment and supersedes V8 on BSC mainnet for new community tokens.

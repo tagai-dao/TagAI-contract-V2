@@ -12,6 +12,28 @@ RH_SIM_FLAGS := -vvv
 RH_MAINNET_RPC := https://rpc.mainnet.chain.robinhood.com
 RH_BLOCKSCOUT_API := https://robinhoodchain.blockscout.com/api/
 
+.PHONY: test-rh-import-helper-v2 simulate-rh-import-helper-v2 deploy-rh-import-helper-v2 verify-rh-import-helper-v2
+
+test-rh-import-helper-v2:
+	FOUNDRY_ETH_RPC_URL='' forge test --match-contract 'ImportHelper(V2)?Test' -vv
+	node --test script/verify-rh-import-helper-v2.test.mjs
+
+# One new Helper only. Registrar activation is a separate owner transaction.
+simulate-rh-import-helper-v2:
+	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployRHImportHelperV2.s.sol:DeployRHImportHelperV2 --rpc-url $(RH_MAINNET_RPC) $(RH_SIM_FLAGS)
+
+deploy-rh-import-helper-v2:
+	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployRHImportHelperV2.s.sol:DeployRHImportHelperV2 --rpc-url $(RH_MAINNET_RPC) $(RH_SCRIPT_FLAGS)
+
+verify-rh-import-helper-v2:
+	@test -n "$(HELPER)" || (echo "Need HELPER=actual deployed address"; exit 1)
+	FOUNDRY_PROFILE=rh_mainnet forge verify-contract $(HELPER) src/helper/ImportHelperV2.sol:ImportHelperV2 \
+		--chain 4663 --rpc-url $(RH_MAINNET_RPC) --verifier blockscout --verifier-url $(RH_BLOCKSCOUT_API) \
+		--constructor-args $$(cast abi-encode "constructor(address,address,address,address,address)" \
+		0x24328DccA1bA54EeE82e2993F021802e64290486 0x73cb7A6Ad01686659F72011eb952fBa53fe6212B \
+		0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0 0x3DC52C69C3C8be568372E16d50E9F3FEc796610c \
+		0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab) --watch
+
 deploy-rh-testnet:
 	FOUNDRY_PROFILE=rh_testnet forge script script/DeployRH.s.sol:DeployRHScript $(RH_SCRIPT_FLAGS)
 
