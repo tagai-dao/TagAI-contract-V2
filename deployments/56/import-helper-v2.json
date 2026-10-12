@@ -1,0 +1,75 @@
+{
+  "chainId": 56,
+  "helperVersion": 2,
+  "status": "activated-on-chain-pending-service-rollout",
+  "ImportHelperV2": "0x40BACB12D79dadf045c21C999b74484816F746F7",
+  "PreviousImportHelper": "0xcCB0f9a9db22cCC29fDd315180F89747118ec296",
+  "ReusedImportedTokenSwapWrapper": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+  "Owner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "ConstructorArguments": {
+    "communityFactory": "0x5597e814399906095ecaA5769A40394F58E5E0Cf",
+    "tradeCurationFactory": "0x774A48Ba391a1013Ae43289eBdf871618822CD67",
+    "committee": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+    "hourlyTickCalculator": "0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d",
+    "swapWrapper": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F"
+  },
+  "InitialDefaultPools": [
+    {
+      "factory": "0x774A48Ba391a1013Ae43289eBdf871618822CD67",
+      "rewardRatio": 10000,
+      "meta": "0x"
+    }
+  ],
+  "MaxPools": 6,
+  "MaxFactoryTypes": 32,
+  "DeploymentTransaction": "0xd86532076cdd5db8fcace3bcc1d4ee84ac6060b5800833243ce9f66528fc28f4",
+  "DeploymentBlock": 126770859,
+  "DeploymentTimestamp": 1791609676,
+  "Deployer": "0x78c2af38330c5b41ae7946a313e43cdceeaf8611",
+  "DeploymentGasUsed": 2080339,
+  "DeploymentEffectiveGasPriceWei": "50000000",
+  "DeploymentCostWei": "104016950000000",
+  "RuntimeCodeHash": "0xb9d81837da6d05907fdff2acb2f32ae4d772dcfc69c1f725463c081d9d4994cd",
+  "RuntimeMatchesLocalArtifact": true,
+  "RuntimeComparison": "Immutable reference ranges normalized for comparison; immutable addresses checked through getters.",
+  "SourceVerificationStatus": "verified",
+  "SourceVerificationEvidence": "User-provided Forge output: Pass - Verified; runtime artifact independently checked on-chain.",
+  "SourceBaseCommit": "47d46de973694d25da00de27cd08de18245164af",
+  "SourceIncludesUncommittedChanges": true,
+  "SourceFilesSha256": {
+    "src/helper/ImportHelperV2.sol": "7fc39bc8020ec1dcddea62f94eeb5c336ffe76970e90116726efd0ea9004e08c",
+    "script/DeployBSCImportHelperV2.s.sol": "8e9bf062abf30b361c80e2c76356625bf87a5544b8b4239e8767a3829f51bcc6"
+  },
+  "VerificationBlock": 126772205,
+  "VerifiedAt": "2026-10-10T05:31:25.995Z",
+  "WrapperRegistrarAtVerification": "0x40BACB12D79dadf045c21C999b74484816F746F7",
+  "SafeCallsFile": "deployments/56/import-helper-v2.safe.json",
+  "RegistrarVerificationHistory": [
+    {
+      "block": 126771024,
+      "registrar": "0xcCB0f9a9db22cCC29fDd315180F89747118ec296",
+      "checkedAt": "2026-10-10T05:22:33.192Z"
+    },
+    {
+      "block": 126772205,
+      "registrar": "0x40BACB12D79dadf045c21C999b74484816F746F7",
+      "checkedAt": "2026-10-10T05:31:25.995Z"
+    }
+  ],
+  "RegistrarActivation": {
+    "transactionHash": "0x947bfd4789f246bc4f478a4257d534bf162ed51d33243430f83a086a319a62cd",
+    "blockNumber": 126772104,
+    "timestamp": 1791610237,
+    "logIndex": 939,
+    "previousRegistrar": "0xcCB0f9a9db22cCC29fDd315180F89747118ec296",
+    "newRegistrar": "0x40BACB12D79dadf045c21C999b74484816F746F7",
+    "receiptStatus": "0x1",
+    "transactionTo": "0x871fb7006c5964b21695ba20006021777a26146c",
+    "function": "setRegistrar(address)",
+    "data": "0xfaab9d3900000000000000000000000040bacb12d79dadf045c21c999b74484816f746f7",
+    "verifiedAt": "2026-10-10T05:31:25.995Z",
+    "verificationBlock": 126772205
+  },
+  "PendingOwnerActions": [],
+  "ServicesRolloutStatus": "Local API/UI defaults updated; deployment not confirmed."
+}

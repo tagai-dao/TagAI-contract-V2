@@ -13,16 +13,27 @@
 
 ---
 
+## 2026-10-10 — BSC ImportHelper V2（已部署验证并多签启用）
+
+- 新增 `ImportHelperV2`：初始默认 TradeCuration 100%；支持 owner 登记矿池类型、调整默认组合，以及调用方显式选择 1–6 个矿池和合计 100% 的比例。社区 owner / dev fund 仍归导入者，继续使用 HourlyTickCalculator。
+- 原 ImportHelper 保留；V2 初始 owner 直接取 Wrapper owner，管理权采用 Ownable2Step。V2 保留原创建 selector 和主池事件，新增全部矿池 linkage 事件，但不接受非零 existingCommunity。已有代币、社交策展矿池、签名领取和待注入奖励不迁移。
+- 复用 Wrapper `0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F` 和 TradeCurationFactory `0x774A48Ba391a1013Ae43289eBdf871618822CD67`。Factory 白名单、社区工厂和 signer 已只读核验。
+- 部署仅新增一个 helper；激活需要 Wrapper owner 多签执行 `setRegistrar(newHelper)`。已部署地址 `0x40BACB12D79dadf045c21C999b74484816F746F7`，交易 `0xd86532076cdd5db8fcace3bcc1d4ee84ac6060b5800833243ce9f66528fc28f4`，区块 `126770859`；源码已验证，链上 owner / 默认配置 / runtime artifact 已核验。多签启用交易 `0x947bfd4789f246bc4f478a4257d534bf162ed51d33243430f83a086a319a62cd`，区块 `126772104`；当前 Wrapper registrar 已切换为 V2，生产服务发布结果待补记。
+- API / UI 支持新 helper 配置、通用策展矿池导入和旧收据重试；交易策展服务补充导入币买入证据和社区矿池关联，无需新增数据库迁移或 Graph 部署。
+- 部署说明与验证记录：[BSC_IMPORT_HELPER_V2.md](docs/BSC_IMPORT_HELPER_V2.md)；正式快照：[import-helper-v2.json](deployments/56/import-helper-v2.json)；多签文件：[import-helper-v2.safe.json](deployments/56/import-helper-v2.safe.json)。
+
+---
+
 ## 协议版本关系
 
-这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V14（已部署，2026-09-29 合并至 main；下文多签状态为 2026-09-23 历史快照）；已经存在的外部 ERC20 通过 ImportHelper V10 接入 Nutbox。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
+这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V14（已部署，2026-09-29 合并至 main；下文多签状态为 2026-09-23 历史快照）；外部 ERC20 的导入业务版本仍为 V10，2026-10-10 起链上登记入口已切换为 ImportHelperV2，服务发布状态见上方记录。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
 
 | 版本 | 状态 | 功能定位 |
 | --- | --- | --- |
 | V1–V7 | 历史版本 | 早期 bonding curve、IPShare 和 PCS Hook 迭代，源码与历史地址位于旧版 [`tagai-contract`](https://github.com/tagai-dao/tagai-contract) 仓库。 |
 | V8 | 已被新发行入口替代 | 面向 Agent 社区，bonding curve 上市前只允许 Agent 交易，并为 Nutbox Community 自动分配 15% 供应量。 |
 | V9 | 历史发行入口 | 通过 Pump 创建新社区代币，支持开放 bonding curve 交易、反狙击、PCS V4 上市、TagAISwapHook 和 Nutbox 奖励注入；既有 Token 保持原实现。 |
-| V10 | 当前外部代币导入入口 | 通过 ImportHelper 将已部署 ERC20 接入 Nutbox，创建不可增发 Community 和默认 SocialCuration Pool；不创建 Token、bonding curve、PCS V4 池或 Hook。 |
+| V10 | 外部代币导入业务版本 | 通过 Helper 将已有 ERC20 接入不可增发 Community；旧 Helper 默认 SocialCuration，现已启用的 ImportHelperV2 默认 TradeCuration 100%，支持多池选择和比例。不创建 Token、bonding curve、PCS V4 池或 Hook。 |
 | V11 | 历史发行入口，既有 Token 继续使用 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。该批部署及验证记录见下文。 |
 | V13 | 既有发行入口，已创建 Token 继续使用 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
 | V14 | 已部署，源码已合并 main；权限状态见历史快照 | 创建代币时可选交易策展矿池；复用 V13 Token 模板；配套多 Pump Router / Adapter 支持由 owner 配置后续兼容版本。 |

@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "chainId": "56",
+  "createdAt": 1791609753192,
+  "meta": {
+    "name": "Activate BSC ImportHelper V2",
+    "description": "Set the existing ImportedTokenSwapWrapper registrar to the deployed ImportHelperV2; default Trade Curation 100%.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "createdFromOwnerAddress": ""
+  },
+  "transactions": [
+    {
+      "to": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+      "value": "0",
+      "data": "0xfaab9d3900000000000000000000000040bacb12d79dadf045c21c999b74484816f746f7",
+      "contractMethod": null,
+      "contractInputsValues": null
+    }
+  ]
+}
