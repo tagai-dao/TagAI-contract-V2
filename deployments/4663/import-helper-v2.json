@@ -70,9 +70,12 @@
   },
   "helperOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
   "wrapperOwnershipTransfer": {
-    "status": "prepared_not_started",
+    "status": "pending_safe_acceptance",
     "targetSafe": "0x871fb7006C5964B21695Ba20006021777A26146C",
     "preflightRecord": "import-wrapper-ownership-transfer.json",
-    "acceptanceFile": "import-wrapper-accept-ownership.safe.json"
+    "acceptanceFile": "import-wrapper-accept-ownership.safe.json",
+    "transferTransactionHash": "0x01ef437eee4907ee70e7003517860d16e2364e0bc60eefc7ae4b0a85a4595596",
+    "transferBlockNumber": 86480489,
+    "verifiedAtBlock": 86483287
   }
 }

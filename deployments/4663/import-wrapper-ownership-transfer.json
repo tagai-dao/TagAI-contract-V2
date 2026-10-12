@@ -3,7 +3,7 @@
   "verifiedAtBlock": 86464554,
   "wrapper": "0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab",
   "currentOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
-  "currentPendingOwner": "0x0000000000000000000000000000000000000000",
+  "currentPendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
   "targetSafe": "0x871fb7006C5964B21695Ba20006021777A26146C",
   "safeThreshold": 2,
   "safeOwnerCount": 3,
@@ -11,6 +11,25 @@
   "transferData": "0xf2fde38b000000000000000000000000871fb7006c5964b21695ba20006021777a26146c",
   "acceptanceData": "0x79ba5097",
   "transferSimulation": "passed",
-  "transferStarted": false,
-  "ownershipAccepted": false
+  "transferStarted": true,
+  "ownershipAccepted": false,
+  "status": "pending_safe_acceptance",
+  "lastVerifiedAtBlock": 86483287,
+  "lastVerifiedBlockTag": "0x527a157",
+  "helperOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "registrar": "0x70eD7C79d80dEDE1828a09B3c526df283111Cb82",
+  "transfer": {
+    "event": "OwnershipTransferStarted",
+    "previousOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "newOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "transactionHash": "0x01ef437eee4907ee70e7003517860d16e2364e0bc60eefc7ae4b0a85a4595596",
+    "block": 86480489,
+    "blockHash": "0x2466de249a7b8ef77f5d80691da4f8fbc96ba73b11ad0e1a44b1b3eca38dc52b",
+    "executor": "0x78c2af38330c5b41ae7946a313e43cdceeaf8611",
+    "to": "0x53e65de68a0eb7f3662579f44eb9849ae5ca44ab",
+    "input": "0xf2fde38b000000000000000000000000871fb7006c5964b21695ba20006021777a26146c",
+    "value": "0x0",
+    "receiptStatus": 1,
+    "evidenceSource": "Independent RPC receipt, address-scoped OwnershipTransferStarted log and fixed-block Multicall"
+  }
 }

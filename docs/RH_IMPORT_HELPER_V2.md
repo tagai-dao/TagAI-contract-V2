@@ -164,12 +164,17 @@ FOUNDRY_PROFILE=rh_fork FOUNDRY_ETH_RPC_URL='' RUN_RH_IMPORT_FORK=true \
 - 后续先补齐索引的 additive continuation 及导入 Wrapper 事件识别，更新 API 验证和 RH
   默认 Helper 地址、UI ABI/费用/无 IPShare 门槛；完整导入和奖励闭环仍待真实验收。
 
-### Wrapper owner 移交到 RH 多签（2026-10-12，已准备，尚未执行）
+### Wrapper owner 移交到 RH 多签（2026-10-12，第一步已执行，待多签接收）
 
 用户要求只移交 Wrapper owner。区块 `86464554` 固定区块 Multicall 确认：
 Wrapper owner 为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，pendingOwner 为零；
 RH Committee owner 为现有 Safe `0x871fb7006C5964B21695Ba20006021777A26146C`，
 Safe 有合约代码，3 个 owner、threshold=2。本次移交模拟由当前 owner 发起，调用通过。
+
+第一步已独立核验：交易 `0x01ef437eee4907ee70e7003517860d16e2364e0bc60eefc7ae4b0a85a4595596`，
+区块 `86480489`，receipt status=1，部署账户直接执行 `transferOwnership(Safe)`，value=0。
+区块 `86483287` 固定区块 Multicall 确认 pendingOwner=Safe、owner 仍为部署账户、
+registrar 仍为新 Helper，Helper owner 仍为部署账户。当前状态为待 Safe 接收，尚未完成所有权移交。
 
 Wrapper 继承 Ownable2Step，移交分两笔：
 
@@ -190,7 +195,7 @@ cast send 0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab \
 预检及状态：[import-wrapper-ownership-transfer.json](../deployments/4663/import-wrapper-ownership-transfer.json)。
 第二步 Safe Transaction Builder 文件已准备：
 [import-wrapper-accept-ownership.safe.json](../deployments/4663/import-wrapper-accept-ownership.safe.json)，
-仅包含一笔 Wrapper `acceptOwnership()`；必须先实际完成并核验第一步，再交付操作员执行。
+仅包含一笔 Wrapper `acceptOwnership()`；第一步已核验，可交付操作员通过该 Safe 执行。
 
 Wrapper 和 Helper 的 owner 是独立角色。Wrapper owner 变化不会自动移交 Helper owner；
 此次仅处理用户指定的 Wrapper。核验脚本分别记录两者，并按部署记录验证 Helper owner，
