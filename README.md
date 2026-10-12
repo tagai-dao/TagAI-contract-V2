@@ -1,6 +1,6 @@
 # TagAI Contract V2
 
-RH 分支当前包含已部署的 [RH V14](docs/RH_VERSION14.md)，以及待部署的
+RH 分支当前包含已部署的 [RH V14](docs/RH_VERSION14.md)，以及已部署、待启用的
 [RH ImportHelperV2](docs/RH_IMPORT_HELPER_V2.md)。V2 默认创建交易策展矿池，支持可配置多池，
 复用既有 RH Wrapper；部署与 owner 激活步骤见该文档。
 

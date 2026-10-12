@@ -4,7 +4,8 @@
 `8bab1cf`，再实现本次升级。BSC V2 保存在 `main` 的 `79c65e7`，本次沿用其业务逻辑，
 仅将原 Helper 的间接 imports 换成 RH 的独立接口 imports。
 
-状态：代码和本地验证完成；**未广播新合约、未切换主网 registrar、未更新 API/UI 默认地址**。
+状态：代码、本地验证和主网部署完成；**尚未切换主网 registrar、尚未更新 API/UI 默认地址**。
+浏览器源码验证待操作员执行，真实部署信息见文末。
 不得将本地模拟地址填入生产配置。RH 导入币业务版本仍为 V10，Helper 自身版本为 V2。
 
 ## 新导入的行为
@@ -86,7 +87,7 @@ UI 的新 ABI、固定区块 Multicall 费用计算及增强 Helper 开关切换
   旧导入记录保留，以及部署 preflight 的精确 Multicall 子调用和 registrar 变化拒绝。
 - Multicall 脚本回归 4 项通过，验证固定 blockTag、目标及全部子调用、错链/失败/缺失结果拒绝、
   部署后 immutable/owner/default 及 registrar 激活核验。
-- 生产资金交易、正式部署、浏览器验证、owner 激活和 API/UI 首次导入验收仍待执行。
+- 正式部署已完成并独立核验；浏览器验证、owner 激活和 API/UI 首次导入及交易验收仍待执行。
 - 部署脚本在同一固定区块使用显式虚拟密钥 `1`、不带 `--broadcast` 模拟通过，
   仅生成一笔 Helper 创建交易；未将模拟地址保存为正式部署地址。
 
@@ -125,3 +126,22 @@ FOUNDRY_PROFILE=rh_fork FOUNDRY_ETH_RPC_URL='' RUN_RH_IMPORT_FORK=true \
 8. 用小额真实导入、买入、奖励展示及领取验收完整流程。
 
 部署和 owner 激活必须由操作员执行；本次本地 fork / script 模拟不构成主网部署证据。
+
+## 2026-10-12 正式部署记录
+
+- 新 Helper：`0x70eD7C79d80dEDE1828a09B3c526df283111Cb82`。
+- 部署交易：`0xc81cbd3a01a156a3697322fc64878f717597bd8de364f0f3533098023e0a44b0`，
+  区块 `86448655`，独立 RPC 核验 receipt status = 1。
+- 源码提交：`3dcd8443263e80cf4d316e5a137617ed7b86546b`，Solidity 0.8.26 / viaIR / optimizer 200。
+- CREATE input 与本地 artifact 的部署字节码及 5 个 constructor 参数完全一致；
+  正规化 immutable 区段和编译器 metadata 后，链上运行时代码与本地 artifact 一致。
+- 运行时代码 hash：`0xdf9f20e3dd39041d5b2d5a3ced2d49872cfb633ce8f04fc4fd74ed062f96e6d2`。
+- Gas used `2080305`，实际支付 `0.00004166850915 ETH`。
+- 区块 `86448864` 的固定区块 Multicall：VERSION=2，owner 为
+  `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，依赖地址全部正确；
+  默认矿池为 RH TradeCurationFactory / 10000 / 空 meta。
+- 同一快照的 Wrapper registrar 仍为旧 Helper `0xD0baaF8D314b0C6AB6bebd24ddbC86157c9c7b09`，
+  新 V2 **已部署但未启用**，既有导入入口仍生效。
+- 浏览器验证：待操作员执行 `make verify-rh-import-helper-v2 HELPER=0x70eD7C79d80dEDE1828a09B3c526df283111Cb82`。
+- 部署及配置核验证据：[import-helper-v2.json](../deployments/4663/import-helper-v2.json)。
+  owner 激活和 API/UI/索引接入继续按上述顺序推进，不重复运行部署命令。

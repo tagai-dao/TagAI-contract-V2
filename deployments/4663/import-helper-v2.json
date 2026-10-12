@@ -1,0 +1,54 @@
+{
+  "chainId": 4663,
+  "block": 86448864,
+  "blockTag": "0x5271ae0",
+  "oldHelper": "0xD0baaF8D314b0C6AB6bebd24ddbC86157c9c7b09",
+  "wrapper": "0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab",
+  "communityFactory": "0x24328DccA1bA54EeE82e2993F021802e64290486",
+  "tradeFactory": "0x73cb7A6Ad01686659F72011eb952fBa53fe6212B",
+  "committee": "0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0",
+  "calculator": "0x3DC52C69C3C8be568372E16d50E9F3FEc796610c",
+  "multicall": "0xcA11bde05977b3631167028862bE2a173976CA11",
+  "weth": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+  "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "registrar": "0xD0baaF8D314b0C6AB6bebd24ddbC86157c9c7b09",
+  "claimSigner": "0x1C3864ea7a54eC4E3cEb27553A6F2927bBe4222e",
+  "helper": "0x70eD7C79d80dEDE1828a09B3c526df283111Cb82",
+  "activated": false,
+  "defaultPools": [
+    {
+      "factory": "0x73cb7A6Ad01686659F72011eb952fBa53fe6212B",
+      "rewardRatio": 10000,
+      "meta": "0x"
+    }
+  ],
+  "recordedDate": "2026-10-12",
+  "status": "deployed_not_activated",
+  "sourceCommit": "3dcd8443263e80cf4d316e5a137617ed7b86546b",
+  "deployment": {
+    "transactionHash": "0xc81cbd3a01a156a3697322fc64878f717597bd8de364f0f3533098023e0a44b0",
+    "blockNumber": 86448655,
+    "blockHash": "0x7eb3c3c9e70fc05cb76088d7793cc08395659a484a2f2fae4ee6dfbd46a188ca",
+    "deployer": "0x78c2af38330c5b41ae7946a313e43cdceeaf8611",
+    "receiptStatus": 1,
+    "gasUsed": "2080305",
+    "effectiveGasPriceWei": "20030000",
+    "paidWei": "41668509150000"
+  },
+  "verification": {
+    "configurationMulticallBlock": 86448864,
+    "runtimeCodeHash": "0xdf9f20e3dd39041d5b2d5a3ced2d49872cfb633ce8f04fc4fd74ed062f96e6d2",
+    "normalizedRuntimeMatchesLocalArtifact": true,
+    "creationInputExactlyMatchesLocalArtifact": true,
+    "compilerVersion": "0.8.26+commit.8a97fa7a",
+    "browserSourceVerification": "pending"
+  },
+  "activation": {
+    "target": "0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab",
+    "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "value": "0",
+    "function": "setRegistrar(address)",
+    "newRegistrar": "0x70eD7C79d80dEDE1828a09B3c526df283111Cb82",
+    "executed": false
+  }
+}

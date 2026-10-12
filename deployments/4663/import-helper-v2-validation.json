@@ -4,8 +4,8 @@
   "branch": "rh",
   "rhBaseCommit": "8bab1cfdf052ffbdafbc3945477fdce9e521e9aa",
   "bscReferenceCommit": "79c65e7",
-  "status": "locally_validated_not_deployed",
-  "deployedHelper": null,
+  "status": "deployed_not_activated",
+  "deployedHelper": "0x70eD7C79d80dEDE1828a09B3c526df283111Cb82",
   "registrarActivated": false,
   "pinnedForkBlock": 86435919,
   "compiler": {
@@ -33,7 +33,7 @@
   },
   "preflight": "import-helper-v2-preflight.json",
   "limits": [
-    "No production broadcast or registrar activation",
+    "Production deployment confirmed; browser verification and registrar activation pending",
     "API/UI/indexer integration is a subsequent phase",
     "Fork token and signer are test fixtures, not a production trade acceptance"
   ],
@@ -45,5 +45,6 @@
     "explicitSellsmanPriority": "unchanged from BSC",
     "existingWrapperRedeploymentRequired": false,
     "deployerWithoutIPShareCommission": "direct native ETH payment"
-  }
+  },
+  "productionDeploymentRecord": "import-helper-v2.json"
 }
