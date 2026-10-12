@@ -33,7 +33,7 @@
   },
   "preflight": "import-helper-v2-preflight.json",
   "limits": [
-    "Production deployment confirmed; browser verification and registrar activation pending",
+    "Production deployment and operator-confirmed browser verification completed; registrar activation pending",
     "API/UI/indexer integration is a subsequent phase",
     "Fork token and signer are test fixtures, not a production trade acceptance"
   ],

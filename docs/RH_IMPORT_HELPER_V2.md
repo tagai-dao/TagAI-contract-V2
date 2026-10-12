@@ -5,7 +5,8 @@
 仅将原 Helper 的间接 imports 换成 RH 的独立接口 imports。
 
 状态：代码、本地验证和主网部署完成；**尚未切换主网 registrar、尚未更新 API/UI 默认地址**。
-浏览器源码验证待操作员执行，真实部署信息见文末。
+浏览器源码验证已由操作员确认完成；真实部署信息见文末。
+后续 RH 合约统一使用 [浏览器 Standard JSON 验证流程](RH_CONTRACT_VERIFICATION.md)。
 不得将本地模拟地址填入生产配置。RH 导入币业务版本仍为 V10，Helper 自身版本为 V2。
 
 ## 新导入的行为
@@ -87,7 +88,7 @@ UI 的新 ABI、固定区块 Multicall 费用计算及增强 Helper 开关切换
   旧导入记录保留，以及部署 preflight 的精确 Multicall 子调用和 registrar 变化拒绝。
 - Multicall 脚本回归 4 项通过，验证固定 blockTag、目标及全部子调用、错链/失败/缺失结果拒绝、
   部署后 immutable/owner/default 及 registrar 激活核验。
-- 正式部署已完成并独立核验；浏览器验证、owner 激活和 API/UI 首次导入及交易验收仍待执行。
+- 正式部署已完成并独立核验，浏览器源码验证已由操作员确认；owner 激活和 API/UI 首次导入及交易验收仍待执行。
 - 部署脚本在同一固定区块使用显式虚拟密钥 `1`、不带 `--broadcast` 模拟通过，
   仅生成一笔 Helper 创建交易；未将模拟地址保存为正式部署地址。
 
@@ -113,8 +114,9 @@ FOUNDRY_PROFILE=rh_fork FOUNDRY_ETH_RPC_URL='' RUN_RH_IMPORT_FORK=true \
 3. 模拟通过后运行 `make deploy-rh-import-helper-v2`；只部署一个 Helper，
    不自动切换 registrar。保存成功部署收据的真实地址、交易/区块与源码提交。
    部署中断时先查收据，不直接重跑创建另一个 Helper。
-4. 运行 `make verify-rh-import-helper-v2 HELPER=<真实新地址>` 补做浏览器源码验证。
-   若验证失败，只重试验证，不重复部署。
+4. 运行 `make verify-rh-import-helper-v2 HELPER=<真实新地址>` 导出标准 JSON，
+   按 [RH 验证流程](RH_CONTRACT_VERIFICATION.md) 在浏览器提交验证。
+   该 make 目标不再通过 Blockscout API 提交验证。若验证失败，只重试验证，不重复部署。
 5. 用 `node script/verify-rh-import-helper-v2.mjs <真实新地址>` 核验新 Helper 和旧 registrar。
    Node 验证器复用相邻 `tiptag-ui` 已安装的 viem；不加载 `.env`、私钥或钱包。
 6. 完成上述 RH API / UI / 索引接入准备后，根据真实新地址生成 owner/Safe 的一笔
@@ -142,17 +144,17 @@ FOUNDRY_PROFILE=rh_fork FOUNDRY_ETH_RPC_URL='' RUN_RH_IMPORT_FORK=true \
   默认矿池为 RH TradeCurationFactory / 10000 / 空 meta。
 - 同一快照的 Wrapper registrar 仍为旧 Helper `0xD0baaF8D314b0C6AB6bebd24ddbC86157c9c7b09`，
   新 V2 **已部署但未启用**，既有导入入口仍生效。
-- 浏览器验证：待操作员执行 `make verify-rh-import-helper-v2 HELPER=0x70eD7C79d80dEDE1828a09B3c526df283111Cb82`。
+- 浏览器验证：2026-10-12 操作员确认已完成，方法为上传 Solidity Standard JSON Input。
 - 部署及配置核验证据：[import-helper-v2.json](../deployments/4663/import-helper-v2.json)。
   owner 激活和 API/UI/索引接入继续按上述顺序推进，不重复运行部署命令。
 
-### Blockscout CLI 验证受阻与浏览器备用入口
+### Blockscout CLI 验证受阻与浏览器验证记录
 
 2026-10-12 操作员执行源码验证时，`getabi` 返回 Cloudflare `Just a moment...` HTML，
 而不是 JSON；独立只读检查亦得到 HTTP 403。该错误发生在浏览器 API 接口，
 不是部署失败，也不是编译或字节码不匹配。部署地址和成功收据继续有效。
 
-浏览器地址页与验证表单可打开，当前页面仍显示未验证。
+故障处理时浏览器地址页与验证表单可打开，页面当时显示未验证。
 改用 [官方验证页面](https://robinhoodchain.blockscout.com/address/0x70eD7C79d80dEDE1828a09B3c526df283111Cb82/contract-verification)，
 选择 `Solidity (Standard JSON input)`、compiler `v0.8.26+commit.8a97fa7a`、license `MIT`，
 上传 [标准 JSON 文件](../deployments/4663/import-helper-v2-standard-input.json) 后由操作员提交。
@@ -168,5 +170,7 @@ FOUNDRY_PROFILE=rh_mainnet forge verify-contract \
   > deployments/4663/import-helper-v2-standard-input.json
 ```
 
-该导出操作不提交验证。浏览器出现成功结果后再记录正式验证状态；
-当前状态仍为 `pending`。不要为解决浏览器 API 拦截重复部署 Helper。
+该导出操作不提交验证。操作员随后确认验证成功，当前源码验证记录为已验证，
+结果来源标注为 operator confirmation；不将其描述成 agent 独立页面核验。
+用户明确要求后续 RH 合约默认使用此方式，已记录至仓库和工作区 AGENTS.md。
+不要为解决浏览器 API 拦截重复部署 Helper。

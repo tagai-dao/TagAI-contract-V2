@@ -10,7 +10,6 @@
 RH_SCRIPT_FLAGS := --broadcast --slow --gas-estimate-multiplier 300 -vvv
 RH_SIM_FLAGS := -vvv
 RH_MAINNET_RPC := https://rpc.mainnet.chain.robinhood.com
-RH_BLOCKSCOUT_API := https://robinhoodchain.blockscout.com/api/
 
 .PHONY: test-rh-import-helper-v2 simulate-rh-import-helper-v2 deploy-rh-import-helper-v2 verify-rh-import-helper-v2
 
@@ -25,14 +24,14 @@ simulate-rh-import-helper-v2:
 deploy-rh-import-helper-v2:
 	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployRHImportHelperV2.s.sol:DeployRHImportHelperV2 --rpc-url $(RH_MAINNET_RPC) $(RH_SCRIPT_FLAGS)
 
+# RH verification defaults to browser-uploaded Standard JSON (see docs/RH_CONTRACT_VERIFICATION.md).
 verify-rh-import-helper-v2:
 	@test -n "$(HELPER)" || (echo "Need HELPER=actual deployed address"; exit 1)
 	FOUNDRY_PROFILE=rh_mainnet forge verify-contract $(HELPER) src/helper/ImportHelperV2.sol:ImportHelperV2 \
-		--chain 4663 --rpc-url $(RH_MAINNET_RPC) --verifier blockscout --verifier-url $(RH_BLOCKSCOUT_API) \
-		--constructor-args $$(cast abi-encode "constructor(address,address,address,address,address)" \
-		0x24328DccA1bA54EeE82e2993F021802e64290486 0x73cb7A6Ad01686659F72011eb952fBa53fe6212B \
-		0x7B0ddC305C32AAEbabc0FE372a4460e9903e95D0 0x3DC52C69C3C8be568372E16d50E9F3FEc796610c \
-		0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab) --watch
+		--chain 4663 --compiler-version v0.8.26+commit.8a97fa7a --show-standard-json-input \
+		> deployments/4663/import-helper-v2-standard-input.json
+	@echo "Upload deployments/4663/import-helper-v2-standard-input.json using Solidity (Standard JSON input), compiler v0.8.26+commit.8a97fa7a, MIT."
+	@echo "https://robinhoodchain.blockscout.com/address/$(HELPER)/contract-verification"
 
 deploy-rh-testnet:
 	FOUNDRY_PROFILE=rh_testnet forge script script/DeployRH.s.sol:DeployRHScript $(RH_SCRIPT_FLAGS)
@@ -56,22 +55,20 @@ simulate-basket-tvl-mining-mainnet:
 deploy-basket-tvl-mining-mainnet:
 	FOUNDRY_PROFILE=rh_mainnet forge script script/DeployBasketTVLMiningFactory.s.sol:DeployBasketTVLMiningFactoryScript $(RH_SCRIPT_FLAGS)
 
+# Export browser verification inputs from the matching deployed source/profile.
 # Usage: make verify-nft-mining-factory-mainnet FACTORY=0x... TEMPLATE=0x... RENDERER=0x...
 verify-nft-mining-factory-mainnet:
 	@test -n "$(FACTORY)" -a -n "$(TEMPLATE)" -a -n "$(RENDERER)" || (echo "Need FACTORY= TEMPLATE= RENDERER="; exit 1)
-	forge verify-contract $(FACTORY) src/nutbox/dapps/nft-mining/NFTMiningPoolFactory.sol:NFTMiningPoolFactory \
-		--chain 4663 --rpc-url $(RH_MAINNET_RPC) \
-		--verifier blockscout --verifier-url $(RH_BLOCKSCOUT_API) \
-		--constructor-args $$(cast abi-encode "constructor(address)" 0x24328DccA1bA54EeE82e2993F021802e64290486) \
-		--watch
-	forge verify-contract $(TEMPLATE) src/nutbox/dapps/nft-mining/NFTMiningPool.sol:NFTMiningPool \
-		--chain 4663 --rpc-url $(RH_MAINNET_RPC) \
-		--verifier blockscout --verifier-url $(RH_BLOCKSCOUT_API) \
-		--watch
-	forge verify-contract $(RENDERER) src/nutbox/dapps/nft-mining/NFTMiningRenderer.sol:NFTMiningRenderer \
-		--chain 4663 --rpc-url $(RH_MAINNET_RPC) \
-		--verifier blockscout --verifier-url $(RH_BLOCKSCOUT_API) \
-		--watch
+	FOUNDRY_PROFILE=rh_mainnet forge verify-contract $(FACTORY) src/nutbox/dapps/nft-mining/NFTMiningPoolFactory.sol:NFTMiningPoolFactory \
+		--chain 4663 --compiler-version v0.8.26+commit.8a97fa7a --show-standard-json-input \
+		> deployments/4663/nft-mining-factory-standard-input.json
+	FOUNDRY_PROFILE=rh_mainnet forge verify-contract $(TEMPLATE) src/nutbox/dapps/nft-mining/NFTMiningPool.sol:NFTMiningPool \
+		--chain 4663 --compiler-version v0.8.26+commit.8a97fa7a --show-standard-json-input \
+		> deployments/4663/nft-mining-pool-standard-input.json
+	FOUNDRY_PROFILE=rh_mainnet forge verify-contract $(RENDERER) src/nutbox/dapps/nft-mining/NFTMiningRenderer.sol:NFTMiningRenderer \
+		--chain 4663 --compiler-version v0.8.26+commit.8a97fa7a --show-standard-json-input \
+		> deployments/4663/nft-mining-renderer-standard-input.json
+	@echo "Upload each Standard JSON to the matching address page; see docs/RH_CONTRACT_VERIFICATION.md."
 
 # Dry-run (no broadcast)
 simulate-rh-testnet:

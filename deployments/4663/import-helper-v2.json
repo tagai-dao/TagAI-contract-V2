@@ -41,10 +41,14 @@
     "normalizedRuntimeMatchesLocalArtifact": true,
     "creationInputExactlyMatchesLocalArtifact": true,
     "compilerVersion": "0.8.26+commit.8a97fa7a",
-    "browserSourceVerification": "pending",
+    "browserSourceVerification": "verified",
     "cliFailure": "Blockscout getabi API returned Cloudflare challenge HTML (HTTP 403)",
     "standardJsonInput": "import-helper-v2-standard-input.json",
-    "standardJsonInputSha256": "e00bf2ddbf2763702f4909f1f9d7eca4708e058ee5578265ff75fe5e087a8256"
+    "standardJsonInputSha256": "e00bf2ddbf2763702f4909f1f9d7eca4708e058ee5578265ff75fe5e087a8256",
+    "browserVerificationMethod": "Solidity (Standard JSON input) via browser",
+    "browserVerificationConfirmedDate": "2026-10-12",
+    "browserVerificationEvidenceSource": "operator confirmation in this conversation",
+    "browserVerificationUrl": "https://robinhoodchain.blockscout.com/address/0x70eD7C79d80dEDE1828a09B3c526df283111Cb82?tab=contract"
   },
   "activation": {
     "target": "0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab",
