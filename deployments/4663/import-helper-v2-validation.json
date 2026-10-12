@@ -26,7 +26,7 @@
     "deploymentTransactions": 1
   },
   "sha256": {
-    "src/helper/ImportHelperV2.sol": "2668b7737f2670ca43c56eb0575f3803710500f30e2e6b7ac32b4c5b5583fdeb",
+    "src/helper/ImportHelperV2.sol": "80cd6ad48f3f4336ba32dc287b5f2790b3e20136018674d24c8f86d55d972d2b",
     "script/DeployRHImportHelperV2.s.sol": "7a3219969f1f3171a666a505170b34e580b0dc07dba2502898c23a9da1d42a52",
     "script/verify-rh-import-helper-v2.mjs": "3a36d84f9cfb4814c9c5e5fad8ea0f7e77d2aecc777affd370299472fa632fa0",
     "abis/rh-version14/ImportHelperV2.json": "e291c59222d4221f52a80a866132dea0285ead2fd4fafb476d18176c3129a804"
@@ -36,5 +36,14 @@
     "No production broadcast or registrar activation",
     "API/UI/indexer integration is a subsequent phase",
     "Fork token and signer are test fixtures, not a production trade acceptance"
-  ]
+  ],
+  "commentOnlyFollowUp": {
+    "date": "2026-10-12",
+    "validatedImplementationCommit": "c54b659",
+    "executableSourceUnchanged": true,
+    "importRequiresIPShare": false,
+    "explicitSellsmanPriority": "unchanged from BSC",
+    "existingWrapperRedeploymentRequired": false,
+    "deployerWithoutIPShareCommission": "direct native ETH payment"
+  }
 }

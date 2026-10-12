@@ -17,6 +17,9 @@ interface IImportWrapperOwner {
 
 /// @notice Owner-approved pool types and caller-selected shares for new imported communities.
 /// @dev Initial default is TradeCuration 100%. The legacy selector follows the current default.
+///      Importing does not check or create the importer's IPShare and charges no IPShare fee.
+///      The importer is recorded as the market deployer. On subsequent trades the existing
+///      Wrapper pays that deployer's commission directly when they have no IPShare (BSC parity).
 contract ImportHelperV2 is Ownable2Step, ReentrancyGuard {
     using Address for address payable;
     uint256 public constant VERSION = 2;
@@ -204,6 +207,8 @@ contract ImportHelperV2 is Ownable2Step, ReentrancyGuard {
         _validatePools(configs);
         (bool registered,,) = swapWrapper.getImportedMarket(token);
         if (registered) revert TokenAlreadyImported();
+        // Import eligibility is independent of IPShare ownership. Do not add an IPShare gate
+        // or auto-creation here; only Community creation and per-pool settings fees are charged.
         address creator = msg.sender;
         uint256 createFee = ICommittee(committee).getCreateCommunityFee();
         uint256 settingsFee = ICommittee(committee).getCommunitySettingsFee();
@@ -227,6 +232,8 @@ contract ImportHelperV2 is Ownable2Step, ReentrancyGuard {
             pools[i] = ICommunity(community).activedPools(i);
             emit ImportedPoolCreated(token, community, pools[i], configs[i].factory, configs[i].rewardRatio, i);
         }
+        // Persist the importer as deployer so zero/self sellsman trades default to this address.
+        // An existing IPShare receives valueCapture; otherwise the Wrapper sends native ETH.
         swapWrapper.registerImportedToken(token, community, creator);
         Ownable(community).transferOwnership(creator);
         if (msg.value > totalFee) payable(creator).sendValue(msg.value - totalFee);

@@ -830,6 +830,11 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IU
         amountAfterFee = tokenAmount - nutboxFee;
     }
 
+    /// @dev Same commission rule as BSC: an IPShare is optional. The resolved recipient's
+    ///      IPShare receives valueCapture when present; otherwise send native ETH directly.
+    ///      With no explicit sellsman, that recipient is the registered importer/deployer.
+    ///      A rejected direct payment retains the existing platform fallback. Platform and
+    ///      Nutbox fees remain separate from this deployer/sellsman commission.
     function _takeFees(uint256 nativeAmount, address sellsman)
         internal
         returns (uint256 amountAfterFees, uint256 tagaiFee, uint256 sellsmanFee, address feeRecipient)
@@ -847,9 +852,10 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IU
         if (tagaiFee != 0) _sendNative(feeAddress, tagaiFee);
     }
 
-    /// @dev A caller-supplied subject with an IPShare receives commission through valueCapture.
-    ///      A subject without an IPShare receives native coin directly. Zero/self falls back to
-    ///      the platform fee address.
+    /// @dev An explicit nonzero/non-wrapper sellsman takes priority, as on BSC. Zero/self
+    ///      resolves to the registered deployer, even without an IPShare. Only an unregistered
+    ///      market with no deployer defaults to the platform fee address. _takeFees decides
+    ///      between IPShare valueCapture and a direct native payment; import has no IPShare gate.
     function _resolvedSellsman(address sellsman, address deployer) internal view returns (address) {
         if (sellsman != address(0) && sellsman != address(this)) return sellsman;
         return deployer == address(0) ? feeAddress : deployer;

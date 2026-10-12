@@ -24,6 +24,21 @@
 - 逐池发出 `ImportedPoolCreated`；兼容 `CommunityCreated` 的 pool 仅为第一个池，
   API/索引不能从它推断社区仅有一个矿池。
 
+### IPShare 与交易手续费（2026-10-12 用户确认）
+
+导入资格不检查导入者是否拥有 IPShare，不自动创建，也不收取 IPShare 创建费。
+Helper 将导入者登记为 Wrapper 的 deployer。交易未显式提供 sellsman，或提供零地址 / Wrapper
+自身时，部署者是默认手续费接收者：已有 IPShare 则执行 valueCapture；没有 IPShare 则直接
+向部署者地址支付对应的 ETH 手续费。显式有效 sellsman 仍按 BSC 的优先级接收佣金。
+这一规则只决定部署者 / 推广者佣金，平台手续费和 Nutbox 社区代币奖励仍独立处理。
+若直接支付被接收合约拒绝，保留现有 Wrapper 向平台 feeAddress 支付的 fallback。
+
+已核对 RH 与 BSC 的 `_takeFees` / `_resolvedSellsman` 代码，执行逻辑一致。
+本次仅补充注释，并修正原注释将零地址 fallback 描述为平台地址的歧义；
+实际代码一直优先使用已登记部署者，无需升级或重新部署现有 Wrapper。
+既有 Wrapper 回归已覆盖无 IPShare 部署者在买入 / 卖出时直接收款、
+已有 IPShare 的 valueCapture，以及拒收 ETH 时的 fallback。
+
 ## 复用的主网地址
 
 以下状态在固定区块 **86,435,919** 通过一笔链上 Multicall3 核验；不是实时状态。
