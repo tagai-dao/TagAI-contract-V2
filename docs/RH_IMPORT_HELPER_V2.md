@@ -145,3 +145,28 @@ FOUNDRY_PROFILE=rh_fork FOUNDRY_ETH_RPC_URL='' RUN_RH_IMPORT_FORK=true \
 - 浏览器验证：待操作员执行 `make verify-rh-import-helper-v2 HELPER=0x70eD7C79d80dEDE1828a09B3c526df283111Cb82`。
 - 部署及配置核验证据：[import-helper-v2.json](../deployments/4663/import-helper-v2.json)。
   owner 激活和 API/UI/索引接入继续按上述顺序推进，不重复运行部署命令。
+
+### Blockscout CLI 验证受阻与浏览器备用入口
+
+2026-10-12 操作员执行源码验证时，`getabi` 返回 Cloudflare `Just a moment...` HTML，
+而不是 JSON；独立只读检查亦得到 HTTP 403。该错误发生在浏览器 API 接口，
+不是部署失败，也不是编译或字节码不匹配。部署地址和成功收据继续有效。
+
+浏览器地址页与验证表单可打开，当前页面仍显示未验证。
+改用 [官方验证页面](https://robinhoodchain.blockscout.com/address/0x70eD7C79d80dEDE1828a09B3c526df283111Cb82/contract-verification)，
+选择 `Solidity (Standard JSON input)`、compiler `v0.8.26+commit.8a97fa7a`、license `MIT`，
+上传 [标准 JSON 文件](../deployments/4663/import-helper-v2-standard-input.json) 后由操作员提交。
+文件含完整 47 份 Solidity 依赖源码及 viaIR / optimizer 200 / Cancun 配置，
+不含环境变量、私钥或 API 凭证。参数对应部署源码提交 `3dcd844`。
+
+如需重新导出，在相同源码和配置的合约目录运行：
+
+```bash
+FOUNDRY_PROFILE=rh_mainnet forge verify-contract \
+  0x70eD7C79d80dEDE1828a09B3c526df283111Cb82 src/helper/ImportHelperV2.sol:ImportHelperV2 \
+  --chain 4663 --compiler-version v0.8.26+commit.8a97fa7a --show-standard-json-input \
+  > deployments/4663/import-helper-v2-standard-input.json
+```
+
+该导出操作不提交验证。浏览器出现成功结果后再记录正式验证状态；
+当前状态仍为 `pending`。不要为解决浏览器 API 拦截重复部署 Helper。
