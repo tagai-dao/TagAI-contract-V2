@@ -4,9 +4,9 @@
   "branch": "rh",
   "rhBaseCommit": "8bab1cfdf052ffbdafbc3945477fdce9e521e9aa",
   "bscReferenceCommit": "79c65e7",
-  "status": "deployed_not_activated",
+  "status": "deployed_verified_activated",
   "deployedHelper": "0x70eD7C79d80dEDE1828a09B3c526df283111Cb82",
-  "registrarActivated": false,
+  "registrarActivated": true,
   "pinnedForkBlock": 86435919,
   "compiler": {
     "solidity": "0.8.26",
@@ -33,7 +33,7 @@
   },
   "preflight": "import-helper-v2-preflight.json",
   "limits": [
-    "Production deployment and operator-confirmed browser verification completed; registrar activation pending",
+    "Production deployment, operator-confirmed browser verification and independently verified registrar activation completed",
     "API/UI/indexer integration is a subsequent phase",
     "Fork token and signer are test fixtures, not a production trade acceptance"
   ],

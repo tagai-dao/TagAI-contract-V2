@@ -4,7 +4,7 @@
 `8bab1cf`，再实现本次升级。BSC V2 保存在 `main` 的 `79c65e7`，本次沿用其业务逻辑，
 仅将原 Helper 的间接 imports 换成 RH 的独立接口 imports。
 
-状态：代码、本地验证和主网部署完成；**尚未切换主网 registrar、尚未更新 API/UI 默认地址**。
+状态：代码、本地验证、主网部署和 registrar 切换完成；**API/UI 默认地址及索引接入仍待更新**。
 浏览器源码验证已由操作员确认完成；真实部署信息见文末。
 后续 RH 合约统一使用 [浏览器 Standard JSON 验证流程](RH_CONTRACT_VERIFICATION.md)。
 不得将本地模拟地址填入生产配置。RH 导入币业务版本仍为 V10，Helper 自身版本为 V2。
@@ -88,7 +88,7 @@ UI 的新 ABI、固定区块 Multicall 费用计算及增强 Helper 开关切换
   旧导入记录保留，以及部署 preflight 的精确 Multicall 子调用和 registrar 变化拒绝。
 - Multicall 脚本回归 4 项通过，验证固定 blockTag、目标及全部子调用、错链/失败/缺失结果拒绝、
   部署后 immutable/owner/default 及 registrar 激活核验。
-- 正式部署已完成并独立核验，浏览器源码验证已由操作员确认；owner 激活和 API/UI 首次导入及交易验收仍待执行。
+- 正式部署和 owner 激活已完成并独立核验，浏览器源码验证已由操作员确认；API/UI/索引接入及首次导入交易验收仍待完成。
 - 部署脚本在同一固定区块使用显式虚拟密钥 `1`、不带 `--broadcast` 模拟通过，
   仅生成一笔 Helper 创建交易；未将模拟地址保存为正式部署地址。
 
@@ -142,11 +142,27 @@ FOUNDRY_PROFILE=rh_fork FOUNDRY_ETH_RPC_URL='' RUN_RH_IMPORT_FORK=true \
 - 区块 `86448864` 的固定区块 Multicall：VERSION=2，owner 为
   `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，依赖地址全部正确；
   默认矿池为 RH TradeCurationFactory / 10000 / 空 meta。
-- 同一快照的 Wrapper registrar 仍为旧 Helper `0xD0baaF8D314b0C6AB6bebd24ddbC86157c9c7b09`，
-  新 V2 **已部署但未启用**，既有导入入口仍生效。
+- 部署后区块 `86448864` 的快照中，Wrapper registrar 当时仍为旧 Helper
+  `0xD0baaF8D314b0C6AB6bebd24ddbC86157c9c7b09`；后续已切换，最新状态见下方启用记录。
 - 浏览器验证：2026-10-12 操作员确认已完成，方法为上传 Solidity Standard JSON Input。
 - 部署及配置核验证据：[import-helper-v2.json](../deployments/4663/import-helper-v2.json)。
-  owner 激活和 API/UI/索引接入继续按上述顺序推进，不重复运行部署命令。
+  owner 激活已完成；API/UI/索引接入继续推进，不重复运行部署命令。
+
+### 2026-10-12 Owner 启用记录
+
+- 启用交易：`0x3913b5a2b93524d685ea5f84b0a4f73e1600ba850454ec24d9f575183eb20ad8`，
+  区块 `86460900`，独立 RPC 确认 receipt status=1。
+- 调用目标：既有 Wrapper `0x53e65DE68A0eB7f3662579F44Eb9849Ae5cA44ab`；
+  calldata 对应 `setRegistrar(0x70eD7C79d80dEDE1828a09B3c526df283111Cb82)`，value=0。
+- 实际执行者为部署者/owner `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，
+  是该账户直接发起的交易，不是 Safe 执行。
+- Wrapper 的 `RegistrarChanged` 日志 index=8，确认从旧 Helper 切到新 Helper。
+- 区块 `86461283` 固定区块 Multicall 再次确认 registrar、新 Helper owner、immutable 依赖和
+  默认交易策展 100%；没有重新部署 Wrapper、工厂或计算器。
+- 此次在 API/UI/索引迁移完成之前先执行了 owner 启用。旧 Helper 现在不能登记新币；
+  更新应用接入前不能把平台导入功能标记为上线完成。
+- 后续先补齐索引的 additive continuation 及导入 Wrapper 事件识别，更新 API 验证和 RH
+  默认 Helper 地址、UI ABI/费用/无 IPShare 门槛；完整导入和奖励闭环仍待真实验收。
 
 ### Blockscout CLI 验证受阻与浏览器验证记录
 
