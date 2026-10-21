@@ -13,6 +13,15 @@
 
 ---
 
+## 2026-10-21 — BSC Pump V16（源码升级，待重新部署）
+
+- 分支 `bsc-version16`，从已部署并验证的 V15-2 记录提交 `2df2699` 建立。
+- `Pump.VERSION` 升级为 `16`；保留 Binance Agent 内盘买入资格和内盘禁止向外部地址 `transfer` / `transferFrom` 的完整规则。
+- V15-2 是不可升级部署，链上仍真实返回 `VERSION=15`。V16 将使用新的 Pump、Token implementation、Hook 和 BuybackRouter 地址，不覆盖 V15-2 历史记录。
+- 规则与部署入口见 [PumpVersion16.md](docs/PumpVersion16.md) 和 `script/DeployBSCPump16.s.sol`。
+
+---
+
 ## 2026-10-21 — BSC Pump V15-2（已部署并验证，多签激活待执行）
 
 - 分支 `bsc-version15-2`，部署源码提交 `72380962e7d101f13f9fb5d8a0f711380770e7c9`。
@@ -63,6 +72,7 @@
 | V13 | 既有发行入口，已创建 Token 继续使用 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
 | V14 | 已部署，源码已合并 main；权限状态见历史快照 | 创建代币时可选交易策展矿池；复用 V13 Token 模板；配套多 Pump Router / Adapter 支持由 owner 配置后续兼容版本。 |
 | V15 | `version15` 分支，已部署，用户已多签、待链上执行 | 内盘买方须有指定 BSC HandleRegistry 的非空 handle；只有创建交易内的预买免检，部署者后续买入也需校验。 |
+| V16 | `bsc-version16` 分支，待部署 | 继承 V15 买入资格，并禁止内盘用户把 Token 转给其他地址、Router、Vault 或外部 DEX 池。 |
 
 ---
 

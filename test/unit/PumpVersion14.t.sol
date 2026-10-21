@@ -69,7 +69,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         assertEq(pool.factory(), address(f));
         assertTrue(f.createdPoolOfCommunity(address(c)));
         assertEq(c.owner(), creator);
-        assertEq(pump.VERSION(), 15);
+        assertEq(pump.VERSION(), 16);
         // Listing/buyback wiring still works with the additional reward pool.
         token = t;
         _list();
@@ -274,7 +274,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         assertGt(t.balanceOf(creator), 168_000 ether);
         vm.expectRevert();
         community.activedPools(6);
-        // V15 forbids holder-to-protocol ERC20 transfers while the token is still on the
+        // V16 forbids holder-to-protocol ERC20 transfers while the token is still on the
         // bonding curve. Graduate the token before exercising the real reward pipeline.
         vm.warp(block.timestamp + 16);
         vm.prank(creator, creator);

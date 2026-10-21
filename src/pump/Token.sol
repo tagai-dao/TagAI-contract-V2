@@ -57,7 +57,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     uint256 public constant COMPONENT_TOKEN_ALLOCATION = 50_000_000 ether;
     uint256 public constant V4_NATIVE_ALLOCATION = 15 ether;
     address public constant LP_BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-    /// @dev V15 ordinary inner-market buyers must have a nonempty handle in this BSC registry.
+    /// @dev V16 ordinary inner-market buyers must have a nonempty handle in this BSC registry.
     address private constant HANDLE_REGISTRY = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
     /// @notice Token-side transfer tax for every post-list transfer into or out of a component V2 pair.
     uint256 public constant COMPONENT_POOL_TAX_BPS = 10;
