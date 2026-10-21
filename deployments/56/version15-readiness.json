@@ -1,0 +1,85 @@
+{
+  "version": 15,
+  "chainId": 56,
+  "status": "deployed-pending-owner-activation",
+  "validatedDate": "2026-10-21",
+  "snapshotBlock": 128866480,
+  "previousPump": "0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34",
+  "snapshotOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "reusedTradeCurationFactory": "0x774A48Ba391a1013Ae43289eBdf871618822CD67",
+  "broadcastPerformed": true,
+  "deploymentTransactions": [
+    "0x1bc06134ab6f962beaed9ddc38d96617e42280a56aae9f827403ec48266a575d",
+    "0x41e5b810d0c3435c5e6eed8158b00718c0c8e7630bc499557132cd8654bd63e8",
+    "0xdcb6d09c7dc8fbc67d56c3fb350be6f362c8bd6e9f88001c5fa499d699d36156",
+    "0xf4a613c6d65c53a9debaa3ba2fe2380e2d52ce38faed85e6b0f8e8bd6843980e",
+    "0x27a02125b0bd1658b179066e78bc06ed004e1fafec606b8bbeb1bf87f3bf92a5",
+    "0x92b803e4167148db66445c4b4ad778b52ae45f2b0093bafaae391720c2448e2a",
+    "0xd319bd71f6b49654594ae56be9aba54e8a48ad1e5ef8e749dfa39efa9d7a2bd4"
+  ],
+  "simulationAddressesArePredictions": true,
+  "sourceCommit": "2a8c13705f1b4742b23aa988486ee2eb25d26989",
+  "sourceIncludesUncommittedChanges": true,
+  "sourceFilesSha256": {
+    "src/pump/Pump.sol": "ade036122a90cf5114d5cf331e0bd538f84a676df1b22f1599d03564275a8443",
+    "src/pump/Token.sol": "b92dddf46091c781153c0842d0fc679c4aeeb5081f8907cf5485bb0b8a4b6700",
+    "src/interfaces/IToken.sol": "1c17732c2edd8e7a21d1da2a0919344b0b9172b3fbaeba68ef76eecab297288f",
+    "src/interfaces/IHandleRegistry.sol": "c1ecab37a891cb3a04788de62802a0832ae186642d4986799b70742497e560fd",
+    "src/hook/TagAISwapHook.sol": "9e5258c7e50b0dce0f5a82aed2818f4e40c85d865212d4391dd1486146214f37",
+    "src/router/TagAIBuybackRouter.sol": "f0b57ecd22fe52862913f0deaa0b1eff063ffc5070bc7af46713349395836cd7",
+    "foundry.toml": "b0746b7485286fd173f9a1ea44af9db10cda5e0a780f3d379a56ddac2f3729ea",
+    "script/DeployBSCPump15.s.sol": "1911ea66a515aa0355c064d2ce0c728924122eb1eb717cb2e3425d0e1db0b1ab",
+    "script/config/BSC15DeploymentConfig.sol": "7abcb0c47c5cf65ccbf893c33f323a55fdce877a88b67ba62003c63659ae19f3",
+    "script/config/BSCNutboxRouterConfig.sol": "f79e1f76bd4059f6fe072630e138cbc0ce6469d977afe4f94428163076d43e71"
+  },
+  "compiler": {
+    "version": "0.8.26+commit.8a97fa7a",
+    "viaIR": true,
+    "optimizerRuns": 100,
+    "evmVersion": "cancun"
+  },
+  "validation": {
+    "businessRegression": {
+      "passed": 760,
+      "failed": 0,
+      "skipped": 2
+    },
+    "deploymentMulticallRegression": {
+      "passed": 6,
+      "failed": 0
+    },
+    "realBscDeploymentLifecycleFork": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "test": "Pump15DeploymentForkTest.test_v15_liveNutboxBasketNFTListingAndBuyback",
+      "simulatedOwnerApprovalsAndNftRegistration": true
+    },
+    "fixedBlockDeploymentDryRun": "passed",
+    "configuredDeployerLatestDryRun": {
+      "status": "passed",
+      "snapshotBlock": 128868378,
+      "broadcastPerformed": false,
+      "estimatedTotalGas": 18121911,
+      "estimatedGasPriceWei": "1000000000",
+      "estimatedFeeWei": "18121911000000000",
+      "estimateOnly": true
+    }
+  },
+  "activationRequired": [
+    "NutboxRouter.addOperator(newPump)",
+    "BasketRegistry.setCreatorForwarderApproval(newPump,true)",
+    "Pump.acceptOwnership() by target owner when different from deployer"
+  ],
+  "peripheralLimitations": [
+    "Existing multi-Pump trade router needs setPump(newPump,true).",
+    "Listed CommentBuyAdapter entry needs a new Hook policy.",
+    "Inner-market CommentBuyAdapter needs separate beneficiary eligibility adaptation.",
+    "Existing single-Pump TagAILiquidityRouter is not automatically compatible with V15 tokens."
+  ],
+  "deploymentRecord": "deployments/56/version15.json",
+  "simulationAddressNote": "Historical dry-run addresses were predictions. Confirmed deployed addresses and receipts are recorded in version15.json.",
+  "sourceArchiveCommit": "886309b32da621401d7d0e1940ed162fcfd2c133",
+  "activationStatus": "user-reported-multisig-signed-pending-onchain-execution",
+  "latestActivationCheckBlock": 128870733
+}

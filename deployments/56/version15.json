@@ -1,0 +1,665 @@
+{
+  "version": 15,
+  "chainId": 56,
+  "status": "deployed-pending-owner-activation",
+  "deploymentDate": "2026-10-21",
+  "Pump": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+  "TagAISwapHook": "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1",
+  "TagAIBuybackRouter": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+  "TokenImplementation": "0x8851D281f76951d41C9ff5c820D2D387f820f073",
+  "PreviousPump": "0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34",
+  "TradeCurationFactory": "0x774A48Ba391a1013Ae43289eBdf871618822CD67",
+  "HandleRegistry": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
+  "deploymentTransactions": [
+    {
+      "hash": "0x1bc06134ab6f962beaed9ddc38d96617e42280a56aae9f827403ec48266a575d",
+      "contract": "Pump",
+      "address": "0x97f35b4631f4ffbf8050b17fad6579d6f60a289d",
+      "type": "CREATE",
+      "function": null,
+      "arguments": [
+        "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+        "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
+        "[0x2170Ed0880ac9A755fd29B2688956BD959F933F8, 0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c, 0x205812CdBed920aFf76C6580abD681a46D11efc7, 0xbe9D156892E55e7154BcD3cB0FEA677F9D3103E1, 0x431a3BEE82E2ca41e49895CbECE5bB0F76A89b7A, 0xCA750eF65f295BBECd685Abf54e82CAf297BDB61, 0x7138b48df7D98D7e3cc221BfE7192D0a178182D8, 0x21cAef8A43163Eea865baeE23b9C2E327696A3bf, 0x02Fca66C1D1aFB4E2A7884261eB00F63598a7436, 0x5b1910eAaD6450E50f816082Aa078C41F10C292f, 0x80106cb3EAD06659A5ad19DF39D9b4733863B9b0, 0xA394dCEa3fd3847fD793afBFd163E2e3858B7c65, 0x4eF9d3062c7F6ebA4AAE4990c5036598C6eff4ec, 0x46cEeFDa28Dd7207059ed19B0acdc026955bb15C, 0x3F53De71c126BdaBAe20f9cD64848d317f6C3238, 0x80f3D493EBCe97e343c53D29a137942416B4ffC0]",
+        "0x0000000000000000000000000000000000000000"
+      ],
+      "block": 128869397,
+      "gasUsed": 10834245,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0x41e5b810d0c3435c5e6eed8158b00718c0c8e7630bc499557132cd8654bd63e8",
+      "contract": "TagAISwapHook",
+      "address": "0x9a60808605f291e632e9adbbab4e4343f43a0cc1",
+      "type": "CREATE2",
+      "function": null,
+      "arguments": [
+        "0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b",
+        "0x238a358808379702088667322f80aC48bAd5e6c4",
+        "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D"
+      ],
+      "block": 128869403,
+      "gasUsed": 1904312,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0xdcb6d09c7dc8fbc67d56c3fb350be6f362c8bd6e9f88001c5fa499d699d36156",
+      "contract": "Pump",
+      "address": "0x97f35b4631f4ffbf8050b17fad6579d6f60a289d",
+      "type": "CALL",
+      "function": "adminSetHookAddress(address)",
+      "arguments": [
+        "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1"
+      ],
+      "block": 128869405,
+      "gasUsed": 46081,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0xf4a613c6d65c53a9debaa3ba2fe2380e2d52ce38faed85e6b0f8e8bd6843980e",
+      "contract": "TagAIBuybackRouter",
+      "address": "0x5375010a9ea81293fbfbb95853ae4305429beea0",
+      "type": "CREATE",
+      "function": null,
+      "arguments": [
+        "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+        "0x538e4B82D4A9E671B9358E1BAc3F7b74Bd663544",
+        "0x55d398326f99059fF775485246999027B3197955"
+      ],
+      "block": 128869408,
+      "gasUsed": 836216,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0x27a02125b0bd1658b179066e78bc06ed004e1fafec606b8bbeb1bf87f3bf92a5",
+      "contract": "Pump",
+      "address": "0x97f35b4631f4ffbf8050b17fad6579d6f60a289d",
+      "type": "CALL",
+      "function": "adminSetBuybackRouter(address)",
+      "arguments": [
+        "0x5375010a9ea81293FbfbB95853Ae4305429beEa0"
+      ],
+      "block": 128869411,
+      "gasUsed": 50667,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0x92b803e4167148db66445c4b4ad778b52ae45f2b0093bafaae391720c2448e2a",
+      "contract": "Pump",
+      "address": "0x97f35b4631f4ffbf8050b17fad6579d6f60a289d",
+      "type": "CALL",
+      "function": "adminSetOptionalPoolFactory(address,string,uint16,bool)",
+      "arguments": [
+        "0x774A48Ba391a1013Ae43289eBdf871618822CD67",
+        "Trade Curation",
+        "8000",
+        "true"
+      ],
+      "block": 128869417,
+      "gasUsed": 75914,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0xd319bd71f6b49654594ae56be9aba54e8a48ad1e5ef8e749dfa39efa9d7a2bd4",
+      "contract": "Pump",
+      "address": "0x97f35b4631f4ffbf8050b17fad6579d6f60a289d",
+      "type": "CALL",
+      "function": "transferOwnership(address)",
+      "arguments": [
+        "0x871fb7006C5964B21695Ba20006021777A26146C"
+      ],
+      "block": 128869423,
+      "gasUsed": 48846,
+      "effectiveGasPrice": 1000000000
+    }
+  ],
+  "DeploymentGasUsed": 13796281,
+  "DeploymentCostWei": "13796281000000000",
+  "DeploymentVerifiedAtBlock": 128869792,
+  "state": {
+    "block": 128869792,
+    "VERSION": 15,
+    "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "TokenImplementation": "0x8851D281f76951d41C9ff5c820D2D387f820f073",
+    "Hook": "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1",
+    "BuybackRouter": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+    "NutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+    "BasketHook": "0x76983475f199C58d7BbA975220593c1c8B25f75e",
+    "Committee": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+    "StakingFactory": "0xDc3f940ac6Da516d5C9cc59c8AFE0F85A576E2A4",
+    "Calculator": "0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d",
+    "ListingKeeper": "0x8047FcC508446E2673195B8125d3388defc23688",
+    "HookPump": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+    "HookPoolManager": "0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b",
+    "HookVault": "0x238a358808379702088667322f80aC48bAd5e6c4",
+    "BuybackPump": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+    "BuybackNutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+    "BuybackBasketRouter": "0x538e4B82D4A9E671B9358E1BAc3F7b74Bd663544",
+    "BuybackSettlementToken": "0x55d398326f99059fF775485246999027B3197955",
+    "NutboxRouterOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "BasketRegistryOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "NutboxRouterOperatorConfigured": false,
+    "PumpCreatorForwarderApproved": false,
+    "TradeCurationFactoryCommitteeVerified": true,
+    "OptionalTradePool": [
+      "Trade Curation",
+      8000,
+      true
+    ]
+  },
+  "TokenRuntimeMatchesLocalArtifact": true,
+  "TokenRuntimeBytes": 24372,
+  "TokenRuntimeSha256": "c33af71432d61fb9dffc4c3ab67b0b6bde477fc3a6864048c8ad25b0051cf8d3",
+  "sourceCommit": "2a8c13705f1b4742b23aa988486ee2eb25d26989",
+  "SourceIncludesUncommittedChanges": true,
+  "SourceFilesSha256": {
+    "src/pump/Pump.sol": "ade036122a90cf5114d5cf331e0bd538f84a676df1b22f1599d03564275a8443",
+    "src/pump/Token.sol": "b92dddf46091c781153c0842d0fc679c4aeeb5081f8907cf5485bb0b8a4b6700",
+    "src/interfaces/IToken.sol": "1c17732c2edd8e7a21d1da2a0919344b0b9172b3fbaeba68ef76eecab297288f",
+    "src/interfaces/IHandleRegistry.sol": "c1ecab37a891cb3a04788de62802a0832ae186642d4986799b70742497e560fd",
+    "src/hook/TagAISwapHook.sol": "9e5258c7e50b0dce0f5a82aed2818f4e40c85d865212d4391dd1486146214f37",
+    "src/router/TagAIBuybackRouter.sol": "f0b57ecd22fe52862913f0deaa0b1eff063ffc5070bc7af46713349395836cd7",
+    "foundry.toml": "b0746b7485286fd173f9a1ea44af9db10cda5e0a780f3d379a56ddac2f3729ea",
+    "script/DeployBSCPump15.s.sol": "1911ea66a515aa0355c064d2ce0c728924122eb1eb717cb2e3425d0e1db0b1ab",
+    "script/config/BSC15DeploymentConfig.sol": "7abcb0c47c5cf65ccbf893c33f323a55fdce877a88b67ba62003c63659ae19f3",
+    "script/config/BSCNutboxRouterConfig.sol": "f79e1f76bd4059f6fe072630e138cbc0ce6469d977afe4f94428163076d43e71"
+  },
+  "compiler": {
+    "version": "0.8.26+commit.8a97fa7a",
+    "viaIR": true,
+    "optimizerRuns": 100,
+    "evmVersion": "cancun"
+  },
+  "sourceVerification": {
+    "status": "not-checked",
+    "note": "On-chain configuration and Token runtime were checked; explorer source verification has not been checked or submitted."
+  },
+  "multicallVerification": {
+    "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+    "blockTag": "0x7ae65a0",
+    "calls": [
+      {
+        "label": "block",
+        "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+        "signature": "getBlockNumber()",
+        "arguments": [],
+        "kind": "uint",
+        "callData": "0x42cbb15c"
+      },
+      {
+        "label": "VERSION",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "VERSION()",
+        "arguments": [],
+        "kind": "uint",
+        "callData": "0xffa1ad74"
+      },
+      {
+        "label": "owner",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "owner()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x8da5cb5b"
+      },
+      {
+        "label": "pendingOwner",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "pendingOwner()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0xe30c3978"
+      },
+      {
+        "label": "TokenImplementation",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "tokenImplementation()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x2f3a3d5d"
+      },
+      {
+        "label": "Hook",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "getHookAddress()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0xfa11f041"
+      },
+      {
+        "label": "BuybackRouter",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "buybackRouter()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x9e03349a"
+      },
+      {
+        "label": "NutboxRouter",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "nutboxRouter()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x0f85c315"
+      },
+      {
+        "label": "BasketHook",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "basketHookV4()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x68cc0de2"
+      },
+      {
+        "label": "Committee",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "nutboxCommittee()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0xb313ecca"
+      },
+      {
+        "label": "StakingFactory",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "erc20StakingFactory()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0xbcfa68e8"
+      },
+      {
+        "label": "Calculator",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "getCalculator()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x554d5781"
+      },
+      {
+        "label": "ListingKeeper",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "listingKeeper()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x3814e17e"
+      },
+      {
+        "label": "HookPump",
+        "target": "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1",
+        "signature": "pump()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x395ea61b"
+      },
+      {
+        "label": "HookPoolManager",
+        "target": "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1",
+        "signature": "clPoolManager()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x40679361"
+      },
+      {
+        "label": "HookVault",
+        "target": "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1",
+        "signature": "vault()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0xfbfa77cf"
+      },
+      {
+        "label": "BuybackPump",
+        "target": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+        "signature": "pump()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x395ea61b"
+      },
+      {
+        "label": "BuybackNutboxRouter",
+        "target": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+        "signature": "nutboxRouter()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x0f85c315"
+      },
+      {
+        "label": "BuybackBasketRouter",
+        "target": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+        "signature": "basketRouter()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x227b15e6"
+      },
+      {
+        "label": "BuybackSettlementToken",
+        "target": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+        "signature": "settlementToken()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x7b9e618d"
+      },
+      {
+        "label": "NutboxRouterOwner",
+        "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+        "signature": "owner()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x8da5cb5b"
+      },
+      {
+        "label": "BasketRegistryOwner",
+        "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+        "signature": "owner()",
+        "arguments": [],
+        "kind": "address",
+        "callData": "0x8da5cb5b"
+      },
+      {
+        "label": "NutboxRouterOperatorConfigured",
+        "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+        "signature": "operators(address)",
+        "arguments": [
+          "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D"
+        ],
+        "kind": "bool",
+        "callData": "0x13e7c9d800000000000000000000000097f35b4631f4ffbf8050b17fad6579d6f60a289d"
+      },
+      {
+        "label": "PumpCreatorForwarderApproved",
+        "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+        "signature": "approvedCreatorForwarders(address)",
+        "arguments": [
+          "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D"
+        ],
+        "kind": "bool",
+        "callData": "0x925e324800000000000000000000000097f35b4631f4ffbf8050b17fad6579d6f60a289d"
+      },
+      {
+        "label": "TradeCurationFactoryCommitteeVerified",
+        "target": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+        "signature": "verifyContract(address)",
+        "arguments": [
+          "0x774A48Ba391a1013Ae43289eBdf871618822CD67"
+        ],
+        "kind": "bool",
+        "callData": "0x3d200b45000000000000000000000000774a48ba391a1013ae43289ebdf871618822cd67"
+      },
+      {
+        "label": "OptionalTradePool",
+        "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "signature": "optionalPoolFactories(address)",
+        "arguments": [
+          "0x774A48Ba391a1013Ae43289eBdf871618822CD67"
+        ],
+        "kind": "pool",
+        "callData": "0x6d969b3d000000000000000000000000774a48ba391a1013ae43289ebdf871618822cd67"
+      }
+    ],
+    "resultCount": 26,
+    "allRequiredSucceeded": true
+  },
+  "activationRequired": [
+    "NutboxRouter.addOperator(newPump)",
+    "BasketRegistry.setCreatorForwarderApproval(newPump,true)",
+    "Pump.acceptOwnership() by target owner when different from deployer"
+  ],
+  "peripheralLimitations": [
+    "Existing multi-Pump trade router needs setPump(newPump,true).",
+    "Listed CommentBuyAdapter entry needs a new Hook policy.",
+    "Inner-market CommentBuyAdapter needs separate beneficiary eligibility adaptation.",
+    "Existing single-Pump TagAILiquidityRouter is not automatically compatible with V15 tokens."
+  ],
+  "activationActionsFile": "deployments/56/version15-owner-actions.json",
+  "safeTransactionBuilderFile": "deployments/56/version15.safe.json",
+  "sourceArchiveCommit": "886309b32da621401d7d0e1940ed162fcfd2c133",
+  "sourceCommitScope": "sourceCommit is the deployment-time base commit; deployment included uncommitted changes. sourceArchiveCommit preserves the exact deployed source files and compiler configuration, confirmed by SourceFilesSha256.",
+  "activation": {
+    "status": "user-reported-multisig-signed-pending-onchain-execution",
+    "userReportedSignedDate": "2026-10-21",
+    "verifiedAtBlock": 128870733,
+    "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "NutboxRouterOperatorConfigured": false,
+    "PumpCreatorForwarderApproved": false,
+    "ownershipAccepted": false,
+    "transactions": [],
+    "multicallVerification": {
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "blockTag": "0x7ae694d",
+      "calls": [
+        {
+          "label": "block",
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "signature": "getBlockNumber()",
+          "arguments": [],
+          "kind": "uint",
+          "callData": "0x42cbb15c"
+        },
+        {
+          "label": "VERSION",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "VERSION()",
+          "arguments": [],
+          "kind": "uint",
+          "callData": "0xffa1ad74"
+        },
+        {
+          "label": "owner",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "owner()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "label": "pendingOwner",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "pendingOwner()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0xe30c3978"
+        },
+        {
+          "label": "TokenImplementation",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "tokenImplementation()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x2f3a3d5d"
+        },
+        {
+          "label": "Hook",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "getHookAddress()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0xfa11f041"
+        },
+        {
+          "label": "BuybackRouter",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "buybackRouter()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x9e03349a"
+        },
+        {
+          "label": "NutboxRouter",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "nutboxRouter()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x0f85c315"
+        },
+        {
+          "label": "BasketHook",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "basketHookV4()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x68cc0de2"
+        },
+        {
+          "label": "Committee",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "nutboxCommittee()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0xb313ecca"
+        },
+        {
+          "label": "StakingFactory",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "erc20StakingFactory()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0xbcfa68e8"
+        },
+        {
+          "label": "Calculator",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "getCalculator()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x554d5781"
+        },
+        {
+          "label": "ListingKeeper",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "listingKeeper()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x3814e17e"
+        },
+        {
+          "label": "HookPump",
+          "target": "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1",
+          "signature": "pump()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x395ea61b"
+        },
+        {
+          "label": "HookPoolManager",
+          "target": "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1",
+          "signature": "clPoolManager()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x40679361"
+        },
+        {
+          "label": "HookVault",
+          "target": "0x9A60808605f291e632e9AdbBAb4E4343f43A0CC1",
+          "signature": "vault()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0xfbfa77cf"
+        },
+        {
+          "label": "BuybackPump",
+          "target": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+          "signature": "pump()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x395ea61b"
+        },
+        {
+          "label": "BuybackNutboxRouter",
+          "target": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+          "signature": "nutboxRouter()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x0f85c315"
+        },
+        {
+          "label": "BuybackBasketRouter",
+          "target": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+          "signature": "basketRouter()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x227b15e6"
+        },
+        {
+          "label": "BuybackSettlementToken",
+          "target": "0x5375010a9ea81293FbfbB95853Ae4305429beEa0",
+          "signature": "settlementToken()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x7b9e618d"
+        },
+        {
+          "label": "NutboxRouterOwner",
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "signature": "owner()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "label": "BasketRegistryOwner",
+          "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+          "signature": "owner()",
+          "arguments": [],
+          "kind": "address",
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "label": "NutboxRouterOperatorConfigured",
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "signature": "operators(address)",
+          "arguments": [
+            "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D"
+          ],
+          "kind": "bool",
+          "callData": "0x13e7c9d800000000000000000000000097f35b4631f4ffbf8050b17fad6579d6f60a289d"
+        },
+        {
+          "label": "PumpCreatorForwarderApproved",
+          "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+          "signature": "approvedCreatorForwarders(address)",
+          "arguments": [
+            "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D"
+          ],
+          "kind": "bool",
+          "callData": "0x925e324800000000000000000000000097f35b4631f4ffbf8050b17fad6579d6f60a289d"
+        },
+        {
+          "label": "TradeCurationFactoryCommitteeVerified",
+          "target": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+          "signature": "verifyContract(address)",
+          "arguments": [
+            "0x774A48Ba391a1013Ae43289eBdf871618822CD67"
+          ],
+          "kind": "bool",
+          "callData": "0x3d200b45000000000000000000000000774a48ba391a1013ae43289ebdf871618822cd67"
+        },
+        {
+          "label": "OptionalTradePool",
+          "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+          "signature": "optionalPoolFactories(address)",
+          "arguments": [
+            "0x774A48Ba391a1013Ae43289eBdf871618822CD67"
+          ],
+          "kind": "pool",
+          "callData": "0x6d969b3d000000000000000000000000774a48ba391a1013ae43289ebdf871618822cd67"
+        }
+      ],
+      "resultCount": 26,
+      "allRequiredSucceeded": true
+    },
+    "note": "Signing is reported by the user; the latest fixed-block on-chain read still shows both approvals false and ownership pending. No activation execution transaction has been confirmed."
+  },
+  "releaseValidation": {
+    "date": "2026-10-21",
+    "targetedTests": {
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0,
+      "command": "FOUNDRY_ETH_RPC_URL='' forge test --offline --match-path 'test/unit/{PumpVersion15,BSC15DeploymentConfig}.t.sol' -vv"
+    },
+    "formatAndWhitespace": "passed",
+    "deployedSourceHashesMatchArchiveCommit": true
+  }
+}

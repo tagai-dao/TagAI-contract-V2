@@ -13,6 +13,19 @@
 
 ---
 
+## 2026-10-21 — BSC Pump V15（已部署，多签待链上执行）
+
+- 分支 `version15`，基于最新 `main`：`2a8c13705f1b4742b23aa988486ee2eb25d26989`。
+- 部署源码归档提交 `886309b`，已逐项核对归档内全部 10 项源码及编译配置与部署记录 SHA-256 一致；部署时基础提交和未提交状态保留在 JSON，归档提交不替代部署时事实。
+- 新 Token 普通内盘买方要求指定 BSC HandleRegistry 的 `handleOf(buyer)` 非空，覆盖显式买入和直接转入 BNB；只有创建交易内的预买免检；创建完成后包含部署者在内的每次内盘买入都要校验，不校验字符串内容或格式。
+- `Pump.VERSION = 15`。部署时须使用新 Token 模板；已部署旧代币保持原实现。为满足 Token 的 EIP-170 字节码大小上限，optimizer runs 从 200 调整为 100。
+- 已完成 7 笔 BSC 主网交易，部署区块 `128869397`–`128869423`，费用 `0.013796281 BNB`。Pump `0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D`；Hook / BuybackRouter 与新 Pump 的绑定及 Token runtime 已于区块 `128869792` 核验。源码浏览器验证尚未核查或提交；NutboxRouter / BasketRegistry 授权及 Pump 所有权接收待 owner 执行。正式记录：[version15.json](deployments/56/version15.json)；3 项操作及 calldata：[version15-owner-actions.json](deployments/56/version15-owner-actions.json)。设计与测试说明：[PumpVersion15.md](docs/PumpVersion15.md)。
+- 新增 V15 专用部署脚本，复用现有 Nutbox/Basket V4/TradeCurationFactory；固定区块 `128866480` 部署模拟及真实创建→上市→回购→领取→赎回 fork 已通过。新部署读取使用 Multicall，新增 6 项回归通过。部署命令、授权和外围入口边界见 [PumpVersion15Deployment.md](docs/PumpVersion15Deployment.md)。
+- Safe Transaction Builder 的操作归档：[version15.safe.json](deployments/56/version15.safe.json)，包含上述 3 项 owner 操作；原 owner-actions 文件仅供人工核对。用户已报告完成多签，区块 `128870733` 的 Multicall 核验仍显示两项授权为 false、Pump 所有权接收待执行，尚未确认链上激活交易；不重复提交该归档。
+- 发布前 V15 与 Multicall 定向回归共 48 通过、0 失败、0 跳过；原完整回归 760 通过、0 失败、2 个原有跳过，独立 Multicall 回归 6 通过，真实 BSC 全流程 fork 1 通过。
+
+---
+
 ## 2026-10-10 — BSC ImportHelper V2（已部署验证并多签启用）
 
 - 源码归档提交：`79c65e7e5212a995ec7a47faf63ac7cba98be143`（2026-10-12）。部署发生在源码提交之前；Helper 和部署脚本的 SHA-256 均与该归档提交一致，部署时工作区状态保留在 JSON 中。
@@ -27,7 +40,7 @@
 
 ## 协议版本关系
 
-这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V14（已部署，2026-09-29 合并至 main；下文多签状态为 2026-09-23 历史快照）；外部 ERC20 的导入业务版本仍为 V10，2026-10-10 起链上登记入口已切换为 ImportHelperV2，服务发布状态见上方记录。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
+这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V15（2026-10-21 已部署，用户已报告完成多签，最新链上快照仍待权限激活）；V14 的多签状态在下文保留为 2026-09-23 历史快照。外部 ERC20 的导入业务版本仍为 V10，2026-10-10 起链上登记入口已切换为 ImportHelperV2，服务发布状态见上方记录。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
 
 | 版本 | 状态 | 功能定位 |
 | --- | --- | --- |
@@ -38,6 +51,7 @@
 | V11 | 历史发行入口，既有 Token 继续使用 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。该批部署及验证记录见下文。 |
 | V13 | 既有发行入口，已创建 Token 继续使用 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
 | V14 | 已部署，源码已合并 main；权限状态见历史快照 | 创建代币时可选交易策展矿池；复用 V13 Token 模板；配套多 Pump Router / Adapter 支持由 owner 配置后续兼容版本。 |
+| V15 | `version15` 分支，已部署，用户已多签、待链上执行 | 内盘买方须有指定 BSC HandleRegistry 的非空 handle；只有创建交易内的预买免检，部署者后续买入也需校验。 |
 
 ---
 
