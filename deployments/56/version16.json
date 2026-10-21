@@ -112,5 +112,7 @@
     "explorer": "BscScan",
     "contracts": ["Pump", "Token", "TagAISwapHook", "TagAIBuybackRouter"]
   },
-  "activationActionsFile": "deployments/56/version16-owner-actions.json"
+  "activationActionsFile": "deployments/56/version16-owner-actions.json",
+  "safeTransactionBuilderFile": "deployments/56/version16.safe.json",
+  "multisigGuide": "docs/PumpVersion16Multisig.md"
 }

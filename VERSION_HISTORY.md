@@ -20,7 +20,7 @@
 - 7 笔 BSC 主网交易全部成功，区块 `128964678`–`128964701`，实际消耗 `13,839,158 gas` / `0.013839158 BNB`。
 - Pump `0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8`、Token implementation `0x2eD2ac896392f2C1a4585da277c2095E2C975583`、Hook `0x2a540ee894689d1820e95Feb26a8529a7AbA0CC1`、BuybackRouter `0x2f71b84808d1F6cA4A6179C2A32615C2f408817d` 均已通过 BscScan 源码验证。
 - 区块 `128964948` 独立核验：`VERSION=16`，Hook / BuybackRouter 绑定正确；Token runtime 为 `24,570 bytes`，链上与本地 artifact 的 Keccak-256 均为 `0x1c639f822c0b7ef14f195ec521782453777d4d5fb803d013a05b9996ec57570d`。
-- NutboxRouter operator、BasketRegistry creator forwarder 及 Pump 所有权接收仍需 Safe `0x871fb7006C5964B21695Ba20006021777A26146C` 执行。正式记录：[version16.json](deployments/56/version16.json)；操作清单：[version16-owner-actions.json](deployments/56/version16-owner-actions.json)。
+- NutboxRouter operator、BasketRegistry creator forwarder 及 Pump 所有权接收仍需 Safe `0x871fb7006C5964B21695Ba20006021777A26146C` 执行。正式记录：[version16.json](deployments/56/version16.json)；Safe Transaction Builder 文件：[version16.safe.json](deployments/56/version16.safe.json)；执行说明：[PumpVersion16Multisig.md](docs/PumpVersion16Multisig.md)。
 
 ---
 

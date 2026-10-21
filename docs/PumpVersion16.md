@@ -27,7 +27,7 @@ V16 基于已部署的 V15-2 源码继续发布，但使用新的协议版本号
 - TagAIBuybackRouter：[`0x2f71b84808d1F6cA4A6179C2A32615C2f408817d`](https://bscscan.com/address/0x2f71b84808d1F6cA4A6179C2A32615C2f408817d)。
 - 7 笔部署交易位于区块 `128964678`–`128964701`，总计 `13,839,158 gas`，费用 `0.013839158 BNB`；四个新合约均已通过 BscScan 源码验证。
 - 区块 `128964948` 独立核验 `VERSION=16`、合约绑定和 Token runtime；链上 runtime 与本地 artifact 均为 `24,570 bytes`，Keccak-256 为 `0x1c639f822c0b7ef14f195ec521782453777d4d5fb803d013a05b9996ec57570d`。
-- 当前状态为已部署验证、待多签激活。Safe `0x871fb7006C5964B21695Ba20006021777A26146C` 仍需添加 NutboxRouter operator、批准 BasketRegistry creator forwarder，并接收 Pump 所有权；调用清单见 `deployments/56/version16-owner-actions.json`。
+- 当前状态为已部署验证、待多签激活。Safe `0x871fb7006C5964B21695Ba20006021777A26146C` 仍需添加 NutboxRouter operator、批准 BasketRegistry creator forwarder，并接收 Pump 所有权；可导入的 Safe 批量文件和执行核对步骤见 [PumpVersion16Multisig.md](PumpVersion16Multisig.md)。
 
 ## 测试
 
