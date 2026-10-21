@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
+import {HandleRegistryTestSetup} from "./HandleRegistryTestSetup.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Pump, IPumpBasketHook} from "../../src/pump/Pump.sol";
@@ -174,7 +175,7 @@ contract LegacyV13BasketHook {
 }
 
 /// @dev Adapts pre-V13 unit fixtures to the mandatory one-component V13 creation flow.
-abstract contract Version13LegacyTestSetup is Test {
+abstract contract Version13LegacyTestSetup is HandleRegistryTestSetup {
     LegacyV13Asset internal legacyV13Asset;
     LegacyV13Factory internal legacyV13Factory;
     LegacyV13Router internal legacyV13Router;
@@ -191,6 +192,7 @@ abstract contract Version13LegacyTestSetup is Test {
     }
 
     function _configureLegacyV13Index(Pump target) internal {
+        _setUpHandleRegistry();
         legacyV13Asset = new LegacyV13Asset();
         legacyV13Factory = new LegacyV13Factory();
         legacyV13Router = new LegacyV13Router(address(new LegacyV13Asset()));

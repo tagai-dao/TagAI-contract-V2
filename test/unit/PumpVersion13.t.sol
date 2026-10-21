@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
+import {HandleRegistryTestSetup} from "../helpers/HandleRegistryTestSetup.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Pump, IPumpBasketHook} from "../../src/pump/Pump.sol";
@@ -214,7 +215,7 @@ contract Version13BasketHook {
     }
 }
 
-contract PumpVersion13Test is Test {
+contract PumpVersion13Test is HandleRegistryTestSetup {
     Pump internal pump;
     Token internal token;
     IPShare internal ipshare;
@@ -232,7 +233,8 @@ contract PumpVersion13Test is Test {
     address internal feeReceiver;
     address internal listingKeeper;
 
-    function setUp() public {
+    function setUp() public virtual {
+        _setUpHandleRegistry();
         creator = makeAddr("creator");
         feeReceiver = makeAddr("feeReceiver");
         listingKeeper = makeAddr("listingKeeper");

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+import {HandleRegistryTestSetup} from "../helpers/HandleRegistryTestSetup.sol";
+
 import "forge-std/Test.sol";
 import "../../src/nutbox/Committee.sol";
 import "../../src/nutbox/calculators/HourlyTickCalculator.sol";
@@ -44,7 +46,7 @@ contract HookBuybackRouterMock {
  * @title TagAISwapHookTest
  * @notice Unit tests for TagAISwapHook — registerPool, injection logic, fee distribution.
  */
-contract TagAISwapHookTest is Test {
+contract TagAISwapHookTest is HandleRegistryTestSetup {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
 
@@ -83,6 +85,7 @@ contract TagAISwapHookTest is Test {
     uint256 constant BUYBACK_FEE_BPS = 30;
 
     function setUp() public {
+        _setUpHandleRegistry();
         creator = makeAddr("creator");
         buyer = makeAddr("buyer");
         feeRecipient = makeAddr("feeRecipient");

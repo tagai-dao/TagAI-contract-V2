@@ -1,0 +1,43 @@
+{
+  "chainId": 56,
+  "Pump": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+  "verifiedAtBlock": 128869792,
+  "status": "user-reported-multisig-signed-pending-onchain-execution",
+  "operations": [
+    {
+      "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "value": "0",
+      "function": "addOperator(address)",
+      "arguments": [
+        "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D"
+      ],
+      "calldata": "0x9870d7fe00000000000000000000000097f35b4631f4ffbf8050b17fad6579d6f60a289d",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "status": "pending-onchain-execution-at-latest-check"
+    },
+    {
+      "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "value": "0",
+      "function": "setCreatorForwarderApproval(address,bool)",
+      "arguments": [
+        "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+        "true"
+      ],
+      "calldata": "0x3089703600000000000000000000000097f35b4631f4ffbf8050b17fad6579d6f60a289d0000000000000000000000000000000000000000000000000000000000000001",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "status": "pending-onchain-execution-at-latest-check"
+    },
+    {
+      "target": "0x97f35B4631F4FFBF8050B17fAd6579D6F60A289D",
+      "value": "0",
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "calldata": "0x79ba5097",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "status": "pending-onchain-execution-at-latest-check"
+    }
+  ],
+  "scope": "Core Nutbox/Basket activation and Pump ownership acceptance only. Peripheral router/adapter integrations are separate.",
+  "userReportedSignedDate": "2026-10-21",
+  "latestOnchainCheckBlock": 128870733
+}
