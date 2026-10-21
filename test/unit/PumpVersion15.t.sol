@@ -129,17 +129,55 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertGt(created.balanceOf(creator), 0);
     }
 
-    function test_v15_sellingAndOrdinaryTransfersDoNotRequireHandle() public {
+    function test_v15_sellingDoesNotRequireHandle() public {
         vm.prank(buyer);
         uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
         _setHandle(buyer, "");
-        vm.prank(buyer);
-        token.transfer(creator, received / 2);
         uint256 nativeBefore = buyer.balance;
         vm.prank(buyer);
-        token.sellToken(received - received / 2, 0, creator, 0);
+        token.sellToken(received, 0, creator, 0);
         assertEq(token.balanceOf(buyer), 0);
         assertGt(buyer.balance, nativeBefore);
+    }
+
+    function test_v15_innerMarketTransferToAnotherAddressIsRestricted() public {
+        vm.prank(buyer);
+        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        address recipient = makeAddr("inner-market-recipient");
+
+        vm.prank(buyer);
+        vm.expectRevert(IToken.InnerMarketTransferRestricted.selector);
+        token.transfer(recipient, received);
+
+        assertEq(token.balanceOf(buyer), received);
+        assertEq(token.balanceOf(recipient), 0);
+    }
+
+    function test_v15_innerMarketTransferFromToAnotherAddressIsRestrictedWithoutSpendingAllowance() public {
+        vm.prank(buyer);
+        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        address spender = makeAddr("inner-market-spender");
+        address recipient = makeAddr("inner-market-recipient");
+
+        vm.prank(buyer);
+        token.approve(spender, received);
+        vm.prank(spender);
+        vm.expectRevert(IToken.InnerMarketTransferRestricted.selector);
+        token.transferFrom(buyer, recipient, received);
+
+        assertEq(token.allowance(buyer, spender), received);
+        assertEq(token.balanceOf(buyer), received);
+        assertEq(token.balanceOf(recipient), 0);
+    }
+
+    function test_v15_innerMarketTransfersWithTokenContractRemainAvailable() public {
+        vm.prank(buyer);
+        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        uint256 contractBalanceBefore = token.balanceOf(address(token));
+
+        vm.prank(buyer);
+        token.transfer(address(token), received / 4);
+        assertEq(token.balanceOf(address(token)), contractBalanceBefore + received / 4);
     }
 
     function test_v15_antiSnipeBuyAlsoRequiresHandle() public {

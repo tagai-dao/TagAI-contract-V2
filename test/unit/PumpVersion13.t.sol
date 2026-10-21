@@ -529,7 +529,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
         vm.startPrank(creator, creator);
         token.buyToken{value: 1 ether}(0, creator, 0);
         (,, address pair) = token.componentAt(0);
-        vm.expectRevert(IToken.TokenNotListed.selector);
+        vm.expectRevert(IToken.InnerMarketTransferRestricted.selector);
         token.transfer(pair, 1 ether);
         vm.stopPrank();
     }
