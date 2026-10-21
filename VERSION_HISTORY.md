@@ -13,12 +13,14 @@
 
 ---
 
-## 2026-10-21 — BSC Pump V16（源码升级，待重新部署）
+## 2026-10-21 — BSC Pump V16（已部署并验证，多签激活待执行）
 
-- 分支 `bsc-version16`，从已部署并验证的 V15-2 记录提交 `2df2699` 建立。
+- 分支 `bsc-version16`，部署源码提交 `cb694b648482c33d4ea0f983fb6b37a7af6bbe71`。
 - `Pump.VERSION` 升级为 `16`；保留 Binance Agent 内盘买入资格和内盘禁止向外部地址 `transfer` / `transferFrom` 的完整规则。
-- V15-2 是不可升级部署，链上仍真实返回 `VERSION=15`。V16 将使用新的 Pump、Token implementation、Hook 和 BuybackRouter 地址，不覆盖 V15-2 历史记录。
-- 规则与部署入口见 [PumpVersion16.md](docs/PumpVersion16.md) 和 `script/DeployBSCPump16.s.sol`。
+- 7 笔 BSC 主网交易全部成功，区块 `128964678`–`128964701`，实际消耗 `13,839,158 gas` / `0.013839158 BNB`。
+- Pump `0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8`、Token implementation `0x2eD2ac896392f2C1a4585da277c2095E2C975583`、Hook `0x2a540ee894689d1820e95Feb26a8529a7AbA0CC1`、BuybackRouter `0x2f71b84808d1F6cA4A6179C2A32615C2f408817d` 均已通过 BscScan 源码验证。
+- 区块 `128964948` 独立核验：`VERSION=16`，Hook / BuybackRouter 绑定正确；Token runtime 为 `24,570 bytes`，链上与本地 artifact 的 Keccak-256 均为 `0x1c639f822c0b7ef14f195ec521782453777d4d5fb803d013a05b9996ec57570d`。
+- NutboxRouter operator、BasketRegistry creator forwarder 及 Pump 所有权接收仍需 Safe `0x871fb7006C5964B21695Ba20006021777A26146C` 执行。正式记录：[version16.json](deployments/56/version16.json)；操作清单：[version16-owner-actions.json](deployments/56/version16-owner-actions.json)。
 
 ---
 
@@ -60,7 +62,7 @@
 
 ## 协议版本关系
 
-这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V15（2026-10-21 已部署，用户已报告完成多签，最新链上快照仍待权限激活）；V14 的多签状态在下文保留为 2026-09-23 历史快照。外部 ERC20 的导入业务版本仍为 V10，2026-10-10 起链上登记入口已切换为 ImportHelperV2，服务发布状态见上方记录。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
+这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V16（2026-10-21 已部署并验证，多签权限激活待执行）；V14 的多签状态在下文保留为 2026-09-23 历史快照。外部 ERC20 的导入业务版本仍为 V10，2026-10-10 起链上登记入口已切换为 ImportHelperV2，服务发布状态见上方记录。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
 
 | 版本 | 状态 | 功能定位 |
 | --- | --- | --- |
@@ -72,7 +74,7 @@
 | V13 | 既有发行入口，已创建 Token 继续使用 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
 | V14 | 已部署，源码已合并 main；权限状态见历史快照 | 创建代币时可选交易策展矿池；复用 V13 Token 模板；配套多 Pump Router / Adapter 支持由 owner 配置后续兼容版本。 |
 | V15 | `version15` 分支，已部署，用户已多签、待链上执行 | 内盘买方须有指定 BSC HandleRegistry 的非空 handle；只有创建交易内的预买免检，部署者后续买入也需校验。 |
-| V16 | `bsc-version16` 分支，待部署 | 继承 V15 买入资格，并禁止内盘用户把 Token 转给其他地址、Router、Vault 或外部 DEX 池。 |
+| V16 | `bsc-version16` 分支，已部署并验证，待多签激活 | 继承 V15 买入资格，并禁止内盘用户把 Token 转给其他地址、Router、Vault 或外部 DEX 池。 |
 
 ---
 

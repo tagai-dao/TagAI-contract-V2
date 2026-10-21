@@ -1,0 +1,32 @@
+{
+  "chainId": 56,
+  "Pump": "0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8",
+  "verifiedAtBlock": 128964948,
+  "status": "pending-multisig-execution",
+  "operations": [
+    {
+      "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "value": "0",
+      "function": "addOperator(address)",
+      "arguments": ["0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8"],
+      "calldata": "0x9870d7fe000000000000000000000000ee8d16f44c89b5f858e223ab77c6091e184aadf8",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    },
+    {
+      "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "value": "0",
+      "function": "setCreatorForwarderApproval(address,bool)",
+      "arguments": ["0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8", true],
+      "calldata": "0x30897036000000000000000000000000ee8d16f44c89b5f858e223ab77c6091e184aadf80000000000000000000000000000000000000000000000000000000000000001",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    },
+    {
+      "target": "0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8",
+      "value": "0",
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "calldata": "0x79ba5097",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    }
+  ]
+}

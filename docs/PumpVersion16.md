@@ -18,6 +18,17 @@ V16 基于已部署的 V15-2 源码继续发布，但使用新的协议版本号
 - 部署入口为 `script/DeployBSCPump16.s.sol:DeployBSCPump16Script`。
 - V15-2 部署地址和交易继续保存在 `deployments/56/version15-2.json`，不得覆盖。
 
+## BSC 主网部署
+
+- 部署源码提交：`cb694b648482c33d4ea0f983fb6b37a7af6bbe71`。
+- Pump：[`0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8`](https://bscscan.com/address/0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8)。
+- Token implementation：[`0x2eD2ac896392f2C1a4585da277c2095E2C975583`](https://bscscan.com/address/0x2eD2ac896392f2C1a4585da277c2095E2C975583)。
+- TagAISwapHook：[`0x2a540ee894689d1820e95Feb26a8529a7AbA0CC1`](https://bscscan.com/address/0x2a540ee894689d1820e95Feb26a8529a7AbA0CC1)。
+- TagAIBuybackRouter：[`0x2f71b84808d1F6cA4A6179C2A32615C2f408817d`](https://bscscan.com/address/0x2f71b84808d1F6cA4A6179C2A32615C2f408817d)。
+- 7 笔部署交易位于区块 `128964678`–`128964701`，总计 `13,839,158 gas`，费用 `0.013839158 BNB`；四个新合约均已通过 BscScan 源码验证。
+- 区块 `128964948` 独立核验 `VERSION=16`、合约绑定和 Token runtime；链上 runtime 与本地 artifact 均为 `24,570 bytes`，Keccak-256 为 `0x1c639f822c0b7ef14f195ec521782453777d4d5fb803d013a05b9996ec57570d`。
+- 当前状态为已部署验证、待多签激活。Safe `0x871fb7006C5964B21695Ba20006021777A26146C` 仍需添加 NutboxRouter operator、批准 BasketRegistry creator forwarder，并接收 Pump 所有权；调用清单见 `deployments/56/version16-owner-actions.json`。
+
 ## 测试
 
 V16 继续覆盖 Binance Agent 买入资格、创建预买、直接 BNB 买入、反狙击和填满曲线，并验证：
