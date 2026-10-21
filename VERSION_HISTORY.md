@@ -13,6 +13,17 @@
 
 ---
 
+## 2026-10-21 — BSC Pump V15-2（已部署并验证，多签激活待执行）
+
+- 分支 `bsc-version15-2`，部署源码提交 `72380962e7d101f13f9fb5d8a0f711380770e7c9`。
+- 在 V15 Binance Agent 内盘买入资格基础上，内盘 `transfer` / `transferFrom` 仅允许 Token 合约作为一端；创建交易内 Pump 转发预买是唯一系统例外，上市后恢复普通 ERC20 转账。
+- 7 笔 BSC 主网交易全部成功，区块 `128960088`–`128960116`，实际消耗 `13,839,146 gas` / `0.013839146 BNB`。
+- Pump `0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c`、Token implementation `0xe1Ad6DA2D7A14936cA937835a86C74718bFF7018`、Hook `0x2e22F2c617aa08eaF45f952Dbb4249c89e4D0cC1`、BuybackRouter `0x73adD1A7fE3aF8D606015E0D04894c8985F91f13` 均已通过 BscScan 源码验证。
+- 区块 `128960650` 独立核验：`VERSION=15`，Hook / BuybackRouter 绑定正确；Token runtime 为 `24,570 bytes`，链上与本地 artifact 的 Keccak-256 均为 `0xc7065b48d70a26cb5ff3628d45f1398bee68e87478adb0913ccb92fd26994e38`。
+- NutboxRouter operator、BasketRegistry creator forwarder 及 Pump 所有权接收仍需 Safe `0x871fb7006C5964B21695Ba20006021777A26146C` 执行。正式记录：[version15-2.json](deployments/56/version15-2.json)；操作清单：[version15-2-owner-actions.json](deployments/56/version15-2-owner-actions.json)。
+
+---
+
 ## 2026-10-21 — BSC Pump V15（已部署，多签待链上执行）
 
 - 分支 `version15`，基于最新 `main`：`2a8c13705f1b4742b23aa988486ee2eb25d26989`。

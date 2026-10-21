@@ -1,0 +1,32 @@
+{
+  "chainId": 56,
+  "Pump": "0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c",
+  "verifiedAtBlock": 128960650,
+  "status": "pending-multisig-execution",
+  "operations": [
+    {
+      "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "value": "0",
+      "function": "addOperator(address)",
+      "arguments": ["0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c"],
+      "calldata": "0x9870d7fe000000000000000000000000d1cc369f726293ce47f8f9ab5ad5ad2d9a38121c",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    },
+    {
+      "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "value": "0",
+      "function": "setCreatorForwarderApproval(address,bool)",
+      "arguments": ["0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c", true],
+      "calldata": "0x30897036000000000000000000000000d1cc369f726293ce47f8f9ab5ad5ad2d9a38121c0000000000000000000000000000000000000000000000000000000000000001",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    },
+    {
+      "target": "0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c",
+      "value": "0",
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "calldata": "0x79ba5097",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    }
+  ]
+}
