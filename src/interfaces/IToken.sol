@@ -28,6 +28,7 @@ interface IToken {
     error IndexTokenNotReady();
     error NoEligibleRewardSupply();
     error InvalidRewardAmount();
+    error HandleNotRegistered(address buyer);
 
     // ─── Events ──────────────────────────────────────────────────────────────────
 

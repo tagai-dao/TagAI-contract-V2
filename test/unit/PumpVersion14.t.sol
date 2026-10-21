@@ -67,7 +67,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         assertEq(pool.factory(), address(f));
         assertTrue(f.createdPoolOfCommunity(address(c)));
         assertEq(c.owner(), creator);
-        assertEq(pump.VERSION(), 14);
+        assertEq(pump.VERSION(), 15);
         // Listing/buyback wiring still works with the additional reward pool.
         token = t;
         _list();
@@ -253,6 +253,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         c.targetWeights[3] = 9997;
         IPump.OptionalPoolConfig[] memory p = _twoOptional();
         creator = makeAddr("fresh-max-pools-creator");
+        _registerHandle(creator);
         vm.deal(creator, 100 ether);
         committee.adminSetCreateCommunityFee(0.001 ether);
         committee.adminSetCommunitySettingsFee(0.001 ether);
@@ -292,6 +293,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         IPump.IndexConfig memory c = _countConfig(4);
         IPump.OptionalPoolConfig[] memory p = _twoOptional();
         creator = makeAddr("rollback-max-pools-creator");
+        _registerHandle(creator);
         vm.deal(creator, 100 ether);
         committee.adminSetCreateCommunityFee(0.001 ether);
         committee.adminSetCommunitySettingsFee(0.001 ether);

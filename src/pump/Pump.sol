@@ -66,7 +66,7 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
     uint256 public constant MAX_COMPONENTS = 4;
     uint256 public constant MAX_OPTIONAL_POOLS = 2;
     uint16 public constant MAX_OPTIONAL_POOL_RATIO = 8_000;
-    uint256 public constant VERSION = 14;
+    uint256 public constant VERSION = 15;
 
     struct OptionalPoolFactory {
         string name;
@@ -135,7 +135,8 @@ contract Pump is Ownable2Step, IPump, ReentrancyGuard, IBondingCurve {
             emit ConstituentApprovalSet(asset, true);
         }
         ipshare = _ipshare;
-        tokenImplementation = existingTokenImplementation == address(0) ? address(new Token()) : existingTokenImplementation;
+        tokenImplementation =
+            existingTokenImplementation == address(0) ? address(new Token()) : existingTokenImplementation;
         if (_feeReceiver != address(0)) feeReceiver = _feeReceiver;
     }
 

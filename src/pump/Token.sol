@@ -10,6 +10,7 @@ import "../interfaces/IPump.sol";
 import "../interfaces/IBondingCurve.sol";
 import "../interfaces/IHourlyTickCalculator.sol";
 import "../interfaces/ICommunity.sol";
+import {IHandleRegistry} from "../interfaces/IHandleRegistry.sol";
 
 // PancakeSwap V4 (Infinity)
 import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
@@ -56,6 +57,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     uint256 public constant COMPONENT_TOKEN_ALLOCATION = 50_000_000 ether;
     uint256 public constant V4_NATIVE_ALLOCATION = 15 ether;
     address public constant LP_BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    /// @dev V15 ordinary inner-market buyers must have a nonempty handle in this BSC registry.
+    address private constant HANDLE_REGISTRY = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
     /// @notice Token-side transfer tax for every post-list transfer into or out of a component V2 pair.
     uint256 public constant COMPONENT_POOL_TAX_BPS = 10;
 
@@ -165,7 +168,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     function _buyTokenDirect() private {
         address sellsman = _checkBondingCurveState(address(0));
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
+        bool pumpPremine = _isPumpPremine();
+        _checkBuyerHandle(pumpPremine);
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(pumpPremine);
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (buyFunds * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (buyFunds * sellsmanFeePercent) / divisor;
@@ -326,7 +331,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     {
         if (msg.sender == address(clPoolManager)) revert TokenListed();
         sellsman = _checkBondingCurveState(sellsman);
-        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(_isPumpPremine());
+        bool pumpPremine = _isPumpPremine();
+        _checkBuyerHandle(pumpPremine);
+        (uint256 tiptagFeePercent, uint256 sellsmanFeePercent) = _getBuyFeeRatiosView(pumpPremine);
         uint256 buyFunds = msg.value;
         uint256 tiptagFee = (msg.value * tiptagFeePercent) / divisor;
         uint256 sellsmanFee = (msg.value * sellsmanFeePercent) / divisor;
@@ -539,6 +546,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
             return ipshareSubject;
         }
         return sellsman;
+    }
+
+    /// @dev Only Pump's atomic creation premine is exempt; every later buyer needs a handle.
+    function _checkBuyerHandle(bool pumpPremine) private view {
+        if (pumpPremine) return;
+        if (bytes(IHandleRegistry(HANDLE_REGISTRY).handleOf(msg.sender)).length == 0) {
+            revert HandleNotRegistered(msg.sender);
+        }
     }
 
     function _isPumpPremine() private view returns (bool) {
