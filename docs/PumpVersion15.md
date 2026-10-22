@@ -11,7 +11,9 @@
   的 `handleOf(msg.sender)`，返回字符串非空即可买入。空字符串回滚 `HandleNotRegistered(buyer)`。
 - 同时覆盖 `buyToken` 和直接转入 BNB 的购买，包括反狙击期及填满内盘。
 - 不增加注册合约存在性探测、字符串内容/格式校验或模板兼容性检查。
-- 卖出、普通 ERC20 转账及上市后交易不增加注册限制。
+- 内盘期间 ERC20 仅允许 Token 合约作为转账一端，用户不能通过 `transfer` 或 `transferFrom`
+  把 Token 转给其他地址；创建交易内 Pump 把预买 Token 转给创建者是唯一系统例外。
+- 内盘卖出不要求买方注册资格；上市后恢复普通 ERC20 转账，既有池税与交易规则不变。
 
 接口已通过 [Sourcify 已验证 ABI](https://sourcify.dev/server/v2/contract/56/0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F?fields=abi,sources)
 核对：`handleOf(address)` 返回 `string`。源码的函数名为小写 `handleOf`。
@@ -28,7 +30,7 @@ V14 部署脚本默认复用旧模板，不能用于这次功能发布。
 ## 测试
 
 新增 `test/unit/PumpVersion15.t.sol` 验证空/非空 handle、普通购买、直接 BNB 购买、
-两种创建重载的预买免检、部署者创建后的首笔及后续买入必须注册、失败回滚、反狙击、填满内盘、卖出与转账、任意非空字符串，
+两种创建重载的预买免检、部署者创建后的首笔及后续买入必须注册、失败回滚、反狙击、填满内盘、卖出、内盘转账限制、上市后转账、任意非空字符串，
 并继承原有生命周期、上市、回购和奖励回归测试。
 
 ```bash

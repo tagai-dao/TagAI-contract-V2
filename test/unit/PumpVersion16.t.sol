@@ -9,7 +9,7 @@ import {IToken} from "../../src/interfaces/IToken.sol";
 import {IHandleRegistry} from "../../src/interfaces/IHandleRegistry.sol";
 
 /// @dev Also runs the inherited listing, pool-tax, buyback and reward regressions.
-contract PumpVersion15Test is PumpVersion13Test {
+contract PumpVersion16Test is PumpVersion13Test {
     address internal buyer;
 
     function setUp() public override {
@@ -23,13 +23,13 @@ contract PumpVersion15Test is PumpVersion13Test {
         MockHandleRegistry(HANDLE_REGISTRY).setHandle(account, handle);
     }
 
-    function test_v15_versionAndDeployableSize() public view {
-        assertEq(pump.VERSION(), 15);
+    function test_v16_versionAndDeployableSize() public view {
+        assertEq(pump.VERSION(), 16);
         assertLe(pump.tokenImplementation().code.length, 24_576, "Token must fit EIP-170");
         assertLe(address(pump).code.length, 24_576, "Pump must fit EIP-170");
     }
 
-    function test_v15_registeredBuyerCanBuy() public {
+    function test_v16_registeredBuyerCanBuy() public {
         vm.expectCall(HANDLE_REGISTRY, abi.encodeCall(IHandleRegistry.handleOf, (buyer)));
         vm.prank(buyer);
         uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
@@ -37,7 +37,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertEq(token.balanceOf(buyer), received);
     }
 
-    function test_v15_unregisteredBuyerCannotBorrowCreatorOrOriginEligibility() public {
+    function test_v16_unregisteredBuyerCannotBorrowCreatorOrOriginEligibility() public {
         _setHandle(buyer, "");
         uint256 reserveBefore = address(token).balance;
         uint256 supplyBefore = token.bondingCurveSupply();
@@ -50,7 +50,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertEq(buyer.balance, 1000 ether);
     }
 
-    function test_v15_directBNBBuyRequiresHandle() public {
+    function test_v16_directBNBBuyRequiresHandle() public {
         _setHandle(buyer, "");
         vm.prank(buyer);
         (bool success, bytes memory reason) = address(token).call{value: 1 ether}("");
@@ -64,7 +64,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertGt(token.balanceOf(buyer), 0);
     }
 
-    function test_v15_creatorFirstBuyAfterCreationRequiresHandleWithoutPremine() public {
+    function test_v16_creatorFirstBuyAfterCreationRequiresHandleWithoutPremine() public {
         _setHandle(creator, "");
         uint256 createFee = pump.createFee();
         vm.prank(creator, creator);
@@ -83,7 +83,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertGt(created.buyToken{value: 1 ether}(0, creator, 0), 0);
     }
 
-    function test_v15_creatorLaterBuysRequireHandleAfterExemptPremine() public {
+    function test_v16_creatorLaterBuysRequireHandleAfterExemptPremine() public {
         _setHandle(creator, "");
         assertEq(bytes(IHandleRegistry(HANDLE_REGISTRY).handleOf(creator)).length, 0);
         vm.prank(creator, creator);
@@ -109,7 +109,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertTrue(success);
     }
 
-    function test_v15_creationAndPremineDoNotRequireHandle() public {
+    function test_v16_creationAndPremineDoNotRequireHandle() public {
         _setHandle(creator, "");
         assertEq(bytes(IHandleRegistry(HANDLE_REGISTRY).handleOf(creator)).length, 0);
         vm.prank(creator, creator);
@@ -118,7 +118,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertEq(created.balanceOf(address(pump)), 0);
     }
 
-    function test_v15_optionalPoolOverloadPremineDoesNotRequireHandle() public {
+    function test_v16_optionalPoolOverloadPremineDoesNotRequireHandle() public {
         _setHandle(creator, "");
         vm.prank(creator, creator);
         Token created = Token(
@@ -129,20 +129,58 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertGt(created.balanceOf(creator), 0);
     }
 
-    function test_v15_sellingAndOrdinaryTransfersDoNotRequireHandle() public {
+    function test_v16_sellingDoesNotRequireHandle() public {
         vm.prank(buyer);
         uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
         _setHandle(buyer, "");
-        vm.prank(buyer);
-        token.transfer(creator, received / 2);
         uint256 nativeBefore = buyer.balance;
         vm.prank(buyer);
-        token.sellToken(received - received / 2, 0, creator, 0);
+        token.sellToken(received, 0, creator, 0);
         assertEq(token.balanceOf(buyer), 0);
         assertGt(buyer.balance, nativeBefore);
     }
 
-    function test_v15_antiSnipeBuyAlsoRequiresHandle() public {
+    function test_v16_innerMarketTransferToAnotherAddressIsRestricted() public {
+        vm.prank(buyer);
+        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        address recipient = makeAddr("inner-market-recipient");
+
+        vm.prank(buyer);
+        vm.expectRevert(IToken.InnerMarketTransferRestricted.selector);
+        token.transfer(recipient, received);
+
+        assertEq(token.balanceOf(buyer), received);
+        assertEq(token.balanceOf(recipient), 0);
+    }
+
+    function test_v16_innerMarketTransferFromToAnotherAddressIsRestrictedWithoutSpendingAllowance() public {
+        vm.prank(buyer);
+        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        address spender = makeAddr("inner-market-spender");
+        address recipient = makeAddr("inner-market-recipient");
+
+        vm.prank(buyer);
+        token.approve(spender, received);
+        vm.prank(spender);
+        vm.expectRevert(IToken.InnerMarketTransferRestricted.selector);
+        token.transferFrom(buyer, recipient, received);
+
+        assertEq(token.allowance(buyer, spender), received);
+        assertEq(token.balanceOf(buyer), received);
+        assertEq(token.balanceOf(recipient), 0);
+    }
+
+    function test_v16_innerMarketTransfersWithTokenContractRemainAvailable() public {
+        vm.prank(buyer);
+        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        uint256 contractBalanceBefore = token.balanceOf(address(token));
+
+        vm.prank(buyer);
+        token.transfer(address(token), received / 4);
+        assertEq(token.balanceOf(address(token)), contractBalanceBefore + received / 4);
+    }
+
+    function test_v16_antiSnipeBuyAlsoRequiresHandle() public {
         vm.warp(token.createdAt());
         _setHandle(buyer, "");
         vm.prank(buyer);
@@ -150,7 +188,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         token.buyToken{value: 1 ether}(0, creator, 0);
     }
 
-    function test_v15_fillToCapCannotBypassGate() public {
+    function test_v16_fillToCapCannotBypassGate() public {
         _setHandle(buyer, "");
         vm.prank(buyer);
         vm.expectRevert(abi.encodeWithSelector(IToken.HandleNotRegistered.selector, buyer));
@@ -161,7 +199,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertTrue(token.listingPending());
     }
 
-    function test_v15_postListingTransfersDoNotRequireHandle() public {
+    function test_v16_postListingTransfersDoNotRequireHandle() public {
         _list();
         _setHandle(buyer, "");
         vm.prank(creator);
@@ -174,7 +212,7 @@ contract PumpVersion15Test is PumpVersion13Test {
         assertEq(token.balanceOf(recipient), 100 ether);
     }
 
-    function test_v15_anyNonemptyStringIsAccepted() public {
+    function test_v16_anyNonemptyStringIsAccepted() public {
         _setHandle(buyer, "any string: no format validation!");
         vm.prank(buyer);
         assertGt(token.buyToken{value: 1 ether}(0, creator, 0), 0);

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import {DeployBSCPump15Script} from "../../script/DeployBSCPump15.s.sol";
+import {DeployBSCPump16Script} from "../../script/DeployBSCPump16.s.sol";
 import {BSC15DeploymentConfig as DC, IBSC15Multicall3 as MC} from "../../script/config/BSC15DeploymentConfig.sol";
 import {Pump} from "../../src/pump/Pump.sol";
 import {Token} from "../../src/pump/Token.sol";
@@ -29,7 +29,7 @@ interface ILive15BasketRouter {
 
 /// @notice Real deployed BSC Nutbox, Basket V4, NFT and DEX bytecode. No mocks/etch or RPC broadcasts.
 /// @dev Existing owner approvals and NFT registration are executed ONLY inside this disposable fork.
-contract Pump15DeploymentForkTest is Test {
+contract Pump16DeploymentForkTest is Test {
     address constant HANDLE_REGISTRY = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
     uint256 constant DEFAULT_BLOCK = 128866480;
     DC.Config c;
@@ -61,10 +61,10 @@ contract Pump15DeploymentForkTest is Test {
         require(block.chainid == 56, "BSC fork required");
         vm.deal(vm.addr(1), 100 ether);
         vm.deal(address(this), 1000 ether);
-        creator = makeAddr("v15-live-fork-creator");
+        creator = makeAddr("v16-live-fork-creator");
         vm.deal(creator, 1000 ether);
         vm.setEnv("PRIVATE_KEY_MAIN", "1");
-        DeployBSCPump15Script deployment = new DeployBSCPump15Script();
+        DeployBSCPump16Script deployment = new DeployBSCPump16Script();
         (pump, hook, buyback) = deployment.run();
         c = deployment.deploymentConfig();
         _activateInFork();
@@ -111,8 +111,8 @@ contract Pump15DeploymentForkTest is Test {
         uint256 fee = c.createFee + (DC.flag(r, 0) ? 0 : abi.decode(r[1].returnData, (uint256)))
             + abi.decode(r[2].returnData, (uint256)) + 3 * abi.decode(r[3].returnData, (uint256));
         IPump.IndexConfig memory index;
-        index.name = "V15 live stack integration";
-        index.symbol = "V15I";
+        index.name = "V16 live stack integration";
+        index.symbol = "V16I";
         index.constituentAssets = new address[](2);
         index.constituentAssets[0] = c.constituents[0];
         index.constituentAssets[1] = c.constituents[1];
@@ -154,7 +154,7 @@ contract Pump15DeploymentForkTest is Test {
         uint256 length = minimum > 17 ? minimum : (maximum < 17 ? maximum : 17);
         bytes memory handle = new bytes(length);
         bytes memory alphabet = "0123456789abcdef";
-        bytes32 entropy = keccak256(abi.encode(creator, "v15-live-fork"));
+        bytes32 entropy = keccak256(abi.encode(creator, "v16-live-fork"));
         for (uint256 i; i < length; ++i) {
             handle[i] = alphabet[uint8(entropy[i % 32]) & 15];
         }
@@ -187,7 +187,7 @@ contract Pump15DeploymentForkTest is Test {
         pump.finalizeTokenListing(address(t), mins, block.timestamp + 60);
     }
 
-    function test_v15_liveNutboxBasketNFTListingAndBuyback() public {
+    function test_v16_liveNutboxBasketNFTListingAndBuyback() public {
         (Token t,) = _createWithPremine();
         vm.prank(creator, creator);
         vm.expectRevert(abi.encodeWithSelector(IToken.HandleNotRegistered.selector, creator));

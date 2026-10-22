@@ -11,6 +11,8 @@ import {Vm} from "forge-std/Vm.sol";
 import {ColdCallGas} from "../helpers/ColdCallGas.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {HourlyTickCalculator} from "../../src/nutbox/calculators/HourlyTickCalculator.sol";
+import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol";
+import {BalanceDelta, toBalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
 
 interface ICreateOptional {
     function createToken(
@@ -67,7 +69,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         assertEq(pool.factory(), address(f));
         assertTrue(f.createdPoolOfCommunity(address(c)));
         assertEq(c.owner(), creator);
-        assertEq(pump.VERSION(), 15);
+        assertEq(pump.VERSION(), 16);
         // Listing/buyback wiring still works with the additional reward pool.
         token = t;
         _list();
@@ -272,6 +274,26 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         assertGt(t.balanceOf(creator), 168_000 ether);
         vm.expectRevert();
         community.activedPools(6);
+        // V16 forbids holder-to-protocol ERC20 transfers while the token is still on the
+        // bonding curve. Graduate the token before exercising the real reward pipeline.
+        vm.warp(block.timestamp + 16);
+        vm.prank(creator, creator);
+        t.buyToken{value: 90 ether}(0, creator, 0);
+        vm.mockCall(
+            address(manager),
+            abi.encodeWithSelector(ICLPoolManager.modifyLiquidity.selector),
+            abi.encode(
+                toBalanceDelta(-int128(int256(15 ether)), -int128(int256(150_000_000 ether))), BalanceDelta.wrap(0)
+            )
+        );
+        uint256[] memory mins = new uint256[](4);
+        for (uint256 i; i < mins.length; ++i) {
+            mins[i] = 1;
+        }
+        vm.prank(listingKeeper);
+        pump.finalizeTokenListing(address(t), mins, block.timestamp);
+        vm.clearMockedCalls();
+        assertTrue(t.listed());
         // Use real Community accounting, not just emitted ratios. LP mocks have no stakers;
         // both virtual-stake pools must nevertheless receive their exact 40% allocation.
         HourlyTickCalculator calculator = HourlyTickCalculator(pump.getCalculator());

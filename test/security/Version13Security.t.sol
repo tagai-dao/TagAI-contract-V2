@@ -440,7 +440,7 @@ contract Version13SecurityTest is PumpVersion13Test {
         (,, address pair) = token.componentAt(0);
         vm.prank(creator);
         token.approve(address(this), type(uint256).max);
-        vm.expectRevert(IToken.TokenNotListed.selector);
+        vm.expectRevert(IToken.InnerMarketTransferRestricted.selector);
         token.transferFrom(creator, pair, 1 ether);
     }
 

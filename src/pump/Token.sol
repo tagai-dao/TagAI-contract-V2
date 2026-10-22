@@ -57,7 +57,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     uint256 public constant COMPONENT_TOKEN_ALLOCATION = 50_000_000 ether;
     uint256 public constant V4_NATIVE_ALLOCATION = 15 ether;
     address public constant LP_BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-    /// @dev V15 ordinary inner-market buyers must have a nonempty handle in this BSC registry.
+    /// @dev V16 ordinary inner-market buyers must have a nonempty handle in this BSC registry.
     address private constant HANDLE_REGISTRY = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
     /// @notice Token-side transfer tax for every post-list transfer into or out of a component V2 pair.
     uint256 public constant COMPONENT_POOL_TAX_BPS = 10;
@@ -883,18 +883,28 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         return _symbol;
     }
 
-    /// @dev Applies the component-pool tax once to the gross amount. Internal protocol transfers, including
-    ///      initial liquidity seeding, deliberately use `_transfer` and are not taxed.
+    /// @dev Before listing, holders may only move tokens to/from this contract for bonding-curve trades.
+    ///      The sole exception is Pump forwarding an atomic creation premine to the creator before the
+    ///      Nutbox community is linked. After listing, component-pool tax applies to the gross amount.
     function transfer(address to, uint256 amount) public override returns (bool) {
+        _checkTransferAllowed(msg.sender, to);
         _transferWithComponentPoolTax(msg.sender, to, amount);
         return true;
     }
 
     /// @dev Allowance is consumed once against the gross amount, matching ordinary ERC20 semantics.
     function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        _checkTransferAllowed(from, to);
         _spendAllowance(from, msg.sender, amount);
         _transferWithComponentPoolTax(from, to, amount);
         return true;
+    }
+
+    function _checkTransferAllowed(address from, address to) private view {
+        if (
+            !listed && from != address(this) && to != address(this)
+                && !(msg.sender == manager && from == manager && nutboxCommunity == address(0))
+        ) revert InnerMarketTransferRestricted();
     }
 
     function _transferWithComponentPoolTax(address from, address to, uint256 amount) private {

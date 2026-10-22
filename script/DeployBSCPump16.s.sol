@@ -10,9 +10,9 @@ import {ICLPoolManager} from "infinity-core/src/pool-cl/interfaces/ICLPoolManage
 import {IVault} from "infinity-core/src/interfaces/IVault.sol";
 import {BSC15DeploymentConfig as DC, IBSC15Multicall3 as MC} from "./config/BSC15DeploymentConfig.sol";
 
-/// @notice Deploys a fresh V15 Pump/Token/Hook/BuybackRouter and reuses the live V14 Nutbox/Basket stack.
+/// @notice Deploys a fresh V16 Pump/Token/Hook/BuybackRouter and reuses the live V14 Nutbox/Basket stack.
 /// @dev External owner approvals are printed separately. No confirmed deployment file is written by a dry run.
-contract DeployBSCPump15Script is Script {
+contract DeployBSCPump16Script is Script {
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     uint16 internal constant HOOK_BITMAP = 0x0CC1;
     DC.Config private _config;
@@ -27,7 +27,7 @@ contract DeployBSCPump15Script is Script {
         _config = c;
         uint256 key = vm.envUint("PRIVATE_KEY_MAIN");
         address deployer = vm.addr(key);
-        address targetOwner = vm.envOr("PUMP15_OWNER", c.owner);
+        address targetOwner = vm.envOr("PUMP16_OWNER", c.owner);
         require(targetOwner != address(0), "Owner missing");
 
         vm.startBroadcast(key);
@@ -38,7 +38,7 @@ contract DeployBSCPump15Script is Script {
         address template = DC.addr(initial, 19);
         require(
             template != c.previousTemplate && template.codehash == keccak256(type(Token).runtimeCode),
-            "New V15 Token required"
+            "New V16 Token required"
         );
         require(template.code.length <= 24_576 && address(pump).code.length <= 24_576, "EIP-170 size exceeded");
 
@@ -59,10 +59,10 @@ contract DeployBSCPump15Script is Script {
 
         _verify(pump, hook, buyback, template, deployer, targetOwner, c);
         console2.log("Snapshot block", c.snapshotBlock);
-        console2.log("Pump15", address(pump));
-        console2.log("NEW Token15 implementation", template);
-        console2.log("NEW TagAISwapHook15", address(hook));
-        console2.log("NEW TagAIBuybackRouter15", address(buyback));
+        console2.log("Pump16", address(pump));
+        console2.log("NEW Token16 implementation", template);
+        console2.log("NEW TagAISwapHook16", address(hook));
+        console2.log("NEW TagAIBuybackRouter16", address(buyback));
         console2.log("Reused TradeCurationFactory", DC.TRADE_FACTORY);
         console2.log("Target Pump owner", targetOwner);
         console2.log("NEXT: NutboxRouter owner", c.routerOwner);
@@ -128,7 +128,7 @@ contract DeployBSCPump15Script is Script {
         calls[11] = DC.call(address(p), abi.encodeWithSignature("optionalPoolFactories(address)", DC.TRADE_FACTORY));
         MC.Result[] memory r = DC.aggregate(calls, c.snapshotBlock);
         require(
-            abi.decode(r[0].returnData, (uint256)) == 15 && DC.addr(r, 1) == address(h) && DC.addr(r, 2) == address(b)
+            abi.decode(r[0].returnData, (uint256)) == 16 && DC.addr(r, 1) == address(h) && DC.addr(r, 2) == address(b)
                 && DC.addr(r, 3) == deployer && DC.addr(r, 4) == (targetOwner == deployer ? address(0) : targetOwner)
                 && DC.addr(r, 5) == template,
             "Pump configuration failed"

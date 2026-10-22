@@ -1,0 +1,116 @@
+{
+  "version": "15-2",
+  "chainId": 56,
+  "status": "deployed-verified-pending-owner-activation",
+  "deploymentDate": "2026-10-21",
+  "sourceBranch": "bsc-version15-2",
+  "sourceCommit": "72380962e7d101f13f9fb5d8a0f711380770e7c9",
+  "Pump": "0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c",
+  "TokenImplementation": "0xe1Ad6DA2D7A14936cA937835a86C74718bFF7018",
+  "TagAISwapHook": "0x2e22F2c617aa08eaF45f952Dbb4249c89e4D0cC1",
+  "TagAIBuybackRouter": "0x73adD1A7fE3aF8D606015E0D04894c8985F91f13",
+  "PreviousPump": "0xcd4e721Fc418f4D723C04c71e8d8EcCb75C3CD34",
+  "TradeCurationFactory": "0x774A48Ba391a1013Ae43289eBdf871618822CD67",
+  "HandleRegistry": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
+  "deploymentTransactions": [
+    {
+      "hash": "0xa8a19c7795ae0ada52f3c263d62dfe5e990317aa85ccca70ce416addbde1f32a",
+      "contract": "Pump",
+      "address": "0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c",
+      "type": "CREATE",
+      "block": 128960088,
+      "gasUsed": 10877122,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0x5b99b2db116e1f5dc10b7fbcfde9468c8531e1ee58cd9e037fc59f123e754d8d",
+      "contract": "TagAISwapHook",
+      "address": "0x2e22F2c617aa08eaF45f952Dbb4249c89e4D0cC1",
+      "type": "CREATE2",
+      "block": 128960091,
+      "gasUsed": 1904300,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0xb4537b1aff6e2fa099e4d91db2e5936659e3df48a757eb5c17189488fa30ba3e",
+      "contract": "Pump",
+      "function": "adminSetHookAddress(address)",
+      "block": 128960095,
+      "gasUsed": 46081,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0xdd96997bbcf6c2fb59e15dffc7306578c63ba07ffd7aed75050fca59e97058df",
+      "contract": "TagAIBuybackRouter",
+      "address": "0x73adD1A7fE3aF8D606015E0D04894c8985F91f13",
+      "type": "CREATE",
+      "block": 128960101,
+      "gasUsed": 836216,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0xcf5d46638ece5eb96351612ddafcfead3e9cbd10abda6b92a08d726faf8f6b57",
+      "contract": "Pump",
+      "function": "adminSetBuybackRouter(address)",
+      "block": 128960109,
+      "gasUsed": 50667,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0x9cd84d5ffa695f9a1ea0a94b3d0daaf3da0c18e4a13691c3e7cda194d88884d8",
+      "contract": "Pump",
+      "function": "adminSetOptionalPoolFactory(address,string,uint16,bool)",
+      "block": 128960114,
+      "gasUsed": 75914,
+      "effectiveGasPrice": 1000000000
+    },
+    {
+      "hash": "0x008f57df91b1cc54ae795b6572d7c53b65ef07cadbac144bdc828c0846682252",
+      "contract": "Pump",
+      "function": "transferOwnership(address)",
+      "block": 128960116,
+      "gasUsed": 48846,
+      "effectiveGasPrice": 1000000000
+    }
+  ],
+  "DeploymentGasUsed": 13839146,
+  "DeploymentCostWei": "13839146000000000",
+  "verificationBlock": 128960650,
+  "state": {
+    "VERSION": 15,
+    "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "HookPump": "0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c",
+    "BuybackPump": "0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c",
+    "OptionalTradePool": ["Trade Curation", 8000, true],
+    "NutboxRouterOperatorConfigured": false,
+    "PumpCreatorForwarderApproved": false
+  },
+  "TokenRuntimeMatchesLocalArtifact": true,
+  "TokenRuntimeBytes": 24570,
+  "TokenRuntimeKeccak256": "0xc7065b48d70a26cb5ff3628d45f1398bee68e87478adb0913ccb92fd26994e38",
+  "SourceFilesSha256": {
+    "src/pump/Pump.sol": "ade036122a90cf5114d5cf331e0bd538f84a676df1b22f1599d03564275a8443",
+    "src/pump/Token.sol": "8b42e67706484e209a2d030d76e0dfd5877f38e90fb93aaa5f3907cfea195ff5",
+    "src/interfaces/IToken.sol": "bd07ba83d81d2246ee8d16bf4167e3cbcbf5b67b76415f922f41fe2f0a1fbadc",
+    "src/interfaces/IHandleRegistry.sol": "c1ecab37a891cb3a04788de62802a0832ae186642d4986799b70742497e560fd",
+    "src/hook/TagAISwapHook.sol": "9e5258c7e50b0dce0f5a82aed2818f4e40c85d865212d4391dd1486146214f37",
+    "src/router/TagAIBuybackRouter.sol": "f0b57ecd22fe52862913f0deaa0b1eff063ffc5070bc7af46713349395836cd7",
+    "script/DeployBSCPump15.s.sol": "1911ea66a515aa0355c064d2ce0c728924122eb1eb717cb2e3425d0e1db0b1ab",
+    "script/config/BSC15DeploymentConfig.sol": "7abcb0c47c5cf65ccbf893c33f323a55fdce877a88b67ba62003c63659ae19f3",
+    "script/config/BSCNutboxRouterConfig.sol": "f79e1f76bd4059f6fe072630e138cbc0ce6469d977afe4f94428163076d43e71",
+    "foundry.toml": "b0746b7485286fd173f9a1ea44af9db10cda5e0a780f3d379a56ddac2f3729ea"
+  },
+  "compiler": {
+    "version": "0.8.26+commit.8a97fa7a",
+    "viaIR": true,
+    "optimizerRuns": 100,
+    "evmVersion": "cancun"
+  },
+  "sourceVerification": {
+    "status": "verified",
+    "explorer": "BscScan",
+    "contracts": ["Pump", "Token", "TagAISwapHook", "TagAIBuybackRouter"]
+  },
+  "activationActionsFile": "deployments/56/version15-2-owner-actions.json"
+}

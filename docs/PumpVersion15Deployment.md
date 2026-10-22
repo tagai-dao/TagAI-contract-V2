@@ -1,5 +1,22 @@
 # BSC Pump V15 部署与兼容性
 
+## V15-2 内盘转账限制部署
+
+2026-10-21 已从 `bsc-version15-2` 的源码提交 `7238096` 完成新一批主网部署并通过 BscScan 验证：
+
+| 合约 | V15-2 地址 |
+| --- | --- |
+| Pump15 | `0xD1cC369f726293ce47F8F9aB5aD5AD2d9A38121c` |
+| Token implementation | `0xe1Ad6DA2D7A14936cA937835a86C74718bFF7018` |
+| TagAISwapHook15 | `0x2e22F2c617aa08eaF45f952Dbb4249c89e4D0cC1` |
+| TagAIBuybackRouter15 | `0x73adD1A7fE3aF8D606015E0D04894c8985F91f13` |
+
+该批新增内盘 `transfer` / `transferFrom` 限制；7 笔交易位于区块 `128960088`–`128960116`，
+实际费用 `0.013839146 BNB`。Token runtime `24,570 bytes`，链上字节码与本地构建完全一致。
+NutboxRouter / BasketRegistry 授权及 Pump 所有权接收仍待 owner Safe 执行。完整交易、源码哈希和验证状态见
+[version15-2.json](../deployments/56/version15-2.json)，待执行 calldata 见
+[version15-2-owner-actions.json](../deployments/56/version15-2-owner-actions.json)。
+
 状态：2026-10-21 已完成 BSC 主网部署，7 笔交易全部成功；用户已报告完成多签。最新区块 `128870733` 的固定区块 Multicall 检查仍显示两项授权为 false、Pump pendingOwner 尚未接收，**待多签链上执行**。代码合并不代表权限或生产入口已切换。
 核心业务规则见 [PumpVersion15.md](PumpVersion15.md)。
 

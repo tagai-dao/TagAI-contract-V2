@@ -29,6 +29,7 @@ interface IToken {
     error NoEligibleRewardSupply();
     error InvalidRewardAmount();
     error HandleNotRegistered(address buyer);
+    error InnerMarketTransferRestricted();
 
     // ─── Events ──────────────────────────────────────────────────────────────────
 
