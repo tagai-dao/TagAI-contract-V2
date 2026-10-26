@@ -149,10 +149,16 @@ contract DeployBSCPump17Script is Script {
     }
 
     function _mineSalt(bytes32 hash) internal pure returns (bytes32 salt, address predicted) {
+        // Reuse one 85-byte CREATE2 preimage; allocating it on every trial can exhaust script memory.
+        bytes memory preimage = abi.encodePacked(bytes1(0xff), CREATE2_DEPLOYER, bytes32(0), hash);
         for (uint256 i; i < 100_000_000; ++i) {
+            bytes32 digest;
+            assembly ("memory-safe") {
+                mstore(add(preimage, 53), i)
+                digest := keccak256(add(preimage, 32), 85)
+            }
             salt = bytes32(i);
-            predicted =
-                address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), CREATE2_DEPLOYER, salt, hash)))));
+            predicted = address(uint160(uint256(digest)));
             if (uint16(uint160(predicted)) == HOOK_BITMAP) return (salt, predicted);
         }
         revert("Hook salt not found");
