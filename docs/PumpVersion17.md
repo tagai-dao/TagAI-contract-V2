@@ -1,6 +1,6 @@
 # Pump V17 — 内盘累计买入上限与钱包转账
 
-V17 基于 V16，`Pump.VERSION()` 返回 `17`。本次为源码及部署入口准备，尚未部署或激活；已部署 V16 的地址和记录不变。
+V17 基于 V16，`Pump.VERSION()` 返回 `17`。2026-10-26 已部署到 BSC 主网并完成四个新合约的 BscScan 源码验证，当前待多签激活；已部署 V16 的地址和记录不变。
 
 ## 累计买入上限
 
@@ -43,3 +43,24 @@ V17 专项测试覆盖精确上限、连续买入、两个买入入口、卖出/
 历史版本的上市/奖励测试使用多个注册钱包按额度买入，再通过实际转账汇总持仓，继续运行上市、回购、奖励及成分池税回归。
 
 2026-10-26 按用户澄清改为合约直接查询双方 handle 后，本地 44 个测试套件：787 项通过、0 项失败、8 项跳过；V17 专项及继承回归共 62 项通过。新增检查覆盖不依赖 Multicall 的直接调用、双方资格缺失、代转者无法替代资格、查询失败/无效数据回滚、上市等待期资格检查。外部 JS 的 5 项 Multicall 固定区块与子调用完整性测试通过。Token runtime 为 23,645 bytes，Pump runtime 为 21,023 bytes；编译器为 Solidity 0.8.26+commit.8a97fa7a、viaIR、optimizer runs 100、Cancun。
+
+## BSC 主网部署与激活
+
+部署源码提交：`f9eb071494000f3a0026dc81584a7d8ef9ef80bd`（分支 `bsc-version17`）。
+
+| 合约 | 主网地址 |
+| --- | --- |
+| Pump V17 | [0x01B2308653c7e371B28A862444a40c12ca18b353](https://bscscan.com/address/0x01B2308653c7e371B28A862444a40c12ca18b353#code) |
+| Token implementation | [0x309E55BB49cE073227F8a2F67bE659dFeA3d691f](https://bscscan.com/address/0x309E55BB49cE073227F8a2F67bE659dFeA3d691f#code) |
+| TagAISwapHook | [0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1](https://bscscan.com/address/0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1#code) |
+| TagAIBuybackRouter | [0xA906917D83D47526e4c8a212606dE63a778f4151](https://bscscan.com/address/0xA906917D83D47526e4c8a212606dE63a778f4151#code) |
+
+7 笔交易全部成功，位于区块 `129862551`–`129862580`，实际 gas `13,638,753`，费用 `0.00068193765 BNB`。区块 `129862871` 的独立 Multicall 核验确认 V16 配置及全部 16 个成分资产保留，新 Hook/Buyback 绑定正确；Token/Pump 链上 runtime 与本地产物逐字节一致，Hook/Buyback 校验不可变量绑定及屏蔽不可变量后的完整 runtime。
+
+四个新合约均由 Foundry Standard JSON 提交至 Etherscan V2 API/BscScan 并独立查询确认验证通过。完整源码文件、构造参数、SHA-256 和结果来源见 [验证清单](../deployments/56/version17-verification/manifest.json)。
+
+- [部署记录及全部交易](../deployments/56/version17.json)
+- [Safe 激活文件](../deployments/56/version17.safe.json)
+- [多签操作说明](PumpVersion17Multisig.md)
+
+创建→handle 转账资格→多地址累计额度→上市→回购→领取→赎回的真实主网 fork 已通过（固定区块 129859627）。实际部署合约的三笔导出激活 calldata 在区块 129862871 的 fork 中顺序模拟通过。所有权接收、Router operator 和 Registry creator forwarder 仍需原 Safe 执行；没有提交主网激活、签名或 Safe 提案。

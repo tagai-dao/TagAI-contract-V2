@@ -1,0 +1,18 @@
+Start verifying contract `0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1` deployed on bsc
+Compiler version: 0.8.26+commit.8a97fa7a
+Optimizations:    100
+Constructor args: 0x000000000000000000000000a0ffb9c1ce1fe56963b0321b32e7a0302114058b000000000000000000000000238a358808379702088667322f80ac48bad5e6c400000000000000000000000001b2308653c7e371b28a862444a40c12ca18b353
+
+Submitting verification for [src/hook/TagAISwapHook.sol:TagAISwapHook] 0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1.
+Submitted contract for verification:
+	Response: `OK`
+	GUID: `6engiirpdyktbqc1iuyndrfenkrhnc9vmed4tqfeytmatje6gz`
+	URL: https://bscscan.com/address/0xff107d782cb2699f617ad96a4cca39f8d6800cc1
+Contract verification status:
+Response: `NOTOK`
+Details: `Pending in queue`
+Warning: Verification is still pending...; waiting 15 seconds before trying again (7 tries remaining)
+Contract verification status:
+Response: `OK`
+Details: `Pass - Verified`
+Contract successfully verified

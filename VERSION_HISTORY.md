@@ -13,12 +13,14 @@
 
 ---
 
-## 2026-10-26 — BSC Pump V17（源码准备，未部署）
+## 2026-10-26 — BSC Pump V17（已部署并验证，待多签激活）
 
-- 基于 V16，`Pump.VERSION = 17`。每个 Token 的每地址内盘累计买入最多 1000 万枚，覆盖创建预买、显式买入及直接 BNB 买入；卖出和转账均不返还额度。
-- 内盘仅允许双方均有 Binance handle 的无代码钱包之间 `transfer` / `transferFrom`，继续限制已有代码的合约地址。普通买入仍需 V16 handle 资格。
-- 新增 [V17 规则与验证说明](docs/PumpVersion17.md) 和部署入口 `script/DeployBSCPump17.s.sol:DeployBSCPump17Script`；配置从 V16 经固定区块 Multicall 读取。
-- 尚未部署、验证或激活，不填充链上地址或部署交易；V16 历史记录保留。
+- 部署源码提交 `f9eb071494000f3a0026dc81584a7d8ef9ef80bd`，分支 `bsc-version17`。
+- 每地址、每个 Token 内盘累计买入上限 1000 万枚，包含创建预买；卖出和转账不恢复额度。内盘普通钱包转账直接校验双方 Binance handle；外部 JS 批量合约读取继续使用固定区块的链上 Multicall。
+- Pump `0x01B2308653c7e371B28A862444a40c12ca18b353`；Token implementation `0x309E55BB49cE073227F8a2F67bE659dFeA3d691f`；Hook `0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1`；BuybackRouter `0xA906917D83D47526e4c8a212606dE63a778f4151`。
+- 7 笔主网交易全部成功，区块 `129862551`–`129862580`，实际消耗 `13,638,753 gas` / `0.00068193765 BNB`。四个合约均已通过 BscScan 源码验证。Token runtime `23,645 bytes`，链上与本地完全一致。
+- 沿用 V16 的基础设施、费率、keeper、16 个成分资产及 TradeCurationFactory 配置，所有权仍交给原 2/3 Safe。已在实际主网合约 fork 中模拟三笔导出激活调用成功，但尚未提案、签名或执行激活。
+- [正式部署记录](deployments/56/version17.json)、[验证清单](deployments/56/version17-verification/manifest.json)、[Safe 文件](deployments/56/version17.safe.json)、[多签说明](docs/PumpVersion17Multisig.md)。
 
 ---
 

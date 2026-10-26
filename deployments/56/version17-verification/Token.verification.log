@@ -1,0 +1,19 @@
+Start verifying contract `0x309E55BB49cE073227F8a2F67bE659dFeA3d691f` deployed on bsc
+Compiler version: 0.8.26+commit.8a97fa7a
+Optimizations:    100
+Constructor args: 0x
+
+Submitting verification for [src/pump/Token.sol:Token] 0x309E55BB49cE073227F8a2F67bE659dFeA3d691f.
+Submitted contract for verification:
+	Response: `OK`
+	GUID: `mk17375fdd1ppsrnhxpu6rxvgiqhw5d8wz2y6cnnizuduqazsu`
+	URL: https://bscscan.com/address/0x309e55bb49ce073227f8a2f67be659dfea3d691f
+Contract verification status:
+Response: `NOTOK`
+Details: `Max calls per sec rate limit reached (3/sec)`
+Error: Checking verification result failed
+
+Context:
+- Contract verification failed:
+Status: `0`
+Result: `Max calls per sec rate limit reached (3/sec)`
