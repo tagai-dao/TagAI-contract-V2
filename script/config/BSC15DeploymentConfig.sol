@@ -129,9 +129,14 @@ library BSC15DeploymentConfig {
     }
 
     function load(uint256 pin) internal returns (Config memory c) {
+        return loadFrom(pin, PREVIOUS_PUMP, 14);
+    }
+
+    /// @notice Preserve an explicitly selected prior release using the same pinned Multicall stages.
+    function loadFrom(uint256 pin, address previousPump, uint256 expectedVersion) internal returns (Config memory c) {
         c.snapshotBlock = pin;
-        IBSC15Multicall3.Result[] memory r = aggregate(pumpCalls(PREVIOUS_PUMP), pin);
-        require(abi.decode(r[18].returnData, (uint256)) == 14, "Expected previous BSC Pump14");
+        IBSC15Multicall3.Result[] memory r = aggregate(pumpCalls(previousPump), pin);
+        require(abi.decode(r[18].returnData, (uint256)) == expectedVersion, "Unexpected previous Pump version");
         c.owner = addr(r, 0);
         c.ipshare = addr(r, 1);
         c.feeReceiver = addr(r, 2);
@@ -191,7 +196,7 @@ library BSC15DeploymentConfig {
         calls[2] = get(c.basketRouter, "settlementToken()");
         calls[3] = call(c.basketRegistry, abi.encodeWithSignature("approvedRegistrars(address)", c.basketHook));
         for (uint256 i; i < catalog.length; ++i) {
-            calls[4 + i * 3] = call(PREVIOUS_PUMP, abi.encodeWithSignature("approvedConstituent(address)", catalog[i]));
+            calls[4 + i * 3] = call(previousPump, abi.encodeWithSignature("approvedConstituent(address)", catalog[i]));
             calls[5 + i * 3] =
                 call(c.router, abi.encodeWithSignature("hasRoute(address,address)", address(0), catalog[i]));
             calls[6 + i * 3] =

@@ -69,7 +69,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         assertEq(pool.factory(), address(f));
         assertTrue(f.createdPoolOfCommunity(address(c)));
         assertEq(c.owner(), creator);
-        assertEq(pump.VERSION(), 16);
+        assertEq(pump.VERSION(), 17);
         // Listing/buyback wiring still works with the additional reward pool.
         token = t;
         _list();
@@ -262,10 +262,10 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         uint256 fee = pump.createFee() + ipshare.createFee() + 0.007 ether;
         bytes memory payload = abi.encodeCall(ICreateOptional.createToken, ("MAX14", bytes32(uint256(144)), c, p));
         (bytes memory result,) = _coldCall(
-            "V14 4+2 cold create with IPShare and 1 BNB premine",
+            "V14 4+2 cold create with IPShare and 0.01 BNB premine",
             creator,
             address(pump),
-            fee + 1 ether,
+            fee + 0.01 ether,
             payload,
             10_000_000
         );
@@ -277,8 +277,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         // V16 forbids holder-to-protocol ERC20 transfers while the token is still on the
         // bonding curve. Graduate the token before exercising the real reward pipeline.
         vm.warp(block.timestamp + 16);
-        vm.prank(creator, creator);
-        t.buyToken{value: 90 ether}(0, creator, 0);
+        _fillInnerMarket(t, creator);
         vm.mockCall(
             address(manager),
             abi.encodeWithSelector(ICLPoolManager.modifyLiquidity.selector),
@@ -332,7 +331,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         p[1].meta = hex"01"; // Only the very last pool factory rejects, after all prior deployments.
         vm.prank(creator, creator);
         vm.expectRevert("Unexpected meta");
-        pump.createToken{value: fee + 1 ether}("ROLLBACK14", salt, c, p);
+        pump.createToken{value: fee + 0.01 ether}("ROLLBACK14", salt, c, p);
         assertEq(creator.balance, beforeCreator);
         assertEq(feeReceiver.balance, beforeRecipient);
         assertEq(pump.totalTokens(), beforeTotal);
@@ -345,7 +344,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         }
         p[1].meta = "";
         vm.prank(creator, creator);
-        address deployed = pump.createToken{value: fee + 1 ether}("ROLLBACK14", salt, c, p);
+        address deployed = pump.createToken{value: fee + 0.01 ether}("ROLLBACK14", salt, c, p);
         assertEq(deployed, expectedToken);
         assertEq(Token(payable(deployed)).nutboxCommunity(), expectedCommunity);
         assertTrue(ipshare.ipshareCreated(creator));

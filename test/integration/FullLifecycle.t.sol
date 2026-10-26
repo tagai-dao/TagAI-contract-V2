@@ -310,44 +310,7 @@ contract FullLifecycleTest is Version13LegacyTestSetup {
     }
 
     function _fillBondingCurve(Token token, address buyer) internal {
-        // Buy in large chunks to fill the bonding curve (650M tokens)
-        vm.startPrank(buyer, buyer);
-
-        // Skip anti-snipe window
-        vm.warp(block.timestamp + 16);
-
-        uint256 maxIterations = 200;
-        for (uint256 i = 0; i < maxIterations; i++) {
-            if (token.listed()) break;
-
-            uint256 remaining = BONDING_CURVE_TOTAL - token.bondingCurveSupply();
-            if (remaining == 0) break;
-
-            // Buy with 5 ETH each time
-            uint256 buyAmount = 5 ether;
-            if (buyer.balance < buyAmount) {
-                vm.deal(buyer, buyer.balance + 100 ether);
-            }
-
-            try token.buyToken{value: buyAmount}(0, creator, 0) {
-            // Success
-            }
-            catch {
-                // If buy fails, try with more ETH (near the cap, price is high)
-                vm.deal(buyer, buyer.balance + 500 ether);
-                try token.buyToken{value: 50 ether}(0, creator, 0) {}
-                catch {
-                    // Final attempt with very large amount
-                    vm.deal(buyer, buyer.balance + 5000 ether);
-                    try token.buyToken{value: 500 ether}(0, creator, 0) {}
-                    catch {
-                        break;
-                    }
-                }
-            }
-        }
-
-        vm.stopPrank();
+        _fillInnerMarket(token, buyer);
         _finalizeLegacyV13Token(pump, token);
     }
 

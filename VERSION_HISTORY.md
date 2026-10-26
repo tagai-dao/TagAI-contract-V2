@@ -13,6 +13,15 @@
 
 ---
 
+## 2026-10-26 — BSC Pump V17（源码准备，未部署）
+
+- 基于 V16，`Pump.VERSION = 17`。每个 Token 的每地址内盘累计买入最多 1000 万枚，覆盖创建预买、显式买入及直接 BNB 买入；卖出和转账均不返还额度。
+- 内盘仅允许双方均有 Binance handle 的无代码钱包之间 `transfer` / `transferFrom`，继续限制已有代码的合约地址。普通买入仍需 V16 handle 资格。
+- 新增 [V17 规则与验证说明](docs/PumpVersion17.md) 和部署入口 `script/DeployBSCPump17.s.sol:DeployBSCPump17Script`；配置从 V16 经固定区块 Multicall 读取。
+- 尚未部署、验证或激活，不填充链上地址或部署交易；V16 历史记录保留。
+
+---
+
 ## 2026-10-21 — BSC Pump V16（已部署并验证，多签激活待执行）
 
 - 分支 `bsc-version16`，部署源码提交 `cb694b648482c33d4ea0f983fb6b37a7af6bbe71`。

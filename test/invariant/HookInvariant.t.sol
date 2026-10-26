@@ -145,7 +145,9 @@ contract HookInvariantTest is StdInvariant, Version13LegacyTestSetup {
 
         _fillBondingCurve();
 
+        assertTrue(token.listed(), "invariant requires a listed token");
         initialHookBalance = IERC20(address(token)).balanceOf(address(hook));
+        assertGt(initialHookBalance, 0, "invariant requires funded Hook custody");
 
         // Set up handler
         handler = new AttackerHandler(hook, token, attacker);
@@ -169,24 +171,7 @@ contract HookInvariantTest is StdInvariant, Version13LegacyTestSetup {
     }
 
     function _fillBondingCurve() internal {
-        uint256 BONDING_CAP = 650_000_000 ether;
-        vm.startPrank(buyer, buyer);
-        vm.warp(block.timestamp + 16);
-        for (uint256 i = 0; i < 100 && !token.listed(); i++) {
-            uint256 remaining = BONDING_CAP - token.bondingCurveSupply();
-            if (remaining == 0) break;
-            uint256 buyAmount = 5 ether;
-            if (buyer.balance < buyAmount) vm.deal(buyer, 1000 ether);
-            try token.buyToken{value: buyAmount}(0, creator, 0) {}
-            catch {
-                vm.deal(buyer, 5000 ether);
-                try token.buyToken{value: 500 ether}(0, creator, 0) {}
-                catch {
-                    break;
-                }
-            }
-        }
-        vm.stopPrank();
+        _fillInnerMarket(token, buyer);
         _finalizeLegacyV13Token(pump, token);
     }
 

@@ -41,6 +41,10 @@ contract ConfigReadProbe {
         return DC.aggregate(calls, pin);
     }
 
+    function loadFrom(uint256 pin, address previous, uint256 version) external returns (DC.Config memory) {
+        return DC.loadFrom(pin, previous, version);
+    }
+
     function pumpCalls(address pump) external pure returns (MC.Call3[] memory) {
         return DC.pumpCalls(pump);
     }
@@ -107,6 +111,28 @@ contract BSC15DeploymentConfigTest is Test {
         vm.mockCall(MC3, abi.encodeCall(MC.aggregate3, (_pinned())), abi.encode(r));
         vm.expectRevert(abi.encodeWithSelector(DC.RequiredReadFailed.selector, 0, address(target)));
         probe.read(address(target), block.number);
+    }
+
+    function test_v17LoadsV16ThroughMulticallAtPinnedBlockAndRejectsWrongVersion() public {
+        address previous = 0xee8D16f44c89B5F858e223Ab77c6091E184AaDf8;
+        MC.Call3[] memory subcalls = probe.pumpCalls(previous);
+        MC.Call3[] memory calls = new MC.Call3[](subcalls.length + 1);
+        calls[0] = MC.Call3(MC3, false, abi.encodeCall(MC.getBlockNumber, ()));
+        MC.Result[] memory r = new MC.Result[](calls.length);
+        r[0] = MC.Result(true, abi.encode(block.number));
+        for (uint256 i; i < subcalls.length; ++i) {
+            assertEq(subcalls[i].target, previous);
+            assertFalse(subcalls[i].allowFailure);
+            calls[i + 1] = subcalls[i];
+            r[i + 1] = MC.Result(true, abi.encode(uint256(0)));
+        }
+        assertEq(calls[19].callData, abi.encodeWithSignature("VERSION()"));
+        r[19].returnData = abi.encode(uint256(15));
+        bytes memory payload = abi.encodeCall(MC.aggregate3, (calls));
+        vm.mockCall(MC3, payload, abi.encode(r));
+        vm.expectCall(MC3, payload);
+        vm.expectRevert("Unexpected previous Pump version");
+        probe.loadFrom(block.number, previous, 16);
     }
 
     function test_exactPreviousPumpConfigurationSubcallSet() public view {

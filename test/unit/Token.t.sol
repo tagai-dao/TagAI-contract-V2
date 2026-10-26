@@ -115,7 +115,7 @@ contract TokenTest is Version13LegacyTestSetup {
         vm.warp(block.timestamp + 16);
 
         vm.prank(buyer, buyer);
-        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        uint256 received = token.buyToken{value: 0.01 ether}(0, creator, 0);
         assertGt(received, 0, "Buyer should receive tokens");
     }
 
@@ -123,7 +123,7 @@ contract TokenTest is Version13LegacyTestSetup {
         // First buy some tokens
         vm.warp(block.timestamp + 16);
         vm.prank(buyer, buyer);
-        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        uint256 received = token.buyToken{value: 0.01 ether}(0, creator, 0);
 
         // Now sell
         uint256 sellAmount = received / 2;
@@ -142,7 +142,7 @@ contract TokenTest is Version13LegacyTestSetup {
         uint256 buyerBalanceBefore = IERC20(address(token)).balanceOf(buyer);
 
         vm.prank(buyer, buyer);
-        (bool success,) = address(token).call{value: 1 ether}("");
+        (bool success,) = address(token).call{value: 0.01 ether}("");
         assertTrue(success, "Direct ETH send should succeed when not listed");
 
         uint256 buyerBalanceAfter = IERC20(address(token)).balanceOf(buyer);
@@ -167,7 +167,7 @@ contract TokenTest is Version13LegacyTestSetup {
 
         // Mirror the working pattern from test_sellToken_noSignatureRequired
         vm.prank(buyer, buyer);
-        uint256 received = token.buyToken{value: 1 ether}(0, creator, 0);
+        uint256 received = token.buyToken{value: 0.01 ether}(0, creator, 0);
 
         // Skip if listing was triggered (would prevent sell)
         if (token.listed()) {
@@ -220,7 +220,7 @@ contract TokenTest is Version13LegacyTestSetup {
         assertEq(platformFee, 30);
         assertEq(sellsmanFee, 8000);
 
-        uint256 buyAmount = 1 ether;
+        uint256 buyAmount = 0.01 ether;
         uint256 expectedMainPurchase = pump.getBuyAmountByValue(
             0, buyAmount - (buyAmount * platformFee) / 10_000 - (buyAmount * sellsmanFee) / 10_000
         );
@@ -280,7 +280,7 @@ contract TokenTest is Version13LegacyTestSetup {
         uint256 buyerBalanceBefore = buyer.balance;
         uint256 feeRecipientBalanceBefore = feeRecipient.balance;
 
-        vm.expectRevert(IToken.ListingDisabledDuringAntiSnipe.selector);
+        vm.expectRevert(abi.encodeWithSelector(IToken.InnerMarketBuyLimitExceeded.selector, buyer));
         vm.prank(buyer, buyer);
         token.buyToken{value: buyAmount}(0, creator, 0);
 
@@ -303,10 +303,9 @@ contract TokenTest is Version13LegacyTestSetup {
         assertEq(platformFee, 30);
         assertEq(sellsmanFee, 30);
 
-        vm.prank(buyer, buyer);
-        uint256 received = token.buyToken{value: 25 ether}(0, creator, 0);
+        _fillInnerMarket(token, buyer);
 
-        assertEq(received, BONDING_CURVE_SUPPLY);
+        assertEq(token.balanceOf(buyer), BONDING_CURVE_SUPPLY);
         assertEq(token.bondingCurveSupply(), BONDING_CURVE_SUPPLY);
         assertTrue(token.listingPending());
         assertFalse(token.listed());
