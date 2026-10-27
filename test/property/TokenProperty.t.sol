@@ -108,7 +108,7 @@ contract TokenPropertyTest is Version13LegacyTestSetup {
     /// buyToken/sellToken succeed without any signature parameter.
     function testFuzz_P5_buyTokenNeverRevertsForSignatureReason(uint256 buyAmount) public {
         // Bound to a reasonable range that's above dust and below curve cap
-        buyAmount = bound(buyAmount, 0.01 ether, 5 ether);
+        buyAmount = bound(buyAmount, 0.001 ether, 0.02 ether);
 
         if (token.listed()) {
             vm.skip(true);
@@ -135,7 +135,7 @@ contract TokenPropertyTest is Version13LegacyTestSetup {
     }
 
     function testFuzz_P5_sellTokenNeverRevertsForSignatureReason(uint256 buyAmount, uint256 sellFraction) public {
-        buyAmount = bound(buyAmount, 0.5 ether, 3 ether);
+        buyAmount = bound(buyAmount, 0.001 ether, 0.02 ether);
         sellFraction = bound(sellFraction, 1, 100); // percentage to sell
 
         if (token.listed()) {
@@ -176,7 +176,7 @@ contract TokenPropertyTest is Version13LegacyTestSetup {
     /// Feature: tagai-v2-nutbox-integration, Property 8: Total Supply Invariant
     /// totalSupply always equals 1B regardless of trades performed.
     function testFuzz_P8_totalSupplyInvariant_afterBuy(uint256 buyAmount) public {
-        buyAmount = bound(buyAmount, 0.01 ether, 5 ether);
+        buyAmount = bound(buyAmount, 0.001 ether, 0.02 ether);
 
         if (token.listed()) {
             vm.skip(true);
@@ -190,7 +190,7 @@ contract TokenPropertyTest is Version13LegacyTestSetup {
     }
 
     function testFuzz_P8_totalSupplyInvariant_afterBuyAndSell(uint256 buyAmount, uint256 sellFraction) public {
-        buyAmount = bound(buyAmount, 0.5 ether, 3 ether);
+        buyAmount = bound(buyAmount, 0.001 ether, 0.02 ether);
         sellFraction = bound(sellFraction, 10, 90);
 
         if (token.listed()) {

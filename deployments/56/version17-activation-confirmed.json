@@ -1,0 +1,221 @@
+{
+  "status": "activated-state-confirmed",
+  "checkedAt": "2026-10-27T05:51:01.913Z",
+  "chainId": 56,
+  "blockNumber": 130036492,
+  "blockHash": "0xaa8a6883089d97a31f884297b340e8c1611afea20e896e4a6b9aabebd223f5f6",
+  "multicall": "0xcA11bde05977b3631167028862bE2a173976CA11",
+  "Pump": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+  "safe": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "state": {
+    "version": "17",
+    "owner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "pendingOwner": "0x0000000000000000000000000000000000000000",
+    "tokenImplementation": "0x309E55BB49cE073227F8a2F67bE659dFeA3d691f",
+    "hook": "0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1",
+    "buybackRouter": "0xA906917D83D47526e4c8a212606dE63a778f4151",
+    "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+    "listingKeeper": "0x8047FcC508446E2673195B8125d3388defc23688",
+    "operator": true,
+    "routerOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "creatorForwarder": true,
+    "registryOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "basketRegistry": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+    "innerMarketBuyLimit": "10000000000000000000000000"
+  },
+  "contractReads": [
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "method": "VERSION",
+      "args": []
+    },
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "method": "owner",
+      "args": []
+    },
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "method": "pendingOwner",
+      "args": []
+    },
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "method": "tokenImplementation",
+      "args": []
+    },
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "method": "getHookAddress",
+      "args": []
+    },
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "method": "buybackRouter",
+      "args": []
+    },
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "method": "nutboxRouter",
+      "args": []
+    },
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "method": "listingKeeper",
+      "args": []
+    },
+    {
+      "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "method": "operators",
+      "args": [
+        "0x01B2308653c7e371B28A862444a40c12ca18b353"
+      ]
+    },
+    {
+      "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "method": "owner",
+      "args": []
+    },
+    {
+      "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "method": "approvedCreatorForwarders",
+      "args": [
+        "0x01B2308653c7e371B28A862444a40c12ca18b353"
+      ]
+    },
+    {
+      "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "method": "owner",
+      "args": []
+    },
+    {
+      "target": "0x76983475f199C58d7BbA975220593c1c8B25f75e",
+      "method": "basketRegistry",
+      "args": []
+    },
+    {
+      "target": "0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1",
+      "method": "pump",
+      "args": []
+    },
+    {
+      "target": "0xA906917D83D47526e4c8a212606dE63a778f4151",
+      "method": "pump",
+      "args": []
+    },
+    {
+      "target": "0x309E55BB49cE073227F8a2F67bE659dFeA3d691f",
+      "method": "INNER_MARKET_BUY_LIMIT",
+      "args": []
+    }
+  ],
+  "multicallAudit": [
+    {
+      "blockTag": "0x7c0330c",
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+          "allowFailure": false,
+          "callData": "0xffa1ad74"
+        },
+        {
+          "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+          "allowFailure": false,
+          "callData": "0x2f3a3d5d"
+        },
+        {
+          "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+          "allowFailure": false,
+          "callData": "0xfa11f041"
+        },
+        {
+          "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+          "allowFailure": false,
+          "callData": "0x9e03349a"
+        },
+        {
+          "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+          "allowFailure": false,
+          "callData": "0x0f85c315"
+        },
+        {
+          "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+          "allowFailure": false,
+          "callData": "0x3814e17e"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x13e7c9d800000000000000000000000001b2308653c7e371b28a862444a40c12ca18b353"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+          "allowFailure": false,
+          "callData": "0x925e324800000000000000000000000001b2308653c7e371b28a862444a40c12ca18b353"
+        },
+        {
+          "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x76983475f199C58d7BbA975220593c1c8B25f75e",
+          "allowFailure": false,
+          "callData": "0xbaf75489"
+        },
+        {
+          "target": "0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1",
+          "allowFailure": false,
+          "callData": "0x395ea61b"
+        },
+        {
+          "target": "0xA906917D83D47526e4c8a212606dE63a778f4151",
+          "allowFailure": false,
+          "callData": "0x395ea61b"
+        },
+        {
+          "target": "0x309E55BB49cE073227F8a2F67bE659dFeA3d691f",
+          "allowFailure": false,
+          "callData": "0xe94d9cb6"
+        }
+      ]
+    }
+  ],
+  "execution": {
+    "transactionHash": "0x39d266525b0910c14550448477ab4bf32c3bb1768466c3793670ae0dff8dcca0",
+    "blockNumber": 129865835,
+    "blockHash": "0xf1b7b8242f3801b6fc783c6d41924d4160846173288f240ad9baa7ce84338677",
+    "timestamp": "2026-10-26T08:30:12.000Z",
+    "receiptStatus": 1,
+    "operatorAddedInReceipt": true,
+    "creatorForwarderApprovedInReceipt": true,
+    "safeExecutionSuccess": true,
+    "ownershipTransferred": true
+  },
+  "operations": {
+    "signed": false,
+    "transactionsSent": false,
+    "safeProposed": false
+  }
+}

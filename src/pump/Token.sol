@@ -22,8 +22,6 @@ import {PoolId, PoolIdLibrary} from "infinity-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "infinity-core/src/types/Currency.sol";
 import {BalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
 import {CLPoolParametersHelper} from "infinity-core/src/pool-cl/libraries/CLPoolParametersHelper.sol";
-import {TickMath} from "infinity-core/src/pool-cl/libraries/TickMath.sol";
-import {SqrtPriceMath} from "infinity-core/src/pool-cl/libraries/SqrtPriceMath.sol";
 import {IPoolManager} from "infinity-core/src/interfaces/IPoolManager.sol";
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -57,10 +55,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     uint256 public constant COMPONENT_TOKEN_ALLOCATION = 50_000_000 ether;
     uint256 public constant V4_NATIVE_ALLOCATION = 15 ether;
     address public constant LP_BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
-    /// @dev V16 ordinary inner-market buyers must have a nonempty handle in this BSC registry.
+    /// @dev V17 ordinary inner-market buyers must have a nonempty handle in this BSC registry.
     address private constant HANDLE_REGISTRY = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
     /// @notice Token-side transfer tax for every post-list transfer into or out of a component V2 pair.
     uint256 public constant COMPONENT_POOL_TAX_BPS = 10;
+
+    /// @notice Lifetime inner-market purchases per wallet; sales and transfers never replenish it.
+    uint256 public constant INNER_MARKET_BUY_LIMIT = 10_000_000 ether;
+    mapping(address => uint256) public innerMarketBought;
 
     uint256 private constant BPS = 10_000;
     uint256 private constant MAX_COMPONENTS = 4;
@@ -181,8 +183,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
             uint256 actualAmount = bondingCurveTotalAmount - bondingCurveSupply;
             _buyTokenFillToCap(actualAmount, tiptagFeePercent, sellsmanFeePercent, sellsman);
         } else {
+            _recordInnerMarketBuy(tokenReceived);
             bondingCurveSupply += tokenReceived;
-            this.transfer(msg.sender, tokenReceived);
+            _transfer(address(this), msg.sender, tokenReceived);
             (bool success,) = tiptapFeeAddress.call{value: tiptagFee}("");
             if (!success) revert CostFeeFail();
             address feeRecipient = _getFeeRecipient(sellsman);
@@ -358,9 +361,10 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
                 revert OutOfSlippage();
             }
 
-            // CEI: update state before external calls
+            // CEI: charge the lifetime purchase quota before any token/fee callbacks.
+            _recordInnerMarketBuy(tokenReceived);
             bondingCurveSupply += tokenReceived;
-            this.transfer(msg.sender, tokenReceived);
+            _transfer(address(this), msg.sender, tokenReceived);
 
             (bool success,) = tiptapFeeAddress.call{value: tiptagFee}("");
             if (!success) {
@@ -503,6 +507,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         if (actualAmount == 0) revert TokenListingPending();
         if (_inAntiSnipeWindow()) revert ListingDisabledDuringAntiSnipe();
 
+        // Charge only the actual remaining tokens, not the quote for excess BNB.
+        _recordInnerMarketBuy(actualAmount);
         uint256 priceBeforeFee = bondingCurve.getPrice(bondingCurveSupply, actualAmount);
         uint256 usedEth = (priceBeforeFee * divisor) / (divisor - tiptagFeePercent - sellsmanFeePercent);
         if (usedEth > msg.value) revert InsufficientFund();
@@ -515,7 +521,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         address tiptapFeeAddress = IPump(manager).getFeeReceiver();
         // CEI: update state before external calls
         bondingCurveSupply += actualAmount;
-        this.transfer(msg.sender, actualAmount);
+        _transfer(address(this), msg.sender, actualAmount);
 
         (bool success1,) = tiptapFeeAddress.call{value: tiptagFee}("");
         if (!success1) revert CostFeeFail();
@@ -550,10 +556,21 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     /// @dev Only Pump's atomic creation premine is exempt; every later buyer needs a handle.
     function _checkBuyerHandle(bool pumpPremine) private view {
-        if (pumpPremine) return;
-        if (bytes(IHandleRegistry(HANDLE_REGISTRY).handleOf(msg.sender)).length == 0) {
-            revert HandleNotRegistered(msg.sender);
+        if (!pumpPremine) _requireHandle(msg.sender);
+    }
+
+    function _requireHandle(address account) private view {
+        if (bytes(IHandleRegistry(HANDLE_REGISTRY).handleOf(account)).length == 0) {
+            revert HandleNotRegistered(account);
         }
+    }
+
+    function _recordInnerMarketBuy(uint256 amount) private {
+        // Pump temporarily holds an atomic premine; its true buyer is the index creator.
+        address buyer = _isPumpPremine() ? indexCreator : msg.sender;
+        uint256 total = innerMarketBought[buyer] + amount;
+        if (total > INNER_MARKET_BUY_LIMIT) revert InnerMarketBuyLimitExceeded(buyer);
+        innerMarketBought[buyer] = total;
     }
 
     function _isPumpPremine() private view returns (bool) {
@@ -723,9 +740,9 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
     }
 
     function _v4NativeRequired() private pure returns (uint256) {
-        return SqrtPriceMath.getAmount0Delta(
-            INITIAL_SQRT_PRICE_X96, TickMath.getSqrtRatioAtTick(LISTING_TICK_UPPER), LISTING_LIQUIDITY_DELTA, true
-        );
+        // Exact rounded-up amount0 delta for the immutable price, upper tick and liquidity above.
+        // PumpVersion17Test independently recomputes it with TickMath/SqrtPriceMath.
+        return V4_NATIVE_ALLOCATION;
     }
 
     function _rewardEligibleSupply() private view returns (uint256 supply) {
@@ -883,9 +900,8 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         return _symbol;
     }
 
-    /// @dev Before listing, holders may only move tokens to/from this contract for bonding-curve trades.
-    ///      The sole exception is Pump forwarding an atomic creation premine to the creator before the
-    ///      Nutbox community is linked. After listing, component-pool tax applies to the gross amount.
+    /// @dev Before listing, allow wallet-to-wallet transfers and canonical Token/Pump flows.
+    ///      Both wallets must have a Binance handle and no deployed code. After listing, component-pool tax applies.
     function transfer(address to, uint256 amount) public override returns (bool) {
         _checkTransferAllowed(msg.sender, to);
         _transferWithComponentPoolTax(msg.sender, to, amount);
@@ -902,9 +918,14 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
 
     function _checkTransferAllowed(address from, address to) private view {
         if (
-            !listed && from != address(this) && to != address(this)
-                && !(msg.sender == manager && from == manager && nutboxCommunity == address(0))
-        ) revert InnerMarketTransferRestricted();
+            listed || from == address(this) || to == address(this)
+                || (msg.sender == manager && from == manager && nutboxCommunity == address(0))
+        ) return;
+        if (from.code.length != 0 || to.code.length != 0 || to == address(0)) {
+            revert InnerMarketTransferRestricted();
+        }
+        _requireHandle(from);
+        _requireHandle(to);
     }
 
     function _transferWithComponentPoolTax(address from, address to, uint256 amount) private {
@@ -926,7 +947,7 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         emit ComponentPoolTaxBurned(pair, from, to, amount, taxAmount);
     }
 
-    // only listed token can do erc20 transfer functions
+    // Protect the listing venues even while wallet-to-wallet transfers are enabled.
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
         if (!listed && componentPair[to] && from != address(this)) revert TokenNotListed();
         // Before listing, prevent unauthorized token transfers to Vault

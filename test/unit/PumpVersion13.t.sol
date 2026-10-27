@@ -382,8 +382,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
         Token blockedToken = Token(payable(pump.createToken{value: creationFee}("BLOCKED", bytes32(uint256(80)), c)));
 
         vm.warp(block.timestamp + 16);
-        vm.prank(creator, creator);
-        blockedToken.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(blockedToken, creator);
         vm.mockCall(
             address(manager),
             abi.encodeWithSelector(ICLPoolManager.modifyLiquidity.selector),
@@ -425,8 +424,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
         emit log_named_uint("four-component creation gas", createGasBefore - gasleft());
 
         vm.warp(block.timestamp + 16);
-        vm.prank(creator, creator);
-        four.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(four, creator);
         vm.mockCall(
             address(manager),
             abi.encodeWithSelector(ICLPoolManager.modifyLiquidity.selector),
@@ -527,7 +525,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
     function test_componentTransferBlockedBeforeListing() public {
         vm.warp(block.timestamp + 16);
         vm.startPrank(creator, creator);
-        token.buyToken{value: 1 ether}(0, creator, 0);
+        token.buyToken{value: 0.01 ether}(0, creator, 0);
         (,, address pair) = token.componentAt(0);
         vm.expectRevert(IToken.InnerMarketTransferRestricted.selector);
         token.transfer(pair, 1 ether);
@@ -602,7 +600,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
 
     function test_premineStillUsesCanonicalToken() public {
         vm.prank(creator, creator);
-        Token premine = Token(payable(pump.createToken{value: 1.005 ether}("PRE", bytes32(uint256(1)), _config())));
+        Token premine = Token(payable(pump.createToken{value: 0.015 ether}("PRE", bytes32(uint256(1)), _config())));
         assertGt(premine.balanceOf(creator), 0);
         assertEq(premine.componentCount(), 2);
         assertFalse(premine.listed());
@@ -619,8 +617,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
             abi.encode(toBalanceDelta(-int128(int256(nativeSeed)), -int128(int256(tokenSeed))), BalanceDelta.wrap(0))
         );
         vm.warp(block.timestamp + 16);
-        vm.prank(creator, creator);
-        token.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(token, creator);
         raisedNative = address(token).balance;
         vm.prank(listingKeeper);
         pump.finalizeTokenListing(address(token), _componentMins(1, 1), block.timestamp);
@@ -629,8 +626,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
 
     function _fillToListingPending() internal {
         vm.warp(block.timestamp + 16);
-        vm.prank(creator, creator);
-        token.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(token, creator);
     }
 
     function _componentMins(uint256 first, uint256 second) internal pure returns (uint256[] memory mins) {
@@ -733,7 +729,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
 
         vm.prank(creator, creator);
         vm.expectRevert(IToken.TokenListingPending.selector);
-        token.buyToken{value: 1 ether}(0, creator, 0);
+        token.buyToken{value: 0.01 ether}(0, creator, 0);
 
         vm.prank(creator, creator);
         vm.expectRevert(IToken.TokenListingPending.selector);
@@ -804,7 +800,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
 
         vm.prank(creator, creator);
         vm.expectRevert(IToken.TokenListingPending.selector);
-        token.buyToken{value: 1 ether}(0, creator, 0);
+        token.buyToken{value: 0.01 ether}(0, creator, 0);
 
         uint256 sellAmount = 1_000_000 ether;
         uint256 creatorBnbBefore = creator.balance;

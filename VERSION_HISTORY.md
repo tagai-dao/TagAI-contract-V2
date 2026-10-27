@@ -13,6 +13,37 @@
 
 ---
 
+## 2026-10-27 — BSC Pump V17 合并 main（已部署、验证并激活）
+
+| 项目 | 记录 |
+| --- | --- |
+| 发布方式 | `bsc-version17` 非快进合并到 `main`，保留版本分支历史 |
+| 合并前 main | `955f10a`（V16 发布） |
+| 合入版本分支末端 | `c6a2130` |
+| 纳入的版本提交 | `4ba375c`（V17 规则及回归）、`f9eb071`（CREATE2 salt 内存边界）、`c6a2130`（部署、验证及 Safe 归档） |
+| 实际部署源码 | `f9eb071494000f3a0026dc81584a7d8ef9ef80bd`，保持不变 |
+| 升级指南 | [V16 → V17、应用兼容和服务切换](docs/PumpVersion17Upgrade.md) |
+
+- 每个 Token / 地址内盘累计买入最多 1000 万枚，包含创建预买；卖出、转入和转出不恢复或消耗额度。内盘普通钱包互转直接校验双方非空 Binance handle。合约内部直接调用 Registry；外部 JS/RPC 批量读取使用固定区块 Multicall。
+- Safe 激活交易 `0x39d266525b0910c14550448477ab4bf32c3bb1768466c3793670ae0dff8dcca0` 已在区块 `129865835` 成功执行。2026-10-27 区块 `130036492` 的 Multicall 再次确认 owner 为原 Safe、pendingOwner 为零、operator / creator forwarder 均为 true；原始 Safe 文件保留作归档，不重复执行。
+- 普通创建继续使用 V14，Binance 模式创建切换 V17，历史 V16 代币和补登记保持原版本；RH 不变。此次没有代理升级、旧币迁移或重新部署。
+- 实际发布验证：44 个 Foundry 套件，788 通过、0 失败、2 个原有跳过；V17 专项及继承回归 62 通过，外部 Multicall 回归 5 通过。测试以和待合并 main 相同的 Solidity / 配置执行，合并不修改部署源码。
+- 已部署 Standard JSON、构造参数、编译器设置及 Safe 文件的来源和校验值保留；当前链上确认与发布检查见 [activation-confirmed](deployments/56/version17-activation-confirmed.json) 和 [release-checks](deployments/56/version17-release-checks.json)。
+- 前端、API、server 和子图代码已完成配套提交；2026-10-27 复核时 Graph Studio V17 高度仍为 `46620307`，生产查询仍指向原 V16 deployment，子图生产切换未完成。源码合并不等于所有外围服务上线；具体步骤和固定提交见升级指南。本次未重启服务、发布 Graph Network 版本或重置生产游标。
+
+---
+
+## 2026-10-26 — BSC Pump V17（部署时快照：已部署并验证，待多签激活）
+
+- 部署源码提交 `f9eb071494000f3a0026dc81584a7d8ef9ef80bd`，分支 `bsc-version17`。
+- 每地址、每个 Token 内盘累计买入上限 1000 万枚，包含创建预买；卖出和转账不恢复额度。内盘普通钱包转账直接校验双方 Binance handle；外部 JS 批量合约读取继续使用固定区块的链上 Multicall。
+- Pump `0x01B2308653c7e371B28A862444a40c12ca18b353`；Token implementation `0x309E55BB49cE073227F8a2F67bE659dFeA3d691f`；Hook `0xfF107D782cb2699F617aD96a4ccA39F8D6800cc1`；BuybackRouter `0xA906917D83D47526e4c8a212606dE63a778f4151`。
+- 7 笔主网交易全部成功，区块 `129862551`–`129862580`，实际消耗 `13,638,753 gas` / `0.00068193765 BNB`。四个合约均已通过 BscScan 源码验证。Token runtime `23,645 bytes`，链上与本地完全一致。
+- 沿用 V16 的基础设施、费率、keeper、16 个成分资产及 TradeCurationFactory 配置，所有权仍交给原 2/3 Safe。已在实际主网合约 fork 中模拟三笔导出激活调用成功，但尚未提案、签名或执行激活。
+- [正式部署记录](deployments/56/version17.json)、[验证清单](deployments/56/version17-verification/manifest.json)、[Safe 文件](deployments/56/version17.safe.json)、[多签说明](docs/PumpVersion17Multisig.md)。
+
+---
+
 ## 2026-10-21 — BSC Pump V16（已部署并验证，多签激活待执行）
 
 - 分支 `bsc-version16`，部署源码提交 `cb694b648482c33d4ea0f983fb6b37a7af6bbe71`。
@@ -62,7 +93,7 @@
 
 ## 协议版本关系
 
-这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 新发行源码基线为 Pump V16（2026-10-21 已部署并验证，多签权限激活待执行）；V14 的多签状态在下文保留为 2026-09-23 历史快照。外部 ERC20 的导入业务版本仍为 V10，2026-10-10 起链上登记入口已切换为 ImportHelperV2，服务发布状态见上方记录。V11 及更早 Pump 创建的 Token 继续使用各自部署时绑定的实现和池配置。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
+这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 发布源码基线为 Pump V17，已部署、验证并激活；应用普通创建仍使用 V14，Binance 模式创建改为 V17，V16 不再用于应用新建。旧 Token 保持各自部署时绑定的实现和池配置。V14 及其他旧版权限记录保留为原日期的历史快照。外部 ERC20 导入业务版本仍为 V10，登记入口为 ImportHelperV2。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
 
 | 版本 | 状态 | 功能定位 |
 | --- | --- | --- |
@@ -72,9 +103,10 @@
 | V10 | 外部代币导入业务版本 | 通过 Helper 将已有 ERC20 接入不可增发 Community；旧 Helper 默认 SocialCuration，现已启用的 ImportHelperV2 默认 TradeCuration 100%，支持多池选择和比例。不创建 Token、bonding curve、PCS V4 池或 Hook。 |
 | V11 | 历史发行入口，既有 Token 继续使用 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。该批部署及验证记录见下文。 |
 | V13 | 既有发行入口，已创建 Token 继续使用 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
-| V14 | 已部署，源码已合并 main；权限状态见历史快照 | 创建代币时可选交易策展矿池；复用 V13 Token 模板；配套多 Pump Router / Adapter 支持由 owner 配置后续兼容版本。 |
-| V15 | `version15` 分支，已部署，用户已多签、待链上执行 | 内盘买方须有指定 BSC HandleRegistry 的非空 handle；只有创建交易内的预买免检，部署者后续买入也需校验。 |
-| V16 | `bsc-version16` 分支，已部署并验证，待多签激活 | 继承 V15 买入资格，并禁止内盘用户把 Token 转给其他地址、Router、Vault 或外部 DEX 池。 |
+| V14 | BSC 普通创建入口；旧权限记录见历史快照 | 创建代币时可选交易策展矿池；复用 V13 Token 模板；配套多 Pump Router / Adapter 支持由 owner 配置后续兼容版本。 |
+| V15 | 历史发行入口；具体部署与权限见原日期快照 | 内盘买方须有指定 BSC HandleRegistry 的非空 handle；只有创建交易内的预买免检，部署者后续买入也需校验。 |
+| V16 | 源码已合并 main 的历史版本，不再用于应用新建 | 继承 V15 买入资格，并禁止内盘用户把 Token 转给其他地址、Router、Vault 或外部 DEX 池；既有 Token 不变。 |
+| V17 | main 当前源码版本，已部署、验证并激活；Binance 模式创建入口 | 每地址 / Token 累计买入最多 1000 万枚；允许双方有 handle 的普通钱包内盘互转，卖出和转账不恢复额度。 |
 
 ---
 

@@ -30,6 +30,7 @@ interface IToken {
     error InvalidRewardAmount();
     error HandleNotRegistered(address buyer);
     error InnerMarketTransferRestricted();
+    error InnerMarketBuyLimitExceeded(address buyer);
 
     // ─── Events ──────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,10 @@ interface IToken {
     function nutboxCommunity() external view returns (address);
 
     function NUTBOX_ALLOCATION() external view returns (uint256);
+
+    function INNER_MARKET_BUY_LIMIT() external view returns (uint256);
+
+    function innerMarketBought(address buyer) external view returns (uint256);
 
     function listed() external view returns (bool);
 

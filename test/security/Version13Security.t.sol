@@ -232,8 +232,7 @@ contract Version13SecurityTest is PumpVersion13Test {
     }
 
     function _finishListing() internal {
-        vm.prank(creator, creator);
-        token.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(token, creator);
         uint256[] memory mins = _keeperMins(9_700);
         vm.prank(listingKeeper);
         pump.finalizeTokenListing(address(token), mins, block.timestamp);
@@ -256,8 +255,7 @@ contract Version13SecurityTest is PumpVersion13Test {
     function testAudit_keeperMinimumRejectsFrontRunPriceManipulation() public {
         _configureRealRouter();
         _prepareListing();
-        vm.prank(creator, creator);
-        token.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(token, creator);
         uint256[] memory keeperMins = _keeperMins(9_700);
         uint256 snapshot = vm.snapshotState();
         vm.prank(listingKeeper);
@@ -312,8 +310,7 @@ contract Version13SecurityTest is PumpVersion13Test {
         token = Token(payable(pump.createToken{value: creationFee}("FOT", bytes32(uint256(103)), c)));
 
         _prepareListing();
-        vm.prank(creator, creator);
-        token.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(token, creator);
         uint256[] memory mins = _keeperMins(9_700);
         vm.prank(listingKeeper);
         vm.expectRevert(NutboxRouter.InvalidSwapOutput.selector);
@@ -336,8 +333,7 @@ contract Version13SecurityTest is PumpVersion13Test {
         taxed.setTaxedPair(componentPair);
 
         _prepareListing();
-        vm.prank(creator, creator);
-        token.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(token, creator);
         uint256[] memory mins = _keeperMins(9_700);
         vm.prank(listingKeeper);
         vm.expectRevert(Token.ComponentSwapFailed.selector);
@@ -363,8 +359,7 @@ contract Version13SecurityTest is PumpVersion13Test {
         liveRouter.addPricePool(INutboxRouter.SourceType.V2_PAIR, abi.encode(address(dexFactory), pair));
         vm.clearMockedCalls();
         _prepareListing();
-        vm.prank(creator, creator);
-        token.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(token, creator);
         uint256[] memory mins = _keeperMins(9_700);
         vm.prank(listingKeeper);
         pump.finalizeTokenListing(address(token), mins, block.timestamp);
@@ -403,8 +398,7 @@ contract Version13SecurityTest is PumpVersion13Test {
     function testAudit_missingOperatorRollsBackListingAndCanBeRecovered() public {
         _configureRealRouter();
         _prepareListing();
-        vm.prank(creator, creator);
-        token.buyToken{value: 100 ether}(0, creator, 0);
+        _fillInnerMarket(token, creator);
         uint256[] memory mins = _keeperMins(9_700);
         liveRouter.removeOperator(address(pump));
         vm.prank(listingKeeper);
@@ -436,7 +430,7 @@ contract Version13SecurityTest is PumpVersion13Test {
     function testAudit_componentTransferFromBlockedBeforeListing() public {
         vm.warp(block.timestamp + 16);
         vm.prank(creator, creator);
-        token.buyToken{value: 1 ether}(0, creator, 0);
+        token.buyToken{value: 0.01 ether}(0, creator, 0);
         (,, address pair) = token.componentAt(0);
         vm.prank(creator);
         token.approve(address(this), type(uint256).max);

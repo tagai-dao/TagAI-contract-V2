@@ -1,0 +1,51 @@
+{
+  "chainId": 56,
+  "Pump": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+  "verifiedAtBlock": 129862871,
+  "preflightReport": "version17-activation-preflight.json",
+  "status": "executed-confirmed",
+  "operations": [
+    {
+      "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "function": "addOperator(address)",
+      "arguments": [
+        "0x01B2308653c7e371B28A862444a40c12ca18b353"
+      ],
+      "value": "0",
+      "calldata": "0x9870d7fe00000000000000000000000001b2308653c7e371b28a862444a40c12ca18b353",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    },
+    {
+      "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "function": "setCreatorForwarderApproval(address,bool)",
+      "arguments": [
+        "0x01B2308653c7e371B28A862444a40c12ca18b353",
+        true
+      ],
+      "value": "0",
+      "calldata": "0x3089703600000000000000000000000001b2308653c7e371b28a862444a40c12ca18b3530000000000000000000000000000000000000000000000000000000000000001",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    },
+    {
+      "target": "0x01B2308653c7e371B28A862444a40c12ca18b353",
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "value": "0",
+      "calldata": "0x79ba5097",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C"
+    }
+  ],
+  "execution": {
+    "transactionHash": "0x39d266525b0910c14550448477ab4bf32c3bb1768466c3793670ae0dff8dcca0",
+    "blockNumber": 129865835,
+    "blockHash": "0xf1b7b8242f3801b6fc783c6d41924d4160846173288f240ad9baa7ce84338677",
+    "timestamp": "2026-10-26T08:30:12.000Z",
+    "receiptStatus": 1,
+    "operatorAddedInReceipt": true,
+    "creatorForwarderApprovedInReceipt": true,
+    "safeExecutionSuccess": true,
+    "ownershipTransferred": true
+  },
+  "confirmedAtBlock": 130036492,
+  "confirmationFile": "version17-activation-confirmed.json"
+}

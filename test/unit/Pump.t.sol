@@ -197,7 +197,7 @@ contract PumpTest is Version13LegacyTestSetup {
         uint256 ipsharePrice = ipshare.getPrice(10 ether, 0);
         ipshare.createShare{value: ipsharePrice}(creator);
 
-        uint256 premineValue = 1 ether;
+        uint256 premineValue = 0.01 ether;
         uint256 platformFee = (premineValue * 30) / 10_000;
         uint256 sellsmanFee = (premineValue * 30) / 10_000;
         uint256 expectedPremine = pump.getBuyAmountByValue(0, premineValue - platformFee - sellsmanFee);
@@ -419,7 +419,7 @@ contract PumpWithFeesTest is Version13LegacyTestSetup {
         // Create IPShare (free since createFee=0)
         ipshare.createShare(creator);
 
-        uint256 buyAmount = 0.1 ether;
+        uint256 buyAmount = 0.01 ether;
         uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES + buyAmount; // 0.005 + 0.015 + 0.1 = 0.12 ether
 
         uint256 balanceBefore = creator.balance;
@@ -476,7 +476,7 @@ contract PumpWithFeesTest is Version13LegacyTestSetup {
         vm.startPrank(creator, creator);
         ipshare.createShare(creator);
 
-        uint256 buyAmount = 0.1 ether;
+        uint256 buyAmount = 0.01 ether;
         uint256 totalSent = PUMP_CREATE_FEE + NUTBOX_FEES + buyAmount;
 
         uint256 balanceBefore = creator.balance;

@@ -110,17 +110,7 @@ contract TokenCollectFeesTest is Version13LegacyTestSetup {
     }
 
     function _fillBondingCurve(Token target) internal {
-        uint256 BONDING_CAP = 650_000_000 ether;
-        vm.startPrank(buyer, buyer);
-        vm.warp(block.timestamp + 16);
-        for (uint256 i = 0; i < 100 && !target.listed(); i++) {
-            if (BONDING_CAP - target.bondingCurveSupply() == 0) break;
-            try target.buyToken{value: 500 ether}(0, creator, 0) {}
-            catch {
-                break;
-            }
-        }
-        vm.stopPrank();
+        _fillInnerMarket(target, buyer);
         _finalizeLegacyV13Token(pump, target);
     }
 

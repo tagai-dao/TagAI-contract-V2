@@ -1,0 +1,89 @@
+{
+  "releaseDate": "2026-10-27",
+  "sourceCommit": "f9eb071494000f3a0026dc81584a7d8ef9ef80bd",
+  "graphObservation": {
+    "checkedAt": "2026-10-27T05:53:00.182Z",
+    "production": {
+      "httpStatus": 200,
+      "response": {
+        "data": {
+          "_meta": {
+            "deployment": "QmSxrijo8DexYcX1j2HPse8cFu5KbWZasUjrhbgn5HuNMt",
+            "hasIndexingErrors": false,
+            "block": {
+              "number": 130036746,
+              "hash": "0xc5a46e9accc197de11cb74bae7314af743415576053c4e173878cc8cdb028e32"
+            }
+          }
+        }
+      }
+    },
+    "studio": {
+      "httpStatus": 200,
+      "response": {
+        "data": {
+          "_meta": {
+            "deployment": "Qmb6aQR7oLNqEiLcNCtNgnMj2eiCNe2SQJfjigd7PCius1",
+            "hasIndexingErrors": false,
+            "block": {
+              "number": 46620307,
+              "hash": "0x12f1c176da5d903ff5dded15ffcd23b624bf7952b6811c70a3da16bbb3555bbe"
+            }
+          }
+        }
+      }
+    }
+  },
+  "graphProductionCutoverConfirmed": false,
+  "servicesRestartedByThisRelease": false,
+  "mainBeforeMerge": "955f10a16cb9854abac0b9c73932c014975250a6",
+  "versionBranchTip": "c6a2130f7916d6ed979e55994e25dea4e022ba53",
+  "foundry": {
+    "suites": 44,
+    "passed": 788,
+    "failed": 0,
+    "skipped": 2,
+    "skipNames": [
+      "test_receive_revertsWhenListed",
+      "test_reentrancy_protectedDuringRegisterPool"
+    ],
+    "command": "BSC_RPC_URL='' FOUNDRY_ETH_RPC_URL='' forge test --offline --no-match-path 'test/fork/*' --no-match-contract CommentMarketsForkTest",
+    "fuzzRuns": 256,
+    "invariantRuns": 256,
+    "invariantDepth": 50,
+    "sourceEquivalentToMerge": true
+  },
+  "multicallRegression": {
+    "passed": 5,
+    "failed": 0,
+    "command": "node --test script/ops/version17-chain.test.cjs"
+  },
+  "archives": {
+    "verifiedContracts": 4,
+    "standardJsonSha256Verified": true,
+    "deploymentSourceFilesVerified": 66,
+    "safeFileSha256": "0bbb6e33ecd7c9cf70ea3621767e7571f590ea1aac0b5775d78244e9cce867c3",
+    "runtimes": {
+      "Pump": {
+        "bytes": 21023,
+        "keccak256": "0x461c826ed9ff36261579cab1be4810095fe085841de60f8f91cbb0f1e66976c3",
+        "matchesDeployedSnapshot": true
+      },
+      "Token": {
+        "bytes": 23645,
+        "keccak256": "0x9ac128df3265ffd53cd5267d402dc593f42fef5e4a1aa64b8510092b88625ef3",
+        "matchesDeployedSnapshot": true
+      }
+    },
+    "constructorArgsFilesVerified": 4
+  },
+  "forkTests": {
+    "rerunThisRelease": false,
+    "priorEvidence": "deployments/56/version17.json#evidence"
+  },
+  "secretScan": {
+    "introducedFilesChecked": 55,
+    "credentialMatches": 0
+  },
+  "documentationLinksVerified": 5
+}
