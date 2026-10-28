@@ -297,6 +297,10 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
 
     function registerImportedToken(address token, address community, address deployer) public virtual {
         if (msg.sender != registrar && msg.sender != owner()) revert UnauthorizedRegistrar();
+        _registerImportedToken(token, community, deployer);
+    }
+
+    function _registerImportedToken(address token, address community, address deployer) internal {
         if (_importedMarkets[token].registered) revert MarketAlreadyRegistered();
         _storeImportedMarket(token, community, deployer);
         emit ImportedMarketRegistered(token, community, deployer);
@@ -306,6 +310,10 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
     /// @dev Only the owner may correct a binding. A Community change is rejected while token
     ///      rewards are pending so fees accrued for the previous Community cannot be redirected.
     function updateImportedMarket(address token, address community, address deployer) public virtual onlyOwner {
+        _updateImportedMarket(token, community, deployer);
+    }
+
+    function _updateImportedMarket(address token, address community, address deployer) internal {
         ImportedMarket storage market = _importedMarkets[token];
         if (!market.registered) revert MarketNotRegistered();
         if (token.code.length == 0 || community.code.length == 0 || deployer == address(0)) revert InvalidMarket();

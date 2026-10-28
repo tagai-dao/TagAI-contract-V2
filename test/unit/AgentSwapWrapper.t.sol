@@ -335,23 +335,154 @@ contract AgentSwapWrapperTest is Test {
         agent.setNutboxMarket(address(token), address(community), referral, feeBps);
     }
 
-    function test_onlyOwnerCanBindOrSetNutboxFeesEvenIfRegistrar() public {
+    function test_unappointedRegistrarCannotBindOrSetNutboxFees() public {
         (AgentCommunityMock community,) = _nutbox(20);
         agent.setRegistrar(buyer);
+        bytes memory reason = abi.encodeWithSelector(AgentSwapWrapper.UnauthorizedOperator.selector, buyer);
         vm.startPrank(buyer);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(reason);
         agent.setNutboxMarket(address(token), address(community), buyer, 30);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(reason);
         agent.setTokenNutboxFee(address(token), 30);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(reason);
         agent.registerImportedToken(address(quote), address(community), buyer);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(reason);
         agent.updateImportedMarket(address(token), address(community), buyer);
         vm.stopPrank();
         assertEq(agent.tokenNutboxFeeBps(address(token)), 20);
         (, address boundCommunity, address deployer) = agent.getImportedMarket(address(token));
         assertEq(boundCommunity, address(community));
         assertEq(deployer, referral);
+    }
+
+    function test_onlyOwnerCanAppointReplaceOrRevokeOperator() public {
+        assertEq(agent.operator(), address(0));
+        vm.expectEmit(true, true, false, true, address(agent));
+        emit AgentSwapWrapper.OperatorChanged(address(0), buyer);
+        agent.setOperator(buyer);
+        assertEq(agent.operator(), buyer);
+        vm.prank(buyer);
+        vm.expectRevert("Ownable: caller is not the owner");
+        agent.setOperator(seller);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidAddress.selector);
+        agent.setOperator(address(agent));
+        assertEq(agent.operator(), buyer);
+        agent.setOperator(seller);
+        assertEq(agent.operator(), seller);
+        agent.setOperator(address(0));
+        assertEq(agent.operator(), address(0));
+    }
+
+    function test_operatorCanRegisterUpdateAndConfigureNutboxFeesWithoutRegistrarRole() public {
+        ImportedCalculatorMock calculator = new ImportedCalculatorMock(address(token));
+        AgentCommunityMock firstCommunity = new AgentCommunityMock(address(token), address(calculator));
+        AgentCommunityMock secondCommunity = new AgentCommunityMock(address(token), address(calculator));
+        agent.setOperator(buyer);
+        vm.startPrank(buyer);
+        agent.registerImportedToken(address(token), address(firstCommunity), referral);
+        assertEq(agent.tokenNutboxFeeBps(address(token)), 0);
+        agent.setTokenNutboxFee(address(token), 20);
+        agent.updateImportedMarket(address(token), address(secondCommunity), seller);
+        agent.setNutboxMarket(address(token), address(firstCommunity), referral, 40);
+        vm.stopPrank();
+        (, address community, address deployer) = agent.getImportedMarket(address(token));
+        assertEq(community, address(firstCommunity));
+        assertEq(deployer, referral);
+        assertEq(agent.tokenNutboxFeeBps(address(token)), 40);
+        // Register a previously unbound token through the atomic configuration entry point as operator.
+        ImportedCalculatorMock quoteCalculator = new ImportedCalculatorMock(address(quote));
+        AgentCommunityMock quoteCommunity = new AgentCommunityMock(address(quote), address(quoteCalculator));
+        vm.prank(buyer);
+        agent.setNutboxMarket(address(quote), address(quoteCommunity), referral, 25);
+        assertEq(agent.tokenNutboxFeeBps(address(quote)), 25);
+        assertEq(_buy(buyer, 1, buyer, referral), 1.984032 ether);
+        assertEq(agent.pendingNutboxInjection(address(token)), 0.007968 ether);
+        // Owner retains direct access even while an operator is appointed.
+        agent.setTokenNutboxFee(address(token), 0);
+        assertEq(agent.tokenNutboxFeeBps(address(token)), 0);
+    }
+
+    function test_replacedAndRevokedOperatorLoseAllNutboxConfigurationAccess() public {
+        (AgentCommunityMock community,) = _nutbox(20);
+        agent.setOperator(buyer);
+        agent.setOperator(seller);
+        bytes memory reason = abi.encodeWithSelector(AgentSwapWrapper.UnauthorizedOperator.selector, buyer);
+        vm.startPrank(buyer);
+        vm.expectRevert(reason);
+        agent.setNutboxMarket(address(token), address(community), buyer, 30);
+        vm.expectRevert(reason);
+        agent.setTokenNutboxFee(address(token), 30);
+        vm.expectRevert(reason);
+        agent.registerImportedToken(address(quote), address(community), buyer);
+        vm.expectRevert(reason);
+        agent.updateImportedMarket(address(token), address(community), buyer);
+        vm.stopPrank();
+        vm.prank(seller);
+        agent.setTokenNutboxFee(address(token), 40);
+        agent.setOperator(address(0));
+        vm.prank(seller);
+        vm.expectRevert(abi.encodeWithSelector(AgentSwapWrapper.UnauthorizedOperator.selector, seller));
+        agent.setTokenNutboxFee(address(token), 0);
+        agent.setTokenNutboxFee(address(token), 0);
+        assertEq(agent.tokenNutboxFeeBps(address(token)), 0);
+    }
+
+    function test_operatorCannotExerciseOtherOwnerPowers() public {
+        agent.setOperator(buyer);
+        bytes[] memory calls = new bytes[](9);
+        calls[0] = abi.encodeCall(agent.setOperator, (seller));
+        calls[1] = abi.encodeCall(agent.setFeeRatios, (30, 40, 0));
+        calls[2] = abi.encodeCall(agent.setFeeAddress, (seller));
+        calls[3] = abi.encodeCall(agent.setIPShare, (address(shares)));
+        calls[4] = abi.encodeCall(agent.setRegistrar, (buyer));
+        calls[5] = abi.encodeCall(agent.setReferralHook, (address(token), true));
+        calls[6] = abi.encodeCall(agent.pause, ());
+        calls[7] = abi.encodeCall(agent.transferOwnership, (buyer));
+        calls[8] = abi.encodeCall(agent.renounceOwnership, ());
+        vm.startPrank(buyer);
+        for (uint256 i; i < calls.length; ++i) {
+            (bool ok, bytes memory reason) = address(agent).call(calls[i]);
+            assertFalse(ok);
+            assertEq(reason, abi.encodeWithSignature("Error(string)", "Ownable: caller is not the owner"));
+        }
+        vm.stopPrank();
+        assertEq(agent.owner(), address(this));
+        assertFalse(agent.paused());
+    }
+
+    function test_operatorMustRespectCommunityFeeAndPendingRewardChecks() public {
+        (AgentCommunityMock community, ImportedCalculatorMock calculator) = _nutbox(20);
+        AgentCommunityMock replacement = new AgentCommunityMock(address(token), address(calculator));
+        AgentCommunityMock wrongToken = new AgentCommunityMock(address(quote), address(calculator));
+        _buy(buyer, 1, buyer, referral);
+        uint256 pending = agent.pendingNutboxInjection(address(token));
+        agent.setOperator(buyer);
+        vm.startPrank(buyer);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidFeeRatio.selector);
+        agent.setTokenNutboxFee(address(token), 2001);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidFeeRatio.selector);
+        agent.setNutboxMarket(address(token), address(community), referral, 2001);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidMarket.selector);
+        agent.setNutboxMarket(address(token), address(wrongToken), referral, 20);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ImportedTokenSwapWrapper.PendingNutboxInjectionExists.selector, address(token), pending
+            )
+        );
+        agent.setNutboxMarket(address(token), address(replacement), referral, 20);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ImportedTokenSwapWrapper.PendingNutboxInjectionExists.selector, address(token), pending
+            )
+        );
+        agent.updateImportedMarket(address(token), address(replacement), referral);
+        agent.setTokenNutboxFee(address(token), 0);
+        vm.stopPrank();
+        assertEq(agent.pendingNutboxInjection(address(token)), pending);
+        vm.warp(block.timestamp + 600);
+        agent.flushNutboxInjection(address(token));
+        assertEq(calculator.injected(address(community)), pending);
+        assertEq(calculator.injected(address(replacement)), 0);
     }
 
     function test_bindingRejectsWrongTokenMissingCalculatorAndInvalidRate() public {

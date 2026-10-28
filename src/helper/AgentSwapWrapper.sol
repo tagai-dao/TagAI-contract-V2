@@ -10,7 +10,7 @@ import {ICommunity} from "../interfaces/ICommunity.sol";
  * @dev Every buy/sell authenticates msg.sender using the Binance Handle registry and ensures
  *      its IPShare exists before moving trade funds. No tx.origin or forwarding exemption.
  *      Default fees are 20 bps platform + 20 bps referral, both in native coin.
- *      Nutbox fees default to zero and may be enabled per token only by the owner. Existing DEX/Hook fees remain.
+ *      Nutbox fees default to zero and may be enabled per token by the owner or its operator. Existing DEX/Hook fees remain.
  *      Quotes stay public and side-effect-free with respect to Handle/IPShare registration.
  */
 contract AgentSwapWrapper is ImportedTokenSwapWrapper {
@@ -18,20 +18,36 @@ contract AgentSwapWrapper is ImportedTokenSwapWrapper {
     address private _activeSubject;
     mapping(address => bytes32) public referralHookCodeHash;
     mapping(address => uint16) public tokenNutboxFeeBps;
+    address public operator;
 
     error HandleNotRegistered(address account);
     error IPShareCreationFeeRequired(uint256 fee);
     error IPShareCreationFailed(address account);
     error UsePerTokenNutboxConfig();
     error ReferralHookCodeChanged(address hook);
+    error UnauthorizedOperator(address account);
     event ReferralHookSet(address indexed hook, bool enabled, bytes32 codeHash);
     event NutboxMarketConfigured(address indexed token, address indexed community, address deployer, uint16 feeBps);
+    event OperatorChanged(address indexed previousOperator, address indexed newOperator);
+
+    modifier onlyOwnerOrOperator() {
+        if (msg.sender != owner() && msg.sender != operator) revert UnauthorizedOperator(msg.sender);
+        _;
+    }
 
     constructor(address nutboxRouter_, address feeAddress_, address ipshare_)
         ImportedTokenSwapWrapper(nutboxRouter_, feeAddress_, ipshare_)
     {
         if (HANDLE_REGISTRY.code.length == 0) revert InvalidAddress();
         nutboxTokenRatio = 0;
+    }
+
+    /// @notice Delegate Nutbox market/fee configuration. Zero revokes the current operator.
+    function setOperator(address newOperator) external onlyOwner {
+        if (newOperator == address(this)) revert InvalidAddress();
+        address previousOperator = operator;
+        operator = newOperator;
+        emit OperatorChanged(previousOperator, newOperator);
     }
 
     /// @notice Enable address-encoded referral data only for reviewed compatible Hooks.
@@ -58,7 +74,10 @@ contract AgentSwapWrapper is ImportedTokenSwapWrapper {
 
     /// @notice Atomically bind a token to its Nutbox Community and set its token-side fee (0 disables).
     /// @dev Pending rewards must be flushed before changing Community. Disabling keeps old rewards flushable.
-    function setNutboxMarket(address token, address community, address deployer, uint16 feeBps) external onlyOwner {
+    function setNutboxMarket(address token, address community, address deployer, uint16 feeBps)
+        external
+        onlyOwnerOrOperator
+    {
         if (feeBps > MAX_TOTAL_FEE_BPS) revert InvalidFeeRatio();
         (bool registered,,) = getImportedMarket(token);
         if (registered) updateImportedMarket(token, community, deployer);
@@ -67,7 +86,7 @@ contract AgentSwapWrapper is ImportedTokenSwapWrapper {
     }
 
     /// @notice Change only the fee, retaining the binding and any already accrued rewards.
-    function setTokenNutboxFee(address token, uint16 feeBps) external onlyOwner {
+    function setTokenNutboxFee(address token, uint16 feeBps) external onlyOwnerOrOperator {
         (bool registered, address community, address deployer) = getImportedMarket(token);
         if (!registered) revert MarketNotRegistered();
         _setTokenNutboxFee(token, community, deployer, feeBps);
@@ -80,14 +99,22 @@ contract AgentSwapWrapper is ImportedTokenSwapWrapper {
     }
 
     /// @dev Registrars cannot add fee bindings to this Agent entry point. Registration alone leaves fee at zero.
-    function registerImportedToken(address token, address community, address deployer) public override onlyOwner {
+    function registerImportedToken(address token, address community, address deployer)
+        public
+        override
+        onlyOwnerOrOperator
+    {
         _validateNutboxCommunity(token, community);
-        super.registerImportedToken(token, community, deployer);
+        _registerImportedToken(token, community, deployer);
     }
 
-    function updateImportedMarket(address token, address community, address deployer) public override onlyOwner {
+    function updateImportedMarket(address token, address community, address deployer)
+        public
+        override
+        onlyOwnerOrOperator
+    {
         _validateNutboxCommunity(token, community);
-        super.updateImportedMarket(token, community, deployer);
+        _updateImportedMarket(token, community, deployer);
     }
 
     function _validateNutboxCommunity(address token, address community) private view {
