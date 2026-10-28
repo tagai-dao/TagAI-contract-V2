@@ -6,10 +6,11 @@ const manifest=JSON.parse(fs.readFileSync(`${dir}/manifest.json`));const reports
 const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
 function run(args,log){return new Promise((resolve,reject)=>{const fd=fs.openSync(log,'w');const child=cp.spawn('forge',args,{env,stdio:['ignore',fd,fd]});child.on('error',reject);child.on('exit',code=>{fs.closeSync(fd);resolve(code);});});}
 async function main(){
+ if(!process.argv.includes("--approved-bscscan-source-upload"))throw new Error("Explicit user approval to upload full source packages and constructor arguments to BscScan is required");
  if(manifest.sourceCommit!==deployment.sourceCommit||reports.length!==4)throw new Error('Approved verification manifest mismatch');
  for(const r of reports){if(sha(fs.readFileSync(r.standardJson))!==r.standardJsonSha256||r.constructorArgs!==deployment.constructorArgs[r.name])throw new Error('Approved file or constructor args changed: '+r.name);}
- // Source verification accompanies the user-authorized V18 BSC deployment.
- manifest.uploadAuthorization={status:'authorized-as-part-of-deployment',userInstruction:'部署合约，做好版本记录',destination:'BscScan / https://api.etherscan.io/v2/api (chainid=56)',approvedAt:new Date().toISOString()};
+ // Invoke only after explicit user approval for full source disclosure to BscScan.
+ manifest.uploadAuthorization={status:'explicit-source-upload-approval-confirmed-by-operator',destination:'BscScan / https://api.etherscan.io/v2/api (chainid=56)',approvedAt:new Date().toISOString()};
  for(let i=0;i<reports.length;++i){
   await Promise.all(reports.slice(i,i+1).map(async r=>{
    const log=`/tmp/tiptag-v18-verify-${r.name}.log`;

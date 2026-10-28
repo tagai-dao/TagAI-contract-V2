@@ -13,6 +13,18 @@
 
 ---
 
+## 2026-10-28 — BSC Pump V18（已部署，待源码验证及 Safe 激活）
+
+- 版本源码提交：`6eae99ebc812250ce4b70b4ab11b1105c6944037`，分支 `bsc-version18`。内盘显式买入、直接 BNB 买入、卖出自动为未创建 IPShare 的实际交易者创建；预买归属创建者；已有 IPShare 跳过，失败原子回滚。
+- Pump `0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24`；Token implementation `0x02DC3D9bd600C147F347e584167b58953353BDbF`；Hook `0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1`；BuybackRouter `0x3468210f9d4522d20d120F122fcCd56c0C5e5074`。
+- 7 笔成功交易，区块 `130215462`–`130215489`，实际 gas `13,760,099`，费用 `0.00068800495 BNB`。区块 `130215504` 复核所有绑定、V17 配置、16 个成分资产和 runtime；[正式记录](deployments/56/version18.json)、[回执](deployments/56/version18-receipts.json)、[版本说明](docs/PumpVersion18.md)。
+- 复用现有 IPShare、Nutbox、Basket V4、TradeCurationFactory 和 HandleRegistry。IPShare 当前创建费及初始 10 份价格均为 0；初始份额自动质押。创建费若以后非零，自动创建交易透传失败，不动用曲线储备。
+- 46 个本地套件 840 通过、0 失败、2 个原有跳过；V18 专项及继承回归 51 通过；外部 Multicall 回归 9 通过；固定区块 `130214270` 的两个真实主网 fork 通过。实际部署的三笔激活 calldata 于区块 `130215504` 的 fork 模拟通过。
+- 四份 Standard JSON、完整编译设置、构造参数及 SHA-256 [已导出](deployments/56/version18-verification/manifest.json)，**尚未上传或完成浏览器源码验证**。自动审批要求明确授权向 BscScan 披露源码及构造参数，拒绝了本次上传操作。
+- owner 为部署账户，pendingOwner 为原 Safe；operator / creator forwarder 均为 false。已导出 [Safe 文件](deployments/56/version18.safe.json) 和 [三笔激活说明](docs/PumpVersion18Multisig.md)，尚未提案、签名或执行。应用及子图此次未切换；V17/旧币保留原行为。
+
+---
+
 ## 2026-10-27 — BSC Pump V17 合并 main（已部署、验证并激活）
 
 | 项目 | 记录 |

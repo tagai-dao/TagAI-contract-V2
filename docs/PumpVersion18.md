@@ -1,6 +1,6 @@
 # Pump V18 — 内盘交易自动创建 IPShare
 
-2026-10-28：基于 V17 更新源码，`Pump.VERSION()` 返回 `18`。本次没有部署、广播或更改主网配置。现有 V17 Token 是固定模板克隆，不会因本次源码修改而改变行为。
+2026-10-28：基于 V17 更新源码，`Pump.VERSION()` 返回 `18`。已在 BSC 主网部署全新 Pump、Token implementation、Hook 和 BuybackRouter，待浏览器源码验证和 Safe 激活。现有 V17 Token 是固定模板克隆，不会因本次源码修改而改变行为。
 
 ## 交易行为
 
@@ -38,10 +38,25 @@ V18 自动创建发送 **0 BNB**。若以后开启 IPShare 创建费，未创建
 ```sh
 BSC_RPC_URL='' FOUNDRY_ETH_RPC_URL='' forge test --offline \
   --no-match-path 'test/fork/*' --no-match-contract CommentMarketsForkTest
-node --test script/ops/version17-chain.test.cjs
+node --test script/ops/version18-chain.test.cjs
 forge build --offline --skip test --skip script --sizes
 ```
 
-本次本地回归：45 个套件，**839 通过、0 失败、2 个原有跳过**；其中 V18 专项及继承回归 51 通过。Multicall 传输回归 5 通过，校验目标地址、完整子调用顺序、固定区块、必需数据和失败处理。Solidity 0.8.26、viaIR、optimizer runs 100 下，Token runtime 为 **24,205 bytes**，Pump 为 **21,023 bytes**，均符合 EIP-170 的 24,576 bytes 上限。本次未运行主网 fork 或部署测试。
+本次本地回归：46 个套件，**840 通过、0 失败、2 个原有跳过**；其中 V18 专项及继承回归 51 通过。Multicall 传输回归 9 通过，校验目标地址、完整子调用顺序、固定区块、必需数据和失败处理。Solidity 0.8.26、viaIR、optimizer runs 100 下，Token runtime 为 **24,205 bytes**，Pump 为 **21,023 bytes**，均符合 EIP-170 的 24,576 bytes 上限。固定主网区块 130214270 的两个真实合约 fork 测试通过；实际部署后，区块 130215504 的三笔原始激活 calldata fork 模拟也通过。
 
-V18 发布还需专用部署配置、全新 Token 模板及配套 Pump/Hook/Buyback 绑定、激活和应用版本接入。本次仅完成源码与本地验证；历史 V17 部署记录和脚本不作为 V18 发布记录，不应使用 V17 脚本直接广播当前 V18 源码。
+## BSC 主网部署记录（2026-10-28）
+
+| 合约 | 地址 |
+| --- | --- |
+| Pump V18 | [`0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24`](https://bscscan.com/address/0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24#code) |
+| Token implementation | [`0x02DC3D9bd600C147F347e584167b58953353BDbF`](https://bscscan.com/address/0x02DC3D9bd600C147F347e584167b58953353BDbF#code) |
+| TagAISwapHook V18 | [`0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1`](https://bscscan.com/address/0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1#code) |
+| TagAIBuybackRouter V18 | [`0x3468210f9d4522d20d120F122fcCd56c0C5e5074`](https://bscscan.com/address/0x3468210f9d4522d20d120F122fcCd56c0C5e5074#code) |
+
+- 部署源码提交：`6eae99ebc812250ce4b70b4ab11b1105c6944037`，分支 `bsc-version18`。专用部署入口：`script/DeployBSCPump18.s.sol:DeployBSCPump18Script`。
+- 7 笔交易全部成功，区块 **130215462–130215489**；实际 gas **13,760,099**，费用 **0.00068800495 BNB**。
+- 区块 **130215504** 的独立固定区块 Multicall 复核确认版本、Hook/Buyback 绑定、全部 16 个成分资产以及 V17 基础设施和费率均正确。Pump/Token runtime 与本地产物逐字节一致；Hook/Buyback 校验不可变量绑定及屏蔽不可变量后的完整 runtime。
+- 编译器：`0.8.26+commit.8a97fa7a`，viaIR，optimizer runs 100，`cancun`；编译设置、源文件 SHA-256、构造参数、交易及字节码散列见 [正式部署记录](../deployments/56/version18.json)。[完整成功回执](../deployments/56/version18-receipts.json)。
+- [四份 Standard JSON 及 SHA-256 清单](../deployments/56/version18-verification/manifest.json) 已生成，**尚未上传或完成浏览器验证**。自动审批在执行前拒绝了上传，要求用户明确授权将完整源码包和构造参数披露至 BscScan；当前没有浏览器验证成功的声明。
+- 当前 owner 为部署账户 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，pendingOwner 为原 Safe `0x871fb7006C5964B21695Ba20006021777A26146C`。NutboxRouter operator 和 BasketRegistry creator forwarder 均仍为 false，**尚未激活**。三笔待执行操作见 [Safe 激活说明](PumpVersion18Multisig.md)；已在实际部署合约的 fork 中按原始 calldata 顺序模拟通过，不包含 Safe 签名或主网执行。
+- 应用、API、子图和后台服务此次没有切换至 V18。旧版合约、Token、地址和历史记录保留；部署成功不等于应用发布或多签激活完成。
