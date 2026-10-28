@@ -538,9 +538,15 @@ contract Token is IToken, ERC20, ReentrancyGuard, ILockCallback {
         if (listed) {
             revert TokenListed();
         }
+        IIPShare ipshare = IIPShare(IPump(manager).getIPShare());
+        // Pump forwards the creator's atomic premine; never create a share for the Pump itself.
+        address trader = _isPumpPremine() ? indexCreator : msg.sender;
+        // Creation is currently free. Propagate any failure (including a future nonzero createFee)
+        // so no trade can succeed without the trader's IPShare or spend curve reserves on creation.
+        if (!ipshare.ipshareCreated(trader)) ipshare.createShare(trader);
         if (sellsman == address(0)) {
             sellsman = ipshareSubject;
-        } else if (!IIPShare(IPump(manager).getIPShare()).ipshareCreated(sellsman)) {
+        } else if (!ipshare.ipshareCreated(sellsman)) {
             revert IPShareNotCreated();
         }
         return sellsman;

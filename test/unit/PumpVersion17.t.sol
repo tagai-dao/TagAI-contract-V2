@@ -40,7 +40,7 @@ contract PumpVersion17Test is PumpVersion13Test {
     }
 
     function test_v17_versionAndDeployableSize() public view {
-        assertEq(pump.VERSION(), 17);
+        assertEq(pump.VERSION(), 18);
         assertLe(pump.tokenImplementation().code.length, 24_576, "Token must fit EIP-170");
         assertLe(address(pump).code.length, 24_576, "Pump must fit EIP-170");
     }
@@ -146,8 +146,9 @@ contract PumpVersion17Test is PumpVersion13Test {
         token.transferFrom(buyer, address(router), 1 ether);
         assertEq(token.allowance(buyer, address(this)), 1 ether);
         _registerHandle(address(this));
-        vm.deal(address(this), 1 ether);
-        _quotedBuy(address(this), 1_000_000 ether, false);
+        // V18 auto-creation rejects ordinary contracts as IPShare subjects. Seed this
+        // balance directly to keep testing the independent contract-sender transfer guard.
+        deal(address(token), address(this), 1_000_000 ether);
         vm.expectRevert(IToken.InnerMarketTransferRestricted.selector);
         token.transfer(creator, 1 ether);
     }
