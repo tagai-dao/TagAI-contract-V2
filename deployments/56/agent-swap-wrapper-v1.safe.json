@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "chainId": "56",
+  "createdAt": 1793172353501,
+  "meta": {
+    "name": "AgentSwapWrapper v1: accept ownership",
+    "description": "Accept two-step ownership of the independently deployed AgentSwapWrapper. Operator remains unset.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "createdFromOwnerAddress": ""
+  },
+  "transactions": [
+    {
+      "to": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+      "value": "0",
+      "data": "0x79ba5097",
+      "contractMethod": {
+        "inputs": [],
+        "name": "acceptOwnership",
+        "payable": false
+      },
+      "contractInputsValues": {}
+    }
+  ]
+}

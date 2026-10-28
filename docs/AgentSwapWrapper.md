@@ -1,6 +1,6 @@
 # AgentSwapWrapper（BSC，2026-10-28）
 
-状态：源码与本地测试；未部署，未切换任何前端/API 地址，也未广播链上交易。
+状态：AgentSwapWrapper v1 已于 2026-10-28 部署至 BSC 并通过 BscScan 源码验证，所有权转移已发起，待多签 acceptOwnership。地址：`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`。前端/API 地址未切换。部署、验证及多签执行文件见 [版本记录](AgentSwapWrapperV1Deployment.md)。
 
 ## 确定的行为
 

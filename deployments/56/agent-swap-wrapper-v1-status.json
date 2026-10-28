@@ -1,0 +1,95 @@
+{
+  "checkedAt": "2026-10-28T07:25:53.491Z",
+  "blockNumber": 130240966,
+  "blockHash": "0xaeeb63b3bdb5019e849dcb3adde9a224a55b9b50b4d858c0123b0f07de0ac11a",
+  "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "operator": "0x0000000000000000000000000000000000000000",
+  "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+  "feeAddress": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
+  "ipshare": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+  "HANDLE_REGISTRY": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
+  "sellsmanRatio": "20",
+  "tagaiRatio": "20",
+  "nutboxTokenRatio": "0",
+  "paused": false,
+  "registrar": "0x0000000000000000000000000000000000000000",
+  "runtime": {
+    "bytes": 19964,
+    "keccak256": "0x0c33dba2c3ac7e065e8e264b50630f46b78a9fb82f21dff420093e381c0e309d",
+    "immutableMaskedMatch": true
+  },
+  "multicallAudit": [
+    {
+      "blockTag": "0x7c351c6",
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x570ca735"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x0f85c315"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x41275358"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x29f1035a"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x89088624"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x908cce03"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0xd338d549"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x88e40cfe"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x5c975abb"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x2b20e397"
+        }
+      ]
+    }
+  ]
+}

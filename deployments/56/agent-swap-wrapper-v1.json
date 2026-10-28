@@ -1,0 +1,498 @@
+{
+  "component": "AgentSwapWrapper",
+  "version": 1,
+  "chainId": 56,
+  "checkedAt": "2026-10-28T07:23:33.302Z",
+  "blockNumber": 130240651,
+  "blockHash": "0x7b43f2ee40cf2ef42ced5d7532e547f05f9d0182ae2d6a7bab4b5d031fa23ac4",
+  "sourceCommit": "9c0a55bfe0547c35d2b093ca2e6a242c8e08910d",
+  "sourceBranch": "bsc-version18",
+  "sourceHashes": {
+    "src/helper/AgentSwapWrapper.sol": "f85bad189f8f995fecac879ad7c15b88b8dbcb8e6225c56c5618b293b83c8b34",
+    "src/helper/ImportedTokenSwapWrapper.sol": "1fad4252e3888bfba5b7c41eaf2084f9082daa8ca1baff67a42e859d5150809d",
+    "foundry.toml": "b0746b7485286fd173f9a1ea44af9db10cda5e0a780f3d379a56ddac2f3729ea"
+  },
+  "artifactSha256": "44030f4c4186283daadc2eded32411cb163f72f90e900f1e501ae256a1ff118a",
+  "compiler": {
+    "version": "0.8.26+commit.8a97fa7a"
+  },
+  "settings": {
+    "remappings": [
+      "@ensdomains/=lib/v4-core/node_modules/@ensdomains/",
+      "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+      "ds-test/=lib/v4-core/lib/forge-std/lib/ds-test/src/",
+      "erc4626-tests/=lib/v4-core/lib/openzeppelin-contracts/lib/erc4626-tests/",
+      "forge-gas-snapshot/=lib/infinity-core/lib/forge-gas-snapshot/src/",
+      "forge-std/=lib/forge-std/src/",
+      "halmos-cheatcodes/=lib/infinity-core/lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+      "hardhat/=lib/v4-core/node_modules/hardhat/",
+      "infinity-core/=lib/infinity-core/",
+      "openzeppelin-contracts/=lib/v4-core/lib/openzeppelin-contracts/",
+      "pancake-create3-factory/=lib/infinity-core/lib/pancake-create3-factory/",
+      "solady/=node_modules/solady/",
+      "solmate/=lib/v4-core/lib/solmate/",
+      "v4-core/=lib/v4-core/src/"
+    ],
+    "optimizer": {
+      "enabled": true,
+      "runs": 100
+    },
+    "metadata": {
+      "bytecodeHash": "ipfs"
+    },
+    "compilationTarget": {
+      "src/helper/AgentSwapWrapper.sol": "AgentSwapWrapper"
+    },
+    "evmVersion": "cancun",
+    "libraries": {},
+    "viaIR": true
+  },
+  "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "targetOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "nonce": 701,
+  "predictedAddress": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+  "constructor": {
+    "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+    "feeAddress": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
+    "ipshare": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922"
+  },
+  "legacyWrapper": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+  "legacyRouter": "0x04e2d43bA38e3f3F0D0dab3A30D1B58BFE9B659f",
+  "handleRegistry": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
+  "deployerHandle": "",
+  "operator": "0x0000000000000000000000000000000000000000",
+  "safe": {
+    "threshold": "2",
+    "owners": [
+      "0xA2432110Bf31AEC4Ba3d2a80A1b664D49999B736",
+      "0xFfC61fF4dC3307d0762A87C5D001dF0EA09B6035",
+      "0xCCb2557246E89216b7D2448cdb7C42E382b753Ae"
+    ]
+  },
+  "ipshare": {
+    "ipshareCreateFee": "0",
+    "initialSharePrice": "0",
+    "ipsharePaused": false
+  },
+  "gasEstimate": "4541724",
+  "gasLimit": "5904241",
+  "gasPriceWei": "50000000",
+  "balanceWei": "3161375372387980",
+  "multicallAudit": [
+    {
+      "blockTag": "0x7c3508b",
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+          "allowFailure": false,
+          "callData": "0x0f85c315"
+        },
+        {
+          "target": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+          "allowFailure": false,
+          "callData": "0x41275358"
+        },
+        {
+          "target": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+          "allowFailure": false,
+          "callData": "0x29f1035a"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x0f85c315"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xe8a35392"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x888a5ad7"
+        },
+        {
+          "target": "0x871fb7006C5964B21695Ba20006021777A26146C",
+          "allowFailure": false,
+          "callData": "0xe75235b8"
+        },
+        {
+          "target": "0x871fb7006C5964B21695Ba20006021777A26146C",
+          "allowFailure": false,
+          "callData": "0xa0e67e2b"
+        },
+        {
+          "target": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
+          "allowFailure": false,
+          "callData": "0xc50a151400000000000000000000000078c2af38330c5b41ae7946a313e43cdceeaf8611"
+        }
+      ]
+    },
+    {
+      "blockTag": "0x7c3508b",
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0xeb6d3a11"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x04ed099e000000000000000000000000ca143ce32fe78f1f7019d7d551a6402fc5350c73"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0xf57cc6e5000000000000000000000000ca143ce32fe78f1f7019d7d551a6402fc5350c73"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x425a05a00000000000000000000000000bfbcf9fa4f9c56b0f40a671ad40e0805a091865"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x303b67df000000000000000000000000a0ffb9c1ce1fe56963b0321b32e7a0302114058b"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec7626000000000000000000000000bb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c00000000000000000000000055d398326f99059ff775485246999027b3197955"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b3197955000000000000000000000000bb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+        },
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x4d2301cc00000000000000000000000078c2af38330c5b41ae7946a313e43cdceeaf8611"
+        }
+      ]
+    },
+    {
+      "blockTag": "0x7c3508b",
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+          "allowFailure": false,
+          "callData": "0xb2db919b"
+        },
+        {
+          "target": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+          "allowFailure": false,
+          "callData": "0x5cf4ee910000000000000000000000000000000000000000000000008ac7230489e800000000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "target": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+          "allowFailure": false,
+          "callData": "0x5c975abb"
+        }
+      ]
+    }
+  ],
+  "address": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+  "status": "deployed-verified-pending-safe-acceptance",
+  "deployedAt": "2026-10-28T07:23:49.225Z",
+  "deploymentTransaction": {
+    "_type": "TransactionReceipt",
+    "blockHash": "0x6e8c038788b3e563f5037544c6f00f8a22709ce70ed4cdef875322b3333b0722",
+    "blockNumber": 130240688,
+    "contractAddress": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+    "cumulativeGasUsed": "13508815",
+    "from": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "gasPrice": "50000000",
+    "blobGasUsed": null,
+    "blobGasPrice": null,
+    "gasUsed": "4504804",
+    "hash": "0x0934cb17fec94c0dbb094094323f6c18a06924443710cc621a0dc8c068fd740c",
+    "index": 88,
+    "logs": [
+      {
+        "_type": "log",
+        "address": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+        "blockHash": "0x6e8c038788b3e563f5037544c6f00f8a22709ce70ed4cdef875322b3333b0722",
+        "blockNumber": 130240688,
+        "data": "0x",
+        "index": 230,
+        "topics": [
+          "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
+          "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "0x00000000000000000000000078c2af38330c5b41ae7946a313e43cdceeaf8611"
+        ],
+        "transactionHash": "0x0934cb17fec94c0dbb094094323f6c18a06924443710cc621a0dc8c068fd740c",
+        "transactionIndex": 88
+      }
+    ],
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000800000100000020000000000000000000000000000000001000800000000000000000000000000000000020000000000000000000800000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000020000000000000000000000000000000000000001000000000000000000000000000",
+    "status": 1,
+    "to": null
+  },
+  "lastCheckedState": {
+    "checkedAt": "2026-10-28T07:25:53.491Z",
+    "blockNumber": 130240966,
+    "blockHash": "0xaeeb63b3bdb5019e849dcb3adde9a224a55b9b50b4d858c0123b0f07de0ac11a",
+    "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "operator": "0x0000000000000000000000000000000000000000",
+    "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+    "feeAddress": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
+    "ipshare": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+    "HANDLE_REGISTRY": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
+    "sellsmanRatio": "20",
+    "tagaiRatio": "20",
+    "nutboxTokenRatio": "0",
+    "paused": false,
+    "registrar": "0x0000000000000000000000000000000000000000",
+    "runtime": {
+      "bytes": 19964,
+      "keccak256": "0x0c33dba2c3ac7e065e8e264b50630f46b78a9fb82f21dff420093e381c0e309d",
+      "immutableMaskedMatch": true
+    },
+    "multicallAudit": [
+      {
+        "blockTag": "0x7c351c6",
+        "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+        "calls": [
+          {
+            "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+            "allowFailure": false,
+            "callData": "0x42cbb15c"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x8da5cb5b"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0xe30c3978"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x570ca735"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x0f85c315"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x41275358"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x29f1035a"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x89088624"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x908cce03"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0xd338d549"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x88e40cfe"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x5c975abb"
+          },
+          {
+            "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+            "allowFailure": false,
+            "callData": "0x2b20e397"
+          }
+        ]
+      }
+    ]
+  },
+  "sourceVerification": {
+    "status": "verified",
+    "verifiedAt": "2026-10-28T07:25:19.729Z",
+    "manifest": "deployments/56/agent-swap-wrapper-v1-verification/manifest.json",
+    "method": "Foundry Standard JSON / Etherscan V2 API (BscScan, chain 56)",
+    "explorer": "https://bscscan.com/address/0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577#code",
+    "standardJsonSha256": "d71e70626352d92d443d5b76b112eeef6992c2376fc88e06d190aa0dfa036a06"
+  },
+  "handoverTransactionHash": "0xfaf910117cbcf96c280e94a2c253e96724639c4fe0704666f04302b07681cacd",
+  "handover": {
+    "status": "pending-safe-acceptance",
+    "targetOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "transaction": {
+      "_type": "TransactionReceipt",
+      "blockHash": "0x5870fa08d24a443fca75fca20467a1cbbc39bc419aafe6d4cb8ba72f369785c2",
+      "blockNumber": 130240956,
+      "contractAddress": null,
+      "cumulativeGasUsed": "12655367",
+      "from": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+      "gasPrice": "50000000",
+      "blobGasUsed": null,
+      "blobGasPrice": null,
+      "gasUsed": "48440",
+      "hash": "0xfaf910117cbcf96c280e94a2c253e96724639c4fe0704666f04302b07681cacd",
+      "index": 74,
+      "logs": [
+        {
+          "_type": "log",
+          "address": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "blockHash": "0x5870fa08d24a443fca75fca20467a1cbbc39bc419aafe6d4cb8ba72f369785c2",
+          "blockNumber": 130240956,
+          "data": "0x",
+          "index": 402,
+          "topics": [
+            "0x38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e22700",
+            "0x00000000000000000000000078c2af38330c5b41ae7946a313e43cdceeaf8611",
+            "0x000000000000000000000000871fb7006c5964b21695ba20006021777a26146c"
+          ],
+          "transactionHash": "0xfaf910117cbcf96c280e94a2c253e96724639c4fe0704666f04302b07681cacd",
+          "transactionIndex": 74
+        }
+      ],
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000800000100000020000000000000000000000000000000000000800400000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000002000000000004000000000000000000000040000000000000000000000000000000000000000000000000000000000001000000000000000000000000000",
+      "status": 1,
+      "to": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577"
+    }
+  },
+  "constructorArgs": "0x00000000000000000000000072dc4f38a7e4159e97d826a6ab594748c6b68f1700000000000000000000000006deb72b2e156ddd383651ac3d2dab5892d9c04800000000000000000000000095450aad4cc195e03bb4791b7f6f04ac6d9ba922",
+  "SourceFilesSha256": {
+    "src/helper/AgentSwapWrapper.sol": "f85bad189f8f995fecac879ad7c15b88b8dbcb8e6225c56c5618b293b83c8b34",
+    "src/helper/ImportedTokenSwapWrapper.sol": "1fad4252e3888bfba5b7c41eaf2084f9082daa8ca1baff67a42e859d5150809d",
+    "src/interfaces/IHandleRegistry.sol": "c1ecab37a891cb3a04788de62802a0832ae186642d4986799b70742497e560fd",
+    "src/interfaces/ICommunity.sol": "d1516cbd46a13661a7af6cd4ef6255d6e2e61f05b1a62730d72c6a7cb9e24f6b",
+    "node_modules/@openzeppelin/contracts/access/Ownable2Step.sol": "3e3bdb084bc14ade54e8259e710287956a7dbf2b2b4ad1e4cd8899d2293c7241",
+    "node_modules/@openzeppelin/contracts/security/Pausable.sol": "2072248d2f79e661c149fd6a6593a8a3f038466557c9b75e50e0b001bcb5cf97",
+    "node_modules/@openzeppelin/contracts/security/ReentrancyGuard.sol": "fa97ea556c990ee44f2ef4c80d4ef7d0af3f5f9b33a02142911140688106f5a9",
+    "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": "7ebde70853ccafcf1876900dad458f46eb9444d591d39bfc58e952e2582f5587",
+    "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": "82dc918d8df553e2461b96595580e565424b407d73dab8a7ce4bde479810fb2a",
+    "node_modules/@openzeppelin/contracts/utils/Address.sol": "8b85a2463eda119c2f42c34fa3d942b61aee65df381f48ed436fe8edb3a7d602",
+    "lib/infinity-core/src/pool-cl/interfaces/ICLPoolManager.sol": "d2a488219dd1f4c6ce12bcb7234f692cb658384a61859a3b52ebb3a125edb2c5",
+    "lib/infinity-core/src/interfaces/IPoolManager.sol": "718e1fd8471395bc410d82ac2b6fdb9ed174a17a9ecd3471df8c7c6ac2fa3ea5",
+    "lib/infinity-core/src/interfaces/IVault.sol": "54687dd1357b716425e979149584b2e91e80785aba901a1eb86cc0f3459f2c12",
+    "lib/infinity-core/src/interfaces/ILockCallback.sol": "2a1229449a5bfd2d7b3629f6ff2d0e0993a5f546722d7895c82901a71b96f0d9",
+    "lib/infinity-core/src/interfaces/IHooks.sol": "30ce158a6b404db4aa114df0a13d778399d37a6fb443ab30ffb8c3cc83242eef",
+    "lib/infinity-core/src/types/PoolKey.sol": "fa8dcf8e00613ebf854dde29a0eda37b5fb940bff99742809e24d8854bac0461",
+    "lib/infinity-core/src/types/Currency.sol": "0225bdd2b47b3ee0f32663df83df68be68ff9ccb732d98dccc3b1119baf19778",
+    "lib/infinity-core/src/types/BalanceDelta.sol": "21d2bf7fe91a833c8b1e3e5449ff02ac9985407cb74b3d6fa5601f866273538a",
+    "lib/infinity-core/src/pool-cl/libraries/TickMath.sol": "b14971d8bf380f123b9dee768f97d51e8b71ac1144a370966c6220b9aad88e49",
+    "src/router/INutboxRouter.sol": "a41eab14070cff892f674b60575252fd4ffc31404eb359e5d13e549bf7969222",
+    "src/interfaces/IIPShare.sol": "063670851945945d43424dd1467ccd5fc7e480d84eb1f18cb4ba7884790e5b8e",
+    "src/interfaces/IHourlyTickCalculator.sol": "e399142010089f8eafa817dbc0fe2d61e5aedbbd722837958055f2bb973ff809",
+    "node_modules/@openzeppelin/contracts/access/Ownable.sol": "a8e4e1ae19d9bd3e8b0a6d46577eec098c01fbaffd3ec1252fd20d799e73393b",
+    "node_modules/@openzeppelin/contracts/utils/Context.sol": "b2cfee351bcafd0f8f27c72d76c054df9b571b62cfac4781ed12c86354e2a56c",
+    "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol": "bbf4d26d660ce8f9c9887af3a46bf4eab5f4c15eb8413ad89b65ecdd05dee7a9",
+    "lib/infinity-core/src/pool-cl/libraries/CLPool.sol": "6bf745bdac66983c7f8c74d6de9baf5f91df8e2134848aad5b175f23cb395f68",
+    "lib/infinity-core/src/interfaces/IProtocolFees.sol": "61d6048509fa3cfe147a926d55add790cfff2dd23d74962115d4e5d92f2f205e",
+    "lib/infinity-core/src/types/PoolId.sol": "e6268d56e597e2329a08f6314a325b84f390ddb2c7aaabb54608612e207f1e32",
+    "lib/infinity-core/src/pool-cl/libraries/CLPosition.sol": "0a70285915d546c1ecb07b50f971a737ef84f87659ec94968799697aa4f56736",
+    "lib/infinity-core/src/interfaces/IExtsload.sol": "dceb24fe3ce5ef0a3ea2db15955f6d1834a5224db7ba6e36810137160f722898",
+    "lib/infinity-core/src/pool-cl/libraries/Tick.sol": "0ced0d50f51cd978e3f0586ed284bdb39468559420c6728e88bed80b6ba0b6c9",
+    "lib/infinity-core/src/interfaces/IVaultToken.sol": "a3f96eb4bf2b0eb3f0e86a7ecadeb028a56181b5cdedf52c466423f12237de3f",
+    "lib/infinity-core/src/interfaces/IERC20Minimal.sol": "6ff11bfbf1dd787543aa0ce52ac8eaf6ac78a6a9796e54d5db36f6ffaef4cd3b",
+    "lib/infinity-core/src/libraries/CustomRevert.sol": "76756d233bff4f67911e2e2592d3c09e6695a28a8323dd146180b0e47a0bb64d",
+    "lib/infinity-core/src/libraries/SafeCast.sol": "5f481027b6aa740329ee501da6732f1f01f398368ebf4bb87350b9b01e5e7c3e",
+    "src/interfaces/ICalculator.sol": "5ec3ce4ae5f2f34871264ce1b56bc2f9a54726a967541c22f62a21277c393102",
+    "lib/infinity-core/src/pool-cl/types/CLSlot0.sol": "28723ba3adf6f0a02cc054475f073083885e6bb685e76dba15a955d1676a8e51",
+    "lib/infinity-core/src/pool-cl/libraries/TickBitmap.sol": "4ba123edc0e78cf557408d5cfdce337773318d0a9d9cdfde332535505622fadf",
+    "lib/infinity-core/src/pool-cl/libraries/SqrtPriceMath.sol": "2eb061e111861bdae86c942c9e409ecd795e68c58ccb673a1105cc3ff385f1d5",
+    "lib/infinity-core/src/pool-cl/libraries/FixedPoint128.sol": "b8d3f6743dcb94f8caa5928a74c1fbf316f73184302e68ccfbe719de390f3ece",
+    "lib/infinity-core/src/libraries/math/UnsafeMath.sol": "ed9c676e6ceeac9cce81f73ca66142e2feb08a617440f2192fff5b4199f18798",
+    "lib/infinity-core/src/pool-cl/libraries/SwapMath.sol": "59c61c5dd22a0c69068aee5cac9821db35b44c242287147461c1167b6f07bf56",
+    "lib/infinity-core/src/pool-cl/libraries/LiquidityMath.sol": "f27f17d511e3624fd416e2ec15c102047c9361a63a5e9f3f9245017ce1b40e5c",
+    "lib/infinity-core/src/libraries/ProtocolFeeLibrary.sol": "797bf2f9383e5bb815d068175a4b89b309b15e0455c882d5ab00d4adcbae13d8",
+    "lib/infinity-core/src/libraries/LPFeeLibrary.sol": "1a1109453400bc648d617386fb2fd156fb8f3f9f683a563069e90056cf9319f9",
+    "lib/infinity-core/src/interfaces/IProtocolFeeController.sol": "8eb85b3da1f7c41a277511713a9ba623332f7cd05d4bc912aabc1fd794eccdd8",
+    "lib/infinity-core/src/pool-cl/libraries/FullMath.sol": "0d9afe9696f275aeb0b1d2a4d334dfa6da1ea3a76380232d68901a3a98222e46",
+    "lib/infinity-core/src/pool-cl/libraries/BitMath.sol": "85edd37402c36a9fe5d7f0b63c614e0b6104af0aa2ed54e67b1546246827110d",
+    "lib/infinity-core/src/pool-cl/libraries/FixedPoint96.sol": "d2df7a8dd50f83fa9cb70a65832e08a30b19363db5a4d70b7352aef8919b2118"
+  },
+  "safeTransactionBuilderFile": "deployments/56/agent-swap-wrapper-v1.safe.json",
+  "safeTransactionBuilderSha256": "3e4a8aec0bb09d5d2d74c07f700a7caef97039f93c1b061bf35de3f8f468cf44",
+  "multisigGuide": "docs/AgentSwapWrapperV1Deployment.md",
+  "ownershipAcceptanceSimulation": "deployments/56/agent-swap-wrapper-v1-safe-simulation.json",
+  "initialization": {
+    "operator": "unset (zero address); Safe may appoint later",
+    "NutboxFees": "disabled for all tokens until explicitly configured",
+    "referralHooks": "none authorized; owner may configure reviewed Hooks",
+    "UIAndAPI": "not switched; old Wrapper remains active"
+  },
+  "totalGasUsed": 4553244,
+  "totalCostWei": "227662200000000",
+  "totalCostBNB": "0.0002276622",
+  "evidence": {
+    "unitRegression": {
+      "passed": 113,
+      "failed": 0,
+      "sourceCommit": "3b47ef9",
+      "suites": [
+        "AgentSwapWrapperTest",
+        "ImportedTokenSwapWrapperTest",
+        "AgentSwapWrapperTagAITest"
+      ]
+    },
+    "deploymentFork": {
+      "block": 130240290,
+      "passed": 2,
+      "failed": 0,
+      "mocks": false,
+      "impersonation": "Handle administrator and Safe only inside disposable local fork",
+      "test": "test/fork/AgentSwapWrapperDeployment.t.sol"
+    },
+    "externalMulticall": {
+      "passed": 11,
+      "failed": 0,
+      "tests": [
+        "script/ops/agent-wrapper.test.cjs",
+        "script/ops/version18-chain.test.cjs"
+      ]
+    },
+    "safeAcceptanceSimulation": {
+      "status": "passed",
+      "broadcast": false,
+      "file": "deployments/56/agent-swap-wrapper-v1-safe-simulation.json"
+    },
+    "archivedLogs": [
+      "deployments/56/agent-swap-wrapper-v1-tests/external-multicall.log",
+      "deployments/56/agent-swap-wrapper-v1-tests/fixed-block-fork.log",
+      "deployments/56/agent-swap-wrapper-v1-tests/unit-regression.log"
+    ]
+  }
+}

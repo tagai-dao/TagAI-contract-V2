@@ -102,7 +102,12 @@ async function status(p) {
   for(const refs of Object.values(art.deployedBytecode.immutableReferences))for(const {start,length}of refs){masked=masked.slice(0,start*2)+'0'.repeat(length*2)+masked.slice((start+length)*2);actual=actual.slice(0,start*2)+'0'.repeat(length*2)+actual.slice((start+length)*2);}
   assert(actual===masked,'Deployed runtime does not match compiled source');
   const proof={checkedAt:new Date().toISOString(),blockNumber:pin,blockHash:block.hash,...state,runtime:{bytes:(code.length-2)/2,keccak256:ethers.keccak256(code),immutableMaskedMatch:true},multicallAudit:audit};
-  write(BASE+'-status.json',proof);record.lastCheckedState=proof;write(BASE+'.json',record);
+  write(BASE+'-status.json',proof);record.lastCheckedState=proof;
+  if(same(state.owner,SAFE)&&same(state.pendingOwner,ethers.ZeroAddress)){
+    record.status=record.sourceVerification?.status==='verified'?'deployed-verified-owned-by-safe':'deployed-owned-by-safe';
+    record.handover={...record.handover,status:'accepted',targetOwner:SAFE,confirmedAt:proof.checkedAt,confirmedBlock:pin};
+  }
+  write(BASE+'.json',record);
   console.log(stringify({mode:'status',address:record.address,block:pin,...state,runtime:proof.runtime}));
   return proof;
 }
@@ -116,7 +121,7 @@ async function handover(p) {
   const proof=await status(p);assert(same(proof.pendingOwner,SAFE),'Wrong pending owner');
   const current=load(BASE+'.json');current.handover={status:'pending-safe-acceptance',targetOwner:SAFE,transaction:receipt.toJSON()};current.status=current.sourceVerification?.status==='verified'?'deployed-verified-pending-safe-acceptance':'deployed-pending-verification-and-safe-acceptance';
   write(BASE+'.json',current);
-  const safe={version:'1.0',chainId:'56',createdAt:Date.now(),meta:{name:'AgentSwapWrapper v1: accept ownership',description:'Accept two-step ownership of the independently deployed AgentSwapWrapper. Operator remains unset.',txBuilderVersion:'1.18.0',createdFromSafeAddress:SAFE,createdFromOwnerAddress:'',checksum:''},transactions:[{to:record.address,value:'0',data:agent.interface.encodeFunctionData('acceptOwnership'),contractMethod:{inputs:[],name:'acceptOwnership',payable:false},contractInputsValues:{}}]};
+  const safe={version:'1.0',chainId:'56',createdAt:Date.now(),meta:{name:'AgentSwapWrapper v1: accept ownership',description:'Accept two-step ownership of the independently deployed AgentSwapWrapper. Operator remains unset.',txBuilderVersion:'1.18.0',createdFromSafeAddress:SAFE,createdFromOwnerAddress:''},transactions:[{to:record.address,value:'0',data:agent.interface.encodeFunctionData('acceptOwnership'),contractMethod:{inputs:[],name:'acceptOwnership',payable:false},contractInputsValues:{}}]};
   write(BASE+'.safe.json',safe);fs.writeFileSync(BASE+'.safe.json.sha256',SHA(fs.readFileSync(BASE+'.safe.json'))+'  agent-swap-wrapper-v1.safe.json\n');
   console.log(stringify({mode:'handover',hash:tx.hash,pendingOwner:SAFE,safeFile:BASE+'.safe.json'}));
 }

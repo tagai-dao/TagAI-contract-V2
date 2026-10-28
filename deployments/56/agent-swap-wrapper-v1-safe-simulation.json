@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-28T07:27:35.493Z",
+  "chainId": 56,
+  "blockTag": "0x7c351c6",
+  "method": "eth_call",
+  "scope": "Single mutating Safe acceptOwnership transaction simulation; no broadcast",
+  "request": {
+    "from": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "to": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+    "data": "0x79ba5097",
+    "value": "0x0"
+  },
+  "result": "0x",
+  "succeeded": true,
+  "safeFileSha256": "3e4a8aec0bb09d5d2d74c07f700a7caef97039f93c1b061bf35de3f8f468cf44",
+  "metadataNormalization": "Removed optional empty checksum; simulated from/to/data/value unchanged."
+}

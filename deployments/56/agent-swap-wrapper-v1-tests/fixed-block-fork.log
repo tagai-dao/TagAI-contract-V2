@@ -1,0 +1,11 @@
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 5.85s
+Compiler run successful!
+2026-10-28T07:22:23.853938Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/wangxi/.foundry/cache/rpc/bsc/130240290"
+
+Ran 2 tests for test/fork/AgentSwapWrapperDeployment.t.sol:AgentSwapWrapperDeploymentForkTest
+[PASS] test_liveRegistryRejectsUnregisteredWallet() (gas: 39770)
+[PASS] test_liveV3BuySellCreatesShareAndSafeCanAcceptOwnership() (gas: 671133)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 15.49s (12.86s CPU time)
+
+Ran 1 test suite in 15.51s (15.49s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
