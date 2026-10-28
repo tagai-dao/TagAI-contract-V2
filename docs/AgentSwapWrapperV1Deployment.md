@@ -4,6 +4,8 @@
 
 已部署、已验证；所有权转移已发起，**待多签执行 acceptOwnership**。尚未完成 owner 接管，不应把 pendingOwner 当成 owner。前端/API 地址未切换。
 
+最新链上复核：区块 `130242089`，固定区块 Multicall 确认 owner / pendingOwner / operator 与下表一致，运行时代码与已验证版本匹配。证据见 [状态记录](../deployments/56/agent-swap-wrapper-v1-status.json)。
+
 ## 地址与源码
 
 | 项目 | 地址 / 版本 |
@@ -30,7 +32,7 @@
 - 部署：[交易](https://bscscan.com/tx/0x0934cb17fec94c0dbb094094323f6c18a06924443710cc621a0dc8c068fd740c)，区块 `130240688`，gas `4,504,804`。
 - 发起所有权转移：[交易](https://bscscan.com/tx/0xfaf910117cbcf96c280e94a2c253e96724639c4fe0704666f04302b07681cacd)，区块 `130240956`，gas `48,440`。
 - 两笔实际 gas price 均为 `0.05 Gwei`，合计费用 `0.0002276622 BNB`。
-- [BscScan 源码页](https://bscscan.com/address/0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577#code)：2026-10-28 07:25:19 UTC 验证完成。Foundry Standard JSON 经 Etherscan V2 API 提交，随后独立 `getsourcecode` 确认名称、编译器、优化次数、EVM、构造参数及无 SimilarMatch。
+- [BscScan 源码页](https://bscscan.com/address/0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577#code)：2026-10-28 15:25:19（北京时间）验证完成。Foundry Standard JSON 经 Etherscan V2 API 提交，随后独立 `getsourcecode` 确认名称、编译器、优化次数、EVM、构造参数及无 SimilarMatch。
 - [Standard JSON](../deployments/56/agent-swap-wrapper-v1-verification/AgentSwapWrapper.standard-json.json) SHA-256：`d71e70626352d92d443d5b76b112eeef6992c2376fc88e06d190aa0dfa036a06`。包含 49 个源码文件，逐文件 SHA-256 和结果来源记录在 [验证清单](../deployments/56/agent-swap-wrapper-v1-verification/manifest.json)。
 - 区块 `130240966` 的 Multicall 核验显示 owner 仍为部署账户、pendingOwner 为目标 Safe；运行时代码排除 immutable 后与编译产物精确匹配，构造依赖分别核对。
 
@@ -71,3 +73,27 @@ node script/ops/agent-wrapper.cjs status
 - 外部 Multicall 测试：11 通过，验证目标、子调用集合、固定区块及缺失数据拒绝。
 
 主记录：[agent-swap-wrapper-v1.json](../deployments/56/agent-swap-wrapper-v1.json)。部署前检查、交易 journal、链上状态、验证输入及接管模拟均单独保存，未覆盖旧版本记录。
+
+## 运维与复现
+
+从仓库根目录执行。需 Foundry / Solidity 0.8.26、Node.js 22、可解析的 ethers v6 和 dotenv。脚本读取本地 `.env`（已被 git 忽略）；只读核验需要 `BSC_RPC_URL`，部署或 owner 写操作使用 `PRIVATE_KEY_MAIN`，浏览器验证使用 `ETHERSCAN_API_KEY`。密钥不得写入文档、日志或提交。
+
+```bash
+# 只读核对链上状态，写回状态记录；多签接管后自动标记 accepted
+node script/ops/agent-wrapper.cjs status
+
+# 本地单元/回归，不自动连接 localhost fork
+FOUNDRY_ETH_RPC_URL= forge test \
+  --match-contract '^(AgentSwapWrapperTest|ImportedTokenSwapWrapperTest|AgentSwapWrapperTagAITest)$' -vv
+
+# 核对外部批量合约读取的 Multicall 目标、子调用和区块
+node --test script/ops/agent-wrapper.test.cjs script/ops/version18-chain.test.cjs
+
+# 固定区块 fork；BSC_RPC_URL 需已注入当前进程
+FOUNDRY_PROFILE=fork FOUNDRY_ETH_RPC_URL= AGENT_WRAPPER_FORK_BLOCK=130240290 \
+  forge test --offline --match-contract AgentSwapWrapperDeploymentForkTest -vv
+```
+
+部署工具 `preflight` / `deploy` 会检查已有正式记录及 journal，避免误部署第二份；现有 v1 不应重跑。`handover` 在 pendingOwner 已存在时拒绝重复发起。`set-operator <address>` 仅在本地部署账户仍是 owner 时可广播；多签接管后，operator 的更换/撤销必须由多签调用 `setOperator`，日常社区绑定与费率调整则由已授权 operator 调用。
+
+Nutbox 配置和集成方法见 [AgentSwapWrapper](AgentSwapWrapper.md)。此次归档不代表已切换应用路由或授权 TagAI referral Hooks。

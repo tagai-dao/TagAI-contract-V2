@@ -13,6 +13,18 @@
 
 ---
 
+## 2026-10-28 — BSC AgentSwapWrapper v1（已部署、验证及设置 operator，待 Safe 接管）
+
+- 独立组件版本 v1，源码提交 `9c0a55bfe0547c35d2b093ca2e6a242c8e08910d`，分支 `bsc-version18`；不替换普通 Wrapper，也不更改 Pump/Token V18 的版本。
+- 合约地址：[`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`](https://bscscan.com/address/0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577#code)。部署区块 `130240688`，BscScan 精确源码验证于 2026-10-28 15:25:19（北京时间）完成。
+- V2/V3/Pancake Infinity CL 买卖校验实际调用者的 Binance Handle，并免费创建缺失的调用者 IPShare；Nutbox 代币费默认关闭，由 owner/operator 为对应 Community 按币种配置。既有 DEX/Hook 费用继续生效。
+- operator 已按用户指定设为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。区块 `130242089` 的固定区块 Multicall 确认 owner 仍为部署账户、pendingOwner 为 `0x871fb7006C5964B21695Ba20006021777A26146C`，接管待多签执行；不会因 ownership 接管而清空 operator。
+- 部署、发起所有权转移和设置 operator 共三笔交易，合计费用 `0.00023006825 BNB`。部署/验证归档提交 `50ab413`，operator 配置归档提交 `e861e41`。
+- 本地回归 113 通过；固定区块 `130240290` 的真实 BSC fork 2 通过；外部 Multicall 检查 11 通过。接管文件已以 Safe 为 sender 单笔模拟成功，未广播 Safe 交易。
+- [行为与集成](docs/AgentSwapWrapper.md)、[部署与接管说明](docs/AgentSwapWrapperV1Deployment.md)、[正式记录](deployments/56/agent-swap-wrapper-v1.json)、[验证清单](deployments/56/agent-swap-wrapper-v1-verification/manifest.json)、[多签执行文件](deployments/56/agent-swap-wrapper-v1.safe.json)。UI/API 地址、旧合约和历史余额均未修改。
+
+---
+
 ## 2026-10-28 — BSC Pump V18（已部署并验证，待 Safe 激活）
 
 - 版本源码提交：`6eae99ebc812250ce4b70b4ab11b1105c6944037`，分支 `bsc-version18`。内盘显式买入、直接 BNB 买入、卖出自动为未创建 IPShare 的实际交易者创建；预买归属创建者；已有 IPShare 跳过，失败原子回滚。

@@ -1,6 +1,8 @@
 # Imported Token 导入与交易
 
-当前实现由两个合约组成：
+独立的 **AgentSwapWrapper v1** 已部署至 BSC：`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`。它要求实际调用钱包拥有 Binance Handle，并在买卖前创建缺失的 IPShare；未登记的代币也可交易，Nutbox 费由 owner/operator 按代币选择开启。它不接替下面的普通导入流程，也不复用 ImportHelper 的 registrar 授权。详见 [Agent 行为与集成](../../docs/AgentSwapWrapper.md) 和 [部署/验证/多签记录](../../docs/AgentSwapWrapperV1Deployment.md)。
+
+普通外部代币导入流程由两个合约组成：
 
 | 合约 | 功能 |
 | --- | --- |

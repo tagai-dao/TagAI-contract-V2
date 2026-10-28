@@ -2,6 +2,8 @@
 
 状态：AgentSwapWrapper v1 已于 2026-10-28 部署至 BSC 并通过 BscScan 源码验证，所有权转移已发起，待多签 acceptOwnership。地址：`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`。前端/API 地址未切换。部署、验证及多签执行文件见 [版本记录](AgentSwapWrapperV1Deployment.md)。
 
+已设置 operator：`0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。区块 `130242089` 复核 owner 仍为部署账户、pendingOwner 为多签 `0x871fb7006C5964B21695Ba20006021777A26146C`。operator 可立即配置 Nutbox 绑定及费率，多签执行接管后仍保留此授权。
+
 ## 确定的行为
 
 - 独立 Agent 入口，不替换已部署的普通 `ImportedTokenSwapWrapper`。
@@ -62,7 +64,7 @@ TagAI V14/V18 的主池是可指定的 Infinity CL 池。原有主池 Hook 仍�
 
 构造函数：`AgentSwapWrapper(nutboxRouter, feeAddress, ipshare)`。Binance Registry 固定为 `0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F`，部署时必须存在代码。其余构造依赖也会检查。
 
-1. 单独部署及验证新合约，核验 IPShare 创建费、路由、默认费率、Handle Registry 和 owner；需要时完成 owner 两步交接、operator 授权及 Hook 归属配置。此文档不表示这些操作已经执行。
+1. 当前 v1 的部署、验证和 operator 设置已完成，owner 接管及 Hook 归属授权状态以版本记录为准。将来部署独立实例时，核验 IPShare 创建费、路由、默认费率、Handle Registry 和 owner，并分别完成验证、owner 两步交接及需要的 operator/Hook 授权。
 2. UI/API 使用独立的 Agent Wrapper 配置和交易模式，不覆盖普通 `importedTokenSwapWrapper` 配置。普通钱包交易入口保持原样。Agent 卖出需要授权新地址。
 3. 报价优先使用实际调用钱包的完整买入/卖出模拟，包含自动创建、Wrapper 费用、DEX/Hook 费用及代币转账税。纯 quote 不能替代交易模拟或证明调用者有 Handle。
 4. 继续发出兼容的 `Trade` 和 `ImportedTokenTrade` 事件；后者在这个合约里同样可表示 TagAI 上市币交易。API 回执校验需独立识别新目标，不能要求交易代币 `isImport=true`。Server 交易策展可信地址列表需追加新地址，并保留旧地址处理历史交易。
