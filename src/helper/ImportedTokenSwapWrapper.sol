@@ -269,7 +269,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         emit IPShareChanged(previousIPShare, newIPShare);
     }
 
-    function setFeeRatios(uint16 sellsmanRatio_, uint16 tagaiRatio_, uint16 nutboxTokenRatio_) external onlyOwner {
+    function setFeeRatios(uint16 sellsmanRatio_, uint16 tagaiRatio_, uint16 nutboxTokenRatio_) external virtual onlyOwner {
         if (uint256(sellsmanRatio_) + uint256(tagaiRatio_) > MAX_TOTAL_FEE_BPS || nutboxTokenRatio_ > MAX_TOTAL_FEE_BPS)
         {
             revert InvalidFeeRatio();
@@ -454,6 +454,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         address sellsman
     ) external payable nonReentrant whenNotPaused returns (uint256 tokenOut) {
         _validateTrade(msg.value, recipient, deadline);
+        _beforeTrade(sellsman);
         ImportedMarket storage market = _importedMarkets[token];
         address community = market.community;
         address deployer = market.deployer;
@@ -492,6 +493,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
             nutboxTokenFee,
             recipient
         );
+        _afterTrade();
     }
 
     /// @notice Sells an exact imported-token amount for native coin.
@@ -508,6 +510,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
         address sellsman
     ) external nonReentrant whenNotPaused returns (uint256 nativeOut) {
         _validateTrade(amountIn, recipient, deadline);
+        _beforeTrade(sellsman);
         ImportedMarket storage market = _importedMarkets[token];
         address community = market.community;
         address deployer = market.deployer;
@@ -548,6 +551,17 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
             nutboxTokenFee,
             recipient
         );
+        _afterTrade();
+    }
+
+    /// @dev Extension points execute inside the buy/sell reentrancy guard. Legacy behavior is unchanged.
+    function _beforeTrade(address) internal virtual {}
+
+    function _afterTrade() internal virtual {}
+
+    /// @dev Legacy external pools receive empty hookData; specialized wrappers may supply attribution.
+    function _swapHookData(address) internal view virtual returns (bytes memory) {
+        return "";
     }
 
     // -------------------------------------------------------------------------
@@ -669,7 +683,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
                     poolKey: _pancakeV4PoolKey(source.pool),
                     zeroForOne: zeroForOne,
                     exactAmount: uint128(amountIn),
-                    hookData: ""
+                    hookData: _swapHookData(source.pool.hooks)
                 })
                 );
         } else {
@@ -786,7 +800,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
                     ? PancakeV4TickMath.MIN_SQRT_RATIO + 1
                     : PancakeV4TickMath.MAX_SQRT_RATIO - 1
             }),
-            ""
+            _swapHookData(source.hooks)
         );
 
         amountOut = _validatePancakeV4Delta(delta, zeroForOne, amountIn);
@@ -851,6 +865,7 @@ contract ImportedTokenSwapWrapper is Ownable2Step, Pausable, ReentrancyGuard, IL
     function _tokenFeeAmounts(uint256 tokenAmount, address community)
         internal
         view
+        virtual
         returns (uint256 amountAfterFee, uint256 nutboxFee)
     {
         if (community == address(0)) return (tokenAmount, 0);
