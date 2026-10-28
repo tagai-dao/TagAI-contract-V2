@@ -3,26 +3,29 @@ pragma solidity 0.8.26;
 
 import {ImportedTokenSwapWrapper} from "./ImportedTokenSwapWrapper.sol";
 import {IHandleRegistry} from "../interfaces/IHandleRegistry.sol";
+import {ICommunity} from "../interfaces/ICommunity.sol";
 
 /**
  * @notice Direct BSC Agent-wallet trades through V2, V3 and Pancake Infinity CL pools.
  * @dev Every buy/sell authenticates msg.sender using the Binance Handle registry and ensures
  *      its IPShare exists before moving trade funds. No tx.origin or forwarding exemption.
- *      Default fees are 20 bps platform + 20 bps referral, both in native coin. No token-side
- *      Nutbox fee can be enabled, even for a registered Community. Existing DEX/Hook fees remain.
+ *      Default fees are 20 bps platform + 20 bps referral, both in native coin.
+ *      Nutbox fees default to zero and may be enabled per token only by the owner. Existing DEX/Hook fees remain.
  *      Quotes stay public and side-effect-free with respect to Handle/IPShare registration.
  */
 contract AgentSwapWrapper is ImportedTokenSwapWrapper {
     address public constant HANDLE_REGISTRY = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
     address private _activeSubject;
     mapping(address => bytes32) public referralHookCodeHash;
+    mapping(address => uint16) public tokenNutboxFeeBps;
 
     error HandleNotRegistered(address account);
     error IPShareCreationFeeRequired(uint256 fee);
     error IPShareCreationFailed(address account);
-    error NutboxFeeDisabled();
+    error UsePerTokenNutboxConfig();
     error ReferralHookCodeChanged(address hook);
     event ReferralHookSet(address indexed hook, bool enabled, bytes32 codeHash);
+    event NutboxMarketConfigured(address indexed token, address indexed community, address deployer, uint16 feeBps);
 
     constructor(address nutboxRouter_, address feeAddress_, address ipshare_)
         ImportedTokenSwapWrapper(nutboxRouter_, feeAddress_, ipshare_)
@@ -46,11 +49,55 @@ contract AgentSwapWrapper is ImportedTokenSwapWrapper {
         override
         onlyOwner
     {
-        if (nutboxTokenRatio_ != 0) revert NutboxFeeDisabled();
+        if (nutboxTokenRatio_ != 0) revert UsePerTokenNutboxConfig();
         if (uint256(sellsmanRatio_) + tagaiRatio_ > MAX_TOTAL_FEE_BPS) revert InvalidFeeRatio();
         sellsmanRatio = sellsmanRatio_;
         tagaiRatio = tagaiRatio_;
         emit FeeRatiosChanged(sellsmanRatio_, tagaiRatio_, 0);
+    }
+
+    /// @notice Atomically bind a token to its Nutbox Community and set its token-side fee (0 disables).
+    /// @dev Pending rewards must be flushed before changing Community. Disabling keeps old rewards flushable.
+    function setNutboxMarket(address token, address community, address deployer, uint16 feeBps) external onlyOwner {
+        if (feeBps > MAX_TOTAL_FEE_BPS) revert InvalidFeeRatio();
+        (bool registered,,) = getImportedMarket(token);
+        if (registered) updateImportedMarket(token, community, deployer);
+        else registerImportedToken(token, community, deployer);
+        _setTokenNutboxFee(token, community, deployer, feeBps);
+    }
+
+    /// @notice Change only the fee, retaining the binding and any already accrued rewards.
+    function setTokenNutboxFee(address token, uint16 feeBps) external onlyOwner {
+        (bool registered, address community, address deployer) = getImportedMarket(token);
+        if (!registered) revert MarketNotRegistered();
+        _setTokenNutboxFee(token, community, deployer, feeBps);
+    }
+
+    function _setTokenNutboxFee(address token, address community, address deployer, uint16 feeBps) private {
+        if (feeBps > MAX_TOTAL_FEE_BPS) revert InvalidFeeRatio();
+        tokenNutboxFeeBps[token] = feeBps;
+        emit NutboxMarketConfigured(token, community, deployer, feeBps);
+    }
+
+    /// @dev Registrars cannot add fee bindings to this Agent entry point. Registration alone leaves fee at zero.
+    function registerImportedToken(address token, address community, address deployer) public override onlyOwner {
+        _validateNutboxCommunity(token, community);
+        super.registerImportedToken(token, community, deployer);
+    }
+
+    function updateImportedMarket(address token, address community, address deployer) public override onlyOwner {
+        _validateNutboxCommunity(token, community);
+        super.updateImportedMarket(token, community, deployer);
+    }
+
+    function _validateNutboxCommunity(address token, address community) private view {
+        if (token.code.length == 0 || community.code.length == 0) revert InvalidMarket();
+        if (
+            ICommunity(community).getCommunityToken() != token
+                || ICommunity(community).rewardCalculator().code.length == 0
+        ) {
+            revert InvalidMarket();
+        }
     }
 
     function _beforeTrade(address subject) internal override {
@@ -80,12 +127,14 @@ contract AgentSwapWrapper is ImportedTokenSwapWrapper {
         return abi.encode(_activeSubject);
     }
 
-    function _tokenFeeAmounts(uint256 tokenAmount, address)
+    function _tokenFeeAmounts(address token, uint256 tokenAmount, address community)
         internal
-        pure
+        view
         override
         returns (uint256 amountAfterFee, uint256 nutboxFee)
     {
-        return (tokenAmount, 0);
+        if (community == address(0)) return (tokenAmount, 0);
+        nutboxFee = tokenAmount * tokenNutboxFeeBps[token] / BPS_DENOMINATOR;
+        amountAfterFee = tokenAmount - nutboxFee;
     }
 }

@@ -13,6 +13,14 @@ contract AgentHandleRegistryMock {
     }
 }
 
+contract AgentCommunityMock is ImportedCommunityMock {
+    address public immutable getCommunityToken;
+
+    constructor(address token_, address calculator_) ImportedCommunityMock(calculator_) {
+        getCommunityToken = token_;
+    }
+}
+
 contract AgentNoOpIPShare {
     function ipshareCreated(address) external pure returns (bool) {
         return false;
@@ -293,7 +301,7 @@ contract AgentSwapWrapperTest is Test {
 
     function test_noTokenSideFeeEvenForRegisteredCommunityAndBothQuoteDirections() public {
         ImportedCalculatorMock calculator = new ImportedCalculatorMock(address(token));
-        ImportedCommunityMock community = new ImportedCommunityMock(address(calculator));
+        AgentCommunityMock community = new AgentCommunityMock(address(token), address(calculator));
         agent.registerImportedToken(address(token), address(community), makeAddr("deployer"));
         assertEq(agent.nutboxTokenRatio(), 0);
         assertEq(agent.quoteBuy(address(token), INutboxRouter.SourceType.V2_PAIR, source, 1 ether), 1.992 ether);
@@ -306,8 +314,8 @@ contract AgentSwapWrapperTest is Test {
         assertEq(token.balanceOf(address(community)), 0);
     }
 
-    function test_ownerCannotEnableNutboxFeeButMayChangeNativeFees() public {
-        vm.expectRevert(AgentSwapWrapper.NutboxFeeDisabled.selector);
+    function test_nativeFeeSetterRequiresPerTokenNutboxConfiguration() public {
+        vm.expectRevert(AgentSwapWrapper.UsePerTokenNutboxConfig.selector);
         agent.setFeeRatios(20, 20, 1);
         vm.expectRevert(ImportedTokenSwapWrapper.InvalidFeeRatio.selector);
         agent.setFeeRatios(1001, 1000, 0);
@@ -319,6 +327,205 @@ contract AgentSwapWrapperTest is Test {
         assertEq(agent.tagaiRatio(), 40);
         assertEq(agent.nutboxTokenRatio(), 0);
         assertEq(_buy(buyer, 1, buyer, referral), 1.986 ether);
+    }
+
+    function _nutbox(uint16 feeBps) private returns (AgentCommunityMock community, ImportedCalculatorMock calculator) {
+        calculator = new ImportedCalculatorMock(address(token));
+        community = new AgentCommunityMock(address(token), address(calculator));
+        agent.setNutboxMarket(address(token), address(community), referral, feeBps);
+    }
+
+    function test_onlyOwnerCanBindOrSetNutboxFeesEvenIfRegistrar() public {
+        (AgentCommunityMock community,) = _nutbox(20);
+        agent.setRegistrar(buyer);
+        vm.startPrank(buyer);
+        vm.expectRevert("Ownable: caller is not the owner");
+        agent.setNutboxMarket(address(token), address(community), buyer, 30);
+        vm.expectRevert("Ownable: caller is not the owner");
+        agent.setTokenNutboxFee(address(token), 30);
+        vm.expectRevert("Ownable: caller is not the owner");
+        agent.registerImportedToken(address(quote), address(community), buyer);
+        vm.expectRevert("Ownable: caller is not the owner");
+        agent.updateImportedMarket(address(token), address(community), buyer);
+        vm.stopPrank();
+        assertEq(agent.tokenNutboxFeeBps(address(token)), 20);
+        (, address boundCommunity, address deployer) = agent.getImportedMarket(address(token));
+        assertEq(boundCommunity, address(community));
+        assertEq(deployer, referral);
+    }
+
+    function test_bindingRejectsWrongTokenMissingCalculatorAndInvalidRate() public {
+        ImportedCalculatorMock calculator = new ImportedCalculatorMock(address(token));
+        AgentCommunityMock wrongToken = new AgentCommunityMock(address(quote), address(calculator));
+        AgentCommunityMock noCalculator = new AgentCommunityMock(address(token), buyer);
+        AgentCommunityMock valid = new AgentCommunityMock(address(token), address(calculator));
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidMarket.selector);
+        agent.setNutboxMarket(address(token), address(wrongToken), referral, 20);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidMarket.selector);
+        agent.setNutboxMarket(address(token), address(noCalculator), referral, 20);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidMarket.selector);
+        agent.setNutboxMarket(address(token), address(valid), address(0), 20);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidFeeRatio.selector);
+        agent.setNutboxMarket(address(token), address(valid), referral, 2001);
+        (bool registered,,) = agent.getImportedMarket(address(token));
+        assertFalse(registered);
+        vm.expectRevert(ImportedTokenSwapWrapper.MarketNotRegistered.selector);
+        agent.setTokenNutboxFee(address(token), 20);
+        agent.setNutboxMarket(address(token), address(valid), referral, 20);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidFeeRatio.selector);
+        agent.setTokenNutboxFee(address(token), 2001);
+        vm.expectRevert(ImportedTokenSwapWrapper.InvalidMarket.selector);
+        agent.updateImportedMarket(address(token), address(wrongToken), referral);
+        assertEq(agent.tokenNutboxFeeBps(address(token)), 20);
+    }
+
+    function test_configuredBuyAndSellFeesMatchQuotesAndAccrueToBoundCommunity() public {
+        (AgentCommunityMock community, ImportedCalculatorMock calculator) = _nutbox(20);
+        uint256 buyFee = 1.992 ether * 20 / 10_000;
+        uint256 sellFee = 10 ether * 20 / 10_000;
+        uint256 netBuy = 1.992 ether - buyFee;
+        uint256 netSell = 19.92 ether * 9980 / 10_000;
+        assertEq(agent.quoteBuy(address(token), INutboxRouter.SourceType.V2_PAIR, source, 1 ether), netBuy);
+        assertEq(agent.quoteSell(address(token), INutboxRouter.SourceType.V2_PAIR, source, 10 ether), netSell);
+        (uint256 netPreview, uint256 feePreview) = agent.previewTokenFee(address(token), 10 ether);
+        assertEq(netPreview, 10 ether - sellFee);
+        assertEq(feePreview, sellFee);
+        vm.recordLogs();
+        assertEq(_buy(buyer, netBuy, buyer, referral), netBuy);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 tradeTopic = keccak256(
+            "ImportedTokenTrade(address,address,address,bool,address,uint8,bytes32,uint256,uint256,uint256,uint256,uint256,uint256,address)"
+        );
+        bool found;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].emitter == address(agent) && logs[i].topics[0] == tradeTopic) {
+                // Non-indexed ABI words: isBuy, quote, sourceType, sourceHash, tokenAmount,
+                // grossNative, netNative, platformFee, referralFee, Nutbox fee, recipient.
+                bytes memory data = logs[i].data;
+                uint256 eventFee;
+                assembly { eventFee := mload(add(data, 320)) }
+                assertEq(eventFee, buyFee);
+                found = true;
+            }
+        }
+        assertTrue(found);
+        assertEq(_sell(seller, netSell), netSell);
+        _assertShare(buyer);
+        _assertShare(seller);
+        assertEq(agent.pendingNutboxInjection(address(token)), buyFee + sellFee);
+        assertEq(token.balanceOf(address(agent)), buyFee + sellFee);
+        assertEq(calculator.injected(address(community)), 0);
+        assertEq(fees.balance, 0.002 ether + 0.03992 ether);
+        assertEq(referral.balance, fees.balance);
+        (netPreview, feePreview) = agent.previewTokenFee(address(quote), 10 ether);
+        assertEq(netPreview, 10 ether);
+        assertEq(feePreview, 0);
+    }
+
+    function test_explicitFlushTransfersRewardsAndResetsAllowance() public {
+        (AgentCommunityMock community, ImportedCalculatorMock calculator) = _nutbox(20);
+        _buy(buyer, 1, buyer, referral);
+        uint256 pending = agent.pendingNutboxInjection(address(token));
+        vm.expectRevert(ImportedTokenSwapWrapper.InjectionIntervalActive.selector);
+        agent.flushNutboxInjection(address(token));
+        vm.warp(block.timestamp + 600);
+        vm.prank(buyer); // Permissionless settlement.
+        assertEq(agent.flushNutboxInjection(address(token)), pending);
+        assertEq(calculator.injected(address(community)), pending);
+        assertEq(token.balanceOf(address(community)), pending);
+        assertEq(agent.pendingNutboxInjection(address(token)), 0);
+        assertEq(token.balanceOf(address(agent)), 0);
+        assertEq(token.allowance(address(agent), address(calculator)), 0);
+    }
+
+    function test_expiredTradeInjectsOldFeesAndKeepsNewFeesPending() public {
+        (AgentCommunityMock community, ImportedCalculatorMock calculator) = _nutbox(20);
+        _buy(buyer, 1, buyer, referral);
+        uint256 firstFee = agent.pendingNutboxInjection(address(token));
+        vm.warp(block.timestamp + 600);
+        _sell(seller, 1);
+        assertEq(calculator.injected(address(community)), firstFee);
+        assertEq(agent.pendingNutboxInjection(address(token)), 0.02 ether);
+        assertEq(token.balanceOf(address(agent)), 0.02 ether);
+        assertEq(token.allowance(address(agent), address(calculator)), 0);
+    }
+
+    function test_failedInjectionRetainsRewardsAndDoesNotBlockTrade() public {
+        (AgentCommunityMock community, ImportedCalculatorMock calculator) = _nutbox(20);
+        _buy(buyer, 1, buyer, referral);
+        uint256 firstFee = agent.pendingNutboxInjection(address(token));
+        calculator.setInjectionReverts(true);
+        vm.warp(block.timestamp + 600);
+        _sell(seller, 1);
+        uint256 pending = firstFee + 0.02 ether;
+        assertEq(agent.pendingNutboxInjection(address(token)), pending);
+        assertEq(token.balanceOf(address(agent)), pending);
+        assertEq(token.allowance(address(agent), address(calculator)), 0);
+        assertEq(agent.flushNutboxInjection(address(token)), 0);
+        assertEq(agent.pendingNutboxInjection(address(token)), pending);
+        calculator.setInjectionReverts(false);
+        assertEq(agent.flushNutboxInjection(address(token)), pending);
+        assertEq(calculator.injected(address(community)), pending);
+    }
+
+    function test_pendingRewardsCannotBeRedirectedByEitherBindingSetter() public {
+        (AgentCommunityMock oldCommunity, ImportedCalculatorMock calculator) = _nutbox(20);
+        AgentCommunityMock newCommunity = new AgentCommunityMock(address(token), address(calculator));
+        _buy(buyer, 1, buyer, referral);
+        uint256 pending = agent.pendingNutboxInjection(address(token));
+        bytes memory reason = abi.encodeWithSelector(
+            ImportedTokenSwapWrapper.PendingNutboxInjectionExists.selector, address(token), pending
+        );
+        vm.expectRevert(reason);
+        agent.setNutboxMarket(address(token), address(newCommunity), buyer, 50);
+        vm.expectRevert(reason);
+        agent.updateImportedMarket(address(token), address(newCommunity), buyer);
+        assertEq(agent.tokenNutboxFeeBps(address(token)), 20);
+        vm.warp(block.timestamp + 600);
+        agent.flushNutboxInjection(address(token));
+        assertEq(calculator.injected(address(oldCommunity)), pending);
+        assertEq(calculator.injected(address(newCommunity)), 0);
+        agent.setNutboxMarket(address(token), address(newCommunity), buyer, 50);
+        (, address boundCommunity, address deployer) = agent.getImportedMarket(address(token));
+        assertEq(boundCommunity, address(newCommunity));
+        assertEq(deployer, buyer);
+        assertEq(agent.tokenNutboxFeeBps(address(token)), 50);
+    }
+
+    function test_disableFeeKeepsOldRewardsFlushableAndTradingFeeFree() public {
+        (AgentCommunityMock community, ImportedCalculatorMock calculator) = _nutbox(20);
+        _buy(buyer, 1, buyer, referral);
+        uint256 pending = agent.pendingNutboxInjection(address(token));
+        agent.setTokenNutboxFee(address(token), 0);
+        assertEq(_buy(buyer, 1.992 ether, buyer, referral), 1.992 ether);
+        assertEq(_sell(seller, 19.92 ether), 19.92 ether);
+        assertEq(agent.pendingNutboxInjection(address(token)), pending);
+        vm.warp(block.timestamp + 600);
+        assertEq(agent.flushNutboxInjection(address(token)), pending);
+        assertEq(calculator.injected(address(community)), pending);
+        (, address boundCommunity, address deployer) = agent.getImportedMarket(address(token));
+        assertEq(boundCommunity, address(community));
+        assertEq(deployer, referral);
+    }
+
+    function test_configuredFeeAndNewShareRollbackOnSlippage() public {
+        _nutbox(20);
+        vm.expectRevert(ImportedTokenSwapWrapper.SlippageExceeded.selector);
+        _buy(buyer, 1.992 ether, buyer, referral);
+        assertFalse(shares.ipshareCreated(buyer));
+        assertEq(agent.pendingNutboxInjection(address(token)), 0);
+        assertEq(token.balanceOf(address(agent)), 0);
+        assertEq(fees.balance, 0);
+        assertEq(referral.balance, 0);
+    }
+
+    function testFuzz_ownerConfiguredTokenFeeMatchesActualBuy(uint16 rate) public {
+        rate = uint16(bound(rate, 0, 2000));
+        _nutbox(rate);
+        uint256 fee = 1.992 ether * uint256(rate) / 10_000;
+        assertEq(_buy(buyer, 1.992 ether - fee, buyer, referral), 1.992 ether - fee);
+        assertEq(agent.pendingNutboxInjection(address(token)), fee);
+        assertEq(token.balanceOf(address(agent)), fee);
     }
 
     function test_quotesDoNotRequireHandleOrCreateShares() public {
@@ -415,6 +622,53 @@ contract AgentSwapWrapperTest is Test {
         assertGt(sold, 0);
         assertEq(taxed.balanceOf(address(agent)), 0);
         assertEq(agent.pendingNutboxInjection(address(taxed)), 0);
+    }
+
+    function test_configuredNutboxTaxTokenFeeUsesActualReceivedAmounts() public {
+        ImportedFeeOnTransferToken taxed = new ImportedFeeOnTransferToken();
+        bytes memory taxedSource = _v2Source(address(taxed), address(quote));
+        ImportedCalculatorMock calculator = new ImportedCalculatorMock(address(taxed));
+        AgentCommunityMock community = new AgentCommunityMock(address(taxed), address(calculator));
+        agent.setNutboxMarket(address(taxed), address(community), referral, 20);
+        // The router mints output; the token taxes Wrapper -> recipient and both sell input transfers.
+        uint256 buyFee = 1.992 ether * 20 / 10_000;
+        uint256 beforeTransferTax = 1.992 ether - buyFee;
+        uint256 expectedBuy = beforeTransferTax - beforeTransferTax / 100;
+        vm.prank(buyer);
+        uint256 bought = agent.buyToken{value: 1 ether}(
+            address(taxed),
+            INutboxRouter.SourceType.V2_PAIR,
+            taxedSource,
+            expectedBuy,
+            buyer,
+            block.timestamp + 1,
+            referral
+        );
+        assertEq(bought, expectedBuy);
+        assertEq(agent.pendingNutboxInjection(address(taxed)), buyFee);
+        uint256 actualReceived = bought - bought / 100;
+        uint256 sellFee = actualReceived * 20 / 10_000;
+        uint256 inputToRouter = actualReceived - sellFee;
+        uint256 grossNative = (inputToRouter - inputToRouter / 100) * 2;
+        uint256 expectedSell = grossNative - 2 * (grossNative * 20 / 10_000);
+        vm.startPrank(buyer);
+        taxed.approve(address(agent), bought);
+        assertEq(
+            agent.sellToken(
+                address(taxed),
+                INutboxRouter.SourceType.V2_PAIR,
+                taxedSource,
+                bought,
+                expectedSell,
+                buyer,
+                block.timestamp + 1,
+                referral
+            ),
+            expectedSell
+        );
+        vm.stopPrank();
+        assertEq(agent.pendingNutboxInjection(address(taxed)), buyFee + sellFee);
+        assertEq(taxed.balanceOf(address(agent)), buyFee + sellFee);
     }
 
     function test_v3BuySellCreatesSharesAndKeepsFeeAccounting() public {

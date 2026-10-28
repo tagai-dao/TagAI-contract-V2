@@ -11,6 +11,8 @@ import {PoolKey} from "infinity-core/src/types/PoolKey.sol";
 import {BalanceDelta, toBalanceDelta} from "infinity-core/src/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "infinity-core/src/types/BeforeSwapDelta.sol";
 import {INutboxRouter} from "../../src/router/INutboxRouter.sol";
+import {Community} from "../../src/nutbox/Community.sol";
+import {HourlyTickCalculator} from "../../src/nutbox/calculators/HourlyTickCalculator.sol";
 
 /// @dev Deterministic pool pricing with real TagAI Hook callbacks and real Vault token transfers.
 contract AgentTagAIPoolManager {
@@ -119,5 +121,59 @@ contract AgentSwapWrapperTagAITest is PumpVersion13Test {
         assertEq(token.balanceOf(seller), 0);
         assertEq(token.balanceOf(address(agent)), 0);
         assertEq(address(agent).balance, 0);
+    }
+
+    function test_agentConfiguredNutboxFeeUsesRealTagAICommunityAndCalculator() public {
+        (AgentSwapWrapper agent, bytes memory source, address platform) = _listedAgent();
+        address community = token.nutboxCommunity();
+        HourlyTickCalculator calculator = HourlyTickCalculator(Community(payable(community)).rewardCalculator());
+        agent.setNutboxMarket(address(token), community, creator, 20);
+        address trader = makeAddr("configuredNutboxAgent");
+        _registerHandle(trader);
+        vm.deal(trader, 1 ether);
+        uint256 buyFee = 987.036 ether * 20 / 10_000;
+        vm.prank(trader);
+        uint256 bought = agent.buyToken{value: 1 ether}(
+            address(token),
+            INutboxRouter.SourceType.PANCAKE_V4_CL,
+            source,
+            987.036 ether - buyFee,
+            trader,
+            block.timestamp + 1,
+            creator
+        );
+        assertEq(bought, 987.036 ether - buyFee);
+        assertTrue(ipshare.ipshareCreated(trader));
+        assertEq(platform.balance, 0.002 ether);
+        assertEq(agent.pendingNutboxInjection(address(token)), buyFee);
+        // Preserve native Hook buyback fees even when optional token-side fees are enabled.
+        assertEq(hook.buybackBnbReserve(address(token)), 0.996 ether * 30 / 10_000);
+        vm.prank(creator);
+        token.transfer(trader, 1000 ether);
+        vm.prank(trader);
+        token.approve(address(agent), 1000 ether);
+        vm.prank(trader);
+        uint256 sold = agent.sellToken(
+            address(token),
+            INutboxRouter.SourceType.PANCAKE_V4_CL,
+            source,
+            1000 ether,
+            0.985061928 ether,
+            trader,
+            block.timestamp + 1,
+            creator
+        );
+        assertEq(sold, 0.985061928 ether);
+        uint256 pending = buyFee + 2 ether;
+        assertEq(agent.pendingNutboxInjection(address(token)), pending);
+        uint256 previousInjected = calculator.totalInjected(community);
+        uint256 communityBalance = token.balanceOf(community);
+        vm.warp(block.timestamp + 600);
+        assertEq(agent.flushNutboxInjection(address(token)), pending);
+        assertEq(calculator.totalInjected(community) - previousInjected, pending);
+        assertEq(token.balanceOf(community) - communityBalance, pending);
+        assertEq(agent.pendingNutboxInjection(address(token)), 0);
+        assertEq(token.balanceOf(address(agent)), 0);
+        assertEq(token.allowance(address(agent), address(calculator)), 0);
     }
 }
