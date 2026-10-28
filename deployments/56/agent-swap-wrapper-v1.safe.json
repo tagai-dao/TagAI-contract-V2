@@ -4,7 +4,7 @@
   "createdAt": 1793172353501,
   "meta": {
     "name": "AgentSwapWrapper v1: accept ownership",
-    "description": "Accept two-step ownership of the independently deployed AgentSwapWrapper. Operator remains unset.",
+    "description": "Accept two-step ownership of AgentSwapWrapper v1. Operator is already configured as 0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611 and is preserved on acceptance.",
     "txBuilderVersion": "1.18.0",
     "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C",
     "createdFromOwnerAddress": ""

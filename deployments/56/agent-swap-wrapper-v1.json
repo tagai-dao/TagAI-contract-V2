@@ -60,7 +60,7 @@
   "legacyRouter": "0x04e2d43bA38e3f3F0D0dab3A30D1B58BFE9B659f",
   "handleRegistry": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
   "deployerHandle": "",
-  "operator": "0x0000000000000000000000000000000000000000",
+  "operator": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
   "safe": {
     "threshold": "2",
     "owners": [
@@ -251,12 +251,12 @@
     "to": null
   },
   "lastCheckedState": {
-    "checkedAt": "2026-10-28T07:25:53.491Z",
-    "blockNumber": 130240966,
-    "blockHash": "0xaeeb63b3bdb5019e849dcb3adde9a224a55b9b50b4d858c0123b0f07de0ac11a",
+    "checkedAt": "2026-10-28T07:30:50.026Z",
+    "blockNumber": 130241625,
+    "blockHash": "0x673ccc9d8a4ae236f78926cbf5bf69d7cc3e92b6cff98abfe9508d4f9d236f28",
     "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
     "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
-    "operator": "0x0000000000000000000000000000000000000000",
+    "operator": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
     "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
     "feeAddress": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
     "ipshare": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
@@ -273,7 +273,7 @@
     },
     "multicallAudit": [
       {
-        "blockTag": "0x7c351c6",
+        "blockTag": "0x7c35459",
         "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
         "calls": [
           {
@@ -445,18 +445,18 @@
     "lib/infinity-core/src/pool-cl/libraries/FixedPoint96.sol": "d2df7a8dd50f83fa9cb70a65832e08a30b19363db5a4d70b7352aef8919b2118"
   },
   "safeTransactionBuilderFile": "deployments/56/agent-swap-wrapper-v1.safe.json",
-  "safeTransactionBuilderSha256": "3e4a8aec0bb09d5d2d74c07f700a7caef97039f93c1b061bf35de3f8f468cf44",
+  "safeTransactionBuilderSha256": "95f5c4203f57bdab123de8173181eda9ed43141294f647c932646bfdfa0ac8de",
   "multisigGuide": "docs/AgentSwapWrapperV1Deployment.md",
   "ownershipAcceptanceSimulation": "deployments/56/agent-swap-wrapper-v1-safe-simulation.json",
   "initialization": {
-    "operator": "unset (zero address); Safe may appoint later",
+    "operator": "Configured by explicit user request: 0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
     "NutboxFees": "disabled for all tokens until explicitly configured",
     "referralHooks": "none authorized; owner may configure reviewed Hooks",
     "UIAndAPI": "not switched; old Wrapper remains active"
   },
-  "totalGasUsed": 4553244,
-  "totalCostWei": "227662200000000",
-  "totalCostBNB": "0.0002276622",
+  "totalGasUsed": 4601365,
+  "totalCostWei": "230068250000000",
+  "totalCostBNB": "0.00023006825",
   "evidence": {
     "unitRegression": {
       "passed": 113,
@@ -494,5 +494,233 @@
       "deployments/56/agent-swap-wrapper-v1-tests/fixed-block-fork.log",
       "deployments/56/agent-swap-wrapper-v1-tests/unit-regression.log"
     ]
+  },
+  "operatorConfiguration": {
+    "status": "confirmed",
+    "operator": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "transaction": {
+      "_type": "TransactionReceipt",
+      "blockHash": "0xc93a93620d6a0b0a4c70314df7534ce1c3d2502bc07f62c60eeec3d160af4dc0",
+      "blockNumber": 130241623,
+      "contractAddress": null,
+      "cumulativeGasUsed": "15829316",
+      "from": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+      "gasPrice": "50000000",
+      "blobGasUsed": null,
+      "blobGasPrice": null,
+      "gasUsed": "48121",
+      "hash": "0x6c09d0771cc00f211f7cf6587d65a1384af53a93916d569ba220ea9df48137b8",
+      "index": 88,
+      "logs": [
+        {
+          "_type": "log",
+          "address": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "blockHash": "0xc93a93620d6a0b0a4c70314df7534ce1c3d2502bc07f62c60eeec3d160af4dc0",
+          "blockNumber": 130241623,
+          "data": "0x",
+          "index": 446,
+          "topics": [
+            "0xd58299b712891143e76310d5e664c4203c940a67db37cf856bdaa3c5c76a802c",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x00000000000000000000000078c2af38330c5b41ae7946a313e43cdceeaf8611"
+          ],
+          "transactionHash": "0x6c09d0771cc00f211f7cf6587d65a1384af53a93916d569ba220ea9df48137b8",
+          "transactionIndex": 88
+        }
+      ],
+      "logsBloom": "0x00000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000800000100000020000000000000000000000000000000000000800000000000000000000000000000000020000000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000020000000000800000000000000000000000000001000080000000000000000000000",
+      "status": 1,
+      "to": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577"
+    },
+    "before": {
+      "checkedAt": "2026-10-28T07:30:46.810Z",
+      "blockNumber": 130241617,
+      "blockHash": "0xcb30ef88f96ba8b4967cf0ef780a4f4ef0c08b4d62c7ae595c10ad7972ff2b01",
+      "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+      "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "operator": "0x0000000000000000000000000000000000000000",
+      "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "feeAddress": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
+      "ipshare": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+      "HANDLE_REGISTRY": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
+      "sellsmanRatio": "20",
+      "tagaiRatio": "20",
+      "nutboxTokenRatio": "0",
+      "paused": false,
+      "registrar": "0x0000000000000000000000000000000000000000",
+      "runtime": {
+        "bytes": 19964,
+        "keccak256": "0x0c33dba2c3ac7e065e8e264b50630f46b78a9fb82f21dff420093e381c0e309d",
+        "immutableMaskedMatch": true
+      },
+      "multicallAudit": [
+        {
+          "blockTag": "0x7c35451",
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "calls": [
+            {
+              "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+              "allowFailure": false,
+              "callData": "0x42cbb15c"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x8da5cb5b"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0xe30c3978"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x570ca735"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x0f85c315"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x41275358"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x29f1035a"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x89088624"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x908cce03"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0xd338d549"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x88e40cfe"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x5c975abb"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x2b20e397"
+            }
+          ]
+        }
+      ]
+    },
+    "after": {
+      "checkedAt": "2026-10-28T07:30:50.026Z",
+      "blockNumber": 130241625,
+      "blockHash": "0x673ccc9d8a4ae236f78926cbf5bf69d7cc3e92b6cff98abfe9508d4f9d236f28",
+      "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+      "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "operator": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+      "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "feeAddress": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
+      "ipshare": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+      "HANDLE_REGISTRY": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F",
+      "sellsmanRatio": "20",
+      "tagaiRatio": "20",
+      "nutboxTokenRatio": "0",
+      "paused": false,
+      "registrar": "0x0000000000000000000000000000000000000000",
+      "runtime": {
+        "bytes": 19964,
+        "keccak256": "0x0c33dba2c3ac7e065e8e264b50630f46b78a9fb82f21dff420093e381c0e309d",
+        "immutableMaskedMatch": true
+      },
+      "multicallAudit": [
+        {
+          "blockTag": "0x7c35459",
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "calls": [
+            {
+              "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+              "allowFailure": false,
+              "callData": "0x42cbb15c"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x8da5cb5b"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0xe30c3978"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x570ca735"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x0f85c315"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x41275358"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x29f1035a"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x89088624"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x908cce03"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0xd338d549"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x88e40cfe"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x5c975abb"
+            },
+            {
+              "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+              "allowFailure": false,
+              "callData": "0x2b20e397"
+            }
+          ]
+        }
+      ]
+    }
   }
 }

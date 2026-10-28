@@ -1,9 +1,9 @@
 {
-  "checkedAt": "2026-10-28T07:27:35.493Z",
+  "checkedAt": "2026-10-28T07:31:40.568Z",
   "chainId": 56,
-  "blockTag": "0x7c351c6",
+  "blockTag": "0x7c35459",
   "method": "eth_call",
-  "scope": "Single mutating Safe acceptOwnership transaction simulation; no broadcast",
+  "scope": "Single mutating Safe acceptOwnership simulation after operator configuration; no broadcast",
   "request": {
     "from": "0x871fb7006C5964B21695Ba20006021777A26146C",
     "to": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
@@ -12,6 +12,6 @@
   },
   "result": "0x",
   "succeeded": true,
-  "safeFileSha256": "3e4a8aec0bb09d5d2d74c07f700a7caef97039f93c1b061bf35de3f8f468cf44",
-  "metadataNormalization": "Removed optional empty checksum; simulated from/to/data/value unchanged."
+  "operator": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "safeFileSha256": "95f5c4203f57bdab123de8173181eda9ed43141294f647c932646bfdfa0ac8de"
 }

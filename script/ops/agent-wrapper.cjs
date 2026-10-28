@@ -125,9 +125,31 @@ async function handover(p) {
   write(BASE+'.safe.json',safe);fs.writeFileSync(BASE+'.safe.json.sha256',SHA(fs.readFileSync(BASE+'.safe.json'))+'  agent-swap-wrapper-v1.safe.json\n');
   console.log(stringify({mode:'handover',hash:tx.hash,pendingOwner:SAFE,safeFile:BASE+'.safe.json'}));
 }
+async function setOperator(p) {
+  const target=ethers.getAddress(process.argv[3]);
+  const before=await status(p),record=load(BASE+'.json');
+  assert(target!==ethers.ZeroAddress && !same(target,record.address),'Invalid operator');
+  if(same(before.operator,target)){
+    console.log(stringify({mode:'set-operator',status:'already-configured',operator:target}));return;
+  }
+  const wallet=new ethers.Wallet(env.PRIVATE_KEY_MAIN,p);
+  assert(same(before.owner,wallet.address),'Current owner must configure operator; Safe execution required after handover');
+  assert(same(wallet.address,record.deployer),'Wrong deployment wallet');
+  const agent=new ethers.Contract(record.address,artifact().abi,wallet);
+  const tx=await agent.setOperator(target,{type:0,gasPrice:BigInt(record.gasPriceWei)});
+  record.operatorConfiguration={status:'submitted',operator:target,transactionHash:tx.hash,before};write(BASE+'.json',record);
+  const receipt=await tx.wait(2);assert(receipt.status===1,'Operator configuration failed');
+  const after=await status(p);assert(same(after.operator,target),'Operator readback mismatch');
+  const updated=load(BASE+'.json');
+  updated.operator=target;
+  updated.operatorConfiguration={status:'confirmed',operator:target,transaction:receipt.toJSON(),before,after};
+  updated.initialization={...updated.initialization,operator:'Configured by explicit user request: '+target};
+  write(BASE+'.json',updated);write(BASE+'-operator.json',updated.operatorConfiguration);
+  console.log(stringify({mode:'set-operator',operator:target,hash:tx.hash,block:receipt.blockNumber}));
+}
 async function main() {
-  const mode=process.argv[2];assert(['preflight','deploy','status','handover'].includes(mode),'Expected preflight, deploy, status or handover');
-  const p=provider();try{await ({preflight,deploy,status,handover}[mode])(p);}finally{p.destroy();}
+  const mode=process.argv[2];assert(['preflight','deploy','status','handover','set-operator'].includes(mode),'Expected preflight, deploy, status, handover or set-operator');
+  const p=provider();try{await ({preflight,deploy,status,handover,'set-operator':setOperator}[mode])(p);}finally{p.destroy();}
 }
 if(require.main===module)main().catch(e=>{console.error('Agent wrapper operation failed: '+(e.shortMessage||e.code||e.message).replace(/https?:\/\/[^\s]+/g,'[RPC URL suppressed]'));process.exitCode=1;});
 module.exports={BASE,SAFE,FQN,readDependencies,readRouter};

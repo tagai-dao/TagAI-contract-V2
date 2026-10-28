@@ -11,6 +11,7 @@
 | AgentSwapWrapper v1 | `0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577` |
 | Chain ID | `56` |
 | 当前 owner / 部署账户 | `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611` |
+| operator（已配置） | `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611` |
 | pendingOwner / 目标 Safe | `0x871fb7006C5964B21695Ba20006021777A26146C` |
 | NutboxRouter | `0x72dc4F38A7E4159e97d826a6ab594748C6b68f17` |
 | FeeReceiver | `0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048` |
@@ -48,16 +49,23 @@ Data: 0x79ba5097
 
 执行文件已以 Safe 为 sender 在固定区块做单笔 `eth_call`，模拟成功，未广播 Safe 交易。证据见 [接管模拟](../deployments/56/agent-swap-wrapper-v1-safe-simulation.json)，文件摘要见 [SHA-256](../deployments/56/agent-swap-wrapper-v1.safe.json.sha256)。
 
-多签执行后，通过以下命令刷新记录，确认 `owner() == Safe`、`pendingOwner() == address(0)`。若需由指定运营钱包日常配置 Nutbox，再由 Safe 调用一次 `setOperator(operatorWallet)`；当前 operator 为零地址，没有替用户选择运营钱包。
+多签执行后，通过以下命令刷新记录，确认 `owner() == Safe`、`pendingOwner() == address(0)`。operator 已按用户要求设置为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，多签接管不会清空这一授权；后续 operator 可日常配置 Nutbox，Safe 仍可更换或撤销。
 
 ```bash
 node script/ops/agent-wrapper.cjs status
 ```
 
+## Operator 配置更新（2026-10-28）
+
+- owner 尚为部署账户时，按用户明确指定调用 `setOperator(0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611)`。未取消或修改待多签接管状态。
+- [设置交易](https://bscscan.com/tx/0x6c09d0771cc00f211f7cf6587d65a1384af53a93916d569ba220ea9df48137b8)，区块 `130241623`，gas `48121`，gas price `0.05 Gwei`。
+- 区块 `130241625` 经固定区块 Multicall 回读，operator 已正确设置，pendingOwner 仍为目标多签。详情见 [operator 记录](../deployments/56/agent-swap-wrapper-v1-operator.json)。
+- 部署、发起所有权转移和 operator 设置三笔合计 `0.00023006825 BNB`。
+
 ## 初始配置与测试
 
 - 默认 BNB 平台费 / 推荐费各 `20 bps`，Nutbox 代币费默认关闭；未登记社区及费率。
-- operator / registrar 均为零，未授权 referral Hook。若要向 TagAI 主池 Hook 传递显式推荐人，owner 需对核验过的 Hook 调用 `setReferralHook(hook, true)`。
+- 部署初始 operator / registrar 均为零；随后 operator 已设置为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，registrar 仍为零，未授权 referral Hook。若要向 TagAI 主池 Hook 传递显式推荐人，owner 需对核验过的 Hook 调用 `setReferralHook(hook, true)`。
 - 普通 Wrapper、Pump/Token/Hook、ImportHelper、旧 pending 费用和 UI/API 配置均未修改。
 - 本地单元与回归：113 通过；固定区块 `130240290` 的主网 fork：2 通过，真实 Registry/IPShare/DEX，无 mock/etch；管理员及 Safe 仅在 fork 中 impersonate。
 - 外部 Multicall 测试：11 通过，验证目标、子调用集合、固定区块及缺失数据拒绝。
