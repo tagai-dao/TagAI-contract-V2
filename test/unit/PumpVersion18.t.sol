@@ -7,6 +7,7 @@ import {IIPShare} from "../../src/interfaces/IIPShare.sol";
 import {IToken} from "../../src/interfaces/IToken.sol";
 import {MockHandleRegistry} from "../helpers/HandleRegistryTestSetup.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract ReenteringCreationIPShare {
     Token private immutable _token;
@@ -109,7 +110,21 @@ contract PumpVersion18Test is PumpVersion13Test {
     }
 
     function test_v18_directBnbCreatesForCaller() public {
+        vm.expectCall(address(ipshare), abi.encodeCall(IIPShare.createShare, (buyer)), 1);
+        vm.recordLogs();
         assertGt(_buy(true, address(0)), 0);
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 createTopic = keccak256("CreateIPshare(address,uint256,uint256)");
+        uint256 creations;
+        for (uint256 i; i < entries.length; ++i) {
+            if (entries[i].emitter == address(ipshare) && entries[i].topics[0] == createTopic) {
+                ++creations;
+                assertEq(address(uint160(uint256(entries[i].topics[1]))), buyer);
+            }
+        }
+        assertEq(creations, 1, "direct BNB buy must create only the buyer's IPShare");
+        assertFalse(ipshare.ipshareCreated(address(0)));
+        assertEq(ipshare.ipshareSupply(address(0)), 0);
         _assertCreated(buyer);
     }
 
