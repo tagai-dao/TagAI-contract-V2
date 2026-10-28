@@ -1,6 +1,6 @@
 # Pump V18 — 内盘交易自动创建 IPShare
 
-2026-10-28：基于 V17 更新源码，`Pump.VERSION()` 返回 `18`。已在 BSC 主网部署全新 Pump、Token implementation、Hook 和 BuybackRouter，待浏览器源码验证和 Safe 激活。现有 V17 Token 是固定模板克隆，不会因本次源码修改而改变行为。
+2026-10-28：基于 V17 更新源码，`Pump.VERSION()` 返回 `18`。已在 BSC 主网部署全新 Pump、Token implementation、Hook 和 BuybackRouter，四个合约均完成 BscScan 精确源码验证，待 Safe 激活。现有 V17 Token 是固定模板克隆，不会因本次源码修改而改变行为。
 
 ## 交易行为
 
@@ -57,6 +57,6 @@ forge build --offline --skip test --skip script --sizes
 - 7 笔交易全部成功，区块 **130215462–130215489**；实际 gas **13,760,099**，费用 **0.00068800495 BNB**。
 - 区块 **130215504** 的独立固定区块 Multicall 复核确认版本、Hook/Buyback 绑定、全部 16 个成分资产以及 V17 基础设施和费率均正确。Pump/Token runtime 与本地产物逐字节一致；Hook/Buyback 校验不可变量绑定及屏蔽不可变量后的完整 runtime。
 - 编译器：`0.8.26+commit.8a97fa7a`，viaIR，optimizer runs 100，`cancun`；编译设置、源文件 SHA-256、构造参数、交易及字节码散列见 [正式部署记录](../deployments/56/version18.json)。[完整成功回执](../deployments/56/version18-receipts.json)。
-- [四份 Standard JSON 及 SHA-256 清单](../deployments/56/version18-verification/manifest.json) 已生成，**尚未上传或完成浏览器验证**。自动审批在执行前拒绝了上传，要求用户明确授权将完整源码包和构造参数披露至 BscScan；当前没有浏览器验证成功的声明。
-- 当前 owner 为部署账户 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，pendingOwner 为原 Safe `0x871fb7006C5964B21695Ba20006021777A26146C`。NutboxRouter operator 和 BasketRegistry creator forwarder 均仍为 false，**尚未激活**。三笔待执行操作见 [Safe 激活说明](PumpVersion18Multisig.md)；已在实际部署合约的 fork 中按原始 calldata 顺序模拟通过，不包含 Safe 签名或主网执行。
+- **四个合约已于 2026-10-28 12:32:25（北京时间）完成 BscScan 精确源码验证**：Foundry Standard JSON 提交至 Etherscan V2 API（chain 56），再独立查询 `getsourcecode` 核对合约名、完整编译器版本、optimizer runs 100、Cancun、构造参数一致，`SimilarMatch` 均为空。源码提交、文件 SHA-256、结果来源和永久日志见 [验证清单](../deployments/56/version18-verification/manifest.json)。
+- 最新区块 **130217901** 的固定区块 Multicall [复核](../deployments/56/version18-activation-status.json)：owner 为部署账户 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`，pendingOwner 为原 Safe `0x871fb7006C5964B21695Ba20006021777A26146C`。NutboxRouter operator 和 BasketRegistry creator forwarder 均仍为 false，**尚未激活**。三笔待执行操作见 [Safe 激活说明](PumpVersion18Multisig.md)；已在实际部署合约的 fork 中按原始 calldata 顺序模拟通过，不包含 Safe 签名或主网执行。
 - 应用、API、子图和后台服务此次没有切换至 V18。旧版合约、Token、地址和历史记录保留；部署成功不等于应用发布或多签激活完成。

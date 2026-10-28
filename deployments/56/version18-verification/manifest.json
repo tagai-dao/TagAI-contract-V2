@@ -1,12 +1,12 @@
 {
-  "status": "prepared-pending-explicit-upload-approval",
+  "status": "verified",
   "sourceCommit": "6eae99ebc812250ce4b70b4ab11b1105c6944037",
   "contracts": [
     {
       "name": "Pump",
       "address": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
       "fqn": "src/pump/Pump.sol:Pump",
-      "status": "exported-not-uploaded",
+      "status": "verified",
       "standardJson": "deployments/56/version18-verification/Pump.standard-json.json",
       "standardJsonSha256": "5b8ba6d3f36fcc27365bb4d0a7c51eb5684638bcde8e752082268b040f470a3b",
       "bytes": 380421,
@@ -22,13 +22,34 @@
         }
       },
       "sourceCommit": "6eae99ebc812250ce4b70b4ab11b1105c6944037",
-      "proposedDestination": "BscScan through https://api.etherscan.io/v2/api (chainid=56)"
+      "proposedDestination": "BscScan through https://api.etherscan.io/v2/api (chainid=56)",
+      "cliExitCode": 0,
+      "logFile": "deployments/56/version18-verification/Pump.verification.log",
+      "verifiedAt": "2026-10-28T04:32:22.491Z",
+      "resultSource": {
+        "provider": "Etherscan V2 API / BscScan",
+        "action": "getsourcecode",
+        "chainId": 56
+      },
+      "explorer": "https://bscscan.com/address/0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24#code",
+      "explorerRecord": {
+        "ContractName": "Pump",
+        "CompilerVersion": "v0.8.26+commit.8a97fa7a",
+        "OptimizationUsed": "1",
+        "Runs": "100",
+        "EVMVersion": "cancun",
+        "ConstructorArguments": "00000000000000000000000095450aad4cc195e03bb4791b7f6f04ac6d9ba92200000000000000000000000006deb72b2e156ddd383651ac3d2dab5892d9c0480000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000002170ed0880ac9a755fd29b2688956bd959f933f80000000000000000000000007130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c000000000000000000000000205812cdbed920aff76c6580abd681a46d11efc7000000000000000000000000be9d156892e55e7154bcd3cb0fea677f9d3103e1000000000000000000000000431a3bee82e2ca41e49895cbece5bb0f76a89b7a000000000000000000000000ca750ef65f295bbecd685abf54e82caf297bdb610000000000000000000000007138b48df7d98d7e3cc221bfe7192d0a178182d800000000000000000000000021caef8a43163eea865baee23b9c2e327696a3bf00000000000000000000000002fca66c1d1afb4e2a7884261eb00f63598a74360000000000000000000000005b1910eaad6450e50f816082aa078c41f10c292f00000000000000000000000080106cb3ead06659a5ad19df39d9b4733863b9b0000000000000000000000000a394dcea3fd3847fd793afbfd163e2e3858b7c650000000000000000000000004ef9d3062c7f6eba4aae4990c5036598c6eff4ec00000000000000000000000046ceefda28dd7207059ed19b0acdc026955bb15c0000000000000000000000003f53de71c126bdabae20f9cd64848d317f6c323800000000000000000000000080f3d493ebce97e343c53d29a137942416b4ffc0",
+        "SourceCodeSha256": "430e32d519dd5bbbdc480bc3a3f6f0d84a7ce3b468455111598b46c14eee75a3",
+        "ABISha256": "6eb1253a86fb9c1b972971d6a8e7b70d8593da955b9455a185a033ae97fff646",
+        "SimilarMatch": ""
+      },
+      "logFileSha256": "64b03f5596055b1ee4d195a7a46102d0b17803e80d9648813ef3583efd408ca9"
     },
     {
       "name": "Token",
       "address": "0x02DC3D9bd600C147F347e584167b58953353BDbF",
       "fqn": "src/pump/Token.sol:Token",
-      "status": "exported-not-uploaded",
+      "status": "verified",
       "standardJson": "deployments/56/version18-verification/Token.standard-json.json",
       "standardJsonSha256": "5cec658b35f9a86b9ad3f54441b2f5ead50e77d37c93880a063748dccc140def",
       "bytes": 280387,
@@ -44,13 +65,34 @@
         }
       },
       "sourceCommit": "6eae99ebc812250ce4b70b4ab11b1105c6944037",
-      "proposedDestination": "BscScan through https://api.etherscan.io/v2/api (chainid=56)"
+      "proposedDestination": "BscScan through https://api.etherscan.io/v2/api (chainid=56)",
+      "cliExitCode": 0,
+      "logFile": "deployments/56/version18-verification/Token.verification.log",
+      "verifiedAt": "2026-10-28T04:32:23.388Z",
+      "resultSource": {
+        "provider": "Etherscan V2 API / BscScan",
+        "action": "getsourcecode",
+        "chainId": 56
+      },
+      "explorer": "https://bscscan.com/address/0x02DC3D9bd600C147F347e584167b58953353BDbF#code",
+      "explorerRecord": {
+        "ContractName": "Token",
+        "CompilerVersion": "v0.8.26+commit.8a97fa7a",
+        "OptimizationUsed": "1",
+        "Runs": "100",
+        "EVMVersion": "cancun",
+        "ConstructorArguments": "",
+        "SourceCodeSha256": "34fbdb73d74b86bf3ae59bcc226e3093a78eb51aa141322340bbb756e6782f7f",
+        "ABISha256": "e0e5a086103aafa49e96cfddeb200f85d5084fde8927ce7dfc30b6bde5076fa6",
+        "SimilarMatch": ""
+      },
+      "logFileSha256": "2872fcd3cd0433e78655eb1722ac133fa3aa8bb027a47bfd7d62bfd3e52697cc"
     },
     {
       "name": "TagAISwapHook",
       "address": "0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1",
       "fqn": "src/hook/TagAISwapHook.sol:TagAISwapHook",
-      "status": "exported-not-uploaded",
+      "status": "verified",
       "standardJson": "deployments/56/version18-verification/TagAISwapHook.standard-json.json",
       "standardJsonSha256": "192591e45e7416cb0ddbc7613a698861c8d0bbbfe6da382c7895969302d33f77",
       "bytes": 227262,
@@ -66,13 +108,34 @@
         }
       },
       "sourceCommit": "6eae99ebc812250ce4b70b4ab11b1105c6944037",
-      "proposedDestination": "BscScan through https://api.etherscan.io/v2/api (chainid=56)"
+      "proposedDestination": "BscScan through https://api.etherscan.io/v2/api (chainid=56)",
+      "cliExitCode": 0,
+      "logFile": "deployments/56/version18-verification/TagAISwapHook.verification.log",
+      "verifiedAt": "2026-10-28T04:32:24.090Z",
+      "resultSource": {
+        "provider": "Etherscan V2 API / BscScan",
+        "action": "getsourcecode",
+        "chainId": 56
+      },
+      "explorer": "https://bscscan.com/address/0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1#code",
+      "explorerRecord": {
+        "ContractName": "TagAISwapHook",
+        "CompilerVersion": "v0.8.26+commit.8a97fa7a",
+        "OptimizationUsed": "1",
+        "Runs": "100",
+        "EVMVersion": "cancun",
+        "ConstructorArguments": "000000000000000000000000a0ffb9c1ce1fe56963b0321b32e7a0302114058b000000000000000000000000238a358808379702088667322f80ac48bad5e6c40000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c24",
+        "SourceCodeSha256": "6d597d2dfb80c64cbab51d4b9673ee5ccf8102a2d6ea0b32f81c13b97030d7a1",
+        "ABISha256": "e6bc165a7581b4110fc714865a99192bd3ee0e49b9bf8303cfdb50f0b4f8891a",
+        "SimilarMatch": ""
+      },
+      "logFileSha256": "b72a41704406863f4784772e678438198427272bfcb7394c1d292792cf001484"
     },
     {
       "name": "TagAIBuybackRouter",
       "address": "0x3468210f9d4522d20d120F122fcCd56c0C5e5074",
       "fqn": "src/router/TagAIBuybackRouter.sol:TagAIBuybackRouter",
-      "status": "exported-not-uploaded",
+      "status": "verified",
       "standardJson": "deployments/56/version18-verification/TagAIBuybackRouter.standard-json.json",
       "standardJsonSha256": "c0b9a69452b9497c02b5dce9286e5c4c79c9d09f984a23d362bb1532bca4de19",
       "bytes": 43816,
@@ -88,13 +151,44 @@
         }
       },
       "sourceCommit": "6eae99ebc812250ce4b70b4ab11b1105c6944037",
-      "proposedDestination": "BscScan through https://api.etherscan.io/v2/api (chainid=56)"
+      "proposedDestination": "BscScan through https://api.etherscan.io/v2/api (chainid=56)",
+      "cliExitCode": 0,
+      "logFile": "deployments/56/version18-verification/TagAIBuybackRouter.verification.log",
+      "verifiedAt": "2026-10-28T04:32:24.749Z",
+      "resultSource": {
+        "provider": "Etherscan V2 API / BscScan",
+        "action": "getsourcecode",
+        "chainId": 56
+      },
+      "explorer": "https://bscscan.com/address/0x3468210f9d4522d20d120F122fcCd56c0C5e5074#code",
+      "explorerRecord": {
+        "ContractName": "TagAIBuybackRouter",
+        "CompilerVersion": "v0.8.26+commit.8a97fa7a",
+        "OptimizationUsed": "1",
+        "Runs": "100",
+        "EVMVersion": "cancun",
+        "ConstructorArguments": "0000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c2400000000000000000000000072dc4f38a7e4159e97d826a6ab594748c6b68f17000000000000000000000000538e4b82d4a9e671b9358e1bac3f7b74bd66354400000000000000000000000055d398326f99059ff775485246999027b3197955",
+        "SourceCodeSha256": "4e7ea5e54e105b0afebd0a47e8f8564728283a30b5e1a3ff6440b60dbf7e8d4d",
+        "ABISha256": "bea4529a3a0960f7a99aa94c011818c1d7d1f75997adf014f89b64180965842a",
+        "SimilarMatch": ""
+      },
+      "logFileSha256": "852f4f9f17526946d3638f522fd1ffbd2349b3f7ba7049feedd50f37f38fce81"
     }
   ],
-  "uploadReview": {
+  "uploadAuthorization": {
+    "status": "explicit-source-upload-approval-confirmed-by-operator",
+    "destination": "BscScan / https://api.etherscan.io/v2/api (chainid=56)",
+    "approvedAt": "2026-10-28T04:30:58.571Z",
+    "userMessage": "验证",
+    "scope": "The four V18 Standard JSON packages and constructor arguments in this manifest, submitted to BscScan for chain 56 exact source verification."
+  },
+  "method": "Foundry Standard JSON submitted to Etherscan V2 API (BscScan, chain 56)",
+  "historicalUploadReview": {
     "status": "rejected-before-execution",
     "reason": "Deployment and record keeping were authorized; explicit disclosure approval for complete source packages and constructor arguments to BscScan is required.",
     "destination": "BscScan / https://api.etherscan.io/v2/api (chainid=56)",
-    "uploaded": false
+    "uploaded": false,
+    "supersededBy": "uploadAuthorization",
+    "supersededAt": "2026-10-28T04:30:58.571Z"
   }
 }

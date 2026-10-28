@@ -1,0 +1,18 @@
+Start verifying contract `0x02DC3D9bd600C147F347e584167b58953353BDbF` deployed on bsc
+Compiler version: 0.8.26+commit.8a97fa7a
+Optimizations:    100
+Constructor args: 0x
+
+Submitting verification for [src/pump/Token.sol:Token] 0x02DC3D9bd600C147F347e584167b58953353BDbF.
+Submitted contract for verification:
+	Response: `OK`
+	GUID: `udpxvysawefy9zhtuudt1inijr2v5sywpwwdjdwpl1rrytgbcv`
+	URL: https://bscscan.com/address/0x02dc3d9bd600c147f347e584167b58953353bdbf
+Contract verification status:
+Response: `NOTOK`
+Details: `Pending in queue`
+Warning: Verification is still pending...; waiting 15 seconds before trying again (7 tries remaining)
+Contract verification status:
+Response: `OK`
+Details: `Pass - Verified`
+Contract successfully verified

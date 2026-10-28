@@ -1,12 +1,14 @@
 # Pump V18 多签激活（待执行）
 
-V18 已于 2026-10-28 部署到 BSC 主网；源码验证包已导出，待明确上传授权；多签尚未执行。
+V18 已于 2026-10-28 部署到 BSC 主网；四个合约已通过 BscScan 精确源码验证；多签尚未执行。
 
 - Safe：`0x871fb7006C5964B21695Ba20006021777A26146C`，BSC chain ID 56，2/3 多签。
 - Pump：[0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24](https://bscscan.com/address/0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24#code)。
 - [Transaction Builder 导入文件](../deployments/56/version18.safe.json)；[人工核对操作](../deployments/56/version18-owner-actions.json)。
 - Safe 文件 SHA-256：`bb14e1ce68ec3d88882128ce6c135eaf318145e30bcb1596dae8bc0ed63a1ceb`；[校验文件](../deployments/56/version18.safe.json.sha256)。
 - [固定区块核验](../deployments/56/version18-activation-preflight.json)；[实际部署合约激活 fork 证据](../deployments/56/version18-activation-fork.json)。
+
+最新固定区块 `130217901` 的 [状态复核](../deployments/56/version18-activation-status.json) 确认仍待激活；源码验证完成不代表多签已执行。
 
 ## 已确认的执行前状态
 

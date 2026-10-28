@@ -1,7 +1,7 @@
 {
   "version": "18",
   "chainId": 56,
-  "status": "deployed-pending-source-verification-and-owner-activation",
+  "status": "deployed-verified-pending-owner-activation",
   "deploymentDate": "2026-10-28",
   "sourceBranch": "bsc-version18",
   "sourceCommit": "6eae99ebc812250ce4b70b4ab11b1105c6944037",
@@ -303,15 +303,41 @@
     "TagAIBuybackRouter": "0x0000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c2400000000000000000000000072dc4f38a7e4159e97d826a6ab594748c6b68f17000000000000000000000000538e4b82d4a9e671b9358e1bac3f7b74bd66354400000000000000000000000055d398326f99059ff775485246999027b3197955"
   },
   "sourceVerification": {
-    "status": "exported-pending-explicit-upload-approval",
+    "status": "verified",
     "explorer": "BscScan",
+    "method": "Foundry Standard JSON / Etherscan V2 API",
+    "verifiedAt": "2026-10-28T04:32:25.101Z",
     "manifest": "deployments/56/version18-verification/manifest.json",
-    "uploadReview": {
-      "status": "rejected-before-execution",
-      "reason": "Deployment and record keeping were authorized; explicit disclosure approval for complete source packages and constructor arguments to BscScan is required.",
-      "destination": "BscScan / https://api.etherscan.io/v2/api (chainid=56)",
-      "uploaded": false
-    }
+    "contracts": [
+      {
+        "name": "Pump",
+        "address": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+        "status": "verified",
+        "explorer": "https://bscscan.com/address/0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24#code",
+        "standardJsonSha256": "5b8ba6d3f36fcc27365bb4d0a7c51eb5684638bcde8e752082268b040f470a3b"
+      },
+      {
+        "name": "Token",
+        "address": "0x02DC3D9bd600C147F347e584167b58953353BDbF",
+        "status": "verified",
+        "explorer": "https://bscscan.com/address/0x02DC3D9bd600C147F347e584167b58953353BDbF#code",
+        "standardJsonSha256": "5cec658b35f9a86b9ad3f54441b2f5ead50e77d37c93880a063748dccc140def"
+      },
+      {
+        "name": "TagAISwapHook",
+        "address": "0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1",
+        "status": "verified",
+        "explorer": "https://bscscan.com/address/0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1#code",
+        "standardJsonSha256": "192591e45e7416cb0ddbc7613a698861c8d0bbbfe6da382c7895969302d33f77"
+      },
+      {
+        "name": "TagAIBuybackRouter",
+        "address": "0x3468210f9d4522d20d120F122fcCd56c0C5e5074",
+        "status": "verified",
+        "explorer": "https://bscscan.com/address/0x3468210f9d4522d20d120F122fcCd56c0C5e5074#code",
+        "standardJsonSha256": "c0b9a69452b9497c02b5dce9286e5c4c79c9d09f984a23d362bb1532bca4de19"
+      }
+    ]
   },
   "activationActionsFile": "deployments/56/version18-owner-actions.json",
   "safeTransactionBuilderFile": "deployments/56/version18.safe.json",
@@ -350,5 +376,15 @@
       "proofFile": "deployments/56/version18-activation-fork.json"
     }
   },
-  "recordedAtUTC": "2026-10-28T04:16:30.634064+00:00"
+  "recordedAtUTC": "2026-10-28T04:16:30.634064+00:00",
+  "activation": {
+    "status": "not-fully-activated",
+    "checkedAt": "2026-10-28T04:32:51.766Z",
+    "blockNumber": 130217901,
+    "owner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "pendingOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "operatorConfigured": false,
+    "creatorForwarderApproved": false,
+    "evidence": "deployments/56/version18-activation-status.json"
+  }
 }
