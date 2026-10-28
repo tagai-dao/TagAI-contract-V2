@@ -80,6 +80,6 @@ FOUNDRY_ETH_RPC_URL= forge test \
   --match-contract '^(AgentSwapWrapperTest|ImportedTokenSwapWrapperTest|AgentSwapWrapperTagAITest)$' -vv
 ```
 
-测试使用真实 IPShare 代码覆盖创建、初始 10 股自质押、暂停/收费失败与回滚、首次和后续调用、普通合约钱包/EIP-7702、推荐收益及重入。包含 V2 税币、V3、Infinity CL，及实际 TagAI Token/Hook/IPShare 的上市主池买卖集成（PoolManager 采用确定性测试定价）。这不是对线上流动性或真实 DEX 成交的主网 fork 验证；部署前仍需针对目标池做固定区块 fork 验证。
+测试使用真实 IPShare 代码覆盖创建、初始 10 股自质押、暂停/收费失败与回滚、首次和后续调用、普通合约钱包/EIP-7702、推荐收益及重入。包含 V2 税币、V3、Infinity CL，及实际 TagAI Token/Hook/IPShare 的上市主池买卖集成（PoolManager 采用确定性测试定价）。这些单元集成使用确定性 PoolManager，不替代真实 DEX fork。另于 BSC 固定区块 130240290 运行 `AgentSwapWrapperDeploymentForkTest`，两项测试通过：真实 Registry 未注册拒绝、真实注册后 IPShare 创建与 Pancake V3 USDT/WBNB 买卖、Safe 接管及 operator 授权。无 mock/etch；Registry 管理员和 Safe 仅在本地 fork 中 impersonate，未广播这些模拟操作。该 fork 不覆盖所有代币/池。
 
 2026-10-28 本地验证：113 项测试通过（新 Agent 44 项、普通 Wrapper 回归 37 项、TagAI 上市集成及继承生命周期回归 32 项）；其中新 Agent 的三项 fuzz 各运行 256 轮。覆盖 operator 的授权/更换/撤销、权限边界及既有 owner/registrar 权限、社区与代币匹配、费率上限、默认零费、买卖报价和实际扣费、转账税输入、事件费用、10 分钟注入、注入失败重试、禁止重定向旧余额、停收后 flush、滑点回滚，以及真实 TagAI Community / HourlyTickCalculator 的费用注入。Agent 运行时代码 19,964 bytes，低于 EIP-170 的 24,576 bytes 限制；普通 Wrapper 仍为 17,209 bytes。
