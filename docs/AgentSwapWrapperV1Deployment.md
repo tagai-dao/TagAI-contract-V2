@@ -2,7 +2,7 @@
 
 日期：2026-10-28。独立组件版本 v1，不占用或替换 Pump/Token V18 的版本记录。
 
-2026-11-02 更新：固定区块 `131202653` 的链上复核确认 owner 已为 Safe、pendingOwner 为零，operator 仍为原钱包。下方接管待执行状态及 owner 表格保留为 2026-10-28 的历史记录；当前 V3 operator 切换待多签执行，见 [ImportHelperV3 部署及激活](ImportHelperV3Deployment.md) 和 [最新状态证据](../deployments/56/import-helper-v3-status.json)。
+2026-11-02 更新：固定区块 `131205034` 的链上复核确认 owner 为 Safe、pendingOwner 为零，operator 已经用户多签切换为 ImportHelperV3。下方接管待执行状态及 owner/operator 表格保留为 2026-10-28 的历史记录；最新状态见 [ImportHelperV3 部署及激活](ImportHelperV3Deployment.md) 和 [状态证据](../deployments/56/import-helper-v3-status.json)。
 
 已部署、已验证；所有权转移已发起，**待多签执行 acceptOwnership**。尚未完成 owner 接管，不应把 pendingOwner 当成 owner。前端/API 地址未切换。
 

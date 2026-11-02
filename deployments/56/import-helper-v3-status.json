@@ -1,7 +1,7 @@
 {
-  "checkedAt": "2026-11-02T07:41:04.277Z",
-  "blockNumber": 131202653,
-  "blockHash": "0x8e238a97f7f9afc3de68905c4e81f35a7715b024bd060939186cb45687b69247",
+  "checkedAt": "2026-11-02T07:58:56.372Z",
+  "blockNumber": 131205034,
+  "blockHash": "0x772015c78e075e5a07950ff95607da5a905474c65e873b27b2e0afd39a3065c3",
   "owner": "0x871fb7006C5964B21695Ba20006021777A26146C",
   "pendingOwner": "0x0000000000000000000000000000000000000000",
   "managementOperator": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
@@ -19,12 +19,12 @@
       "0x"
     ]
   ],
-  "ordinaryRegistrar": "0x40BACB12D79dadf045c21C999b74484816F746F7",
-  "agentOperator": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "ordinaryRegistrar": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+  "agentOperator": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
   "ordinaryOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
   "agentOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
-  "ordinaryActivated": false,
-  "agentActivated": false,
+  "ordinaryActivated": true,
+  "agentActivated": true,
   "runtime": {
     "bytes": 10603,
     "keccak256": "0x3f23fb17778d53bab3d12def701f3928394ec00ec918f7dfcbe207be27b05d1a",
@@ -32,7 +32,7 @@
   },
   "multicallAudit": [
     {
-      "blockTag": "0x7d1fe5d",
+      "blockTag": "0x7d207aa",
       "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
       "calls": [
         {

@@ -1,8 +1,8 @@
 # AgentSwapWrapper（BSC，2026-10-28）
 
-状态：AgentSwapWrapper v1 已于 2026-10-28 部署至 BSC 并通过 BscScan 源码验证。地址：`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`。2026-11-02 区块 `131202653` 复核 owner 已为 Safe，pendingOwner 为零；operator 仍为原钱包。新 ImportHelperV3 已部署验证，将 operator 改为 V3 的调用待多签执行，见 [V3 激活记录](ImportHelperV3Deployment.md)。本次前端/API 地址未切换。原部署、验证及历史多签文件见 [版本记录](AgentSwapWrapperV1Deployment.md)。
+状态：AgentSwapWrapper v1 已于 2026-10-28 部署至 BSC 并通过 BscScan 源码验证。地址：`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`。2026-11-02 区块 `131205034` 复核 owner 为 Safe，pendingOwner 为零；operator 已经用户多签切到 ImportHelperV3。原管理钱包通过 V3 管理绑定和费率，见 [V3 激活记录](ImportHelperV3Deployment.md)。原部署、验证及历史多签文件见 [版本记录](AgentSwapWrapperV1Deployment.md)。
 
-已设置 operator：`0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。下述区块 `130242089` 及旧接管说明属于 2026-10-28 历史快照；最新 ownership 以以上 2026-11-02 复核为准。operator 切换 V3 前原钱包仍直接配置；切换后改由钱包调用 V3 的管理接口。
+当前 operator 为 ImportHelperV3 `0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF`，V3 的管理钱包为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。下述区块 `130242089` 及旧接管说明属于 2026-10-28 历史快照；最新 ownership/operator 以上述 2026-11-02 复核为准。
 
 ## 确定的行为
 

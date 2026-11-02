@@ -120,9 +120,32 @@ async function status(p) {
     runtime: { bytes: (code.length - 2) / 2, keccak256: ethers.keccak256(code), immutableMaskedMatch: true }, multicallAudit: audit };
   write(BASE + '-status.json', proof); record.lastCheckedState = proof;
   record.status = `deployed-${record.sourceVerification?.status === 'verified' ? 'verified-' : ''}${proof.ordinaryActivated && proof.agentActivated ? 'activated' : 'pending-safe-activation'}`;
+  if (proof.ordinaryActivated && proof.agentActivated) record.activation = { ...record.activation, status: 'confirmed-on-chain', confirmedAt: proof.checkedAt, confirmedBlock: pin };
   write(BASE + '.json', record);
   console.log(json({ mode: 'status', address: record.address, block: pin, owner: state.owner, managementOperator: state.managementOperator, ordinaryRegistrar: state.ordinaryRegistrar, agentOperator: state.agentOperator, ordinaryActivated: proof.ordinaryActivated, agentActivated: proof.agentActivated, runtime: proof.runtime }));
   return proof;
+}
+async function confirmActivation(p) {
+  const proof = await status(p), record = load(BASE + '.json');
+  assert(proof.ordinaryActivated && proof.agentActivated, 'Both activation permissions are not set');
+  const events = new ethers.Interface(['event OperatorChanged(address indexed previousOperator,address indexed newOperator)', 'event RegistrarChanged(address indexed previousRegistrar,address indexed newRegistrar)']);
+  const evidence = [];
+  for (const [target, eventName] of [[AGENT, 'OperatorChanged'], [ORDINARY, 'RegistrarChanged']]) {
+    const logs = await p.send('eth_getLogs', [{ address: target, fromBlock: ethers.toQuantity(record.deploymentTransaction.blockNumber), toBlock: ethers.toQuantity(proof.blockNumber), topics: [events.getEvent(eventName).topicHash, null, ethers.zeroPadValue(record.address, 32)] }]);
+    assert(logs.length > 0, 'Activation event missing: ' + eventName);
+    const log = logs[logs.length - 1], receipt = await p.send('eth_getTransactionReceipt', [log.transactionHash]);
+    assert(receipt && BigInt(receipt.status) === 1n && same(receipt.to, SAFE), 'Activation was not a successful Safe transaction');
+    const parsed = events.parseLog(log);
+    evidence.push({ target, event: eventName, previous: parsed.args[0], configured: parsed.args[1], hash: log.transactionHash, blockNumber: Number(BigInt(log.blockNumber)), logIndex: Number(BigInt(log.logIndex)), receiptStatus: receipt.status, transactionTo: receipt.to });
+  }
+  const confirmation = { status: 'confirmed-on-chain', confirmedAt: proof.checkedAt, blockNumber: proof.blockNumber, blockHash: proof.blockHash, helper: record.address, evidence, sameSafeTransaction: evidence[0].hash === evidence[1].hash, multicallAudit: proof.multicallAudit };
+  write(BASE + '-activation-confirmed.json', confirmation);
+  record.activation = { ...record.activation, ...confirmation, confirmationFile: BASE + '-activation-confirmed.json' };
+  delete record.activation.broadcast;
+  record.activation.executionSource = 'User-executed Safe transaction';
+  record.activation.broadcastByAgent = false;
+  write(BASE + '.json', record);
+  console.log(json({ mode: 'confirm-activation', helper: record.address, sameSafeTransaction: confirmation.sameSafeTransaction, transactions: evidence.map(e => ({ event: e.event, hash: e.hash, block: e.blockNumber })) }));
 }
 async function prepareActivation(p) {
   const proof = await status(p), record = load(BASE + '.json');
@@ -150,10 +173,10 @@ async function prepareActivation(p) {
 }
 async function main() {
   const mode = process.argv[2];
-  assert(['preflight', 'deploy', 'status', 'prepare-activation'].includes(mode), 'Expected preflight/deploy/status/prepare-activation');
+  assert(['preflight', 'deploy', 'status', 'prepare-activation', 'confirm-activation'].includes(mode), 'Expected preflight/deploy/status/prepare-activation/confirm-activation');
   const request = new ethers.FetchRequest(env.BSC_RPC_URL); request.timeout = 20000;
   const p = new ethers.JsonRpcProvider(request, 56, { staticNetwork: true, batchMaxCount: 1 });
-  try { await ({ preflight, deploy, status, 'prepare-activation': prepareActivation }[mode])(p); } finally { p.destroy(); }
+  try { await ({ preflight, deploy, status, 'prepare-activation': prepareActivation, 'confirm-activation': confirmActivation }[mode])(p); } finally { p.destroy(); }
 }
 if (require.main === module) main().catch(e => { console.error('ImportHelperV3 operation failed: ' + (e.shortMessage || e.code || e.message).replace(/https?:\/\/\S+/g, '[RPC URL suppressed]')); process.exitCode = 1; });
 module.exports = { BASE, FQN, ARTIFACT, ORDINARY, AGENT, SAFE, MANAGER, dependencyCalls, stateCalls, readDependencies };

@@ -1,6 +1,6 @@
 # ImportHelper V3 — 双 Wrapper 登记与 Agent 配置委托
 
-状态：2026-11-02 已部署至 BSC 并完成 BscScan 精确源码验证，**待多签激活**。地址：`0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF`。owner 已直接设为现有 Safe，管理钱包保持原钱包。本次未修改两个 Wrapper 权限或应用地址。外部 ERC20 导入业务仍为 V10；Helper 自身版本为 3。[部署与激活记录](ImportHelperV3Deployment.md)。
+状态：2026-11-02 已部署至 BSC、完成 BscScan 精确源码验证，**用户已通过多签完成双 Wrapper 激活**。地址：`0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF`。owner 为现有 Safe，管理钱包保持原钱包。区块 `131205034` Multicall 确认普通 Wrapper registrar 和 Agent operator 均为 V3；UI/API 源码配置已同步，生产发布未核验。外部 ERC20 导入业务仍为 V10；Helper 自身版本为 3。[部署与激活记录](ImportHelperV3Deployment.md)。
 
 ## 导入行为
 
@@ -26,7 +26,7 @@ new ImportHelperV3(
 
 两个 Wrapper 地址固定、必须不同且有代码，初始 owner 必须相同。Helper 初始 owner 取普通 Wrapper 的 owner，并不自动使用 pendingOwner。管理钱包初始为非零地址；计划使用现有钱包 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。合约不硬编码该钱包，部署参数决定初始授权。
 
-未来激活需要由对应 owner 分别执行以下操作；本文仅记录要求，本次未执行：
+用户已由同一 Safe 交易完成以下两项授权（代理只回读确认，未代签或广播）：
 
 ```solidity
 ordinaryWrapper.setRegistrar(address(helperV3));
@@ -47,7 +47,7 @@ Agent Wrapper 只有一个 operator，第二步会将旧钱包的直接 operator
 
 只有 Helper owner 可调用 `setManagementOperator(wallet)` 更换管理钱包；传零可撤销，禁止设置为 Helper 自己。管理钱包不能修改 Helper owner、奖励池配置或 Wrapper owner、operator、平台费、推荐费、收款地址、IPShare 及暂停状态。Helper 转移所有权后原管理钱包继续授权，新 owner 可撤销；Agent Wrapper owner 同样保留直接管理和更换 operator 的能力。
 
-若任一 Wrapper 未完成授权或之后撤销授权，公共导入会明确回滚，不会仅登记其中一个 Wrapper。切换普通 Wrapper registrar 后旧 V2 的创建入口将无法完成登记；应用切换需与未来激活安排协调。
+若任一 Wrapper 之后撤销授权，公共导入会明确回滚，不会仅登记其中一个 Wrapper。当前普通 Wrapper registrar 已切到 V3，旧 V2 的创建入口无法完成登记；UI/API 应发布 V3 配置，并更新或清除旧地址环境覆盖项。
 
 ## 历史数据
 
@@ -73,4 +73,4 @@ FOUNDRY_ETH_RPC_URL='' BSC_RPC_URL='' forge test --offline \
 
 2026-11-02 本地结果：相关 6 个套件 **151 通过、0 失败**，其中 V3 14 项（含 256 轮随机退款测试）。全量离线非 fork 回归使用 `--no-match-path 'test/fork/*' --no-match-contract CommentMarketsForkTest`：49 个套件 **930 通过、0 失败、2 个既有跳过**。覆盖真实双 Wrapper 绑定、单/多奖励池、权限未激活的原子回滚及社区/费用回滚、管理钱包更换/撤销、两步 owner 移交、历史同步和冲突、费率上限、待注入费用保护、退款失败，以及退款回调对 7 个导入/管理入口的重入阻断。
 
-Solidity 0.8.26、viaIR、optimizer runs 100：V3 runtime **10,603 bytes**，低于 EIP-170 的 24,576 bytes 限制。部署前区块 `131202172` 及部署后区块 `131202536` 的真实合约 fork 各 2 项通过；外部 Multicall 17 项通过。测试不代表多签已在主网授权，当前仍待激活。
+Solidity 0.8.26、viaIR、optimizer runs 100：V3 runtime **10,603 bytes**，低于 EIP-170 的 24,576 bytes 限制。部署前区块 `131202172` 及部署后区块 `131202536` 的真实合约 fork 各 2 项通过；外部 Multicall 17 项通过。多签授权另由真实主网日志和状态确认，见部署记录。
