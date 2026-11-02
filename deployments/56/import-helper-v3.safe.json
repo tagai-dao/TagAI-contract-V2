@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "chainId": "56",
+  "createdAt": 1793605264811,
+  "meta": {
+    "name": "ImportHelperV3 activation",
+    "description": "Activate ImportHelperV3 for both wrappers. Coordinate UI/API Helper address switch: old V2 imports fail after registrar changes.",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C"
+  },
+  "transactions": [
+    {
+      "to": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+      "value": "0",
+      "data": "0xb3ab15fb000000000000000000000000dccc7428338db3a7480becaa9dac2965425e0edf"
+    },
+    {
+      "to": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+      "value": "0",
+      "data": "0xfaab9d39000000000000000000000000dccc7428338db3a7480becaa9dac2965425e0edf"
+    }
+  ]
+}

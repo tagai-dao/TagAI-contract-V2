@@ -1,6 +1,6 @@
 # ImportHelper V3 — 双 Wrapper 登记与 Agent 配置委托
 
-状态：2026-11-02 新增源码和本地测试，**未部署、未验证、未激活**。不更改现有 V2、两个 Wrapper 的链上字节码、权限或应用地址。外部 ERC20 导入业务仍为 V10；Helper 自身版本为 3。
+状态：2026-11-02 已部署至 BSC 并完成 BscScan 精确源码验证，**待多签激活**。地址：`0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF`。owner 已直接设为现有 Safe，管理钱包保持原钱包。本次未修改两个 Wrapper 权限或应用地址。外部 ERC20 导入业务仍为 V10；Helper 自身版本为 3。[部署与激活记录](ImportHelperV3Deployment.md)。
 
 ## 导入行为
 
@@ -64,7 +64,7 @@ Agent Wrapper 只有一个 operator，第二步会将旧钱包的直接 operator
 
 V2 源码只增加可覆盖的查重/登记扩展点，并将 `VERSION()` 常量 getter 改为可覆盖纯函数，保持 selector 和返回类型：V2 返回 2、V3 返回 3。既有 V2 外部导入行为及接口保留；链上已部署 V2 不随本次源码变化。
 
-本地测试使用真实 CommunityFactory、Community、HourlyTickCalculator、奖励池工厂、普通 Wrapper、Agent Wrapper 和 IPShare，DEX/Handle Registry 使用确定性测试替身。无主网 RPC、部署广播或链上配置。本次不更新前端/API 地址。
+本地单元测试使用真实 CommunityFactory、Community、HourlyTickCalculator、奖励池工厂、普通 Wrapper、Agent Wrapper 和 IPShare，DEX/Handle Registry 使用确定性测试替身。单元回归无 RPC 或部署广播；另已完成真实主网依赖及已部署 V3 的固定区块 fork 验证，仅在本地 impersonate Safe。本次不更新前端/API 地址。
 
 ```sh
 FOUNDRY_ETH_RPC_URL='' BSC_RPC_URL='' forge test --offline \
@@ -73,4 +73,4 @@ FOUNDRY_ETH_RPC_URL='' BSC_RPC_URL='' forge test --offline \
 
 2026-11-02 本地结果：相关 6 个套件 **151 通过、0 失败**，其中 V3 14 项（含 256 轮随机退款测试）。全量离线非 fork 回归使用 `--no-match-path 'test/fork/*' --no-match-contract CommentMarketsForkTest`：49 个套件 **930 通过、0 失败、2 个既有跳过**。覆盖真实双 Wrapper 绑定、单/多奖励池、权限未激活的原子回滚及社区/费用回滚、管理钱包更换/撤销、两步 owner 移交、历史同步和冲突、费率上限、待注入费用保护、退款失败，以及退款回调对 7 个导入/管理入口的重入阻断。
 
-Solidity 0.8.26、viaIR、optimizer runs 100：V3 runtime **10,603 bytes**，低于 EIP-170 的 24,576 bytes 限制。这些结果为本地源码验证，不代表主网部署、授权或上线。
+Solidity 0.8.26、viaIR、optimizer runs 100：V3 runtime **10,603 bytes**，低于 EIP-170 的 24,576 bytes 限制。部署前区块 `131202172` 及部署后区块 `131202536` 的真实合约 fork 各 2 项通过；外部 Multicall 17 项通过。测试不代表多签已在主网授权，当前仍待激活。

@@ -1,8 +1,8 @@
 # AgentSwapWrapper（BSC，2026-10-28）
 
-状态：AgentSwapWrapper v1 已于 2026-10-28 部署至 BSC 并通过 BscScan 源码验证，所有权转移已发起，待多签 acceptOwnership。地址：`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`。前端/API 地址未切换。部署、验证及多签执行文件见 [版本记录](AgentSwapWrapperV1Deployment.md)。
+状态：AgentSwapWrapper v1 已于 2026-10-28 部署至 BSC 并通过 BscScan 源码验证。地址：`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`。2026-11-02 区块 `131202653` 复核 owner 已为 Safe，pendingOwner 为零；operator 仍为原钱包。新 ImportHelperV3 已部署验证，将 operator 改为 V3 的调用待多签执行，见 [V3 激活记录](ImportHelperV3Deployment.md)。本次前端/API 地址未切换。原部署、验证及历史多签文件见 [版本记录](AgentSwapWrapperV1Deployment.md)。
 
-已设置 operator：`0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。区块 `130242089` 复核 owner 仍为部署账户、pendingOwner 为多签 `0x871fb7006C5964B21695Ba20006021777A26146C`。operator 可立即配置 Nutbox 绑定及费率，多签执行接管后仍保留此授权。
+已设置 operator：`0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。下述区块 `130242089` 及旧接管说明属于 2026-10-28 历史快照；最新 ownership 以以上 2026-11-02 复核为准。operator 切换 V3 前原钱包仍直接配置；切换后改由钱包调用 V3 的管理接口。
 
 ## 确定的行为
 

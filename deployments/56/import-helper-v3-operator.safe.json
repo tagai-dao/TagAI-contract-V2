@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "chainId": "56",
+  "createdAt": 1793605264808,
+  "meta": {
+    "name": "ImportHelperV3 activation",
+    "description": "Set AgentSwapWrapper operator to ImportHelperV3. Ordinary Wrapper registrar remains unchanged; dual import is not active.",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C"
+  },
+  "transactions": [
+    {
+      "to": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+      "value": "0",
+      "data": "0xb3ab15fb000000000000000000000000dccc7428338db3a7480becaa9dac2965425e0edf"
+    }
+  ]
+}

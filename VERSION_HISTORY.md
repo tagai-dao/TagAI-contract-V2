@@ -2,12 +2,14 @@
 
 本文档记录正式发布版本的源码提交、链上地址和部署批次，用于确认某一组线上合约对应的源码。
 
-## 2026-11-02 — ImportHelper V3（仅代码与本地测试，未部署）
+## 2026-11-02 — ImportHelper V3（已部署验证，待多签激活）
 
 - 新增 [ImportHelperV3](src/helper/ImportHelperV3.sol)：保留 V2 社区/奖励池创建，在同一交易将相同绑定登记到普通 Wrapper 和 AgentSwapWrapper；任一失败全量回滚。
 - 计划由新 Helper 担任普通 Wrapper registrar 和 Agent Wrapper operator；现有管理钱包通过 Helper 调整 Agent 绑定和逐币 Nutbox 费率。登记默认不启用 Agent Nutbox 费；历史同步复用原社区并拒绝绑定冲突。
-- 本次未部署、未验证、未广播、未变更任何 owner/operator/registrar 或应用地址。[设计及未来激活要求](docs/ImportHelperV3.md)。
+- 按后续用户指示部署并完成 BscScan 精确验证：`0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF`，部署源码提交 `170d28e`。owner 直接设为原 Safe，管理钱包为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。
+- 两个 Wrapper owner 均已为 Safe，operator/registrar 待多签执行；本次未广播权限变更，应用地址未切换。[设计](docs/ImportHelperV3.md)、[部署及多签文件](docs/ImportHelperV3Deployment.md)。
 - 本地相关回归 151 通过；全量离线非 fork 回归 930 通过、0 失败、2 个既有跳过；V3 runtime 10,603 bytes。
+- 外部 Multicall 17 通过；部署前/后真实 BSC 固定区块 fork 各 2 通过。部署交易 `0xc09fcd5c84ba2ac7ae67a16a134a06e114159df594cda77db2ebb7cec77e96c9`，区块 `131202497`，费用 `0.00013396725 BNB`。
 
 ## 记录规则
 

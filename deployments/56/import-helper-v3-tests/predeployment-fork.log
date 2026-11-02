@@ -1,0 +1,11 @@
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 10.48s
+Compiler run successful!
+2026-11-02T07:38:54.285483Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/wangxi/.foundry/cache/rpc/bsc/131202172"
+
+Ran 2 tests for test/fork/BSCImportHelperV3.t.sol:BSCImportHelperV3ForkTest
+[PASS] test_operatorOnlyActivationDoesNotSilentlyProduceAPartialImport() (gas: 708704)
+[PASS] test_realSafeActivationAndRealCommunityDualRegistrationThenWalletFeeManagement() (gas: 891554)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 12.04s (10.84s CPU time)
+
+Ran 1 test suite in 12.06s (12.04s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)

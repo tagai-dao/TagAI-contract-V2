@@ -1,0 +1,28 @@
+{
+  "status": "prepared-not-proposed-not-signed-not-executed",
+  "checkedAt": "2026-11-02T07:41:04.812Z",
+  "blockNumber": 131202653,
+  "blockHash": "0x8e238a97f7f9afc3de68905c4e81f35a7715b024bd060939186cb45687b69247",
+  "safe": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "helper": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+  "simulation": "Each original owner call simulated separately with Safe sender. Full Safe batch/signature simulation remains required.",
+  "calls": [
+    {
+      "to": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+      "value": "0",
+      "data": "0xb3ab15fb000000000000000000000000dccc7428338db3a7480becaa9dac2965425e0edf",
+      "from": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "blockNumber": 131202653,
+      "result": "0x"
+    },
+    {
+      "to": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+      "value": "0",
+      "data": "0xfaab9d39000000000000000000000000dccc7428338db3a7480becaa9dac2965425e0edf",
+      "from": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "blockNumber": 131202653,
+      "result": "0x"
+    }
+  ],
+  "note": "Operator-only and full activation files overlap. Do not submit both blindly; reconcile current state and pending Safe proposals."
+}
