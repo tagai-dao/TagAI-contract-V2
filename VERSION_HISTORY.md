@@ -2,6 +2,13 @@
 
 本文档记录正式发布版本的源码提交、链上地址和部署批次，用于确认某一组线上合约对应的源码。
 
+## 2026-11-02 — ImportHelper V3（仅代码与本地测试，未部署）
+
+- 新增 [ImportHelperV3](src/helper/ImportHelperV3.sol)：保留 V2 社区/奖励池创建，在同一交易将相同绑定登记到普通 Wrapper 和 AgentSwapWrapper；任一失败全量回滚。
+- 计划由新 Helper 担任普通 Wrapper registrar 和 Agent Wrapper operator；现有管理钱包通过 Helper 调整 Agent 绑定和逐币 Nutbox 费率。登记默认不启用 Agent Nutbox 费；历史同步复用原社区并拒绝绑定冲突。
+- 本次未部署、未验证、未广播、未变更任何 owner/operator/registrar 或应用地址。[设计及未来激活要求](docs/ImportHelperV3.md)。
+- 本地相关回归 151 通过；全量离线非 fork 回归 930 通过、0 失败、2 个既有跳过；V3 runtime 10,603 bytes。
+
 ## 记录规则
 
 - 新版本按时间倒序追加，最新版本放在最前面。
