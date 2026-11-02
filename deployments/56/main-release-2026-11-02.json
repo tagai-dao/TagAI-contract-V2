@@ -1,0 +1,121 @@
+{
+  "release": "BSC main source release 2026-11-02",
+  "releaseTag": "version18-main-20261102",
+  "targetBranch": "main",
+  "preMergeMain": "b1239a9c79908476cb9f9c820a508831d4a0e69a",
+  "mergedBranch": "bsc-version18",
+  "mergedBranchHead": "c03c0b064d9c72bd0636fa8b6e228a847c70f504",
+  "includedCommits": [
+    "6eae99ebc812250ce4b70b4ab11b1105c6944037",
+    "7a8eb52ece3ee59b4110953eff281709122fc7cd",
+    "fb630494791ecf310e5edd03072e93c3aec98d48",
+    "9a05d421abd25a25ea47b3c21dfe63339989ab56",
+    "afdf5a5c8872446e6f90ef2e5b20334bc9d080d9",
+    "409fce2bfdaec5249300d323c148184e98145c34",
+    "3b47ef9efddafb8cc19056196f70acb6a44596ba",
+    "9c0a55bfe0547c35d2b093ca2e6a242c8e08910d",
+    "50ab413a134be3a9dca590ba6afc5b563880a6fb",
+    "e861e41d677d601d2d1fbb412a3ea046e197d9cf",
+    "8c87421fbca176459f52b4f4f798075643484dde",
+    "452baa017378365a30e6fb7467036ada685dfb26",
+    "170d28e6662bb506442610bca991fb7ce61f004c",
+    "af069809fbe45a5ced718c7da63316e295684542",
+    "c03c0b064d9c72bd0636fa8b6e228a847c70f504"
+  ],
+  "mergeStrategy": "no-ff; annotated release tag identifies the merge commit",
+  "existingVersion18Tag": {
+    "object": "c88935b9fd5ef56169d4cc69ac3d91dfa715b1d2",
+    "commit": "7a8eb52ece3ee59b4110953eff281709122fc7cd",
+    "preserved": true
+  },
+  "components": {
+    "PumpV18": {
+      "sourceCommit": "6eae99ebc812250ce4b70b4ab11b1105c6944037",
+      "deploymentRecord": "deployments/56/version18.json",
+      "status": "deployed-verified-activated"
+    },
+    "AgentSwapWrapperV1": {
+      "sourceCommit": "9c0a55bfe0547c35d2b093ca2e6a242c8e08910d",
+      "address": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+      "status": "deployed-verified-owned-by-safe",
+      "operator": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF"
+    },
+    "ImportHelperV3": {
+      "sourceCommit": "170d28e6662bb506442610bca991fb7ce61f004c",
+      "address": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+      "status": "deployed-verified-activated"
+    }
+  },
+  "stateSnapshot": "deployments/56/main-release-2026-11-02-state.json",
+  "stateBlock": 131205917,
+  "sourceChecks": [
+    {
+      "file": "src/pump/Pump.sol",
+      "sha256": "665adfce4a0eee67bcf66e36902b372e1e138a9d3a4e42e0631902659ac6acb3",
+      "deploymentRecord": "deployments/56/version18.json",
+      "matchesDeployedSource": true
+    },
+    {
+      "file": "src/pump/Token.sol",
+      "sha256": "285c7509a402fe66aba11be2d7898f5f5b6d8c07d370e899217985e588887096",
+      "deploymentRecord": "deployments/56/version18.json",
+      "matchesDeployedSource": true
+    },
+    {
+      "file": "src/helper/AgentSwapWrapper.sol",
+      "sha256": "f85bad189f8f995fecac879ad7c15b88b8dbcb8e6225c56c5618b293b83c8b34",
+      "deploymentRecord": "deployments/56/agent-swap-wrapper-v1.json",
+      "matchesDeployedSource": true
+    },
+    {
+      "file": "src/helper/ImportedTokenSwapWrapper.sol",
+      "sha256": "1fad4252e3888bfba5b7c41eaf2084f9082daa8ca1baff67a42e859d5150809d",
+      "deploymentRecord": "deployments/56/agent-swap-wrapper-v1.json",
+      "matchesDeployedSource": true
+    },
+    {
+      "file": "src/helper/ImportHelperV3.sol",
+      "sha256": "e8d6332f22ed4ed07ae4fb81a8ff2bbb663b42cf922872e5f901b9995d126fef",
+      "deploymentRecord": "deployments/56/import-helper-v3.json",
+      "matchesDeployedSource": true
+    },
+    {
+      "file": "src/helper/ImportHelperV2.sol",
+      "sha256": "9bcaf9b5c12cbd179f26d8bcd046947106bde503d88d9cd7a4ec9c47238d8825",
+      "deploymentRecord": "deployments/56/import-helper-v3.json",
+      "matchesDeployedSource": true
+    },
+    {
+      "file": "src/hook/TagAISwapHook.sol",
+      "sha256": "9e5258c7e50b0dce0f5a82aed2818f4e40c85d865212d4391dd1486146214f37",
+      "deploymentRecord": "deployments/56/version18.json",
+      "matchesDeployedSource": true
+    },
+    {
+      "file": "src/router/TagAIBuybackRouter.sol",
+      "sha256": "f0b57ecd22fe52862913f0deaa0b1eff063ffc5070bc7af46713349395836cd7",
+      "deploymentRecord": "deployments/56/version18.json",
+      "matchesDeployedSource": true
+    }
+  ],
+  "validation": {
+    "offline": {
+      "passed": 930,
+      "failed": 0,
+      "skipped": 2,
+      "log": "deployments/56/main-release-2026-11-02-tests/offline-regression.log"
+    },
+    "multicall": {
+      "passed": 19,
+      "failed": 0,
+      "log": "deployments/56/main-release-2026-11-02-tests/multicall-regression.log"
+    }
+  },
+  "boundaries": {
+    "newDeployment": false,
+    "onChainWriteBroadcast": false,
+    "applicationProductionRolloutVerified": false,
+    "historicalDeploymentsAndTagsPreserved": true
+  },
+  "recordedAt": "2026-11-02T08:05:33.999Z"
+}

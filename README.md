@@ -1,5 +1,13 @@
 # TagAI Contract V2
 
+> **BSC main source release (2026-11-02):** `bsc-version18` merged into `main`, release tag `version18-main-20261102`. Includes Pump V18, AgentSwapWrapper v1 and ImportHelper V3. Existing deployment tag `version18` and exact deployed source commits are preserved. See the [release record](docs/BSC_MAIN_RELEASE_2026_11_02.md).
+
+> **BSC ImportHelper V3, deployed, verified and Safe-activated:** [0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF](https://bscscan.com/address/0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF#code). Atomically registers one community in both ordinary and Agent wrappers. The original management wallet configures Agent bindings and fees through V3. See [deployment and confirmed activation](docs/ImportHelperV3Deployment.md).
+
+> **BSC AgentSwapWrapper v1, deployed and BscScan-verified:** [0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577](https://bscscan.com/address/0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577#code). Independent V2/V3/Pancake Infinity CL entry point requiring the caller's Binance Handle and creating a missing caller IPShare. Owner is the existing Safe; operator is ImportHelper V3. Nutbox fees default to zero and may be configured per token. See [behavior](docs/AgentSwapWrapper.md) and [deployment history](docs/AgentSwapWrapperV1Deployment.md).
+
+> **BSC V18, deployed, explorer-verified and activated:** Pump [0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24](https://bscscan.com/address/0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24#code). Inner-market buys and sells automatically create a missing trader IPShare. A fixed-block Multicall on 2026-11-02 confirms Safe ownership and both Router/Registry permissions. See [V18 deployment](docs/PumpVersion18.md), [activation confirmation](docs/PumpVersion18Multisig.md), and [version history](VERSION_HISTORY.md).
+
 > **BSC V17 main release (2026-10-27), deployed, verified and Safe-activated:** Pump [0x01B2308653c7e371B28A862444a40c12ca18b353](https://bscscan.com/address/0x01B2308653c7e371B28A862444a40c12ca18b353#code). Each wallet may buy at most 10 million tokens cumulatively per inner market; sales and transfers never restore quota. Pre-listing wallet transfers directly check both Binance handles. Ordinary application creation remains V14; Binance-mode creation uses V17. See the [V16 → V17 upgrade and rollout record](docs/PumpVersion17Upgrade.md), [V17 rules](docs/PumpVersion17.md) and [confirmed Safe execution](docs/PumpVersion17Multisig.md). Graph production cutover remains separate and is not complete at the latest observation.
 
 > **BSC V16 historical source release (2026-10-21):** New inner-market buyers must have a nonempty `handleOf(buyer)` in the configured BSC HandleRegistry, and pre-listing ERC20 transfers are restricted to interactions with the Token contract. Only the atomic creation premine is exempt. V16 requires a new deployment; the immutable V15/V15-2 deployments remain historical `VERSION=15` contracts. See the [V16 business rules](docs/PumpVersion16.md), [V15 deployment history](docs/PumpVersion15Deployment.md), and [version history](VERSION_HISTORY.md).
@@ -9,7 +17,7 @@
 > **V13 split-trade executor (deployment recorded):** [`TagAITradeRouter`](docs/TAGAI_TRADE_ROUTER.md) executes frontend-computed BNB buys / BNB-output sells atomically across the main route and component pools. Existing LP staking remains a separate user operation.
 > **V13 liquidity helper (deployment recorded):** [TagAILiquidityRouter](docs/tagai-liquidity-router.md) supports BNB-to-LP with main-pool token purchases and BNB surplus refunds. [Recorded addresses, deployment and verification commands](docs/BSC_V13_ROUTERS_DEPLOY.md). This source release does not assert a fresh on-chain verification or ownership check.
 
-Smart contracts for **TagAI (TipTag)** on BSC. The current source release is **Pump V17** for Binance-mode community token creation; applications retain **Pump V14** for ordinary creation. Existing tokens keep their deployed implementations. External ERC20 imports remain the **V10** business flow through `ImportHelperV2`. The V9 material below documents the historical production baseline: **community token launches**, **creator IPShare**, **Nutbox incentives**, and **PancakeSwap V4 trading**. Tokens start on a bonding curve and migrate to DEX liquidity, with fees flowing back to the community and creators.
+Smart contracts for **TagAI (TipTag)** on BSC. The current main source release includes **Pump V18**, **AgentSwapWrapper v1** and **ImportHelper V3**. BSC application source configuration selects **V18** for Binance-mode creation and **V14** for ordinary creation. External ERC20 imports remain the **V10** business flow through **ImportHelper V3**, with V2 retained for historical receipts. These contracts are deployed and explorer-verified, and their ownership/activation is confirmed in the release snapshot; production application rollout is recorded separately. Existing tokens keep their deployed implementations. The V9 material below documents the historical baseline.
 
 > **Earlier Pump versions (V1–V8)** live in the legacy Hardhat repo: [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract). This repository is the Foundry-based **V9 / V10** deployment and supersedes V8 on BSC mainnet for new community tokens (and for external-token Nutbox imports that previously went through Pump6).
 
@@ -51,7 +59,8 @@ User creates community token
 | **HourlyTickCalculator** | Nutbox reward calculator: hourly buckets + 168h linear vesting per injection |
 | **SocialCurationFactory** | Social curation reward pool (Nutbox dApp) |
 | **DFXStarScoreStakingFactory** | Score-staking reward pool (Nutbox dApp, e.g. DFXStar Score) |
-| **ImportHelper** | V10 helper: import an existing ERC20 into Nutbox (Community + SocialCuration) in one tx |
+| **ImportHelperV3** | V10 import flow: Community + configured reward pools, atomic ordinary/Agent Wrapper registration |
+| **AgentSwapWrapper** | Handle-gated external DEX trades, automatic caller IPShare creation and optional per-token Nutbox fees |
 
 ### Nutbox Stack
 
@@ -180,12 +189,13 @@ The source commits and complete BSC deployment inventory for each release are ma
 | **V1–V7** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy | Iterative Hardhat releases: bonding-curve launch, IPShare value capture, PCS hook fee routing. Historical Pump / Hook addresses documented in that repo. |
 | **V8** | [tagai-dao/tagai-contract](https://github.com/tagai-dao/tagai-contract) | Legacy (superseded) | Agent-focused communities: only agents could trade on the bonding curve pre-listing; 15% supply auto-provisioned for Nutbox Community creation with a default SocialCuration pool. |
 | **V9** | **This repo** | **Legacy launch path** | Full Nutbox integration (HourlyTickCalculator, SocialCuration, DFXStar Score Staking), open bonding-curve trading with anti-snipe, PCS V4 listing via `TagAISwapHook`, and Nutbox token injection on DEX swaps. Existing V9 tokens keep their deployed implementation. |
-| **V10** | **This repo** (`ImportHelperV2`) | **Current (external import)** | Import an already-deployed ERC20 into Nutbox without creating a Pump token. V2 defaults to TradeCuration and supports selectable pool allocations; old Helper records remain historical. |
+| **V10** | **This repo** (`ImportHelperV3`) | **Current BSC external import** | Import an existing ERC20 into Nutbox; configurable reward pools and atomic registration in both wrappers. V2 receipts remain historical. |
 | **V11** | **This repo** | **Historical** | Pump/Token/Hook fee refresh, Index Broker NFT, NFT AMM and buybacks. Existing tokens keep their deployments. |
 | **V13** | **This repo** | **Historical** | Keeper listing, component LP pools, Basket V4 index buybacks and rewards. |
 | **V14** | **This repo** | **Ordinary application creation** | Optional trade curation pools; existing Token13 template and historical token support. |
 | **V15/V16** | **This repo** | **Historical; no new V16 application creation** | Binance-handle buy eligibility; V16 additionally restricts inner-market transfers. |
-| **V17** | **This repo** (`main`) | **Current source / Binance-mode creation** | Lifetime inner-market purchase cap per address and handle-gated ordinary wallet transfers. See the upgrade guide for application and Graph rollout status. |
+| **V17** | **This repo** | **Historical; existing tokens retained** | Lifetime inner-market purchase cap per address and handle-gated ordinary wallet transfers. |
+| **V18** | **This repo** (`main`; deployed source retained on `bsc-version18`) | **Deployed, verified and activated** | Auto-create a missing trader IPShare on inner-market buys and sells. Production application rollout is tracked separately. |
 
 ### What is V10 (`ImportHelper`)
 

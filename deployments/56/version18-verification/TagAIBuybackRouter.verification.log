@@ -1,0 +1,18 @@
+Start verifying contract `0x3468210f9d4522d20d120F122fcCd56c0C5e5074` deployed on bsc
+Compiler version: 0.8.26+commit.8a97fa7a
+Optimizations:    100
+Constructor args: 0x0000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c2400000000000000000000000072dc4f38a7e4159e97d826a6ab594748c6b68f17000000000000000000000000538e4b82d4a9e671b9358e1bac3f7b74bd66354400000000000000000000000055d398326f99059ff775485246999027b3197955
+
+Submitting verification for [src/router/TagAIBuybackRouter.sol:TagAIBuybackRouter] 0x3468210f9d4522d20d120F122fcCd56c0C5e5074.
+Submitted contract for verification:
+	Response: `OK`
+	GUID: `1w1wujtxpqw4nbzng7irmhyzf6p4bfdfbsqltfhyhvrdggi5mg`
+	URL: https://bscscan.com/address/0x3468210f9d4522d20d120f122fccd56c0c5e5074
+Contract verification status:
+Response: `NOTOK`
+Details: `Pending in queue`
+Warning: Verification is still pending...; waiting 15 seconds before trying again (7 tries remaining)
+Contract verification status:
+Response: `OK`
+Details: `Pass - Verified`
+Contract successfully verified

@@ -69,7 +69,7 @@ contract PumpVersion14Test is PumpVersion13Test, ColdCallGas {
         assertEq(pool.factory(), address(f));
         assertTrue(f.createdPoolOfCommunity(address(c)));
         assertEq(c.owner(), creator);
-        assertEq(pump.VERSION(), 17);
+        assertEq(pump.VERSION(), 18);
         // Listing/buyback wiring still works with the additional reward pool.
         token = t;
         _list();

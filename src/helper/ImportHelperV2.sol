@@ -15,7 +15,9 @@ interface IImportWrapperOwner {
 /// @dev Initial default is TradeCuration 100%. The legacy selector follows the current default.
 contract ImportHelperV2 is Ownable2Step, ReentrancyGuard {
     using Address for address payable;
-    uint256 public constant VERSION = 2;
+    function VERSION() public pure virtual returns (uint256) {
+        return 2;
+    }
     uint256 public constant MAX_POOLS = 6;
     uint256 public constant MAX_FACTORY_TYPES = 32;
     uint16 public constant BPS = 10_000;
@@ -198,8 +200,7 @@ contract ImportHelperV2 is Ownable2Step, ReentrancyGuard {
     {
         if (token.code.length == 0) revert InvalidToken();
         _validatePools(configs);
-        (bool registered,,) = swapWrapper.getImportedMarket(token);
-        if (registered) revert TokenAlreadyImported();
+        _checkImportableToken(token);
         address creator = msg.sender;
         uint256 createFee = ICommittee(committee).getCreateCommunityFee();
         uint256 settingsFee = ICommittee(committee).getCommunitySettingsFee();
@@ -223,10 +224,19 @@ contract ImportHelperV2 is Ownable2Step, ReentrancyGuard {
             pools[i] = ICommunity(community).activedPools(i);
             emit ImportedPoolCreated(token, community, pools[i], configs[i].factory, configs[i].rewardRatio, i);
         }
-        swapWrapper.registerImportedToken(token, community, creator);
+        _registerMarket(token, community, creator);
         Ownable(community).transferOwnership(creator);
         if (msg.value > totalFee) payable(creator).sendValue(msg.value - totalFee);
         emit CommunityCreated(token, community, pools[0], creator, hourlyTickCalculator);
         emit ImportedCommunityRecorded(token, community, creator);
+    }
+
+    function _checkImportableToken(address token) internal view virtual {
+        (bool registered,,) = swapWrapper.getImportedMarket(token);
+        if (registered) revert TokenAlreadyImported();
+    }
+
+    function _registerMarket(address token, address community, address creator) internal virtual {
+        swapWrapper.registerImportedToken(token, community, creator);
     }
 }

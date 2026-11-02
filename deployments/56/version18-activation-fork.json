@@ -1,0 +1,19 @@
+{
+  "chainId": 56,
+  "blockNumber": 130215504,
+  "sourceCommit": "6eae99ebc812250ce4b70b4ab11b1105c6944037",
+  "test": "Pump18ActivationForkTest.test_exportedActivationCallsSucceedOnDeployedMainnetContracts",
+  "passed": true,
+  "scope": "Exact three exported calls simulated as Safe in disposable fork; no Safe signatures, proposals or mainnet activation",
+  "safeFileSha256": "bb14e1ce68ec3d88882128ce6c135eaf318145e30bcb1596dae8bc0ed63a1ceb",
+  "operationTargets": [
+    "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+    "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+    "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24"
+  ],
+  "operationCalldata": [
+    "0x9870d7fe0000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c24",
+    "0x308970360000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c240000000000000000000000000000000000000000000000000000000000000001",
+    "0x79ba5097"
+  ]
+}

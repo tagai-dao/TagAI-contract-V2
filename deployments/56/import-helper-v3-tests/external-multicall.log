@@ -1,0 +1,95 @@
+TAP version 13
+# Subtest: dependencies: fixed block, exact Multicall target, ordered targets and full calldata set
+ok 1 - dependencies: fixed block, exact Multicall target, ordered targets and full calldata set
+  ---
+  duration_ms: 7.994959
+  ...
+# Subtest: dependencies: rejects failed child without independent RPC fallback
+ok 2 - dependencies: rejects failed child without independent RPC fallback
+  ---
+  duration_ms: 5.1675
+  ...
+# Subtest: dependencies: rejects missing data without independent RPC fallback
+ok 3 - dependencies: rejects missing data without independent RPC fallback
+  ---
+  duration_ms: 3.756708
+  ...
+# Subtest: dependencies: rejects wrong snapshot without independent RPC fallback
+ok 4 - dependencies: rejects wrong snapshot without independent RPC fallback
+  ---
+  duration_ms: 4.145792
+  ...
+# Subtest: deployed-state: fixed block, exact Multicall target, ordered targets and full calldata set
+ok 5 - deployed-state: fixed block, exact Multicall target, ordered targets and full calldata set
+  ---
+  duration_ms: 5.289708
+  ...
+# Subtest: deployed-state: rejects failed child without independent RPC fallback
+ok 6 - deployed-state: rejects failed child without independent RPC fallback
+  ---
+  duration_ms: 3.19175
+  ...
+# Subtest: deployed-state: rejects missing data without independent RPC fallback
+ok 7 - deployed-state: rejects missing data without independent RPC fallback
+  ---
+  duration_ms: 3.688042
+  ...
+# Subtest: deployed-state: rejects wrong snapshot without independent RPC fallback
+ok 8 - deployed-state: rejects wrong snapshot without independent RPC fallback
+  ---
+  duration_ms: 3.364875
+  ...
+# Subtest: only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+ok 9 - only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+  ---
+  duration_ms: 7.008041
+  ...
+# Subtest: reject wrong snapshot
+ok 10 - reject wrong snapshot
+  ---
+  duration_ms: 1.814166
+  ...
+# Subtest: reject missing required data
+ok 11 - reject missing required data
+  ---
+  duration_ms: 0.983417
+  ...
+# Subtest: reject failed required subcall
+ok 12 - reject failed required subcall
+  ---
+  duration_ms: 0.733792
+  ...
+# Subtest: reject result count mismatch
+ok 13 - reject result count mismatch
+  ---
+  duration_ms: 1.045333
+  ...
+# Subtest: IPShare preflight uses exact fee/price/pause subcalls through pinned Multicall
+ok 14 - IPShare preflight uses exact fee/price/pause subcalls through pinned Multicall
+  ---
+  duration_ms: 1.765125
+  ...
+# Subtest: IPShare preflight rejects nonzero fee
+ok 15 - IPShare preflight rejects nonzero fee
+  ---
+  duration_ms: 2.15675
+  ...
+# Subtest: IPShare preflight rejects nonzero initial price
+ok 16 - IPShare preflight rejects nonzero initial price
+  ---
+  duration_ms: 2.282834
+  ...
+# Subtest: IPShare preflight rejects paused creation
+ok 17 - IPShare preflight rejects paused creation
+  ---
+  duration_ms: 1.38
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 230.971125

@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "chainId": "56",
+  "createdAt": 1793160894936,
+  "meta": {
+    "name": "Activate BSC Pump V18",
+    "description": "Authorize Pump V18 0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24 on NutboxRouter and BasketRegistry, then accept ownership.",
+    "txBuilderVersion": "1.18.0",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "createdFromOwnerAddress": ""
+  },
+  "transactions": [
+    {
+      "to": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "value": "0",
+      "data": "0x9870d7fe0000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c24",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "value": "0",
+      "data": "0x308970360000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c240000000000000000000000000000000000000000000000000000000000000001",
+      "contractMethod": null,
+      "contractInputsValues": null
+    },
+    {
+      "to": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+      "value": "0",
+      "data": "0x79ba5097",
+      "contractMethod": null,
+      "contractInputsValues": null
+    }
+  ]
+}

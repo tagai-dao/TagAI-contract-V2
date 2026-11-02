@@ -2,6 +2,23 @@
 
 本文档记录正式发布版本的源码提交、链上地址和部署批次，用于确认某一组线上合约对应的源码。
 
+## 2026-11-02 — 合并 V18 / Agent Wrapper / ImportHelper V3 至 main
+
+- 合并来源：`bsc-version18` / `c03c0b0`（完整 SHA 见发布记录），合并前 main：`b1239a9`。非快进合并保留 15 个版本提交，纳入 V18、独立 AgentSwapWrapper v1、双 Wrapper ImportHelper V3、部署/验证/激活记录及测试。
+- 发布标签：`version18-main-20261102`，annotated tag 指向包含本节记录的合并提交；保留原 `version18` 部署标签，不改写任何历史源码提交或部署地址。
+- 区块 `131205917` 的固定区块 Multicall 复核：V18 owner 为原 Safe，pendingOwner 为零，NutboxRouter operator 和 BasketRegistry forwarder 均为 true；Agent owner、普通 Wrapper owner 和 V3 owner 均为 Safe，Agent operator / 普通 registrar 都是 V3，管理钱包保持原地址。
+- 合并后本地离线非 fork 回归：930 通过、0 失败、2 个既有跳过；外部 Multicall 回归：19 通过。8 个核心源文件 SHA-256 与各自真实部署记录一致。本次不部署或广播链上写交易。
+- [主分支发布说明](docs/BSC_MAIN_RELEASE_2026_11_02.md)、[发布清单](deployments/56/main-release-2026-11-02.json)、[链上状态证据](deployments/56/main-release-2026-11-02-state.json)。应用发布状态单独记录，不把合并代码当成生产部署完成。
+
+## 2026-11-02 — ImportHelper V3（已部署、验证并多签激活）
+
+- 新增 [ImportHelperV3](src/helper/ImportHelperV3.sol)：保留 V2 社区/奖励池创建，在同一交易将相同绑定登记到普通 Wrapper 和 AgentSwapWrapper；任一失败全量回滚。
+- 新 Helper 担任普通 Wrapper registrar 和 Agent Wrapper operator；现有管理钱包通过 Helper 调整 Agent 绑定和逐币 Nutbox 费率。登记默认不启用 Agent Nutbox 费；历史同步复用原社区并拒绝绑定冲突。
+- 按后续用户指示部署并完成 BscScan 精确验证：`0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF`，部署源码提交 `170d28e`。owner 直接设为原 Safe，管理钱包为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。
+- 用户已在 Safe 交易 `0x9ed6b5022bcb1374eec47fcd21455659bce02e8080f0da9b83b4dd9e5fc3b69b`（区块 `131204085`）完成两项激活；区块 `131205034` Multicall 回读确认。代理未代签/广播权限交易。UI/API 源码配置同步切换 V3，生产发布未核验。[设计](docs/ImportHelperV3.md)、[部署及激活](docs/ImportHelperV3Deployment.md)。
+- 本地相关回归 151 通过；全量离线非 fork 回归 930 通过、0 失败、2 个既有跳过；V3 runtime 10,603 bytes。
+- 外部 Multicall 17 通过；部署前/后真实 BSC 固定区块 fork 各 2 通过。部署交易 `0xc09fcd5c84ba2ac7ae67a16a134a06e114159df594cda77db2ebb7cec77e96c9`，区块 `131202497`，费用 `0.00013396725 BNB`。
+
 ## 记录规则
 
 - 新版本按时间倒序追加，最新版本放在最前面。
@@ -10,6 +27,30 @@
 - 每个 `versionN.json` 是该版本可独立读取的累积快照；仍然有效的旧地址会复制到新版本，已被替换的地址保留在旧版本文件中。
 - 一个版本可以复用旧合约。复用地址必须标明为“复用”，不能被误认为在该版本中重新部署。
 - 正式发布记录应尽量包含部署交易、区块、最终 owner、Committee 白名单状态和浏览器验证状态。历史资料未保存的字段明确标记为待补充，不凭推测填写。
+
+---
+
+## 2026-10-28 — BSC AgentSwapWrapper v1（已部署、验证及设置 operator，待 Safe 接管）
+
+- 独立组件版本 v1，源码提交 `9c0a55bfe0547c35d2b093ca2e6a242c8e08910d`，分支 `bsc-version18`；不替换普通 Wrapper，也不更改 Pump/Token V18 的版本。
+- 合约地址：[`0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577`](https://bscscan.com/address/0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577#code)。部署区块 `130240688`，BscScan 精确源码验证于 2026-10-28 15:25:19（北京时间）完成。
+- V2/V3/Pancake Infinity CL 买卖校验实际调用者的 Binance Handle，并免费创建缺失的调用者 IPShare；Nutbox 代币费默认关闭，由 owner/operator 为对应 Community 按币种配置。既有 DEX/Hook 费用继续生效。
+- operator 已按用户指定设为 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。区块 `130242089` 的固定区块 Multicall 确认 owner 仍为部署账户、pendingOwner 为 `0x871fb7006C5964B21695Ba20006021777A26146C`，接管待多签执行；不会因 ownership 接管而清空 operator。
+- 部署、发起所有权转移和设置 operator 共三笔交易，合计费用 `0.00023006825 BNB`。部署/验证归档提交 `50ab413`，operator 配置归档提交 `e861e41`。
+- 本地回归 113 通过；固定区块 `130240290` 的真实 BSC fork 2 通过；外部 Multicall 检查 11 通过。接管文件已以 Safe 为 sender 单笔模拟成功，未广播 Safe 交易。
+- [行为与集成](docs/AgentSwapWrapper.md)、[部署与接管说明](docs/AgentSwapWrapperV1Deployment.md)、[正式记录](deployments/56/agent-swap-wrapper-v1.json)、[验证清单](deployments/56/agent-swap-wrapper-v1-verification/manifest.json)、[多签执行文件](deployments/56/agent-swap-wrapper-v1.safe.json)。UI/API 地址、旧合约和历史余额均未修改。
+
+---
+
+## 2026-10-28 — BSC Pump V18（已部署并验证，待 Safe 激活）
+
+- 版本源码提交：`6eae99ebc812250ce4b70b4ab11b1105c6944037`，分支 `bsc-version18`。内盘显式买入、直接 BNB 买入、卖出自动为未创建 IPShare 的实际交易者创建；预买归属创建者；已有 IPShare 跳过，失败原子回滚。
+- Pump `0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24`；Token implementation `0x02DC3D9bd600C147F347e584167b58953353BDbF`；Hook `0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1`；BuybackRouter `0x3468210f9d4522d20d120F122fcCd56c0C5e5074`。
+- 7 笔成功交易，区块 `130215462`–`130215489`，实际 gas `13,760,099`，费用 `0.00068800495 BNB`。区块 `130215504` 复核所有绑定、V17 配置、16 个成分资产和 runtime；[正式记录](deployments/56/version18.json)、[回执](deployments/56/version18-receipts.json)、[版本说明](docs/PumpVersion18.md)。
+- 复用现有 IPShare、Nutbox、Basket V4、TradeCurationFactory 和 HandleRegistry。IPShare 当前创建费及初始 10 份价格均为 0；初始份额自动质押。创建费若以后非零，自动创建交易透传失败，不动用曲线储备。
+- 46 个本地套件 840 通过、0 失败、2 个原有跳过；V18 专项及继承回归 51 通过；外部 Multicall 回归 9 通过；固定区块 `130214270` 的两个真实主网 fork 通过。实际部署的三笔激活 calldata 于区块 `130215504` 的 fork 模拟通过。
+- 四个合约于 **2026-10-28 12:32:25（北京时间）完成 BscScan 精确源码验证**，通过 Foundry Standard JSON / Etherscan V2 API 提交；独立核对编译器、optimizer、Cancun、构造参数，并确认 `SimilarMatch` 为空。完整编译设置、源文件 SHA-256、授权、结果来源和日志见 [验证清单](deployments/56/version18-verification/manifest.json)。
+- 最新区块 `130217901` [固定区块 Multicall 核验](deployments/56/version18-activation-status.json)：owner 为部署账户，pendingOwner 为原 Safe；operator / creator forwarder 均为 false。已导出 [Safe 文件](deployments/56/version18.safe.json) 和 [三笔激活说明](docs/PumpVersion18Multisig.md)，尚未提案、签名或执行。应用及子图此次未切换；V17/旧币保留原行为。
 
 ---
 
@@ -93,20 +134,23 @@
 
 ## 协议版本关系
 
-这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 BSC 发布源码基线为 Pump V17，已部署、验证并激活；应用普通创建仍使用 V14，Binance 模式创建改为 V17，V16 不再用于应用新建。旧 Token 保持各自部署时绑定的实现和池配置。V14 及其他旧版权限记录保留为原日期的历史快照。外部 ERC20 导入业务版本仍为 V10，登记入口为 ImportHelperV2。Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
+这里的版本号对应不同的协议入口，不表示较新的编号一定替代所有较早入口。当前 main 源码基线为 Pump V18，并包含 AgentSwapWrapper v1 和 ImportHelper V3；均已部署、验证，权限见 2026-11-02 固定区块复核。应用普通创建配置使用 V14，Binance 模式创建配置使用 V18，旧 Token 保持原实现。外部 ERC20 导入业务版本仍为 V10，当前 BSC 登记入口是 V3，V2 回执继续受信。应用生产发布单独核验；Robinhood Chain 的独立版本不因本次 BSC 合并而升级。
 
 | 版本 | 状态 | 功能定位 |
 | --- | --- | --- |
 | V1–V7 | 历史版本 | 早期 bonding curve、IPShare 和 PCS Hook 迭代，源码与历史地址位于旧版 [`tagai-contract`](https://github.com/tagai-dao/tagai-contract) 仓库。 |
 | V8 | 已被新发行入口替代 | 面向 Agent 社区，bonding curve 上市前只允许 Agent 交易，并为 Nutbox Community 自动分配 15% 供应量。 |
 | V9 | 历史发行入口 | 通过 Pump 创建新社区代币，支持开放 bonding curve 交易、反狙击、PCS V4 上市、TagAISwapHook 和 Nutbox 奖励注入；既有 Token 保持原实现。 |
-| V10 | 外部代币导入业务版本 | 通过 Helper 将已有 ERC20 接入不可增发 Community；旧 Helper 默认 SocialCuration，现已启用的 ImportHelperV2 默认 TradeCuration 100%，支持多池选择和比例。不创建 Token、bonding curve、PCS V4 池或 Hook。 |
+| V10 | 外部代币导入业务版本 | 当前 BSC 入口 ImportHelperV3：默认 TradeCuration 100%、支持多池选择，将同一 Community 原子登记到普通/Agent 两个 Wrapper；V2 保留历史回执。不创建 ERC20 或 bonding curve。 |
 | V11 | 历史发行入口，既有 Token 继续使用 | 更新 Pump、Token implementation 和 TagAISwapHook，并增加 Index Broker NFT、NFT AMM、指数回购与指数挖矿。该批部署及验证记录见下文。 |
 | V13 | 既有发行入口，已创建 Token 继续使用 | 成分 LP 矿池、keeper 原子上市、Basket V4 指数创建与回购分红，以及独立交易 / 流动性路由；不自动迁移旧 Token。 |
 | V14 | BSC 普通创建入口；旧权限记录见历史快照 | 创建代币时可选交易策展矿池；复用 V13 Token 模板；配套多 Pump Router / Adapter 支持由 owner 配置后续兼容版本。 |
 | V15 | 历史发行入口；具体部署与权限见原日期快照 | 内盘买方须有指定 BSC HandleRegistry 的非空 handle；只有创建交易内的预买免检，部署者后续买入也需校验。 |
 | V16 | 源码已合并 main 的历史版本，不再用于应用新建 | 继承 V15 买入资格，并禁止内盘用户把 Token 转给其他地址、Router、Vault 或外部 DEX 池；既有 Token 不变。 |
-| V17 | main 当前源码版本，已部署、验证并激活；Binance 模式创建入口 | 每地址 / Token 累计买入最多 1000 万枚；允许双方有 handle 的普通钱包内盘互转，卖出和转账不恢复额度。 |
+| V17 | 历史发行入口，既有 Token 继续使用 | 每地址 / Token 累计买入最多 1000 万枚；允许双方有 handle 的普通钱包内盘互转，卖出和转账不恢复额度。 |
+| V18 | main 当前 Pump 源码版本，已部署、验证并激活 | 保留 V17 规则，内盘显式买入、直接 BNB 买入、卖出自动为实际交易者创建缺失 IPShare。 |
+| AgentSwapWrapper v1 | 独立外盘 Agent 交易入口 | Binance Handle 准入、自动创建 IPShare、平台/推荐费和逐币可选 Nutbox 费；当前 operator 为 V3。 |
+| ImportHelper V3 | 已部署验证并经多签激活 | 同一社区登记两个 Wrapper，原钱包通过 Helper 管理 Agent 绑定/费率；独立于 Pump 版本号。 |
 
 ---
 

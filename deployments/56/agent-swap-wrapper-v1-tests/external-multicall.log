@@ -1,0 +1,65 @@
+TAP version 13
+# Subtest: Agent dependencies use only pinned Multicall with exact deployed wrapper, Pump, Safe and Handle subcalls
+ok 1 - Agent dependencies use only pinned Multicall with exact deployed wrapper, Pump, Safe and Handle subcalls
+  ---
+  duration_ms: 76.985292
+  ...
+# Subtest: Agent router stage pins same block and preserves exact factory, manager, bidirectional bridge and balance calls
+ok 2 - Agent router stage pins same block and preserves exact factory, manager, bidirectional bridge and balance calls
+  ---
+  duration_ms: 3.286084
+  ...
+# Subtest: only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+ok 3 - only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+  ---
+  duration_ms: 73.202375
+  ...
+# Subtest: reject wrong snapshot
+ok 4 - reject wrong snapshot
+  ---
+  duration_ms: 3.047916
+  ...
+# Subtest: reject missing required data
+ok 5 - reject missing required data
+  ---
+  duration_ms: 2.211667
+  ...
+# Subtest: reject failed required subcall
+ok 6 - reject failed required subcall
+  ---
+  duration_ms: 1.237291
+  ...
+# Subtest: reject result count mismatch
+ok 7 - reject result count mismatch
+  ---
+  duration_ms: 2.048791
+  ...
+# Subtest: IPShare preflight uses exact fee/price/pause subcalls through pinned Multicall
+ok 8 - IPShare preflight uses exact fee/price/pause subcalls through pinned Multicall
+  ---
+  duration_ms: 1.595292
+  ...
+# Subtest: IPShare preflight rejects nonzero fee
+ok 9 - IPShare preflight rejects nonzero fee
+  ---
+  duration_ms: 1.763792
+  ...
+# Subtest: IPShare preflight rejects nonzero initial price
+ok 10 - IPShare preflight rejects nonzero initial price
+  ---
+  duration_ms: 1.775917
+  ...
+# Subtest: IPShare preflight rejects paused creation
+ok 11 - IPShare preflight rejects paused creation
+  ---
+  duration_ms: 1.468208
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 204.665167

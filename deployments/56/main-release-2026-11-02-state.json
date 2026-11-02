@@ -1,0 +1,135 @@
+{
+  "checkedAt": "2026-11-02T08:05:33.999Z",
+  "chainId": 56,
+  "blockNumber": 131205917,
+  "blockHash": "0x1bda1c45590aa83f4a17042583787bc393bc8b0de18236d18eddae60151d3ce7",
+  "state": {
+    "pumpVersion": "18",
+    "pumpOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "pumpPendingOwner": "0x0000000000000000000000000000000000000000",
+    "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+    "listingHook": "0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1",
+    "buybackRouter": "0x3468210f9d4522d20d120F122fcCd56c0C5e5074",
+    "pumpRouterOperator": true,
+    "pumpCreatorForwarder": true,
+    "agentOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "agentPendingOwner": "0x0000000000000000000000000000000000000000",
+    "agentOperator": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+    "ordinaryOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "ordinaryRegistrar": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+    "helperVersion": "3",
+    "helperOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "helperPendingOwner": "0x0000000000000000000000000000000000000000",
+    "managementOperator": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+    "helperOrdinaryWrapper": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+    "helperAgentWrapper": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577"
+  },
+  "multicallAudit": [
+    {
+      "blockTag": "0x7d20b1d",
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xffa1ad74"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x0f85c315"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xfa11f041"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x9e03349a"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x13e7c9d80000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c24"
+        },
+        {
+          "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+          "allowFailure": false,
+          "callData": "0x925e32480000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c24"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x570ca735"
+        },
+        {
+          "target": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+          "allowFailure": false,
+          "callData": "0x2b20e397"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0xffa1ad74"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x31767f47"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0xf3a5ce6b"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x6177d289"
+        }
+      ]
+    }
+  ]
+}

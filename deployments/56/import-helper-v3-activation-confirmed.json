@@ -1,0 +1,120 @@
+{
+  "status": "confirmed-on-chain",
+  "confirmedAt": "2026-11-02T07:58:56.372Z",
+  "blockNumber": 131205034,
+  "blockHash": "0x772015c78e075e5a07950ff95607da5a905474c65e873b27b2e0afd39a3065c3",
+  "helper": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+  "evidence": [
+    {
+      "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+      "event": "OperatorChanged",
+      "previous": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+      "configured": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+      "hash": "0x9ed6b5022bcb1374eec47fcd21455659bce02e8080f0da9b83b4dd9e5fc3b69b",
+      "blockNumber": 131204085,
+      "logIndex": 361,
+      "receiptStatus": "0x1",
+      "transactionTo": "0x871fb7006c5964b21695ba20006021777a26146c"
+    },
+    {
+      "target": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+      "event": "RegistrarChanged",
+      "previous": "0x40BACB12D79dadf045c21C999b74484816F746F7",
+      "configured": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+      "hash": "0x9ed6b5022bcb1374eec47fcd21455659bce02e8080f0da9b83b4dd9e5fc3b69b",
+      "blockNumber": 131204085,
+      "logIndex": 362,
+      "receiptStatus": "0x1",
+      "transactionTo": "0x871fb7006c5964b21695ba20006021777a26146c"
+    }
+  ],
+  "sameSafeTransaction": true,
+  "multicallAudit": [
+    {
+      "blockTag": "0x7d207aa",
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x31767f47"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0xf3a5ce6b"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x6177d289"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0xfac8a610"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x9208e58a"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0xd864e740"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x03bd982b"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0xffa1ad74"
+        },
+        {
+          "target": "0xDcCc7428338Db3a7480bEcAa9dAc2965425E0EDF",
+          "allowFailure": false,
+          "callData": "0x1147aa7f"
+        },
+        {
+          "target": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+          "allowFailure": false,
+          "callData": "0x2b20e397"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x570ca735"
+        },
+        {
+          "target": "0xDfFc699FB095a693708E3c15e6F0a224cbbCc98F",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x3F7146D3D234Ed4C2021DE1A5B14da8754e6C577",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        }
+      ]
+    }
+  ]
+}

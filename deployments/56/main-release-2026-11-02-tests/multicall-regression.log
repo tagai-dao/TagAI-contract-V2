@@ -1,0 +1,105 @@
+TAP version 13
+# Subtest: Agent dependencies use only pinned Multicall with exact deployed wrapper, Pump, Safe and Handle subcalls
+ok 1 - Agent dependencies use only pinned Multicall with exact deployed wrapper, Pump, Safe and Handle subcalls
+  ---
+  duration_ms: 11.679292
+  ...
+# Subtest: Agent router stage pins same block and preserves exact factory, manager, bidirectional bridge and balance calls
+ok 2 - Agent router stage pins same block and preserves exact factory, manager, bidirectional bridge and balance calls
+  ---
+  duration_ms: 3.485542
+  ...
+# Subtest: dependencies: fixed block, exact Multicall target, ordered targets and full calldata set
+ok 3 - dependencies: fixed block, exact Multicall target, ordered targets and full calldata set
+  ---
+  duration_ms: 8.493083
+  ...
+# Subtest: dependencies: rejects failed child without independent RPC fallback
+ok 4 - dependencies: rejects failed child without independent RPC fallback
+  ---
+  duration_ms: 3.615583
+  ...
+# Subtest: dependencies: rejects missing data without independent RPC fallback
+ok 5 - dependencies: rejects missing data without independent RPC fallback
+  ---
+  duration_ms: 3.408041
+  ...
+# Subtest: dependencies: rejects wrong snapshot without independent RPC fallback
+ok 6 - dependencies: rejects wrong snapshot without independent RPC fallback
+  ---
+  duration_ms: 3.329708
+  ...
+# Subtest: deployed-state: fixed block, exact Multicall target, ordered targets and full calldata set
+ok 7 - deployed-state: fixed block, exact Multicall target, ordered targets and full calldata set
+  ---
+  duration_ms: 3.729708
+  ...
+# Subtest: deployed-state: rejects failed child without independent RPC fallback
+ok 8 - deployed-state: rejects failed child without independent RPC fallback
+  ---
+  duration_ms: 3.499292
+  ...
+# Subtest: deployed-state: rejects missing data without independent RPC fallback
+ok 9 - deployed-state: rejects missing data without independent RPC fallback
+  ---
+  duration_ms: 3.401
+  ...
+# Subtest: deployed-state: rejects wrong snapshot without independent RPC fallback
+ok 10 - deployed-state: rejects wrong snapshot without independent RPC fallback
+  ---
+  duration_ms: 2.850167
+  ...
+# Subtest: only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+ok 11 - only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+  ---
+  duration_ms: 7.040458
+  ...
+# Subtest: reject wrong snapshot
+ok 12 - reject wrong snapshot
+  ---
+  duration_ms: 2.661333
+  ...
+# Subtest: reject missing required data
+ok 13 - reject missing required data
+  ---
+  duration_ms: 1.025292
+  ...
+# Subtest: reject failed required subcall
+ok 14 - reject failed required subcall
+  ---
+  duration_ms: 0.784375
+  ...
+# Subtest: reject result count mismatch
+ok 15 - reject result count mismatch
+  ---
+  duration_ms: 1.036
+  ...
+# Subtest: IPShare preflight uses exact fee/price/pause subcalls through pinned Multicall
+ok 16 - IPShare preflight uses exact fee/price/pause subcalls through pinned Multicall
+  ---
+  duration_ms: 1.848125
+  ...
+# Subtest: IPShare preflight rejects nonzero fee
+ok 17 - IPShare preflight rejects nonzero fee
+  ---
+  duration_ms: 1.782583
+  ...
+# Subtest: IPShare preflight rejects nonzero initial price
+ok 18 - IPShare preflight rejects nonzero initial price
+  ---
+  duration_ms: 1.633625
+  ...
+# Subtest: IPShare preflight rejects paused creation
+ok 19 - IPShare preflight rejects paused creation
+  ---
+  duration_ms: 1.436084
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 202.636042
