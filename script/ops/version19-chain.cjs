@@ -41,7 +41,7 @@ class CurlRpc {
   return new Promise((resolve,reject)=>{
    const p=spawn('curl',['--config','-'],{stdio:['pipe','pipe','pipe']});let out='';
    p.stdout.on('data',x=>out+=x);p.stderr.resume();p.on('error',()=>reject(Error('RPC transport launch failed')));
-   p.on('close',code=>{if(code!==0)return reject(Object.assign(Error('RPC transport unavailable'),{code:'CURL_'+code}));let data;try{data=JSON.parse(out)}catch{return reject(Error('RPC invalid JSON'))}if(data.error)return reject(Object.assign(Error('RPC response error'),{code:data.error.code,rpcMessage:String(data.error.message||'').replace(/https?:\/\/\S+/g,'<URL>')}));if(!Object.hasOwn(data,'result'))return reject(Error('RPC missing result'));resolve(data.result);});
+   p.on('close',code=>{if(code!==0)return reject(Object.assign(Error('RPC transport unavailable'),{code:'CURL_'+code}));let data;try{data=JSON.parse(out)}catch{return reject(Error('RPC invalid JSON'))}if(data.error)return reject(Object.assign(Error('RPC response error'),{code:data.error.code,rpcMessage:String(data.error.message||'').replace(/https?:\/\/\S+/g,'<URL>')}));if(!Object.hasOwn(data,'result'))return reject(Object.assign(Error('RPC missing result'),{code:'RPC_SHAPE_'+Object.keys(data).join('_'),rpcMessage:String(data.message||data.code||'').replace(/https?:\/\/\S+/g,'<URL>')}));resolve(data.result);});
    p.stdin.end('url = '+JSON.stringify(this.url)+'\nrequest = "POST"\nheader = "Content-Type: application/json"\ndata = '+JSON.stringify(body)+'\nmax-time = 25\nsilent\nshow-error\n');
   });
  }
@@ -73,7 +73,7 @@ async function auditMappings(provider,data){
  if(fs.existsSync(cache))for(const row of fs.readFileSync(cache,'utf8').split('\n').filter(Boolean)){const x=JSON.parse(row);saved.set(x.key,x.logs)}
  for(let start=130215462;start<=data.blockNumber;start+=span)chunks.push([start,Math.min(data.blockNumber,start+span-1)]);
  let next=0,done=0;async function worker(){for(;;){const i=next++;if(i>=chunks.length)return;const[start,end]=chunks[i],key=start+':'+end;let rows=saved.get(key);if(!rows){rows=await provider.send('eth_getLogs',[{address:PREVIOUS,fromBlock:ethers.toQuantity(start),toBlock:ethers.toQuantity(end),topics:[[events.getEvent('ConstituentApprovalSet').topicHash,events.getEvent('OptionalPoolFactorySet').topicHash]]}]);fs.appendFileSync(cache,JSON.stringify({key,logs:rows})+'\n')}logs.push(...rows);if(++done%25===0)console.log(JSON.stringify({phase:'mapping-log-audit',completed:done,total:chunks.length}));}}
- const workers=await Promise.allSettled(Array.from({length:8},worker));for(const w of workers)if(w.status==='rejected')throw w.reason;
+ const workers=await Promise.allSettled(Array.from({length:2},worker));for(const w of workers)if(w.status==='rejected')throw w.reason;
  const approvals=new Map(),factories=new Map();
  logs.sort((a,b)=>Number(BigInt(a.blockNumber)-BigInt(b.blockNumber))||Number(BigInt(a.logIndex)-BigInt(b.logIndex)));
  for(const log of logs){const e=events.parseLog(log);if(e.name==='ConstituentApprovalSet')approvals.set(e.args.asset.toLowerCase(),e.args.approved);else factories.set(e.args.factory.toLowerCase(),{name:e.args.name,maxRewardRatio:e.args.maxRewardRatio,enabled:e.args.enabled});}

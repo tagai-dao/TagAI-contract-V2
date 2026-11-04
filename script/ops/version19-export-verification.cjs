@@ -1,17 +1,22 @@
-const fs=require('node:fs');const cp=require('node:child_process');const crypto=require('node:crypto');
-const deployment=JSON.parse(fs.readFileSync('deployments/56/version19.json'));
-const dir='deployments/56/version19-verification';fs.mkdirSync(dir,{recursive:true});
-const targets=[['Pump19',deployment.Pump,'src/pump/Pump19.sol:Pump19'],['Token19',deployment.TokenImplementation,'src/pump/Token19.sol:Token19'],['TagAISwapHook',deployment.TagAISwapHook,'src/hook/TagAISwapHook.sol:TagAISwapHook'],['TagAIBuybackRouter',deployment.TagAIBuybackRouter,'src/router/TagAIBuybackRouter.sol:TagAIBuybackRouter']];
-if(fs.existsSync(`${dir}/manifest.json`)&&JSON.parse(fs.readFileSync(`${dir}/manifest.json`)).status==='verified')throw new Error('Verified V19 manifest exists; refusing to overwrite verification evidence');
-const reports=[];
-for(const[name,address,fqn]of targets){
- const args=['verify-contract',address,fqn,'--chain','56','--compiler-version',deployment.compiler.version,'--num-of-optimizations','100','--offline','--show-standard-json-input'];
- const result=cp.spawnSync('forge',args,{env:{...process.env,FOUNDRY_PROFILE:'bsc_mainnet'},encoding:'utf8',maxBuffer:30*1024*1024});
- if(result.status!==0){fs.writeFileSync('/tmp/tiptag-v18-export-error.log',String(result.stderr||result.error||''));throw new Error('Local Standard JSON export failed: '+name);}
- const input=JSON.parse(result.stdout);if(input.settings.viaIR!==true||input.settings.optimizer.runs!==100||input.settings.evmVersion!=='cancun')throw new Error('Compiler settings mismatch: '+name);
- const jsonFile=`${dir}/${name}.standard-json.json`;fs.writeFileSync(jsonFile,result.stdout);
- fs.writeFileSync(`${dir}/${name}.constructor-args.txt`,deployment.constructorArgs[name]+'\n');
- reports.push({name,address,fqn,status:'exported-not-uploaded',standardJson:jsonFile,standardJsonSha256:crypto.createHash('sha256').update(result.stdout).digest('hex'),bytes:Buffer.byteLength(result.stdout),sourceFileCount:Object.keys(input.sources).length,constructorArgs:deployment.constructorArgs[name],compiler:deployment.compiler,sourceCommit:deployment.sourceCommit,proposedDestination:'BscScan through https://api.etherscan.io/v2/api (chainid=56)'});
+const fs=require('fs'),cp=require('child_process'),{sha,json,ethers}=require('./version19-chain.cjs');
+const base='deployments/56/',recordFile=base+'version19.json',deployment=fs.existsSync(recordFile)?JSON.parse(fs.readFileSync(recordFile)):null;
+const dir=deployment?base+'version19-verification':'previews/version19-standard-json';fs.mkdirSync(dir,{recursive:true});
+const targets=[['Pump19',deployment?.Pump,'src/pump/Pump19.sol'],['Token19',deployment?.TokenImplementation,'src/pump/Token19.sol'],['TagAISwapHook',deployment?.TagAISwapHook,'src/hook/TagAISwapHook.sol'],['TagAIBuybackRouter',deployment?.TagAIBuybackRouter,'src/router/TagAIBuybackRouter.sol']];
+const reports=[];let combined;
+for(const[name,address,source]of targets){
+ const a=JSON.parse(fs.readFileSync(`out/${name}.sol/${name}.json`)),m=typeof a.metadata==='string'?JSON.parse(a.metadata):a.metadata,settings=structuredClone(m.settings);delete settings.compilationTarget;
+ if(settings.viaIR!==true||settings.optimizer.runs!==100||settings.evmVersion!=='cancun'||m.compiler.version!=='0.8.26+commit.8a97fa7a')throw Error('Compiler settings mismatch');
+ settings.outputSelection={'*':{'*':['abi','metadata','evm.bytecode.object','evm.deployedBytecode.object']}};
+ const input={language:m.language,sources:Object.fromEntries(Object.entries(m.sources).map(([file,info])=>{const content=fs.readFileSync(file,'utf8');if(ethers.keccak256(ethers.toUtf8Bytes(content))!==info.keccak256)throw Error('Source mismatch '+file);return[file,{content}]})),settings};
+ if(!combined)combined=structuredClone(input);else Object.assign(combined.sources,input.sources);
+ const file=`${dir}/${name}.standard-json.json`;fs.writeFileSync(file,json(input));if(deployment)fs.writeFileSync(`${dir}/${name}.constructor-args.txt`,deployment.constructorArgs[name]+'\n');
+ reports.push({name,address:address||null,fqn:source+':'+name,status:'exported-not-uploaded',standardJson:file,standardJsonSha256:sha(file),sourceFileCount:Object.keys(input.sources).length,compiler:m.compiler.version,sourceCommit:deployment?.sourceCommit||cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),constructorArgs:deployment?.constructorArgs[name]||null});
 }
-fs.writeFileSync(`${dir}/manifest.json`,JSON.stringify({status:'prepared-for-deployment-verification',sourceCommit:deployment.sourceCommit,contracts:reports},null,2)+'\n');
-console.log(JSON.stringify(reports.map(r=>({contract:r.name,bytes:r.bytes,sources:r.sourceFileCount,sha256:r.standardJsonSha256}))));
+// Compiler metadata supplies the exact settings and source hashes. Recompile the complete input locally
+// to prove the exported input reproduces every creation and deployed bytecode, including metadata.
+const compiler=process.env.V19_SOLC||'/Users/wangxi/Library/Caches/hardhat-nodejs/compilers-v3/macosx-amd64/solc-macosx-amd64-v0.8.26+commit.8a97fa7a';
+const inputFile='previews/version19-standard-json/recompile-input.json';fs.mkdirSync('previews/version19-standard-json',{recursive:true});fs.writeFileSync(inputFile,json(combined));
+const result=cp.spawnSync(compiler,['--standard-json'],{input:json(combined),encoding:'utf8',maxBuffer:50*1024*1024});if(result.status!==0)throw Error('Local solc execution failed');const out=JSON.parse(result.stdout);if(out.errors?.some(e=>e.severity==='error'))throw Error('Standard JSON compile error');
+for(const[name,,source]of targets){const a=JSON.parse(fs.readFileSync(`out/${name}.sol/${name}.json`)),c=out.contracts[source][name];if('0x'+c.evm.bytecode.object!==a.bytecode.object||'0x'+c.evm.deployedBytecode.object!==a.deployedBytecode.object)throw Error('Standard JSON bytecode mismatch '+name)}
+fs.writeFileSync(`${dir}/manifest.json`,json({status:'prepared-not-uploaded',generationMethod:'Exact compiler metadata settings and hashed source contents; locally recompiled with full solc 0.8.26; creation/runtime bytecode including metadata matches deployment artifacts',bytecodeReproduction:true,contracts:reports}));
+console.log(json(reports.map(r=>({contract:r.name,address:r.address,sources:r.sourceFileCount,sha256:r.standardJsonSha256}))) );
