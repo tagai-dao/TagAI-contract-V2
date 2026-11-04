@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol";
+import {MockHandleRegistry} from "../helpers/HandleRegistryTestSetup.sol";
 
 contract IndexBrokerMiningCommunityMock {
     address public immutable communityToken;
@@ -122,6 +123,9 @@ contract IndexBrokerNFTMiningCallbacksTest is Test, ERC721Holder {
     IndexBrokerNFTBurn internal pool;
 
     function setUp() public {
+        address registry = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
+        vm.etch(registry, type(MockHandleRegistry).runtimeCode);
+        MockHandleRegistry(registry).setHandle(address(this), "callback.ai");
         communityToken = new IndexBrokerCallbackCommunityToken();
         community = new IndexBrokerMiningCommunityMock(address(communityToken));
 

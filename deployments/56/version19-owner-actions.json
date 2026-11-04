@@ -1,0 +1,71 @@
+{
+  "chainId": 56,
+  "status": "prepared-not-proposed-not-signed-not-executed",
+  "Pump": "0x94c5293001C57727291fd4865107F0B34eED471F",
+  "safe": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "verifiedAtBlock": 131574974,
+  "operations": [
+    {
+      "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+      "function": "addOperator(address)",
+      "arguments": [
+        "0x94c5293001C57727291fd4865107F0B34eED471F"
+      ],
+      "value": "0",
+      "calldata": "0x9870d7fe00000000000000000000000094c5293001c57727291fd4865107f0b34eed471f",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "reason": "允许 V19 创建社区时调用 NutboxRouter"
+    },
+    {
+      "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+      "function": "setCreatorForwarderApproval(address,bool)",
+      "arguments": [
+        "0x94c5293001C57727291fd4865107F0B34eED471F",
+        true
+      ],
+      "value": "0",
+      "calldata": "0x3089703600000000000000000000000094c5293001c57727291fd4865107f0b34eed471f0000000000000000000000000000000000000000000000000000000000000001",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "reason": "允许 V19 为创建者登记 Basket"
+    },
+    {
+      "target": "0x94c5293001C57727291fd4865107F0B34eED471F",
+      "function": "acceptOwnership()",
+      "arguments": [],
+      "value": "0",
+      "calldata": "0x79ba5097",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "reason": "接收 V19 Pump 管理权"
+    },
+    {
+      "target": "0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf",
+      "function": "setPump(address,bool)",
+      "arguments": [
+        "0x94c5293001C57727291fd4865107F0B34eED471F",
+        true
+      ],
+      "value": "0",
+      "calldata": "0x9719fb7100000000000000000000000094c5293001c57727291fd4865107f0b34eed471f0000000000000000000000000000000000000000000000000000000000000001",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "reason": "上市后交易路由准入，保留 V18"
+    },
+    {
+      "target": "0x226D3e94569c44578a892A5158F0a3Defe49B8ca",
+      "function": "setHookPolicy(address,bool,uint16,uint16,uint16)",
+      "arguments": [
+        "0x28D5dA2FD4d0AAAdb72F48540CE2Ff2426950cc1",
+        true,
+        30,
+        30,
+        30
+      ],
+      "value": "0",
+      "calldata": "0xd81b983400000000000000000000000028d5da2fd4d0aaadb72f48540ce2ff2426950cc10000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000000001e",
+      "requiredSender": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "reason": "上市后评论交易 Hook 准入，保留 V18"
+    }
+  ],
+  "safeIncludedOperations": 5,
+  "otherOwners": [],
+  "safeFileSha256": "259b88844edebb90474237519438a3cd56d64b09cca2cde52b7d0f9ee64080f0"
+}

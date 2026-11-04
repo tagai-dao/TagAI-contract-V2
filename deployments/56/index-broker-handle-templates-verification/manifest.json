@@ -1,0 +1,298 @@
+{
+  "chainId": 56,
+  "factory": "0x835E047D4BE6548E95F2Cbb9Ac02d62EFa2508A0",
+  "generatedAt": "2026-11-04T08:03:25.538Z",
+  "sourceCommit": "6c597746a978075a1b260bb056af6dbcb386fef1",
+  "sourceState": "Reviewed working tree; exact compiled sources frozen by SHA-256 and exported Standard JSON",
+  "method": "Foundry Solidity Standard JSON / Etherscan V2 API (BscScan, chain 56)",
+  "contracts": [
+    {
+      "name": "IndexBrokerNFTBurn",
+      "address": "0x1cceCdED84c825e413F1849FdF55423D07Dc9ab6",
+      "fqn": "src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol:IndexBrokerNFTBurn",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "settings": {
+        "remappings": [
+          "@ensdomains/=lib/v4-core/node_modules/@ensdomains/",
+          "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+          "ds-test/=lib/v4-core/lib/forge-std/lib/ds-test/src/",
+          "erc4626-tests/=lib/v4-core/lib/openzeppelin-contracts/lib/erc4626-tests/",
+          "forge-gas-snapshot/=lib/infinity-core/lib/forge-gas-snapshot/src/",
+          "forge-std/=lib/forge-std/src/",
+          "halmos-cheatcodes/=lib/infinity-core/lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+          "hardhat/=lib/v4-core/node_modules/hardhat/",
+          "infinity-core/=lib/infinity-core/",
+          "openzeppelin-contracts/=lib/v4-core/lib/openzeppelin-contracts/",
+          "pancake-create3-factory/=lib/infinity-core/lib/pancake-create3-factory/",
+          "solady/=node_modules/solady/",
+          "solmate/=lib/v4-core/lib/solmate/",
+          "v4-core/=lib/v4-core/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 100
+        },
+        "metadata": {
+          "bytecodeHash": "ipfs"
+        },
+        "evmVersion": "cancun",
+        "libraries": {},
+        "viaIR": true,
+        "outputSelection": {
+          "src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol": {
+            "IndexBrokerNFTBurn": [
+              "evm.bytecode.object",
+              "evm.deployedBytecode.object"
+            ]
+          }
+        }
+      },
+      "standardJson": "deployments/56/index-broker-handle-templates-verification/IndexBrokerNFTBurn.standard-json.json",
+      "standardJsonSha256": "415898474cf958dcabebdeb34db7e24c760823782344f07d6a14dc63b420e220",
+      "sourceHashes": {
+        "node_modules/@openzeppelin/contracts/access/Ownable.sol": "a8e4e1ae19d9bd3e8b0a6d46577eec098c01fbaffd3ec1252fd20d799e73393b",
+        "node_modules/@openzeppelin/contracts/access/Ownable2Step.sol": "3e3bdb084bc14ade54e8259e710287956a7dbf2b2b4ad1e4cd8899d2293c7241",
+        "node_modules/@openzeppelin/contracts/proxy/utils/Initializable.sol": "6166f84ded782b5c1f471fc4aed9ee3d1fb74f55ec79e920f50510392e235eaa",
+        "node_modules/@openzeppelin/contracts/security/ReentrancyGuard.sol": "fa97ea556c990ee44f2ef4c80d4ef7d0af3f5f9b33a02142911140688106f5a9",
+        "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": "7ebde70853ccafcf1876900dad458f46eb9444d591d39bfc58e952e2582f5587",
+        "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": "af5c8a77965cc82c33b7ff844deb9826166689e55dc037a7f2f790d057811990",
+        "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol": "bbf4d26d660ce8f9c9887af3a46bf4eab5f4c15eb8413ad89b65ecdd05dee7a9",
+        "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": "82dc918d8df553e2461b96595580e565424b407d73dab8a7ce4bde479810fb2a",
+        "node_modules/@openzeppelin/contracts/token/ERC721/ERC721.sol": "7af3ff063370acb5e1f1a2aab125ceca457cd1fa60ff8afa37aabc366349d286",
+        "node_modules/@openzeppelin/contracts/token/ERC721/IERC721.sol": "c8d867eda0fd764890040a3644f5ccf5db92f852779879f321ab3ad8b799bf97",
+        "node_modules/@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol": "77f0f7340c2da6bb9edbc90ab6e7d3eb8e2ae18194791b827a3e8c0b11a09b43",
+        "node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol": "e09a099c8828bb8eb545968ecca3f5f0fe418618eabd93b40befd6ec7e5a88be",
+        "node_modules/@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol": "ec7cb6a8cc0fdad9e3a707146b503d976595a880d24d62c99565787593f3660b",
+        "node_modules/@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol": "f16b861aa1f623ccc5e173f1a82d8cf45b678a7fb81e05478fd17eb2ccb7b37e",
+        "node_modules/@openzeppelin/contracts/utils/Address.sol": "8b85a2463eda119c2f42c34fa3d942b61aee65df381f48ed436fe8edb3a7d602",
+        "node_modules/@openzeppelin/contracts/utils/Context.sol": "b2cfee351bcafd0f8f27c72d76c054df9b571b62cfac4781ed12c86354e2a56c",
+        "node_modules/@openzeppelin/contracts/utils/Strings.sol": "cb2df477077a5963ab50a52768cb74ec6f32177177a78611ddbbe2c07e2d36de",
+        "node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol": "8806a632d7b656cadb8133ff8f2acae4405b3a64d8709d93b0fa6a216a8a6154",
+        "node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": "701e025d13ec6be09ae892eb029cd83b3064325801d73654847a5fb11c58b1e5",
+        "node_modules/@openzeppelin/contracts/utils/math/Math.sol": "85a2caf3bd06579fb55236398c1321e15fd524a8fe140dff748c0f73d7a52345",
+        "node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol": "420a5a5d8d94611a04b39d6cf5f02492552ed4257ea82aba3c765b1ad52f77f6",
+        "src/interfaces/ICommittee.sol": "5ecfbe4a495b7cd25226a954e30969170644788f127f4d8a371c548b98c660f9",
+        "src/interfaces/ICommunity.sol": "d1516cbd46a13661a7af6cd4ef6255d6e2e61f05b1a62730d72c6a7cb9e24f6b",
+        "src/interfaces/IHandleRegistry.sol": "c1ecab37a891cb3a04788de62802a0832ae186642d4986799b70742497e560fd",
+        "src/interfaces/IPool.sol": "e55a9797b47993eaf6d276e2343c21d98cd85d2a8ec547b2f3af898d2be12bc6",
+        "src/nutbox/dapps/index-broker-nft/IIndexBrokerNFT.sol": "de069c082eb887308fcdeb3a57e804bad443bc46bdb00008be5b3af1b0e0aa14",
+        "src/nutbox/dapps/index-broker-nft/IIndexBrokerNFTRenderer.sol": "6b9b63a54d47c658c952d2b6bb3905ca23f2611bd41d0913d7695a23fd923f74",
+        "src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol": "7fca6754b2c3861b0472a6bcbf8a022ac2d1d082e26d8a143ec33a69fdd9918d",
+        "src/nutbox/interfaces/ICommittee.sol": "59aa2660d56b915330192099ac42eb70f37bd8b54e507c03e3f4f2b587e8a7d7",
+        "src/nutbox/interfaces/ICommunity.sol": "a80171f53b5b5e55460add3c2df135dd8bd970411c6fae5a0a588f49117e5b19",
+        "src/nutbox/interfaces/IPool.sol": "b31e1c5d0b24c1c409de5a180dd70228a8ecc6ed0b37938ace2dc86daf632748"
+      },
+      "constructorArgs": "",
+      "locallyRecompiledBytecodesMatch": true,
+      "status": "verified",
+      "cliExitCode": 0,
+      "verifiedAt": "2026-11-04T08:04:03.131Z",
+      "explorer": "https://bscscan.com/address/0x1cceCdED84c825e413F1849FdF55423D07Dc9ab6#code",
+      "resultSource": {
+        "provider": "Etherscan V2 API / BscScan",
+        "action": "getsourcecode",
+        "chainId": 56
+      },
+      "explorerRecord": {
+        "ContractName": "IndexBrokerNFTBurn",
+        "CompilerVersion": "v0.8.26+commit.8a97fa7a",
+        "OptimizationUsed": "1",
+        "Runs": "100",
+        "EVMVersion": "cancun",
+        "SimilarMatch": "",
+        "ConstructorArguments": ""
+      },
+      "explorerSourceSha256": "7266b27b459a8e4884b6ebc52009cc8bc9626e8004362446fbd9da6415034baa",
+      "publicCompilerSettings": {
+        "remappings": [
+          "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+          "solady/=node_modules/solady/",
+          "infinity-core/=lib/infinity-core/",
+          "forge-std/=lib/forge-std/src/",
+          "@ensdomains/=lib/v4-core/node_modules/@ensdomains/",
+          "ds-test/=lib/v4-core/lib/forge-std/lib/ds-test/src/",
+          "erc4626-tests/=lib/v4-core/lib/openzeppelin-contracts/lib/erc4626-tests/",
+          "forge-gas-snapshot/=lib/infinity-core/lib/forge-gas-snapshot/src/",
+          "halmos-cheatcodes/=lib/infinity-core/lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+          "hardhat/=lib/v4-core/node_modules/hardhat/",
+          "openzeppelin-contracts/=lib/v4-core/lib/openzeppelin-contracts/",
+          "pancake-create3-factory/=lib/infinity-core/lib/pancake-create3-factory/",
+          "solmate/=lib/v4-core/lib/solmate/",
+          "v4-core/=lib/v4-core/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 100
+        },
+        "metadata": {
+          "useLiteralContent": false,
+          "bytecodeHash": "ipfs",
+          "appendCBOR": true
+        },
+        "outputSelection": {
+          "*": {
+            "*": [
+              "evm.bytecode",
+              "evm.deployedBytecode",
+              "devdoc",
+              "userdoc",
+              "metadata",
+              "abi"
+            ]
+          }
+        },
+        "evmVersion": "cancun",
+        "viaIR": true
+      },
+      "publishedSourceFilesMatch": true,
+      "publishedSourceFileCount": 31,
+      "publicSourceCheckedAt": "2026-11-04T08:05:39.922Z"
+    },
+    {
+      "name": "IndexBrokerNFTStake",
+      "address": "0x156C2A877069b0e50dC5A74C7d1612d70144B4C6",
+      "fqn": "src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol:IndexBrokerNFTStake",
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "settings": {
+        "remappings": [
+          "@ensdomains/=lib/v4-core/node_modules/@ensdomains/",
+          "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+          "ds-test/=lib/v4-core/lib/forge-std/lib/ds-test/src/",
+          "erc4626-tests/=lib/v4-core/lib/openzeppelin-contracts/lib/erc4626-tests/",
+          "forge-gas-snapshot/=lib/infinity-core/lib/forge-gas-snapshot/src/",
+          "forge-std/=lib/forge-std/src/",
+          "halmos-cheatcodes/=lib/infinity-core/lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+          "hardhat/=lib/v4-core/node_modules/hardhat/",
+          "infinity-core/=lib/infinity-core/",
+          "openzeppelin-contracts/=lib/v4-core/lib/openzeppelin-contracts/",
+          "pancake-create3-factory/=lib/infinity-core/lib/pancake-create3-factory/",
+          "solady/=node_modules/solady/",
+          "solmate/=lib/v4-core/lib/solmate/",
+          "v4-core/=lib/v4-core/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 100
+        },
+        "metadata": {
+          "bytecodeHash": "ipfs"
+        },
+        "evmVersion": "cancun",
+        "libraries": {},
+        "viaIR": true,
+        "outputSelection": {
+          "src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol": {
+            "IndexBrokerNFTStake": [
+              "evm.bytecode.object",
+              "evm.deployedBytecode.object"
+            ]
+          }
+        }
+      },
+      "standardJson": "deployments/56/index-broker-handle-templates-verification/IndexBrokerNFTStake.standard-json.json",
+      "standardJsonSha256": "9c3be5e254f852baa5d6447c44f9beb8677b3955c0e221173fce411bea6d9c1e",
+      "sourceHashes": {
+        "node_modules/@openzeppelin/contracts/access/Ownable.sol": "a8e4e1ae19d9bd3e8b0a6d46577eec098c01fbaffd3ec1252fd20d799e73393b",
+        "node_modules/@openzeppelin/contracts/access/Ownable2Step.sol": "3e3bdb084bc14ade54e8259e710287956a7dbf2b2b4ad1e4cd8899d2293c7241",
+        "node_modules/@openzeppelin/contracts/proxy/utils/Initializable.sol": "6166f84ded782b5c1f471fc4aed9ee3d1fb74f55ec79e920f50510392e235eaa",
+        "node_modules/@openzeppelin/contracts/security/ReentrancyGuard.sol": "fa97ea556c990ee44f2ef4c80d4ef7d0af3f5f9b33a02142911140688106f5a9",
+        "node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": "7ebde70853ccafcf1876900dad458f46eb9444d591d39bfc58e952e2582f5587",
+        "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": "af5c8a77965cc82c33b7ff844deb9826166689e55dc037a7f2f790d057811990",
+        "node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol": "bbf4d26d660ce8f9c9887af3a46bf4eab5f4c15eb8413ad89b65ecdd05dee7a9",
+        "node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": "82dc918d8df553e2461b96595580e565424b407d73dab8a7ce4bde479810fb2a",
+        "node_modules/@openzeppelin/contracts/token/ERC721/ERC721.sol": "7af3ff063370acb5e1f1a2aab125ceca457cd1fa60ff8afa37aabc366349d286",
+        "node_modules/@openzeppelin/contracts/token/ERC721/IERC721.sol": "c8d867eda0fd764890040a3644f5ccf5db92f852779879f321ab3ad8b799bf97",
+        "node_modules/@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol": "77f0f7340c2da6bb9edbc90ab6e7d3eb8e2ae18194791b827a3e8c0b11a09b43",
+        "node_modules/@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol": "e09a099c8828bb8eb545968ecca3f5f0fe418618eabd93b40befd6ec7e5a88be",
+        "node_modules/@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol": "ec7cb6a8cc0fdad9e3a707146b503d976595a880d24d62c99565787593f3660b",
+        "node_modules/@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol": "f16b861aa1f623ccc5e173f1a82d8cf45b678a7fb81e05478fd17eb2ccb7b37e",
+        "node_modules/@openzeppelin/contracts/utils/Address.sol": "8b85a2463eda119c2f42c34fa3d942b61aee65df381f48ed436fe8edb3a7d602",
+        "node_modules/@openzeppelin/contracts/utils/Context.sol": "b2cfee351bcafd0f8f27c72d76c054df9b571b62cfac4781ed12c86354e2a56c",
+        "node_modules/@openzeppelin/contracts/utils/Strings.sol": "cb2df477077a5963ab50a52768cb74ec6f32177177a78611ddbbe2c07e2d36de",
+        "node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol": "8806a632d7b656cadb8133ff8f2acae4405b3a64d8709d93b0fa6a216a8a6154",
+        "node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": "701e025d13ec6be09ae892eb029cd83b3064325801d73654847a5fb11c58b1e5",
+        "node_modules/@openzeppelin/contracts/utils/math/Math.sol": "85a2caf3bd06579fb55236398c1321e15fd524a8fe140dff748c0f73d7a52345",
+        "node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol": "420a5a5d8d94611a04b39d6cf5f02492552ed4257ea82aba3c765b1ad52f77f6",
+        "src/interfaces/ICommittee.sol": "5ecfbe4a495b7cd25226a954e30969170644788f127f4d8a371c548b98c660f9",
+        "src/interfaces/ICommunity.sol": "d1516cbd46a13661a7af6cd4ef6255d6e2e61f05b1a62730d72c6a7cb9e24f6b",
+        "src/interfaces/IHandleRegistry.sol": "c1ecab37a891cb3a04788de62802a0832ae186642d4986799b70742497e560fd",
+        "src/interfaces/IPool.sol": "e55a9797b47993eaf6d276e2343c21d98cd85d2a8ec547b2f3af898d2be12bc6",
+        "src/nutbox/dapps/index-broker-nft/IIndexBrokerNFT.sol": "de069c082eb887308fcdeb3a57e804bad443bc46bdb00008be5b3af1b0e0aa14",
+        "src/nutbox/dapps/index-broker-nft/IIndexBrokerNFTRenderer.sol": "6b9b63a54d47c658c952d2b6bb3905ca23f2611bd41d0913d7695a23fd923f74",
+        "src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol": "7fca6754b2c3861b0472a6bcbf8a022ac2d1d082e26d8a143ec33a69fdd9918d",
+        "src/nutbox/interfaces/ICommittee.sol": "59aa2660d56b915330192099ac42eb70f37bd8b54e507c03e3f4f2b587e8a7d7",
+        "src/nutbox/interfaces/ICommunity.sol": "a80171f53b5b5e55460add3c2df135dd8bd970411c6fae5a0a588f49117e5b19",
+        "src/nutbox/interfaces/IPool.sol": "b31e1c5d0b24c1c409de5a180dd70228a8ecc6ed0b37938ace2dc86daf632748"
+      },
+      "constructorArgs": "",
+      "locallyRecompiledBytecodesMatch": true,
+      "status": "verified",
+      "cliExitCode": 0,
+      "verifiedAt": "2026-11-04T08:04:29.378Z",
+      "explorer": "https://bscscan.com/address/0x156C2A877069b0e50dC5A74C7d1612d70144B4C6#code",
+      "resultSource": {
+        "provider": "Etherscan V2 API / BscScan",
+        "action": "getsourcecode",
+        "chainId": 56
+      },
+      "explorerRecord": {
+        "ContractName": "IndexBrokerNFTStake",
+        "CompilerVersion": "v0.8.26+commit.8a97fa7a",
+        "OptimizationUsed": "1",
+        "Runs": "100",
+        "EVMVersion": "cancun",
+        "SimilarMatch": "",
+        "ConstructorArguments": ""
+      },
+      "explorerSourceSha256": "7266b27b459a8e4884b6ebc52009cc8bc9626e8004362446fbd9da6415034baa",
+      "publicCompilerSettings": {
+        "remappings": [
+          "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+          "solady/=node_modules/solady/",
+          "infinity-core/=lib/infinity-core/",
+          "forge-std/=lib/forge-std/src/",
+          "@ensdomains/=lib/v4-core/node_modules/@ensdomains/",
+          "ds-test/=lib/v4-core/lib/forge-std/lib/ds-test/src/",
+          "erc4626-tests/=lib/v4-core/lib/openzeppelin-contracts/lib/erc4626-tests/",
+          "forge-gas-snapshot/=lib/infinity-core/lib/forge-gas-snapshot/src/",
+          "halmos-cheatcodes/=lib/infinity-core/lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+          "hardhat/=lib/v4-core/node_modules/hardhat/",
+          "openzeppelin-contracts/=lib/v4-core/lib/openzeppelin-contracts/",
+          "pancake-create3-factory/=lib/infinity-core/lib/pancake-create3-factory/",
+          "solmate/=lib/v4-core/lib/solmate/",
+          "v4-core/=lib/v4-core/src/"
+        ],
+        "optimizer": {
+          "enabled": true,
+          "runs": 100
+        },
+        "metadata": {
+          "useLiteralContent": false,
+          "bytecodeHash": "ipfs",
+          "appendCBOR": true
+        },
+        "outputSelection": {
+          "*": {
+            "*": [
+              "evm.bytecode",
+              "evm.deployedBytecode",
+              "devdoc",
+              "userdoc",
+              "metadata",
+              "abi"
+            ]
+          }
+        },
+        "evmVersion": "cancun",
+        "viaIR": true
+      },
+      "publishedSourceFilesMatch": true,
+      "publishedSourceFileCount": 31,
+      "publicSourceCheckedAt": "2026-11-04T08:05:40.801Z"
+    }
+  ],
+  "status": "verified",
+  "authorization": "User explicitly authorized publication of both templates and compiler information on 2026-11-04 in this chat.",
+  "sourceArchiveCommit": "c50314ee19af0aa242628e8270128fbb095ffc16",
+  "sourceArchiveNote": "Post-deployment commit containing the exact deployed NFT source. Original sourceCommit remains the historical pre-change baseline; source hashes and Standard JSON are authoritative."
+}

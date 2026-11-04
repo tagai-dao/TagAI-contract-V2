@@ -1,0 +1,235 @@
+TAP version 13
+# Subtest: Agent dependencies use only pinned Multicall with exact deployed wrapper, Pump, Safe and Handle subcalls
+ok 1 - Agent dependencies use only pinned Multicall with exact deployed wrapper, Pump, Safe and Handle subcalls
+  ---
+  duration_ms: 28.352833
+  ...
+# Subtest: Agent router stage pins same block and preserves exact factory, manager, bidirectional bridge and balance calls
+ok 2 - Agent router stage pins same block and preserves exact factory, manager, bidirectional bridge and balance calls
+  ---
+  duration_ms: 5.330458
+  ...
+# Subtest: dependencies: fixed block, exact Multicall target, ordered targets and full calldata set
+ok 3 - dependencies: fixed block, exact Multicall target, ordered targets and full calldata set
+  ---
+  duration_ms: 16.77375
+  ...
+# Subtest: dependencies: rejects failed child without independent RPC fallback
+ok 4 - dependencies: rejects failed child without independent RPC fallback
+  ---
+  duration_ms: 7.680625
+  ...
+# Subtest: dependencies: rejects missing data without independent RPC fallback
+ok 5 - dependencies: rejects missing data without independent RPC fallback
+  ---
+  duration_ms: 6.918167
+  ...
+# Subtest: dependencies: rejects wrong snapshot without independent RPC fallback
+ok 6 - dependencies: rejects wrong snapshot without independent RPC fallback
+  ---
+  duration_ms: 6.872167
+  ...
+# Subtest: deployed-state: fixed block, exact Multicall target, ordered targets and full calldata set
+ok 7 - deployed-state: fixed block, exact Multicall target, ordered targets and full calldata set
+  ---
+  duration_ms: 6.120959
+  ...
+# Subtest: deployed-state: rejects failed child without independent RPC fallback
+ok 8 - deployed-state: rejects failed child without independent RPC fallback
+  ---
+  duration_ms: 5.784042
+  ...
+# Subtest: deployed-state: rejects missing data without independent RPC fallback
+ok 9 - deployed-state: rejects missing data without independent RPC fallback
+  ---
+  duration_ms: 5.574333
+  ...
+# Subtest: deployed-state: rejects wrong snapshot without independent RPC fallback
+ok 10 - deployed-state: rejects wrong snapshot without independent RPC fallback
+  ---
+  duration_ms: 6.772333
+  ...
+# Subtest: Factory and Safe stages use exact ordered Multicall subcalls at the same fixed block
+ok 11 - Factory and Safe stages use exact ordered Multicall subcalls at the same fixed block
+  ---
+  duration_ms: 15.157125
+  ...
+# Subtest: reject a different block reported by a dependent Multicall stage
+ok 12 - reject a different block reported by a dependent Multicall stage
+  ---
+  duration_ms: 8.0445
+  ...
+# Subtest: reject missing required Factory/Safe data rather than falling back to direct reads
+ok 13 - reject missing required Factory/Safe data rather than falling back to direct reads
+  ---
+  duration_ms: 11.836667
+  ...
+# Subtest: reject a failed required Multicall child
+ok 14 - reject a failed required Multicall child
+  ---
+  duration_ms: 3.432667
+  ...
+# Subtest: only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+ok 15 - only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+  ---
+  duration_ms: 7.656584
+  ...
+# Subtest: reject wrong snapshot
+ok 16 - reject wrong snapshot
+  ---
+  duration_ms: 8.29025
+  ...
+# Subtest: reject missing required data
+ok 17 - reject missing required data
+  ---
+  duration_ms: 2.178125
+  ...
+# Subtest: reject failed required subcall
+ok 18 - reject failed required subcall
+  ---
+  duration_ms: 4.552917
+  ...
+# Subtest: reject result count mismatch
+ok 19 - reject result count mismatch
+  ---
+  duration_ms: 2.186833
+  ...
+# Subtest: only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+ok 20 - only Multicall receives eth_call, exact ordered subcalls and fixed blockTag
+  ---
+  duration_ms: 15.01225
+  ...
+# Subtest: reject wrong snapshot
+ok 21 - reject wrong snapshot
+  ---
+  duration_ms: 3.293625
+  ...
+# Subtest: reject missing required data
+ok 22 - reject missing required data
+  ---
+  duration_ms: 1.618917
+  ...
+# Subtest: reject failed required subcall
+ok 23 - reject failed required subcall
+  ---
+  duration_ms: 1.911958
+  ...
+# Subtest: reject result count mismatch
+ok 24 - reject result count mismatch
+  ---
+  duration_ms: 1.848166
+  ...
+# Subtest: IPShare preflight uses exact fee/price/pause subcalls through pinned Multicall
+ok 25 - IPShare preflight uses exact fee/price/pause subcalls through pinned Multicall
+  ---
+  duration_ms: 5.2345
+  ...
+# Subtest: IPShare preflight rejects nonzero fee
+ok 26 - IPShare preflight rejects nonzero fee
+  ---
+  duration_ms: 3.822916
+  ...
+# Subtest: IPShare preflight rejects nonzero initial price
+ok 27 - IPShare preflight rejects nonzero initial price
+  ---
+  duration_ms: 3.67425
+  ...
+# Subtest: IPShare preflight rejects paused creation
+ok 28 - IPShare preflight rejects paused creation
+  ---
+  duration_ms: 2.072959
+  ...
+# Subtest: pinned Multicall target and exact ordered required subcalls
+ok 29 - pinned Multicall target and exact ordered required subcalls
+  ---
+  duration_ms: 10.24475
+  ...
+# Subtest: refuses wrong block
+ok 30 - refuses wrong block
+  ---
+  duration_ms: 3.630417
+  ...
+# Subtest: refuses missing result
+ok 31 - refuses missing result
+  ---
+  duration_ms: 1.201209
+  ...
+# Subtest: refuses child failure
+ok 32 - refuses child failure
+  ---
+  duration_ms: 1.210875
+  ...
+# Subtest: refuses empty required data
+ok 33 - refuses empty required data
+  ---
+  duration_ms: 2.111209
+  ...
+# Subtest: oversized reads split only into pinned Multicalls while preserving order
+ok 34 - oversized reads split only into pinned Multicalls while preserving order
+  ---
+  duration_ms: 3.978541
+  ...
+# Subtest: complete V19 preflight checks exact snapshot, permissions, catalogue and existing V18
+ok 35 - complete V19 preflight checks exact snapshot, permissions, catalogue and existing V18
+  ---
+  duration_ms: 64.904292
+  ...
+# Subtest: seven exact V19 deployment payloads and derived addresses
+ok 36 - seven exact V19 deployment payloads and derived addresses
+  ---
+  duration_ms: 3.753417
+  ...
+# Subtest: rejects wrong target
+ok 37 - rejects wrong target
+  ---
+  duration_ms: 2.602709
+  ...
+# Subtest: rejects wrong chain
+ok 38 - rejects wrong chain
+  ---
+  duration_ms: 1.947333
+  ...
+# Subtest: rejects wrong nonce
+ok 39 - rejects wrong nonce
+  ---
+  duration_ms: 2.109125
+  ...
+# Subtest: rejects nonzero value
+ok 40 - rejects nonzero value
+  ---
+  duration_ms: 2.467416
+  ...
+# Subtest: rejects wrong sender
+ok 41 - rejects wrong sender
+  ---
+  duration_ms: 2.129125
+  ...
+# Subtest: rejects wrong owner
+ok 42 - rejects wrong owner
+  ---
+  duration_ms: 2.735583
+  ...
+# Subtest: rejects wrong bytecode
+ok 43 - rejects wrong bytecode
+  ---
+  duration_ms: 2.176291
+  ...
+# Subtest: rejects wrong derived address
+ok 44 - rejects wrong derived address
+  ---
+  duration_ms: 2.636291
+  ...
+# Subtest: rejects extra transaction
+ok 45 - rejects extra transaction
+  ---
+  duration_ms: 0.297875
+  ...
+1..45
+# tests 45
+# suites 0
+# pass 45
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2199.843292

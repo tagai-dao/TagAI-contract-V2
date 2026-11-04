@@ -14,6 +14,7 @@ import {IndexBrokerNFTFactory} from "../../src/nutbox/dapps/index-broker-nft/Ind
 import {NutboxRouter} from "../../src/router/NutboxRouter.sol";
 import {IndexBrokerNFTRenderer} from "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTRenderer.sol";
 import {IBasketToken} from "../../src/interfaces/IBasketToken.sol";
+import {IHandleRegistry} from "../../src/interfaces/IHandleRegistry.sol";
 
 /**
  * @title BSCForkIndexBrokerNFT
@@ -271,6 +272,9 @@ contract BSCForkIndexBrokerNFT is BSCForkBase {
     function _mintAndWeightTwoNFTs(Token token, IndexBrokerNFTBurn nft) internal {
         uint256 required = COMMUNITY_TOKEN_PRICE * 2 + INDEX_WEIGHT_PER_NFT * 2;
         assertGe(IERC20(address(token)).balanceOf(buyer), required, "buyer lacks community tokens");
+
+        // The generated fork wallet has no live handle; provide its registration fixture only.
+        vm.mockCall(nft.HANDLE_REGISTRY(), abi.encodeCall(IHandleRegistry.handleOf, (buyer)), abi.encode("fork.ai"));
 
         vm.startPrank(buyer);
         token.approve(address(nft), required);

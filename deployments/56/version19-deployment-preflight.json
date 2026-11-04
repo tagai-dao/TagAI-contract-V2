@@ -1,0 +1,720 @@
+{
+  "chainId": 56,
+  "blockNumber": 131573281,
+  "previousPump": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+  "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "targetOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+  "balanceWei": "2797339872387980",
+  "configuration": {
+    "owner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "getIPShare": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+    "getFeeReceiver": "0x06Deb72b2e156Ddd383651aC3d2dAb5892d9c048",
+    "getPoolManager": "0xa0FfB9c1CE1Fe56963B0321B32E7A0302114058b",
+    "getVault": "0x238a358808379702088667322f80aC48bAd5e6c4",
+    "nutboxCommunityFactory": "0x5597e814399906095ecaA5769A40394F58E5E0Cf",
+    "getCalculator": "0x6cCEC02E7D371FED954D7D16eCb7F2f57cccF54d",
+    "erc20StakingFactory": "0xDc3f940ac6Da516d5C9cc59c8AFE0F85A576E2A4",
+    "nutboxCommittee": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+    "nutboxRouter": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+    "basketHookV4": "0x76983475f199C58d7BbA975220593c1c8B25f75e",
+    "pancakeV2Factory": "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73",
+    "settlementToken": "0x55d398326f99059fF775485246999027B3197955",
+    "listingKeeper": "0x8047FcC508446E2673195B8125d3388defc23688",
+    "buybackRouter": "0x3468210f9d4522d20d120F122fcCd56c0C5e5074",
+    "createFee": "5000000000000000",
+    "getFeeRatio": [
+      "30",
+      "30"
+    ],
+    "listingSwapSlippageBps": "300",
+    "VERSION": "18",
+    "tokenImplementation": "0x02DC3D9bd600C147F347e584167b58953353BDbF",
+    "pendingOwner": "0x0000000000000000000000000000000000000000",
+    "getHookAddress": "0x4dA421377b1dbf739f409919a07EAa7284BE0Cc1",
+    "optionalTradePool": [
+      "Trade Curation",
+      "8000",
+      true
+    ]
+  },
+  "infrastructure": {
+    "registry": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+    "basketRouter": "0x538e4B82D4A9E671B9358E1BAc3F7b74Bd663544",
+    "routerOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "registryOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "committeeOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "ipshareCreateFee": "0",
+    "initialSharePrice": "0",
+    "ipsharePaused": false
+  },
+  "safe": {
+    "address": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "owners": [
+      "0xA2432110Bf31AEC4Ba3d2a80A1b664D49999B736",
+      "0xFfC61fF4dC3307d0762A87C5D001dF0EA09B6035",
+      "0xCCb2557246E89216b7D2448cdb7C42E382b753Ae"
+    ],
+    "threshold": "2",
+    "nonce": "48"
+  },
+  "previousActivation": {
+    "operator": true,
+    "creatorForwarder": true
+  },
+  "committeeAllowlist": {
+    "staking": true,
+    "calculator": true,
+    "trade": true
+  },
+  "tradingAdmission": {
+    "router": "0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf",
+    "routerOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "routerPendingOwner": "0x0000000000000000000000000000000000000000",
+    "v18PumpEnabled": false,
+    "adapter": "0x226D3e94569c44578a892A5158F0a3Defe49B8ca",
+    "adapterOwner": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "adapterPendingOwner": "0x0000000000000000000000000000000000000000",
+    "v18HookPolicy": [
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "0",
+      "0",
+      "0"
+    ]
+  },
+  "constituents": [
+    "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+    "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+    "0x205812CdBed920aFf76C6580abD681a46D11efc7",
+    "0xbe9D156892E55e7154BcD3cB0FEA677F9D3103E1",
+    "0x431a3BEE82E2ca41e49895CbECE5bB0F76A89b7A",
+    "0xCA750eF65f295BBECd685Abf54e82CAf297BDB61",
+    "0x7138b48df7D98D7e3cc221BfE7192D0a178182D8",
+    "0x21cAef8A43163Eea865baeE23b9C2E327696A3bf",
+    "0x02Fca66C1D1aFB4E2A7884261eB00F63598a7436",
+    "0x5b1910eAaD6450E50f816082Aa078C41F10C292f",
+    "0x80106cb3EAD06659A5ad19DF39D9b4733863B9b0",
+    "0xA394dCEa3fd3847fD793afBFd163E2e3858B7c65",
+    "0x4eF9d3062c7F6ebA4AAE4990c5036598C6eff4ec",
+    "0x46cEeFDa28Dd7207059ed19B0acdc026955bb15C",
+    "0x3F53De71c126BdaBAe20f9cD64848d317f6C3238",
+    "0x80f3D493EBCe97e343c53D29a137942416B4ffC0"
+  ],
+  "multicallAudit": [
+    {
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "blockTag": "0x7d7a621",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x888a5ad7"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xe8a35392"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x78d84da3"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x8d928af8"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xd8806ace"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x554d5781"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xbcfa68e8"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xb313ecca"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x0f85c315"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x68cc0de2"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xb4945feb"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x7b9e618d"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x3814e17e"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x9e03349a"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xb2db919b"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x59362b88"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x78ccc82d"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xffa1ad74"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x2f3a3d5d"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0xfa11f041"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x6d969b3d000000000000000000000000774a48ba391a1013ae43289ebdf871618822cd67"
+        },
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x4d2301cc00000000000000000000000078c2af38330c5b41ae7946a313e43cdceeaf8611"
+        }
+      ]
+    },
+    {
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "blockTag": "0x7d7a621",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0x76983475f199C58d7BbA975220593c1c8B25f75e",
+          "allowFailure": false,
+          "callData": "0xbaf75489"
+        },
+        {
+          "target": "0x3468210f9d4522d20d120F122fcCd56c0C5e5074",
+          "allowFailure": false,
+          "callData": "0x227b15e6"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+          "allowFailure": false,
+          "callData": "0xb2db919b"
+        },
+        {
+          "target": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+          "allowFailure": false,
+          "callData": "0x5cf4ee910000000000000000000000000000000000000000000000008ac7230489e800000000000000000000000000000000000000000000000000000000000000000000"
+        },
+        {
+          "target": "0x95450AaD4Cc195e03BB4791B7f6f04aC6D9BA922",
+          "allowFailure": false,
+          "callData": "0x5c975abb"
+        }
+      ]
+    },
+    {
+      "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+      "blockTag": "0x7d7a621",
+      "calls": [
+        {
+          "target": "0xcA11bde05977b3631167028862bE2a173976CA11",
+          "allowFailure": false,
+          "callData": "0x42cbb15c"
+        },
+        {
+          "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x871fb7006C5964B21695Ba20006021777A26146C",
+          "allowFailure": false,
+          "callData": "0xa0e67e2b"
+        },
+        {
+          "target": "0x871fb7006C5964B21695Ba20006021777A26146C",
+          "allowFailure": false,
+          "callData": "0xe75235b8"
+        },
+        {
+          "target": "0x871fb7006C5964B21695Ba20006021777A26146C",
+          "allowFailure": false,
+          "callData": "0xaffed0e0"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x13e7c9d80000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c24"
+        },
+        {
+          "target": "0x5B45ad2c3A2B8b8989579162C4faE2D64598Cefe",
+          "allowFailure": false,
+          "callData": "0x925e32480000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c24"
+        },
+        {
+          "target": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+          "allowFailure": false,
+          "callData": "0x3d200b45000000000000000000000000dc3f940ac6da516d5c9cc59c8afe0f85a576e2a4"
+        },
+        {
+          "target": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+          "allowFailure": false,
+          "callData": "0x3d200b450000000000000000000000006ccec02e7d371fed954d7d16ecb7f2f57cccf54d"
+        },
+        {
+          "target": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+          "allowFailure": false,
+          "callData": "0x3d200b45000000000000000000000000774a48ba391a1013ae43289ebdf871618822cd67"
+        },
+        {
+          "target": "0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0xB70544BfdACaBD8718261d7A6be5208b7D2f6Ebf",
+          "allowFailure": false,
+          "callData": "0x262a63c00000000000000000000000003b174db24a44d7172c1f4fb8ab387f3931681c24"
+        },
+        {
+          "target": "0x226D3e94569c44578a892A5158F0a3Defe49B8ca",
+          "allowFailure": false,
+          "callData": "0x8da5cb5b"
+        },
+        {
+          "target": "0x226D3e94569c44578a892A5158F0a3Defe49B8ca",
+          "allowFailure": false,
+          "callData": "0xe30c3978"
+        },
+        {
+          "target": "0x226D3e94569c44578a892A5158F0a3Defe49B8ca",
+          "allowFailure": false,
+          "callData": "0xfa806ff70000000000000000000000004da421377b1dbf739f409919a07eaa7284be0cc1"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba0000000000000000000000002170ed0880ac9a755fd29b2688956bd959f933f8"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000000000000000000000000000000000000000000000000000000000000000000002170ed0880ac9a755fd29b2688956bd959f933f8"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b31979550000000000000000000000002170ed0880ac9a755fd29b2688956bd959f933f8"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba0000000000000000000000007130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b31979550000000000000000000000007130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba000000000000000000000000205812cdbed920aff76c6580abd681a46d11efc7"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec76260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000205812cdbed920aff76c6580abd681a46d11efc7"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b3197955000000000000000000000000205812cdbed920aff76c6580abd681a46d11efc7"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba000000000000000000000000be9d156892e55e7154bcd3cb0fea677f9d3103e1"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec76260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000be9d156892e55e7154bcd3cb0fea677f9d3103e1"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b3197955000000000000000000000000be9d156892e55e7154bcd3cb0fea677f9d3103e1"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba000000000000000000000000431a3bee82e2ca41e49895cbece5bb0f76a89b7a"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec76260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000431a3bee82e2ca41e49895cbece5bb0f76a89b7a"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b3197955000000000000000000000000431a3bee82e2ca41e49895cbece5bb0f76a89b7a"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba000000000000000000000000ca750ef65f295bbecd685abf54e82caf297bdb61"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec76260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ca750ef65f295bbecd685abf54e82caf297bdb61"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b3197955000000000000000000000000ca750ef65f295bbecd685abf54e82caf297bdb61"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba0000000000000000000000007138b48df7d98d7e3cc221bfe7192d0a178182d8"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000000000000000000000000000000000000000000000000000000000000000000007138b48df7d98d7e3cc221bfe7192d0a178182d8"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b31979550000000000000000000000007138b48df7d98d7e3cc221bfe7192d0a178182d8"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba00000000000000000000000021caef8a43163eea865baee23b9c2e327696a3bf"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec7626000000000000000000000000000000000000000000000000000000000000000000000000000000000000000021caef8a43163eea865baee23b9c2e327696a3bf"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b319795500000000000000000000000021caef8a43163eea865baee23b9c2e327696a3bf"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba00000000000000000000000002fca66c1d1afb4e2a7884261eb00f63598a7436"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec7626000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002fca66c1d1afb4e2a7884261eb00f63598a7436"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b319795500000000000000000000000002fca66c1d1afb4e2a7884261eb00f63598a7436"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba0000000000000000000000005b1910eaad6450e50f816082aa078c41f10c292f"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000000000000000000000000000000000000000000000000000000000000000000005b1910eaad6450e50f816082aa078c41f10c292f"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b31979550000000000000000000000005b1910eaad6450e50f816082aa078c41f10c292f"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba00000000000000000000000080106cb3ead06659a5ad19df39d9b4733863b9b0"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec7626000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080106cb3ead06659a5ad19df39d9b4733863b9b0"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b319795500000000000000000000000080106cb3ead06659a5ad19df39d9b4733863b9b0"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba000000000000000000000000a394dcea3fd3847fd793afbfd163e2e3858b7c65"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec76260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a394dcea3fd3847fd793afbfd163e2e3858b7c65"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b3197955000000000000000000000000a394dcea3fd3847fd793afbfd163e2e3858b7c65"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba0000000000000000000000004ef9d3062c7f6eba4aae4990c5036598c6eff4ec"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000000000000000000000000000000000000000000000000000000000000000000004ef9d3062c7f6eba4aae4990c5036598c6eff4ec"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b31979550000000000000000000000004ef9d3062c7f6eba4aae4990c5036598c6eff4ec"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba00000000000000000000000046ceefda28dd7207059ed19b0acdc026955bb15c"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec7626000000000000000000000000000000000000000000000000000000000000000000000000000000000000000046ceefda28dd7207059ed19b0acdc026955bb15c"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b319795500000000000000000000000046ceefda28dd7207059ed19b0acdc026955bb15c"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba0000000000000000000000003f53de71c126bdabae20f9cd64848d317f6c3238"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000000000000000000000000000000000000000000000000000000000000000000003f53de71c126bdabae20f9cd64848d317f6c3238"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b31979550000000000000000000000003f53de71c126bdabae20f9cd64848d317f6c3238"
+        },
+        {
+          "target": "0x3B174dB24A44d7172C1f4Fb8Ab387F3931681C24",
+          "allowFailure": false,
+          "callData": "0x4fa943ba00000000000000000000000080f3d493ebce97e343c53d29a137942416b4ffc0"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec7626000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080f3d493ebce97e343c53d29a137942416b4ffc0"
+        },
+        {
+          "target": "0x72dc4F38A7E4159e97d826a6ab594748C6b68f17",
+          "allowFailure": false,
+          "callData": "0x98ec762600000000000000000000000055d398326f99059ff775485246999027b319795500000000000000000000000080f3d493ebce97e343c53d29a137942416b4ffc0"
+        }
+      ]
+    }
+  ],
+  "blockHash": "0x8bc7597052a0b3b747e5b9c4aee21e1bd48e2cb352f56b8593040933b22b8b85",
+  "checkedAt": "2026-11-04T06:01:30.207Z",
+  "latestNonce": 705,
+  "pendingNonce": 705,
+  "gasPriceWei": "0x2faf080",
+  "blockGasLimit": "0x42c1d80",
+  "blockBaseFee": "0x0",
+  "mappingLogAudit": {
+    "fromBlock": 130215462,
+    "toBlock": 131573281,
+    "logCount": 17,
+    "approvedConstituents": [
+      "0x02fca66c1d1afb4e2a7884261eb00f63598a7436",
+      "0x205812cdbed920aff76c6580abd681a46d11efc7",
+      "0x2170ed0880ac9a755fd29b2688956bd959f933f8",
+      "0x21caef8a43163eea865baee23b9c2e327696a3bf",
+      "0x3f53de71c126bdabae20f9cd64848d317f6c3238",
+      "0x431a3bee82e2ca41e49895cbece5bb0f76a89b7a",
+      "0x46ceefda28dd7207059ed19b0acdc026955bb15c",
+      "0x4ef9d3062c7f6eba4aae4990c5036598c6eff4ec",
+      "0x5b1910eaad6450e50f816082aa078c41f10c292f",
+      "0x7130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c",
+      "0x7138b48df7d98d7e3cc221bfe7192d0a178182d8",
+      "0x80106cb3ead06659a5ad19df39d9b4733863b9b0",
+      "0x80f3d493ebce97e343c53d29a137942416b4ffc0",
+      "0xa394dcea3fd3847fd793afbfd163e2e3858b7c65",
+      "0xbe9d156892e55e7154bcd3cb0fea677f9d3103e1",
+      "0xca750ef65f295bbecd685abf54e82caf297bdb61"
+    ],
+    "optionalPoolFactories": {
+      "0x774a48ba391a1013ae43289ebdf871618822cd67": {
+        "name": "Trade Curation",
+        "maxRewardRatio": "8000",
+        "enabled": true
+      }
+    }
+  },
+  "reviewedSourceSha256": {
+    "src/pump/Pump19.sol": "9445690d2459589cbcfb066ef8c89623270eb8eddb25984e11107ce9e2b488bc",
+    "src/pump/Token19.sol": "8c8c4cd33e44193ed7f6f3230d268b3844cecb40a80bf8a468507ba58fa83804",
+    "src/hook/TagAISwapHook.sol": "9e5258c7e50b0dce0f5a82aed2818f4e40c85d865212d4391dd1486146214f37",
+    "src/router/TagAIBuybackRouter.sol": "f0b57ecd22fe52862913f0deaa0b1eff063ffc5070bc7af46713349395836cd7",
+    "script/DeployBSCPump19.s.sol": "9a70fe648b899d2ee6afa6caf19c26ac3752e6407991896ecf48287b450bb5dc",
+    "test/fork/Pump19Deployment.t.sol": "a57d418d154e6ce8e26f55f27b23223af23c7b988106f86a6498044f87924258"
+  },
+  "testEvidence": {
+    "local": {
+      "suites": 51,
+      "passed": 984,
+      "failed": 0,
+      "skipped": 2,
+      "version19Passed": 53
+    },
+    "fork": {
+      "test": "test/fork/Pump19Deployment.t.sol:Pump19DeploymentForkTest",
+      "compiles": true,
+      "completedSuccessfully": true,
+      "attempts": [
+        {
+          "source": "public BSC RPC",
+          "block": 131557033,
+          "result": "missing trie node while reading deployed NutboxRouter state"
+        },
+        {
+          "source": "configured BSC_RPC_URL",
+          "block": 131557330,
+          "blockHash": "0x2267830d70eee753c3f81b6cbe193d08b3f6100219ceb4ea49067b85cebef8e2",
+          "result": "interrupted after prolonged RPC wait; no successful test result"
+        },
+        {
+          "source": "configured Alchemy",
+          "result": "ECONNRESET before fork started"
+        },
+        {
+          "source": "configured Infura via temporary read-only curl relay, with Foundry proxy auto-detection disabled",
+          "block": 131557330,
+          "result": "PASS: 1 test, 0 failures, 0 skips; deployment and lifecycle complete"
+        }
+      ],
+      "usesPublicTestKeyOnly": true,
+      "ownerActionsLocalToForkOnly": true,
+      "blockNumber": 131557330,
+      "blockHash": "0x2267830d70eee753c3f81b6cbe193d08b3f6100219ceb4ea49067b85cebef8e2",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "testGasUsed": 37282139,
+      "testGasMeaning": "Foundry-reported test-function gas for creation, trading, Nutbox and listing. Deployment and activation run in setUp; this is not a deployment gas estimate.",
+      "transport": "Temporary read-only localhost relay to configured Infura using curl; fixed-block raw fork state reads only.",
+      "proxyAutoDetectionDisabled": true,
+      "evidenceLog": "previews/pump19-mainnet-fork-131557330.log",
+      "rpcAudit": "previews/pump19-mainnet-fork-131557330-rpc-audit.json",
+      "simulatedAddresses": {
+        "pump": "0x44CFe6831b26D1B45c9Bc54b2587fE145DEf8e2b",
+        "tokenImplementation": "0x3EE38ce48b00c24D9Ec1AbF458B9f346617A7761",
+        "hook": "0x33EEaD66520F6c68A0a1CD153cDae5cbedD00CC1",
+        "buybackRouter": "0x2B634fC265b6ead70A54dC016CB0044CEa9d8E0E"
+      },
+      "simulatedAddressesAreNotMainnetDeployments": true,
+      "validatedFlows": [
+        "Fresh Pump19/Token19/Hook/BuybackRouter deployment",
+        "Owner acceptance and Router/Registry activation only within the fork",
+        "Creation with prebuy and two component LP staking pools plus optional TradeCuration",
+        "First-15-second buy and automatic Nutbox injection",
+        "Unregistered-wallet sell and direct BNB buy",
+        "Forbidden wallet-to-wallet inner transfer",
+        "Direct Nutbox deposit and calculator injection",
+        "Fill bonding curve with independent wallets respecting the lifetime purchase limit",
+        "Real PancakeSwap V4/V2 listing and Basket creation",
+        "Normal transfer after listing"
+      ]
+    }
+  }
+}

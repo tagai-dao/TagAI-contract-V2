@@ -2,6 +2,21 @@
 
 本文档记录正式发布版本的源码提交、链上地址和部署批次，用于确认某一组线上合约对应的源码。
 
+## 2026-11-04 — Pump V19 与 Handle NFT 模板合入 main
+
+- 按用户确认，将 `bsc-version19` 中已提交的 Pump V19 实现、部署与多签激活材料，以及本次 Binance Handle NFT 修改、部署验证材料、运维脚本和测试一起合入 main。
+- Pump V19 与 NFT 分别记录：V19 已部署，原记录仍待浏览器验证与 Safe 激活；NFT 两个模板已部署并通过 BscScan 验证，仍待现有 Factory 的 2/3 Safe 注册。Git 合并不改变任何链上权限或生产应用状态。
+- 原 main 基准 `af06a05`，V19 原分支基准 `6c59774`。完整来源、检查结果及后续操作见[本次主分支发布说明](docs/BSC_MAIN_RELEASE_2026_11_04.md)与[发布清单](deployments/56/main-release-2026-11-04.json)。
+
+## 2026-11-04 — Binance Handle NFT 模板（已部署、验证，待 Safe 注册）
+
+- `IndexBrokerNFTBurn` 和 `IndexBrokerNFTStake` 的共享 Mint 入口要求 Binance Handle 注册表 `handleOf(msg.sender)` 非空，白名单和公开 Mint 均执行，注册表不可用时拒绝。初始化接口不变，转让、AMM 与奖励规则沿用原实现。
+- Burn：[`0x1cceCdED84c825e413F1849FdF55423D07Dc9ab6`](https://bscscan.com/address/0x1cceCdED84c825e413F1849FdF55423D07Dc9ab6#code)，部署区块 `131586660`；Stake：[`0x156C2A877069b0e50dC5A74C7d1612d70144B4C6`](https://bscscan.com/address/0x156C2A877069b0e50dC5A74C7d1612d70144B4C6#code)，部署区块 `131586670`。合计部署费用 `0.00052774175 BNB`。
+- 2026-11-04 两个模板均通过 BscScan 精确验证；31 个公开源码文件及编译设置逐项核对，Solidity `0.8.26+commit.8a97fa7a`、viaIR、优化 100 次、Cancun、metadata IPFS。
+- 复用现有 Factory `0x835E047D4BE6548E95F2Cbb9Ac02d62EFa2508A0`。区块 `131589995` 固定区块 Multicall 显示新模板均未注册；2/3 Safe 注册交易已准备并分别模拟，待多签执行。旧模板未移除，已有矿池不会自动升级。
+- NFT/回调单元回归 90 通过；部署读取与外部 Multicall 回归 13 通过。源文件摘要及精确 Standard JSON 固定真实部署源码，原部署基准提交保留，不把它误记为已包含本次 Mint 修改。
+- [业务说明](src/nutbox/dapps/index-broker-nft/README.md)、[部署与验证记录](docs/IndexBrokerHandleTemplatesDeployment.md)、[正式清单](deployments/56/index-broker-handle-templates.json)、[验证证据](deployments/56/index-broker-handle-templates-verification/manifest.json)、[Safe 注册文件](deployments/56/index-broker-handle-templates.safe.json)。
+
 ## 2026-11-02 — 合并 V18 / Agent Wrapper / ImportHelper V3 至 main
 
 - 合并来源：`bsc-version18` / `c03c0b0`（完整 SHA 见发布记录），合并前 main：`b1239a9`。非快进合并保留 15 个版本提交，纳入 V18、独立 AgentSwapWrapper v1、双 Wrapper ImportHelper V3、部署/验证/激活记录及测试。

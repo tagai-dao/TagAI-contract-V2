@@ -1,0 +1,50 @@
+{
+  "version": "1.0",
+  "chainId": "56",
+  "createdAt": 1793778155367,
+  "meta": {
+    "name": "Register Binance Handle-gated NFT templates",
+    "description": "Register new Burn and Stake templates on the existing Factory. Existing templates and pools remain available.",
+    "createdFromSafeAddress": "0x871fb7006C5964B21695Ba20006021777A26146C"
+  },
+  "transactions": [
+    {
+      "to": "0x835E047D4BE6548E95F2Cbb9Ac02d62EFa2508A0",
+      "value": "0",
+      "data": "0xa121eadd0000000000000000000000001ccecded84c825e413f1849fdf55423d07dc9ab6",
+      "contractMethod": {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "template",
+            "type": "address"
+          }
+        ],
+        "name": "addNFTTemplate",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "template": "0x1cceCdED84c825e413F1849FdF55423D07Dc9ab6"
+      }
+    },
+    {
+      "to": "0x835E047D4BE6548E95F2Cbb9Ac02d62EFa2508A0",
+      "value": "0",
+      "data": "0xa121eadd000000000000000000000000156c2a877069b0e50dc5a74c7d1612d70144b4c6",
+      "contractMethod": {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "template",
+            "type": "address"
+          }
+        ],
+        "name": "addNFTTemplate",
+        "payable": false
+      },
+      "contractInputsValues": {
+        "template": "0x156C2A877069b0e50dC5A74C7d1612d70144B4C6"
+      }
+    }
+  ]
+}

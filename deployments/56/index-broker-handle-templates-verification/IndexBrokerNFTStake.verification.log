@@ -1,0 +1,17 @@
+Start verifying contract `0x156C2A877069b0e50dC5A74C7d1612d70144B4C6` deployed on bsc
+Compiler version: 0.8.26+commit.8a97fa7a
+Optimizations:    100
+
+Submitting verification for [src/nutbox/dapps/index-broker-nft/IndexBrokerNFT.sol:IndexBrokerNFTStake] 0x156C2A877069b0e50dC5A74C7d1612d70144B4C6.
+Submitted contract for verification:
+	Response: `OK`
+	GUID: `dsfcgytxauc9gtplusvb49tajuuzehvpjujhemw2kqc7jrqurj`
+	URL: https://bscscan.com/address/0x156c2a877069b0e50dc5a74c7d1612d70144b4c6
+Contract verification status:
+Response: `NOTOK`
+Details: `Pending in queue`
+Warning: Verification is still pending...; waiting 15 seconds before trying again (7 tries remaining)
+Contract verification status:
+Response: `OK`
+Details: `Pass - Verified`
+Contract successfully verified

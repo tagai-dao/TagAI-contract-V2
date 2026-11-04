@@ -1,0 +1,41 @@
+{
+  "status": "passed-local-fork-only",
+  "mainnetTransactions": false,
+  "blockNumber": 131574974,
+  "blockHash": "0x206a74e7b155fb34beb93fbe61475e2ed3e8abb97237f1565b1e1f5ff9d73a18",
+  "operations": 5,
+  "passed": 1,
+  "failed": 0,
+  "skipped": 0,
+  "testSource": "test/fork/Pump19Activation.t.sol",
+  "testSourceSha256": "a708865868ab71725d821511c313ffe2fc305a23ad18cc75efc67ab68e313c85",
+  "logSha256": "de8c14c2888ed7de8422b874f1da750ff6e05cc75b162818e59400865c0977e5",
+  "rpcAudit": {
+    "source": "configured BSC_RPC_URL via curl",
+    "block": 131574974,
+    "blockTag": "0x7d7acbe",
+    "blockHash": "0x206a74e7b155fb34beb93fbe61475e2ed3e8abb97237f1565b1e1f5ff9d73a18",
+    "methods": {
+      "eth_getBlockByNumber": 1,
+      "eth_getBalance": 10,
+      "eth_getTransactionCount": 10,
+      "eth_getCode": 10,
+      "eth_getStorageAt": 20
+    },
+    "upstream": 52,
+    "cacheHits": 1,
+    "rejected": [
+      {
+        "method": "eth_getAccountInfo",
+        "reason": "READ_ONLY_RELAY_REJECTED"
+      }
+    ],
+    "startedAt": "2026-11-04T06:15:30.205Z",
+    "exitCode": 0,
+    "timedOut": false,
+    "cacheEntries": 52,
+    "finishedAt": "2026-11-04T06:16:11.301Z"
+  },
+  "safeFileSha256": "259b88844edebb90474237519438a3cd56d64b09cca2cde52b7d0f9ee64080f0",
+  "limitations": "Executes exact owner calldata using vm.prank in disposable fork. Does not simulate Safe signature validation or submit/sign/execute any mainnet activation."
+}
