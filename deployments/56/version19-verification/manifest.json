@@ -1,0 +1,55 @@
+{
+  "status": "prepared-not-uploaded",
+  "generationMethod": "Exact compiler metadata settings and hashed source contents; locally recompiled with full solc 0.8.26; creation/runtime bytecode including metadata matches deployment artifacts",
+  "bytecodeReproduction": true,
+  "contracts": [
+    {
+      "name": "Pump19",
+      "address": "0x94c5293001C57727291fd4865107F0B34eED471F",
+      "fqn": "src/pump/Pump19.sol:Pump19",
+      "status": "exported-not-uploaded",
+      "standardJson": "deployments/56/version19-verification/Pump19.standard-json.json",
+      "standardJsonSha256": "ae556104d7994d0d8fe6d7fbb50297877bfb469b67936eff5958116db362cb47",
+      "sourceFileCount": 57,
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "sourceCommit": "d5c9a80c42603375f5921fb8fcf0948269ad1d31",
+      "constructorArgs": "0x00000000000000000000000095450aad4cc195e03bb4791b7f6f04ac6d9ba92200000000000000000000000006deb72b2e156ddd383651ac3d2dab5892d9c0480000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000002170ed0880ac9a755fd29b2688956bd959f933f80000000000000000000000007130d2a12b9bcbfae4f2634d864a1ee1ce3ead9c000000000000000000000000205812cdbed920aff76c6580abd681a46d11efc7000000000000000000000000be9d156892e55e7154bcd3cb0fea677f9d3103e1000000000000000000000000431a3bee82e2ca41e49895cbece5bb0f76a89b7a000000000000000000000000ca750ef65f295bbecd685abf54e82caf297bdb610000000000000000000000007138b48df7d98d7e3cc221bfe7192d0a178182d800000000000000000000000021caef8a43163eea865baee23b9c2e327696a3bf00000000000000000000000002fca66c1d1afb4e2a7884261eb00f63598a74360000000000000000000000005b1910eaad6450e50f816082aa078c41f10c292f00000000000000000000000080106cb3ead06659a5ad19df39d9b4733863b9b0000000000000000000000000a394dcea3fd3847fd793afbfd163e2e3858b7c650000000000000000000000004ef9d3062c7f6eba4aae4990c5036598c6eff4ec00000000000000000000000046ceefda28dd7207059ed19b0acdc026955bb15c0000000000000000000000003f53de71c126bdabae20f9cd64848d317f6c323800000000000000000000000080f3d493ebce97e343c53d29a137942416b4ffc0"
+    },
+    {
+      "name": "Token19",
+      "address": "0x63386f6BFa34a3341509312023dDF5dcEFA14fFB",
+      "fqn": "src/pump/Token19.sol:Token19",
+      "status": "exported-not-uploaded",
+      "standardJson": "deployments/56/version19-verification/Token19.standard-json.json",
+      "standardJsonSha256": "031dc7878ac25fcf934ed9ffc67422a3167eeb46023478763f9cfd01a9663633",
+      "sourceFileCount": 49,
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "sourceCommit": "d5c9a80c42603375f5921fb8fcf0948269ad1d31",
+      "constructorArgs": "0x"
+    },
+    {
+      "name": "TagAISwapHook",
+      "address": "0x28D5dA2FD4d0AAAdb72F48540CE2Ff2426950cc1",
+      "fqn": "src/hook/TagAISwapHook.sol:TagAISwapHook",
+      "status": "exported-not-uploaded",
+      "standardJson": "deployments/56/version19-verification/TagAISwapHook.standard-json.json",
+      "standardJsonSha256": "295f7d2eb5bca136c313893b99dc20a51c1102789302cdde86c7c6f67d30382c",
+      "sourceFileCount": 45,
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "sourceCommit": "d5c9a80c42603375f5921fb8fcf0948269ad1d31",
+      "constructorArgs": "0x000000000000000000000000a0ffb9c1ce1fe56963b0321b32e7a0302114058b000000000000000000000000238a358808379702088667322f80ac48bad5e6c400000000000000000000000094c5293001c57727291fd4865107f0b34eed471f"
+    },
+    {
+      "name": "TagAIBuybackRouter",
+      "address": "0x93220081F6c98AfFC673CB2584C2e123d88a8E87",
+      "fqn": "src/router/TagAIBuybackRouter.sol:TagAIBuybackRouter",
+      "status": "exported-not-uploaded",
+      "standardJson": "deployments/56/version19-verification/TagAIBuybackRouter.standard-json.json",
+      "standardJsonSha256": "754c14622f76a687e3c183ec9d07884185cd1ce48e3243b11754d0db48b4f4b8",
+      "sourceFileCount": 8,
+      "compiler": "0.8.26+commit.8a97fa7a",
+      "sourceCommit": "d5c9a80c42603375f5921fb8fcf0948269ad1d31",
+      "constructorArgs": "0x00000000000000000000000094c5293001c57727291fd4865107f0b34eed471f00000000000000000000000072dc4f38a7e4159e97d826a6ab594748c6b68f17000000000000000000000000538e4b82d4a9e671b9358e1bac3f7b74bd66354400000000000000000000000055d398326f99059ff775485246999027b3197955"
+    }
+  ]
+}
