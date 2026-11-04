@@ -250,7 +250,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
         committee.adminAddContract(address(calculator));
         committee.adminAddContract(address(stakingFactory));
         ipshare = new IPShare(feeReceiver);
-        pump = new Pump(address(ipshare), feeReceiver, new address[](0), address(0));
+        pump = _deployPump();
         vault = new MockVault();
         manager = new MockCLPoolManager();
         pump.adminSetPoolManager(address(manager));
@@ -272,6 +272,10 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
         uint256 creationValue = 0.005 ether + ipshare.createFee();
         vm.prank(creator, creator);
         token = Token(payable(pump.createToken{value: creationValue}("V13", bytes32(0), _config())));
+    }
+
+    function _deployPump() internal virtual returns (Pump) {
+        return new Pump(address(ipshare), feeReceiver, new address[](0), address(0));
     }
 
     function _config() internal view returns (IPump.IndexConfig memory c) {
@@ -606,7 +610,7 @@ contract PumpVersion13Test is HandleRegistryTestSetup {
         assertFalse(premine.listed());
     }
 
-    function _list() internal returns (uint256 nativeSeed, uint256 tokenSeed, uint256 raisedNative) {
+    function _list() internal virtual returns (uint256 nativeSeed, uint256 tokenSeed, uint256 raisedNative) {
         uint160 price = 225060284636549774439465527763777;
         uint128 liquidity = 52804626975085827442929;
         nativeSeed = SqrtPriceMath.getAmount0Delta(price, TickMath.getSqrtRatioAtTick(191940), liquidity, true);

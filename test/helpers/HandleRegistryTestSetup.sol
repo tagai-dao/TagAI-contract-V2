@@ -28,7 +28,7 @@ abstract contract HandleRegistryTestSetup is Test {
     }
 
     /// @dev Fill through real capped buys by distinct registered wallets, then consolidate holdings.
-    function _fillInnerMarket(Token target, address recipient) internal {
+    function _fillInnerMarket(Token target, address recipient) internal virtual {
         vm.warp(target.createdAt() + 16);
         uint256 cap = 650_000_000 ether;
         while (target.bondingCurveSupply() < cap) {
