@@ -14,6 +14,7 @@ import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTAMM.sol";
 import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTFactory.sol";
 import "../../src/router/NutboxRouter.sol";
 import "../../src/nutbox/dapps/index-broker-nft/IndexBrokerNFTRenderer.sol";
+import {MockHandleRegistry} from "../helpers/HandleRegistryTestSetup.sol";
 
 contract IndexBrokerCommunityToken is ERC20 {
     bool public listed;
@@ -351,6 +352,12 @@ contract IndexBrokerNFTTest is Test {
 
     function setUp() public {
         vm.warp(3_600);
+        address registry = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
+        vm.etch(registry, type(MockHandleRegistry).runtimeCode);
+        MockHandleRegistry(registry).setHandle(address(this), "admin.ai");
+        MockHandleRegistry(registry).setHandle(whitelistUser1, "whitelist1.ai");
+        MockHandleRegistry(registry).setHandle(whitelistUser2, "whitelist2.ai");
+        MockHandleRegistry(registry).setHandle(paidUser, "paid.ai");
 
         committee = new Committee(payable(platformTreasury));
         committee.adminSetCreateCommunityFee(0);
@@ -446,6 +453,107 @@ contract IndexBrokerNFTTest is Test {
         _fundAndApprove(whitelistUser1, pool);
         _fundAndApprove(whitelistUser2, pool);
         _fundAndApprove(paidUser, pool);
+    }
+
+    function test_WhitelistMintRequiresHandleBeforePaymentOrAllowanceConsumption() public {
+        MockHandleRegistry(pool.HANDLE_REGISTRY()).setHandle(whitelistUser1, "");
+        uint256 tokenBalance = communityToken.balanceOf(whitelistUser1);
+        uint256 nativeBalance = whitelistUser1.balance;
+
+        vm.expectCall(pool.HANDLE_REGISTRY(), abi.encodeCall(IHandleRegistry.handleOf, (whitelistUser1)));
+        vm.expectRevert(abi.encodeWithSelector(IndexBrokerNFTBase.HandleNotRegistered.selector, whitelistUser1));
+        vm.prank(whitelistUser1);
+        pool.mint{value: NATIVE_PRICE}(0);
+
+        assertEq(pool.nextTokenId(), 0);
+        assertEq(pool.totalSupply(), 0);
+        assertEq(pool.whitelistMintedBy(whitelistUser1), 0);
+        assertEq(pool.whitelistMinted(), 0);
+        assertEq(pool.getTotalStakedAmount(), 0);
+        assertEq(communityToken.balanceOf(whitelistUser1), tokenBalance);
+        assertEq(communityToken.balanceOf(address(amm)), 0);
+        assertEq(whitelistUser1.balance, nativeBalance);
+
+        MockHandleRegistry(pool.HANDLE_REGISTRY()).setHandle(whitelistUser1, "new.ai");
+        assertEq(_mintWhitelist(whitelistUser1, 0, 0), 1);
+    }
+
+    function test_PaidMintChecksCallerEvenWithRegisteredOriginAndReferrer() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        MockHandleRegistry(pool.HANDLE_REGISTRY()).setHandle(paidUser, "");
+        uint256 tokenBalance = communityToken.balanceOf(paidUser);
+        uint256 nativeBalance = paidUser.balance;
+
+        vm.expectCall(pool.HANDLE_REGISTRY(), abi.encodeCall(IHandleRegistry.handleOf, (paidUser)));
+        vm.expectRevert(abi.encodeWithSelector(IndexBrokerNFTBase.HandleNotRegistered.selector, paidUser));
+        vm.prank(paidUser, whitelistUser1);
+        pool.mint{value: NATIVE_PRICE}(1);
+
+        assertEq(pool.totalSupply(), 1);
+        assertEq(pool.paidMinted(), 0);
+        assertEq(pool.getNFTInfo(1).referralCount, 0);
+        assertEq(communityToken.balanceOf(paidUser), tokenBalance);
+        assertEq(paidUser.balance, nativeBalance);
+        assertEq(communityToken.balanceOf(address(amm)), COMMUNITY_TOKEN_PRICE);
+    }
+
+    function test_StakeTemplateAlsoRequiresHandleToMint() public {
+        IndexBrokerNFTStake stakePool = _addStakePool();
+        communityToken.approve(address(stakePool), type(uint256).max);
+        MockHandleRegistry(stakePool.HANDLE_REGISTRY()).setHandle(address(this), "");
+
+        vm.expectRevert(abi.encodeWithSelector(IndexBrokerNFTBase.HandleNotRegistered.selector, address(this)));
+        stakePool.mint(0);
+        assertEq(stakePool.totalSupply(), 0);
+        assertEq(stakePool.whitelistMintedBy(address(this)), 0);
+        assertEq(communityToken.balanceOf(stakePool.ammVault()), 0);
+
+        MockHandleRegistry(stakePool.HANDLE_REGISTRY()).setHandle(address(this), "stake.ai");
+        assertEq(stakePool.mint(0), 1);
+    }
+
+    function test_HandleIsCheckedAgainForEveryMint() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        MockHandleRegistry(pool.HANDLE_REGISTRY()).setHandle(whitelistUser1, "");
+
+        vm.expectRevert(abi.encodeWithSelector(IndexBrokerNFTBase.HandleNotRegistered.selector, whitelistUser1));
+        _mintWhitelist(whitelistUser1, 0, 0);
+        assertEq(pool.totalSupply(), 1);
+        assertEq(pool.whitelistMintedBy(whitelistUser1), 1);
+    }
+
+    function test_HandleRegistryFailureDoesNotAllowMint() public {
+        vm.mockCallRevert(
+            pool.HANDLE_REGISTRY(), abi.encodeCall(IHandleRegistry.handleOf, (paidUser)), bytes("REGISTRY_UNAVAILABLE")
+        );
+        vm.expectRevert(bytes("REGISTRY_UNAVAILABLE"));
+        _mintPaid(paidUser, 0);
+        assertEq(pool.totalSupply(), 0);
+        assertEq(pool.paidMinted(), 0);
+    }
+
+    function test_MissingHandleRegistryDoesNotAllowMint() public {
+        vm.etch(pool.HANDLE_REGISTRY(), hex"");
+        vm.expectRevert();
+        _mintPaid(paidUser, 0);
+        assertEq(pool.totalSupply(), 0);
+    }
+
+    function test_HandleRestrictionOnlyAppliesToMint() public {
+        _mintWhitelist(whitelistUser1, 0, 0);
+        MockHandleRegistry(pool.HANDLE_REGISTRY()).setHandle(whitelistUser1, "");
+        MockHandleRegistry(pool.HANDLE_REGISTRY()).setHandle(paidUser, "");
+
+        vm.prank(whitelistUser1);
+        pool.transferFrom(whitelistUser1, paidUser, 1);
+        assertEq(pool.ownerOf(1), paidUser);
+
+        vm.startPrank(paidUser);
+        pool.approve(address(amm), 1);
+        amm.sellNFT{value: amm.quoteNormalNativeFee()}(1);
+        amm.buyNextNFT{value: amm.quoteNormalNativeFee()}();
+        vm.stopPrank();
+        assertEq(pool.ownerOf(1), paidUser);
     }
 
     function test_InitializationUsesCommunityTokenAndHasNoBatchConfiguration() public view {

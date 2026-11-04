@@ -496,6 +496,17 @@ BSC 独立 Router 部署脚本使用 [`BSCNutboxRouterConfig.sol`](../../../../s
 
 ## 8. 铸造 NFT
 
+Burn 和 Stake 模板的每次 `mint` 都会先查询 BSC Binance Handle 注册表
+`0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F` 的 `handleOf(msg.sender)`。
+只有返回非空 handle 的实际调用地址才能铸造；白名单和公开铸造均无豁免，
+不使用 `tx.origin` 或推荐 NFT 持有人的身份代替。空 handle 会触发
+`HandleNotRegistered(account)`，注册表不可用时交易失败，且不会扣款或消耗白名单额度。
+该限制只作用于新 NFT 铸造，转让、AMM 买卖和挖矿领取沿用原规则。
+
+初始化接口保持不变，可将新版 Burn/Stake 模板通过现有 Factory 的
+`addNFTTemplate` 注册，创建新矿池时选择新版模板；按需移除旧模板以停止创建旧版池。
+已创建的 clone 不会随模板注册而升级，其 Mint 规则仍由原实现决定。
+
 
 
 ### 8.1 授权

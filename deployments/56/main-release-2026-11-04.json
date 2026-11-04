@@ -1,0 +1,68 @@
+{
+  "release": "BSC main source integration 2026-11-04",
+  "status": "prepared-for-main-merge",
+  "recordedAt": "2026-11-04T08:12:43.334193+00:00",
+  "sourceBranch": "bsc-version19",
+  "previousMain": "af06a050be4643c72f75b64d9b023bf39d16f3c6",
+  "v19SourceBranchBase": "6c597746a978075a1b260bb056af6dbcb386fef1",
+  "sourceTip": null,
+  "scope": [
+    "All committed Pump V19 changes on bsc-version19",
+    "Binance Handle-gated NFT templates and regression tests",
+    "NFT deployment, BscScan verification, Safe registration package and operations tools",
+    "Release documentation and test evidence"
+  ],
+  "excludedWorkingTreeWork": [
+    "AtomicArbitrage and LiveWalletRoutes untracked files"
+  ],
+  "deployments": {
+    "v19": {
+      "record": "deployments/56/version19.json",
+      "sourceCommit": "d5c9a80c42603375f5921fb8fcf0948269ad1d31",
+      "status": "deployed-pending-owner-activation-and-source-verification",
+      "safeFile": "deployments/56/version19.safe.json"
+    },
+    "nft": {
+      "record": "deployments/56/index-broker-handle-templates.json",
+      "deploymentSourceBase": "6c597746a978075a1b260bb056af6dbcb386fef1",
+      "sourceArchive": "Exact source SHA-256 and Standard JSON; Mint change committed after deployment",
+      "sourceVerification": "verified",
+      "factoryRegistration": "pending-safe-execution",
+      "stateBlock": 131589995,
+      "safeFile": "deployments/56/index-broker-handle-templates.safe.json"
+    }
+  },
+  "validation": {
+    "contracts": {
+      "command": "BSC_RPC_URL='' FOUNDRY_ETH_RPC_URL='' forge test --offline --no-match-path 'test/fork/*' --no-match-contract 'CommentMarketsForkTest|AtomicArbitrageTest'",
+      "suites": 51,
+      "passed": 991,
+      "failed": 0,
+      "skipped": 2,
+      "log": "deployments/56/main-release-2026-11-04-tests/contracts.log"
+    },
+    "ops": {
+      "command": "node --test script/ops/*.test.cjs",
+      "passed": 45,
+      "failed": 0,
+      "log": "deployments/56/main-release-2026-11-04-tests/ops.log"
+    },
+    "deployedSources": {
+      "nft": {
+        "sourceFileCount": 31,
+        "allSha256Match": true
+      },
+      "v19": {
+        "sourceFileCount": 61,
+        "allSha256Match": true
+      }
+    },
+    "credentialsScan": "No local private keys, API keys, passwords or RPC credentials found in release files"
+  },
+  "releaseBoundaries": {
+    "onChainTransactionsDuringMerge": false,
+    "safeTransactionsExecutedDuringMerge": false,
+    "applicationsDeployed": false,
+    "forkTestsRerun": false
+  }
+}

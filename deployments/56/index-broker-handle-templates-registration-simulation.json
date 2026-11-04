@@ -1,0 +1,32 @@
+{
+  "status": "prepared-not-signed-not-executed",
+  "blockNumber": 131586755,
+  "blockHash": "0xbae8b884691d4611355b7f09bee2036efd94e9797d9bdc53df5b925a77f8e205",
+  "safe": {
+    "address": "0x871fb7006C5964B21695Ba20006021777A26146C",
+    "threshold": "2",
+    "owners": [
+      "0xA2432110Bf31AEC4Ba3d2a80A1b664D49999B736",
+      "0xFfC61fF4dC3307d0762A87C5D001dF0EA09B6035",
+      "0xCCb2557246E89216b7D2448cdb7C42E382b753Ae"
+    ],
+    "nonce": "49"
+  },
+  "simulations": [
+    {
+      "from": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "to": "0x835E047D4BE6548E95F2Cbb9Ac02d62EFa2508A0",
+      "data": "0xa121eadd0000000000000000000000001ccecded84c825e413f1849fdf55423d07dc9ab6",
+      "blockTag": "0x7d7dac3",
+      "result": "0x"
+    },
+    {
+      "from": "0x871fb7006C5964B21695Ba20006021777A26146C",
+      "to": "0x835E047D4BE6548E95F2Cbb9Ac02d62EFa2508A0",
+      "data": "0xa121eadd000000000000000000000000156c2a877069b0e50dc5a74c7d1612d70144b4c6",
+      "blockTag": "0x7d7dac3",
+      "result": "0x"
+    }
+  ],
+  "limitation": "Individual state-changing owner calls simulated; Safe batch signatures are not available."
+}

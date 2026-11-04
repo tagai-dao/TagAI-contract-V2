@@ -17,6 +17,7 @@ import "../../interfaces/ICommittee.sol";
 import "../../interfaces/IPool.sol";
 import "./IIndexBrokerNFT.sol";
 import "./IIndexBrokerNFTRenderer.sol";
+import {IHandleRegistry} from "../../../interfaces/IHandleRegistry.sol";
 
 interface ICommunityCommittee {
     function committee() external view returns (address);
@@ -50,6 +51,8 @@ abstract contract IndexBrokerNFTBase is ERC721Enumerable, IPool, Initializable, 
     using SafeERC20 for IERC20;
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
+    /// @notice BSC Binance Handle registry; every minter, including whitelist accounts, must be registered.
+    address public constant HANDLE_REGISTRY = 0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F;
     uint256 public constant INDEX_WEIGHT_RETENTION_BPS = 8_000;
     uint256 public constant ACC_PRECISION = 1e12;
     uint256 public constant INDEX_REWARD_PRECISION = 1e24;
@@ -186,6 +189,7 @@ abstract contract IndexBrokerNFTBase is ERC721Enumerable, IPool, Initializable, 
     event ContractURIUpdated();
 
     error InvalidAddress();
+    error HandleNotRegistered(address account);
     error InvalidText();
     error InvalidLevelConfig();
     error InvalidMintConfig();
@@ -340,6 +344,9 @@ abstract contract IndexBrokerNFTBase is ERC721Enumerable, IPool, Initializable, 
     // ─────────────────────────────────── Mint ──────────────────────────────────
 
     function mint(uint256 referrerTokenId) external payable nonReentrant returns (uint256 tokenId) {
+        if (bytes(IHandleRegistry(HANDLE_REGISTRY).handleOf(msg.sender)).length == 0) {
+            revert HandleNotRegistered(msg.sender);
+        }
         if (!ICommunity(community).poolActived(address(this))) revert PoolIsInactive();
         if (nextTokenId >= maxSupply) revert MaxSupplyReached();
 
