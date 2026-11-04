@@ -56,7 +56,8 @@ async function broadcast(env,pre,provider){
  const plan=JSON.parse(fs.readFileSync(PLAN));equal(checkSources(),plan.sourceCommit,'deployment commit');validateRun({transactions:plan.transactions},pre);
  const wallet=new ethers.Wallet(env.PRIVATE_KEY_MAIN);equal(wallet.address,plan.deployer,'deployment wallet');
  const block=await provider.send('eth_getBlockByNumber',['latest',false]);const pin=Number(BigInt(block.number));const fresh=await preflight(provider,pin,plan.deployer);equal(fresh.configuration,pre.configuration,'preserved V18 configuration');equal(fresh.constituents,pre.constituents,'V18 constituent catalogue');equal(fresh.safe.address,pre.targetOwner,'target Safe');
- const changes=await provider.send('eth_getLogs',[{address:PREVIOUS,fromBlock:ethers.toQuantity(pre.blockNumber+1),toBlock:ethers.toQuantity(pin)}]);if(changes.length)throw Error('V18 emitted new configuration/events after preflight; recheck before broadcasting');
+ const eventABI=new ethers.Interface(['event ConstituentApprovalSet(address indexed asset,bool approved)','event OptionalPoolFactorySet(address indexed factory,string name,uint16 maxRewardRatio,bool enabled)']);
+ const changes=pin>pre.blockNumber?await provider.send('eth_getLogs',[{address:PREVIOUS,fromBlock:ethers.toQuantity(pre.blockNumber+1),toBlock:ethers.toQuantity(pin),topics:[[eventABI.getEvent('ConstituentApprovalSet').topicHash,eventABI.getEvent('OptionalPoolFactorySet').topicHash]]}]):[];if(changes.length)throw Error('V18 emitted new configuration/events after preflight; recheck before broadcasting');
  if(BigInt(fresh.balanceWei)<BigInt(plan.maxFeeWei))throw Error('Insufficient BNB gas budget');
  const currentGas=BigInt(await provider.send('eth_gasPrice',[]));if(currentGas>BigInt(plan.gasPriceWei))throw Error('Gas quote increased; recheck approved plan');
  const pending=Number(BigInt(await provider.send('eth_getTransactionCount',[plan.deployer,'pending'])));

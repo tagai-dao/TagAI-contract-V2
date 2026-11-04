@@ -30,7 +30,7 @@ class CurlRpc {
  constructor(url){this.url=url;this.authorizedRaw=new Set();}
  authorizeRaw(hash){this.authorizedRaw.add(hash.toLowerCase());}
  async send(method,params){
-  for(let attempt=0;;attempt++){try{return await this.sendOnce(method,params)}catch(e){if(method==='eth_sendRawTransaction'||attempt>=3||!(String(e.code).startsWith('CURL_')||e.message==='RPC invalid JSON'))throw e;}}
+  for(let attempt=0;;attempt++){try{return await this.sendOnce(method,params)}catch(e){if(method==='eth_sendRawTransaction'||attempt>=3||!(String(e.code).startsWith('CURL_')||e.message==='RPC invalid JSON'||e.message==='RPC missing result'))throw e;}}
  }
  async sendOnce(method,params){
   if(method==='eth_sendRawTransaction'){
@@ -69,10 +69,10 @@ async function preflight(provider,pin,deployer){
 }
 async function auditMappings(provider,data){
  const events=new ethers.Interface(['event ConstituentApprovalSet(address indexed asset,bool approved)','event OptionalPoolFactorySet(address indexed factory,string name,uint16 maxRewardRatio,bool enabled)']);
- const logs=[],chunks=[];const span=1000,cache='previews/version19-v18-mapping-logs.ndjson',saved=new Map();
+ const logs=[],chunks=[];const span=5000,cache='previews/version19-v18-mapping-logs.ndjson',saved=new Map();
  if(fs.existsSync(cache))for(const row of fs.readFileSync(cache,'utf8').split('\n').filter(Boolean)){const x=JSON.parse(row);saved.set(x.key,x.logs)}
  for(let start=130215462;start<=data.blockNumber;start+=span)chunks.push([start,Math.min(data.blockNumber,start+span-1)]);
- let next=0,done=0;async function worker(){for(;;){const i=next++;if(i>=chunks.length)return;const[start,end]=chunks[i],key=start+':'+end;let rows=saved.get(key);if(!rows){rows=await provider.send('eth_getLogs',[{address:PREVIOUS,fromBlock:ethers.toQuantity(start),toBlock:ethers.toQuantity(end),topics:[[events.getEvent('ConstituentApprovalSet').topicHash,events.getEvent('OptionalPoolFactorySet').topicHash]]}]);fs.appendFileSync(cache,JSON.stringify({key,logs:rows})+'\n')}logs.push(...rows);if(++done%100===0)console.log(JSON.stringify({phase:'mapping-log-audit',completed:done,total:chunks.length}));}}
+ let next=0,done=0;async function worker(){for(;;){const i=next++;if(i>=chunks.length)return;const[start,end]=chunks[i],key=start+':'+end;let rows=saved.get(key);if(!rows){rows=await provider.send('eth_getLogs',[{address:PREVIOUS,fromBlock:ethers.toQuantity(start),toBlock:ethers.toQuantity(end),topics:[[events.getEvent('ConstituentApprovalSet').topicHash,events.getEvent('OptionalPoolFactorySet').topicHash]]}]);fs.appendFileSync(cache,JSON.stringify({key,logs:rows})+'\n')}logs.push(...rows);if(++done%25===0)console.log(JSON.stringify({phase:'mapping-log-audit',completed:done,total:chunks.length}));}}
  const workers=await Promise.allSettled(Array.from({length:8},worker));for(const w of workers)if(w.status==='rejected')throw w.reason;
  const approvals=new Map(),factories=new Map();
  logs.sort((a,b)=>Number(BigInt(a.blockNumber)-BigInt(b.blockNumber))||Number(BigInt(a.logIndex)-BigInt(b.logIndex)));
