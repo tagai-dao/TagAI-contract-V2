@@ -22,7 +22,7 @@
 
 编译配置沿用 Foundry 默认 profile：Solidity 0.8.26、viaIR、optimizer runs 100、Cancun（以最终产物设置为准）。主网广播前固定源码提交、导出 Standard JSON、核对合约大小和部署模拟；不得从测试地址推断正式部署地址。
 
-本次是本地实现，**没有主网部署、权限激活、数据库迁移、Graph 发布或应用发布**。前后端 V19 地址留空并拒绝返回可用创建配置；不会静默改用 V14/V18。代码发布会使默认创建等待 V19，必须完成以下接入后一起上线。
+本地实现阶段未执行主网操作；当前正式部署状态以文末“BSC 主网部署完成”及 `deployments/56/version19.json` 为准。多签权限激活、数据库迁移、Graph 发布和应用发布尚未执行。前后端 V19 地址留空并拒绝返回可用创建配置；不会静默改用 V14/V18。代码发布会使默认创建等待 V19，必须完成以下接入后一起上线。
 
 1. 广播新的 V19 四合约部署并保存成功回执、实际地址、部署区块、源码提交和散列，完成源码验证。
 2. 多签授权 NutboxRouter operator、BasketRegistry creator forwarder，接收 Pump owner；核验交易执行证据及固定块链上状态。
@@ -84,3 +84,18 @@ BSC 区块 131553338（`0x7d7583a`）通过 `0xcA11bde05977b3631167028862bE2a173
 结果、RPC 方法审计和完整成功日志位于 `previews/pump19-deployment-readiness-2026-11-04.json`、`previews/pump19-mainnet-fork-131557330-rpc-audit.json`、`previews/pump19-mainnet-fork-131557330.log`。四合约的 61 份真实编译源码逐一核对并记录于 `previews/pump19-readiness-source-manifest.json`。日志中地址均为 **fork 模拟地址，不能用于主网或应用配置**；Foundry 报告的测试函数 gas 为 37,282,139，覆盖创建及后续生命周期；部署和权限激活在 setUp 中执行，不计入该数值，不能当作部署 gas 估算。
 
 当前结论：合约已通过部署与主网集成预演，可以进入正式部署流程。广播前仍需固定正式源码版本并核验实际部署账户、nonce、余额和 gas；实际部署、源码验证、多签权限激活与应用发布分别记录。此前“主网 fork 未完成”的描述属于前序复核状态，现以本节结果为准。
+
+## BSC 主网部署完成（2026-11-04）
+
+7 笔交易均成功，nonce 705–711，区块 131574789–131574877。部署账户 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`；gas price 0.05 Gwei，实际共 13724888 gas / 0.0006862444 BNB。账户部署后 nonce 712，无待处理交易，余额 0.00211109547238798 BNB。
+
+- Pump19：`0x94c5293001C57727291fd4865107F0B34eED471F`
+- Token19 模板：`0x63386f6BFa34a3341509312023dDF5dcEFA14fFB`
+- Hook：`0x28D5dA2FD4d0AAAdb72F48540CE2Ff2426950cc1`
+- BuybackRouter：`0x93220081F6c98AfFC673CB2584C2e123d88a8E87`
+
+正式业务源码提交：`d5c9a80c42603375f5921fb8fcf0948269ad1d31`。固定块 131574974 已核验四个 runtime（Hook/Buyback 的 immutable 字段结合 getter 核对），Pump/Token 与本地产物逐字节一致；V18 既有配置和权限保留。
+
+导入 `deployments/56/version19.safe.json`，同一 2/3 Safe 执行 5 项操作；详见 `docs/PumpVersion19Multisig.md`。实际部署地址及导出 calldata 已通过一次真实代码 fork 激活演练（1 通过、0 失败），未模拟 Safe 签名、未提交提案、未在主网激活。
+
+Standard JSON 已导出至 `deployments/56/version19-verification/`，完整 solc 0.8.26 本地重编译验证了字节码含 metadata 一致；尚未上传浏览器验证。前后端地址接入、Graph/keeper 更新及发布需在权限激活后继续，Binance V18 保留。

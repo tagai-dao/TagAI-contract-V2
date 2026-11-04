@@ -30,7 +30,7 @@ class CurlRpc {
  constructor(url){this.url=url;this.authorizedRaw=new Set();}
  authorizeRaw(hash){this.authorizedRaw.add(hash.toLowerCase());}
  async send(method,params){
-  for(let attempt=0;;attempt++){try{return await this.sendOnce(method,params)}catch(e){if(method==='eth_sendRawTransaction'||attempt>=3||!(String(e.code).startsWith('CURL_')||e.message==='RPC invalid JSON'||e.message==='RPC missing result'))throw e;}}
+  for(let attempt=0;;attempt++){try{return await this.sendOnce(method,params)}catch(e){if(method==='eth_sendRawTransaction'||attempt>=3||!(String(e.code).startsWith('CURL_')||e.code===-32603||e.code===-32005||e.code===429||e.message==='RPC invalid JSON'||e.message==='RPC missing result'))throw e;}}
  }
  async sendOnce(method,params){
   if(method==='eth_sendRawTransaction'){
@@ -97,7 +97,7 @@ async function main(){
  for(const [file,hash]of Object.entries(readiness.sourceSha256))if(sha(file)!==hash)throw Error('Reviewed source changed: '+file);
  data.reviewedSourceSha256=readiness.sourceSha256;data.testEvidence={local:readiness.localTests,fork:readiness.mainnetFork};
  fs.writeFileSync('deployments/56/version19-deployment-preflight.json',json(data));
- console.log(JSON.stringify({file:'deployments/56/version19-deployment-preflight.json',block:pin,deployer,balanceBNB:ethers.formatEther(data.balanceWei),pendingNonce:data.pendingNonce,gasPriceGwei:ethers.formatUnits(BigInt(data.gasPriceWei),9),targetOwner:data.targetOwner,constituents:data.constituents.length,tradingAdmission:data.tradingAdmission}));
+ console.log(json({file:'deployments/56/version19-deployment-preflight.json',block:pin,deployer,balanceBNB:ethers.formatEther(data.balanceWei),pendingNonce:data.pendingNonce,gasPriceGwei:ethers.formatUnits(BigInt(data.gasPriceWei),9),targetOwner:data.targetOwner,constituents:data.constituents.length,tradingAdmission:data.tradingAdmission}));
 }
 if(require.main===module)main().catch(e=>{console.error(JSON.stringify({error:e.message,code:e.code,rpcMessage:e.rpcMessage}));process.exitCode=1});
 module.exports={MC,PREVIOUS,TRADE,MULTI_ROUTER,ADAPTER,multicall,read,batch,CurlRpc,preflight,auditMappings,fields,sha,json,ethers};
