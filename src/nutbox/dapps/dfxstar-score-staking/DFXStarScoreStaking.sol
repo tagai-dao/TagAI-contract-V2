@@ -14,12 +14,12 @@ import "./DFXStarScoreStakingFactory.sol";
 
 /**
  * @title DFXStarScoreStaking
- * @dev Score staking pool contract
+ * @dev Score staking pool bound to one game World at initialize time.
  *
  * Features:
- * 1. Only admin can increase user's staked score (depositFromGame)
- * 2. Anyone can inject community tokens as rewards, distributed proportionally to all stakers
- * 3. Community rewards: users claim from Community contract (same as SPStaking logic)
+ * 1. Only the bound World can increase a user's staked score (depositFromGame)
+ * 2. Anyone can inject community tokens as rewards, distributed proportionally
+ * 3. Community rewards: users claim from Community contract
  * 4. External rewards: users claim injected rewards from this contract
  */
 contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, ReentrancyGuard, Initializable {
@@ -27,25 +27,17 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
 
     address public factory;
     address public community;
+    // Set once at create time; initialize cannot run again.
+    address public override world;
 
-    /// @dev User's staked score amount
     mapping(address => uint256) private userStakes;
-
-    /// @dev Total staked amount
     uint256 private totalStaked;
-
-    /// @dev Accumulated external rewards per share
     uint256 private externalAccPerShare;
-
-    /// @dev User's external reward debt
     mapping(address => uint256) private userExternalDebt;
-
-    /// @dev User's pending external rewards
     mapping(address => uint256) private userExternalRewards;
 
     string public constant name = "DFXStar Score Staking";
 
-    // Events
     event Deposited(address indexed user, uint256 amount, address indexed admin);
     event InjectedRewards(address indexed injector, uint256 amount, uint256 totalStaked);
     event ClaimedExternalRewards(address indexed user, uint256 amount);
@@ -54,39 +46,33 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         _disableInitializers();
     }
 
-    function initialize(address _community) external initializer {
+    function initialize(address _community, address _world) external initializer {
         require(_community != address(0), "Invalid community");
+        require(_world != address(0), "Invalid world");
         factory = msg.sender;
         community = _community;
+        world = _world;
     }
 
     /**
-     * @notice Admin increases user's staked score
-     * @dev Only admin configured in factory can call, no fee charged
-     * @param user User address
-     * @param amount Score amount
+     * @notice World increases user's staked score
+     * @dev Only the World bound at create time may call; no fee charged
      */
     function depositFromGame(address user, uint256 amount) external payable override nonReentrant {
         require(user != address(0), "Invalid user");
         require(amount > 0, "Amount=0");
-        require(DFXStarScoreStakingFactory(factory).isAdmin(msg.sender), "Not admin");
+        // Factory admin list no longer gates deposits.
+        require(msg.sender == world, "Not world");
 
-        // No fee charged - platform will add admin to fee-free list
-
-        // Update external rewards state
         _updateExternalRewards(user);
 
-        // Increase stake
         userStakes[user] += amount;
         totalStaked += amount;
 
-        // Update user's external reward debt
         userExternalDebt[user] = (userStakes[user] * externalAccPerShare) / PRECISION;
 
-        // Sync Community rewards state
         ICommunity(community).updatePools();
 
-        // Update user's debt in Community
         uint256 communityShareAcc = ICommunity(community).getShareAcc(address(this));
         ICommunity(community).setUserDebt(user, (userStakes[user] * communityShareAcc) / PRECISION);
 
@@ -95,24 +81,16 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         emit Deposited(user, amount, msg.sender);
     }
 
-    /**
-     * @notice Inject community tokens as rewards
-     * @dev Anyone can call, rewards are distributed proportionally to all stakers
-     * @param amount Token amount to inject
-     */
     function injectRewards(uint256 amount) external payable override nonReentrant {
         require(amount > 0, "Amount=0");
         require(totalStaked > 0, "No stakers");
 
         address token = ICommunity(community).getCommunityToken();
 
-        // Charge Tier3 fee
         _chargeTier3Fee();
 
-        // Transfer tokens from caller
         lockERC20(token, msg.sender, address(this), amount);
 
-        // Update accumulated rewards per share
         externalAccPerShare += (amount * PRECISION) / totalStaked;
 
         _refundEthToUser();
@@ -120,10 +98,6 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         emit InjectedRewards(msg.sender, amount, totalStaked);
     }
 
-    /**
-     * @notice User claims external rewards (injected community tokens)
-     * @dev For Community rewards, user should claim from Community contract
-     */
     function claimExternalRewards() external payable override nonReentrant {
         _chargeTier3Fee();
 
@@ -142,9 +116,6 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         emit ClaimedExternalRewards(msg.sender, pending);
     }
 
-    /**
-     * @notice Get user's pending external rewards
-     */
     function getPendingExternalRewards(address user) public view override returns (uint256) {
         uint256 stake = userStakes[user];
         if (stake == 0) return userExternalRewards[user];
@@ -153,17 +124,10 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         return userExternalRewards[user] + pending;
     }
 
-    /**
-     * @notice Get user's pending Community rewards
-     * @dev User should claim from Community contract
-     */
     function getPendingCommunityRewards(address user) public view override returns (uint256) {
         return ICommunity(community).getPoolPendingRewards(address(this), user);
     }
 
-    /**
-     * @notice Get all user's pending rewards
-     */
     function getPendingAllRewards(address user)
         external
         view
@@ -174,16 +138,10 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         externalPending = getPendingExternalRewards(user);
     }
 
-    /**
-     * @notice Get user's staked amount
-     */
     function getUserStakedAmount(address user) external view override returns (uint256) {
         return userStakes[user];
     }
 
-    /**
-     * @notice Get total staked amount
-     */
     function getTotalStakedAmount() external view override returns (uint256) {
         return totalStaked;
     }
@@ -196,11 +154,6 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         return community;
     }
 
-    // ============ Internal Functions ============
-
-    /**
-     * @dev Update user's external rewards state
-     */
     function _updateExternalRewards(address user) internal {
         uint256 stake = userStakes[user];
         if (stake > 0) {
@@ -212,9 +165,6 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         userExternalDebt[user] = (stake * externalAccPerShare) / PRECISION;
     }
 
-    /**
-     * @dev Charge Tier3 fee
-     */
     function _chargeTier3Fee() internal {
         address committeeAddr = ICommunity(community).getCommittee();
         uint256 fee = ICommittee(committeeAddr).getPoolOperationFee();
@@ -226,9 +176,6 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         require(ok, "Fee transfer failed");
     }
 
-    /**
-     * @dev Refund excess ETH to caller
-     */
     function _refundEthToUser() internal {
         uint256 ethBal = address(this).balance;
         if (ethBal == 0) return;

@@ -19,7 +19,7 @@ contract TestERC20 is ERC20 {
 
 /**
  * @title DFXStarScoreStakingTest
- * @notice Unit tests for DFXStarScoreStaking contract.
+ * @notice Unit tests for World-bound DFXStarScoreStaking.
  */
 contract DFXStarScoreStakingTest is Test {
     Committee public committee;
@@ -30,87 +30,74 @@ contract DFXStarScoreStakingTest is Test {
     Community public community;
     DFXStarScoreStaking public pool;
 
-    address public admin = address(this);
     address public feeRecipient;
-    address public gameAdmin;
+    address public world;
+    address public world2;
     address public user1;
     address public user2;
     address public injector;
 
     uint256 constant TOTAL_SUPPLY = 1_000_000_000 ether;
-    uint256 constant VEST_WINDOW = 168;
 
     function setUp() public {
         feeRecipient = makeAddr("feeRecipient");
-        gameAdmin = makeAddr("gameAdmin");
+        world = makeAddr("world");
+        world2 = makeAddr("world2");
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
         injector = makeAddr("injector");
 
-        // 1. Deploy Committee
         committee = new Committee(payable(feeRecipient));
         committee.adminSetCreateCommunityFee(0);
         committee.adminSetCommunitySettingsFee(0);
         committee.adminSetPoolOperationFee(0);
 
-        // 2. Deploy CommunityFactory
         communityFactory = new CommunityFactory(address(committee));
-
-        // 3. Deploy HourlyTickCalculator
         calculator = new HourlyTickCalculator(address(communityFactory));
-
-        // 4. Deploy DFXStarScoreStakingFactory
         factory = new DFXStarScoreStakingFactory(address(communityFactory));
 
-        // 5. Whitelist calculator and factory in Committee
         committee.adminAddContract(address(calculator));
         committee.adminAddContract(address(factory));
 
-        // 6. Deploy test ERC20 token
         token = new TestERC20("TestToken", "TT", TOTAL_SUPPLY);
 
-        // 7. Create community
         address communityAddr = communityFactory.createCommunity(
             false, address(token), address(0), bytes(""), address(calculator), bytes("")
         );
         community = Community(payable(communityAddr));
 
-        // 8. Add DFXStarScoreStaking pool to community
+        // meta = abi.encode(world); one World per pool
         uint16[] memory ratios = new uint16[](1);
         ratios[0] = 10_000;
-        community.adminAddPool("DFXStar Score Staking", ratios, address(factory), bytes(""));
+        community.adminAddPool("DFXStar Score Staking", ratios, address(factory), abi.encode(world));
 
-        // 9. Get pool address
         pool = DFXStarScoreStaking(payable(community.activedPools(0)));
 
-        // 10. Add gameAdmin as admin in factory
-        factory.addAdmin(gameAdmin);
-
-        // 11. Deal ETH to users for potential fees
         vm.deal(user1, 10 ether);
         vm.deal(user2, 10 ether);
         vm.deal(injector, 10 ether);
-        vm.deal(gameAdmin, 10 ether);
+        vm.deal(world, 10 ether);
 
-        // 12. Give tokens to injector for reward injection
         token.transfer(injector, 1_000_000 ether);
     }
 
     // ============ depositFromGame Tests ============
 
     function test_depositFromGame_success() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
         assertEq(pool.getUserStakedAmount(user1), 1000);
         assertEq(pool.getTotalStakedAmount(), 1000);
+        assertEq(pool.world(), world);
+        assertEq(factory.poolOfWorld(world), address(pool));
     }
 
     function test_depositFromGame_multipleUsers() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user2, 2000);
 
         assertEq(pool.getUserStakedAmount(user1), 1000);
@@ -118,75 +105,87 @@ contract DFXStarScoreStakingTest is Test {
         assertEq(pool.getTotalStakedAmount(), 3000);
     }
 
-    function test_depositFromGame_revertNotAdmin() public {
-        vm.expectRevert("Not admin");
+    function test_depositFromGame_revertNotWorld() public {
+        vm.expectRevert("Not world");
         vm.prank(user1);
         pool.depositFromGame{value: 0}(user1, 1000);
     }
 
     function test_depositFromGame_revertZeroAmount() public {
         vm.expectRevert("Amount=0");
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 0);
     }
 
     function test_depositFromGame_revertZeroAddress() public {
         vm.expectRevert("Invalid user");
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(address(0), 1000);
     }
 
     function test_depositFromGame_accumulate() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 500);
 
         assertEq(pool.getUserStakedAmount(user1), 1500);
         assertEq(pool.getTotalStakedAmount(), 1500);
     }
 
+    // ============ createPool meta Tests ============
+
+    function test_createPool_revertEmptyMeta() public {
+        uint16[] memory ratios = new uint16[](2);
+        ratios[0] = 5000;
+        ratios[1] = 5000;
+        vm.expectRevert("World meta");
+        community.adminAddPool("bad", ratios, address(factory), bytes(""));
+    }
+
+    function test_createPool_revertWorldAlreadyBound() public {
+        uint16[] memory ratios = new uint16[](2);
+        ratios[0] = 5000;
+        ratios[1] = 5000;
+        vm.expectRevert("World already bound");
+        community.adminAddPool("dup", ratios, address(factory), abi.encode(world));
+    }
+
     // ============ injectRewards Tests ============
 
     function test_injectRewards_success() public {
-        // First deposit some score
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        // Inject rewards
         uint256 injectAmount = 10000 ether;
         vm.startPrank(injector);
         token.approve(address(pool), injectAmount);
         pool.injectRewards{value: 0}(injectAmount);
         vm.stopPrank();
 
-        // User should have pending external rewards
         uint256 pending = pool.getPendingExternalRewards(user1);
         assertEq(pending, injectAmount);
     }
 
     function test_injectRewards_multipleStakers() public {
-        // Two users deposit
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user2, 3000);
 
-        // Inject rewards
         uint256 injectAmount = 10000 ether;
         vm.startPrank(injector);
         token.approve(address(pool), injectAmount);
         pool.injectRewards{value: 0}(injectAmount);
         vm.stopPrank();
 
-        // user1 gets 1/4, user2 gets 3/4
         uint256 pending1 = pool.getPendingExternalRewards(user1);
         uint256 pending2 = pool.getPendingExternalRewards(user2);
 
-        assertEq(pending1, 2500 ether); // 10000 * 1000 / 4000
-        assertEq(pending2, 7500 ether); // 10000 * 3000 / 4000
+        assertEq(pending1, 2500 ether);
+        assertEq(pending2, 7500 ether);
     }
 
     function test_injectRewards_revertNoStakers() public {
@@ -196,7 +195,7 @@ contract DFXStarScoreStakingTest is Test {
     }
 
     function test_injectRewards_revertZeroAmount() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
         vm.expectRevert("Amount=0");
@@ -205,19 +204,15 @@ contract DFXStarScoreStakingTest is Test {
     }
 
     function test_injectRewards_multipleInjections() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        // First injection
         vm.startPrank(injector);
         token.approve(address(pool), type(uint256).max);
         pool.injectRewards{value: 0}(10000 ether);
-
-        // Second injection
         pool.injectRewards{value: 0}(5000 ether);
         vm.stopPrank();
 
-        // Total pending should be 15000
         uint256 pending = pool.getPendingExternalRewards(user1);
         assertEq(pending, 15000 ether);
     }
@@ -225,7 +220,7 @@ contract DFXStarScoreStakingTest is Test {
     // ============ claimExternalRewards Tests ============
 
     function test_claimExternalRewards_success() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
         uint256 injectAmount = 10000 ether;
@@ -234,7 +229,6 @@ contract DFXStarScoreStakingTest is Test {
         pool.injectRewards{value: 0}(injectAmount);
         vm.stopPrank();
 
-        // Claim rewards
         uint256 balanceBefore = token.balanceOf(user1);
         vm.prank(user1);
         pool.claimExternalRewards{value: 0}();
@@ -245,7 +239,7 @@ contract DFXStarScoreStakingTest is Test {
     }
 
     function test_claimExternalRewards_revertNoRewards() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
         vm.expectRevert("No rewards");
@@ -254,25 +248,21 @@ contract DFXStarScoreStakingTest is Test {
     }
 
     function test_claimExternalRewards_partialClaim() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        // First injection
         vm.startPrank(injector);
         token.approve(address(pool), type(uint256).max);
         pool.injectRewards{value: 0}(10000 ether);
         vm.stopPrank();
 
-        // Claim first batch
         vm.prank(user1);
         pool.claimExternalRewards{value: 0}();
 
-        // Second injection
         vm.startPrank(injector);
         pool.injectRewards{value: 0}(5000 ether);
         vm.stopPrank();
 
-        // Claim second batch
         uint256 balanceBefore = token.balanceOf(user1);
         vm.prank(user1);
         pool.claimExternalRewards{value: 0}();
@@ -283,27 +273,27 @@ contract DFXStarScoreStakingTest is Test {
 
     // ============ Multiple Pools Tests ============
 
-    function test_createMultiplePools() public {
-        // Create second pool
+    function test_createMultiplePools_differentWorlds() public {
         uint16[] memory ratios = new uint16[](2);
         ratios[0] = 5000;
         ratios[1] = 5000;
-        community.adminAddPool("DFXStar Score Staking 2", ratios, address(factory), bytes(""));
+        community.adminAddPool("DFXStar Score Staking 2", ratios, address(factory), abi.encode(world2));
 
         DFXStarScoreStaking pool2 = DFXStarScoreStaking(payable(community.activedPools(1)));
+        assertEq(pool2.world(), world2);
+        assertEq(factory.poolOfWorld(world2), address(pool2));
 
-        // Deposit to both pools
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        vm.prank(gameAdmin);
+        vm.prank(world2);
         pool2.depositFromGame{value: 0}(user1, 2000);
 
         assertEq(pool.getUserStakedAmount(user1), 1000);
         assertEq(pool2.getUserStakedAmount(user1), 2000);
     }
 
-    // ============ Admin Management Tests ============
+    // ============ Admin Management Tests (bookkeeping only) ============
 
     function test_addAdmin() public {
         address newAdmin = makeAddr("newAdmin");
@@ -312,8 +302,10 @@ contract DFXStarScoreStakingTest is Test {
     }
 
     function test_removeAdmin() public {
-        factory.removeAdmin(gameAdmin);
-        assertFalse(factory.isAdmin(gameAdmin));
+        address bookAdmin = makeAddr("bookAdmin");
+        factory.addAdmin(bookAdmin);
+        factory.removeAdmin(bookAdmin);
+        assertFalse(factory.isAdmin(bookAdmin));
     }
 
     function test_addAdmin_revertNotOwner() public {
@@ -324,8 +316,10 @@ contract DFXStarScoreStakingTest is Test {
     }
 
     function test_addAdmin_revertAlreadyAdmin() public {
+        address bookAdmin = makeAddr("bookAdmin");
+        factory.addAdmin(bookAdmin);
         vm.expectRevert("Already admin");
-        factory.addAdmin(gameAdmin);
+        factory.addAdmin(bookAdmin);
     }
 
     function test_removeAdmin_revertNotAdmin() public {
@@ -336,10 +330,9 @@ contract DFXStarScoreStakingTest is Test {
     // ============ View Functions Tests ============
 
     function test_getPendingAllRewards() public {
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        // Inject external rewards
         vm.startPrank(injector);
         token.approve(address(pool), 10000 ether);
         pool.injectRewards{value: 0}(10000 ether);
@@ -347,7 +340,6 @@ contract DFXStarScoreStakingTest is Test {
 
         (uint256 communityPending, uint256 externalPending) = pool.getPendingAllRewards(user1);
         assertEq(externalPending, 10000 ether);
-        // communityPending would be 0 unless we inject to calculator
         assertEq(communityPending, 0);
     }
 
@@ -359,46 +351,34 @@ contract DFXStarScoreStakingTest is Test {
     // ============ Edge Cases Tests ============
 
     function test_depositThenInjectThenDeposit() public {
-        // user1 deposits
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        // Inject rewards
         vm.startPrank(injector);
         token.approve(address(pool), type(uint256).max);
         pool.injectRewards{value: 0}(10000 ether);
         vm.stopPrank();
 
-        // user2 deposits after injection
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user2, 1000);
 
-        // Inject more rewards
         vm.startPrank(injector);
         pool.injectRewards{value: 0}(10000 ether);
         vm.stopPrank();
 
-        // user1 should have more rewards (was staked for both injections)
-        // user2 should have rewards only from second injection
         uint256 pending1 = pool.getPendingExternalRewards(user1);
         uint256 pending2 = pool.getPendingExternalRewards(user2);
 
-        // user1: 10000 (first) + 5000 (second, half of 10000)
-        // user2: 5000 (second, half of 10000)
         assertEq(pending1, 15000 ether);
         assertEq(pending2, 5000 ether);
     }
 
     function test_noFeeForDeposit() public {
-        // Set a fee
         committee.adminSetPoolOperationFee(0.1 ether);
 
-        // Fee-free for gameAdmin (would need to set in Committee)
-        // For this test, we verify deposit works without sending fee
-        vm.prank(gameAdmin);
+        vm.prank(world);
         pool.depositFromGame{value: 0}(user1, 1000);
 
-        // Should succeed without fee
         assertEq(pool.getUserStakedAmount(user1), 1000);
     }
 }

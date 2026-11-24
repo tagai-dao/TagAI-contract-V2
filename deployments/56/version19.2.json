@@ -1,0 +1,61 @@
+{
+  "version": "19.2",
+  "chainId": 56,
+  "status": "deployed-whitelisted",
+  "scope": [
+    "World-bound DFXStarScoreStakingFactory + pool template",
+    "Reuses Nutbox CommunityFactory and Committee",
+    "Does not replace Pump19 or the previous admin-gated DFX factory"
+  ],
+  "sourceFiles": [
+    "src/nutbox/dapps/dfxstar-score-staking/DFXStarScoreStakingFactory.sol",
+    "src/nutbox/dapps/dfxstar-score-staking/DFXStarScoreStaking.sol",
+    "src/nutbox/interfaces/IDFXStarScoreStaking.sol",
+    "script/DeployBSCDFXStarFactory19_2.s.sol"
+  ],
+  "dependencies": {
+    "CommunityFactory": "0x5597e814399906095ecaA5769A40394F58E5E0Cf",
+    "Committee": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+    "PreviousDFXStarScoreStakingFactory": "0x77Fb65140B746e639bB512c2C25604d1924aE774",
+    "HandleRegistry": "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F"
+  },
+  "DFXStarScoreStakingFactory": "0xd436Bb8fF9BdF45b85aAC0dB038F14a9Ad14610B",
+  "DFXStarScoreStakingTemplate": "0xa0803dAD0F07a6F5C3633AF9910f5cf8DC562FaB",
+  "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "targetOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "deploymentTransactions": [
+    {
+      "index": 0,
+      "hash": "0x817a0921ad2a86d81357a4c3d546756cfe700da44aba19a312e687adcecb188e",
+      "contract": "DFXStarScoreStakingFactory",
+      "type": "CREATE",
+      "status": "confirmed",
+      "contractAddress": "0xd436Bb8fF9BdF45b85aAC0dB038F14a9Ad14610B",
+      "block": 135394031,
+      "gasUsed": 1693715,
+      "effectiveGasPriceWei": "50000000"
+    }
+  ],
+  "postDeploy": {
+    "committeeWhitelist": "done",
+    "ownershipAccepted": "n/a-deployer-is-owner",
+    "poolCreatedForWorld": "pending-after-world-deploy",
+    "sourceVerification": "verified",
+    "safeNonceAfter": 51
+  },
+  "notes": [
+    "createPool meta must be abi.encode(world); one World binds one pool.",
+    "depositFromGame only accepts msg.sender == pool.world().",
+    "Old factory 0x77Fb... remains on chain for legacy pools; do not use it for new World-bound games."
+  ],
+  "deployedAt": "2026-11-24T03:53:00.250Z",
+  "bscscan": {
+    "factory": "https://bscscan.com/address/0xd436Bb8fF9BdF45b85aAC0dB038F14a9Ad14610B#code",
+    "template": "https://bscscan.com/address/0xa0803dAD0F07a6F5C3633AF9910f5cf8DC562FaB#code",
+    "tx": "https://bscscan.com/tx/0x817a0921ad2a86d81357a4c3d546756cfe700da44aba19a312e687adcecb188e"
+  },
+  "verification": {
+    "factory": "Pass - Verified",
+    "template": "Pass - Verified"
+  }
+}

@@ -10,27 +10,27 @@ import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /**
  * @title DFXStarScoreStakingFactory
- * @dev Score staking pool factory contract
+ * @dev Score staking pool factory. Each pool is bound to one game World at create time.
  *
- * Admin permissions:
- * - owner: Factory owner, can add/remove admins
- * - admins: Addresses that can call depositFromGame to increase user's staked score
+ * createPool meta must be abi.encode(world). That World alone may call depositFromGame.
+ * One World can only bind one pool (poolOfWorld).
  *
- * Admins are configured by community admin through owner
- *
- * Note: A community can create multiple pools
+ * isAdmin on this factory is kept for owner bookkeeping; it no longer gates deposits.
  */
 contract DFXStarScoreStakingFactory is IPoolFactory, Ownable2Step {
     address public immutable communityFactory;
     address public immutable poolTemplate;
 
-    /// @dev Admin list (can call depositFromGame)
+    /// @dev Kept for compatibility; depositFromGame no longer checks this list.
     mapping(address => bool) public isAdmin;
 
-    // Events
+    /// @dev One World can only have one score pool.
+    mapping(address => address) public poolOfWorld;
+
     event AdminAdded(address indexed admin);
     event AdminRemoved(address indexed admin);
     event DFXStarScoreStakingCreated(address indexed pool, address indexed community, string name);
+    event WorldBound(address indexed world, address indexed pool);
 
     constructor(address _communityFactory) {
         require(_communityFactory != address(0), "Invalid address");
@@ -38,11 +38,6 @@ contract DFXStarScoreStakingFactory is IPoolFactory, Ownable2Step {
         poolTemplate = address(new DFXStarScoreStaking());
     }
 
-    /**
-     * @notice Add admin
-     * @dev Only owner can call
-     * @param _admin Admin address
-     */
     function addAdmin(address _admin) external onlyOwner {
         require(_admin != address(0), "Invalid address");
         require(!isAdmin[_admin], "Already admin");
@@ -50,11 +45,6 @@ contract DFXStarScoreStakingFactory is IPoolFactory, Ownable2Step {
         emit AdminAdded(_admin);
     }
 
-    /**
-     * @notice Remove admin
-     * @dev Only owner can call
-     * @param _admin Admin address
-     */
     function removeAdmin(address _admin) external onlyOwner {
         require(isAdmin[_admin], "Not admin");
         isAdmin[_admin] = false;
@@ -62,29 +52,26 @@ contract DFXStarScoreStakingFactory is IPoolFactory, Ownable2Step {
     }
 
     /**
-     * @notice Create pool
-     * @dev Only callable by Community contract, a community can create multiple pools
-     * @param community Community address
+     * @notice Create a pool bound to one World.
+     * @param community Community address (must be msg.sender)
      * @param name Pool name
+     * @param meta abi.encode(world); length must be 32
      */
-    function createPool(
-        address community,
-        string memory name,
-        bytes calldata /* meta */
-    )
-        external
-        override
-        returns (address)
-    {
+    function createPool(address community, string memory name, bytes calldata meta) external override returns (address) {
         require(community == msg.sender, "Permission denied: caller is not community");
         require(CommunityFactory(payable(communityFactory)).createdCommunity(community), "Invalid community");
+        require(meta.length == 32, "World meta");
+        address world = abi.decode(meta, (address));
+        require(world != address(0), "Invalid world");
+        require(poolOfWorld[world] == address(0), "World already bound");
 
         address clone = Clones.clone(poolTemplate);
         DFXStarScoreStaking pool = DFXStarScoreStaking(payable(clone));
-        pool.initialize(community);
+        pool.initialize(community, world);
+        poolOfWorld[world] = address(pool);
 
         emit DFXStarScoreStakingCreated(address(pool), community, name);
-
+        emit WorldBound(world, address(pool));
         return address(pool);
     }
 }
