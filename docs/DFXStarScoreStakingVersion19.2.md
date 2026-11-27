@@ -1,6 +1,8 @@
 # DFXStar Score Staking version 19.2
 
-网络：BSC 主网，chain ID 56。状态：已部署，BscScan 已验证，**待 Committee 白名单**。
+网络：BSC 主网，chain ID 56。状态：已部署，BscScan 已验证，Committee 已白名单。
+
+**新 World 建池请改用 [V19.3](DFXStarScoreStakingVersion19.3.md)**（修复加仓结算社区奖励，且 ETH 退款给 `tx.origin`）。
 
 ## 已上线地址
 

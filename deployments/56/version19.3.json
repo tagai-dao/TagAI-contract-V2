@@ -1,0 +1,63 @@
+{
+  "version": "19.3",
+  "chainId": 56,
+  "status": "deployed-verified-pending-whitelist",
+  "scope": [
+    "Redeploy World-bound DFXStarScoreStakingFactory + pool template",
+    "Fixes depositFromGame community-reward settlement on top-up",
+    "ETH residual refund to tx.origin",
+    "Reuses Nutbox CommunityFactory and Committee"
+  ],
+  "sourceFiles": [
+    "src/nutbox/dapps/dfxstar-score-staking/DFXStarScoreStakingFactory.sol",
+    "src/nutbox/dapps/dfxstar-score-staking/DFXStarScoreStaking.sol",
+    "src/nutbox/interfaces/IDFXStarScoreStaking.sol",
+    "script/DeployBSCDFXStarFactory19_3.s.sol"
+  ],
+  "dependencies": {
+    "CommunityFactory": "0x5597e814399906095ecaA5769A40394F58E5E0Cf",
+    "Committee": "0xe10F967DD356504EDB731612789D0D0f0ba2929f",
+    "PreviousDFXStarScoreStakingFactory_19_2": "0xd436Bb8fF9BdF45b85aAC0dB038F14a9Ad14610B",
+    "PreviousDFXStarScoreStakingTemplate_19_2": "0xa0803dAD0F07a6F5C3633AF9910f5cf8DC562FaB",
+    "LegacyAdminGatedDFXStarScoreStakingFactory": "0x77Fb65140B746e639bB512c2C25604d1924aE774"
+  },
+  "DFXStarScoreStakingFactory": "0xC3C8180A675E9Fd83Cb0deB15b4af3e95613820F",
+  "DFXStarScoreStakingTemplate": "0x2cCf6fd4A38faB4e39053Ca8F6091a08058E1B80",
+  "deployer": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "targetOwner": "0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611",
+  "deploymentTransactions": [
+    {
+      "index": 0,
+      "hash": "0x0c5f8f90cc23899cfe6986492b15f6fd6252009ea5655b8ca94d4a00c7b6843a",
+      "contract": "DFXStarScoreStakingFactory",
+      "type": "CREATE",
+      "status": "confirmed",
+      "contractAddress": "0xC3C8180A675E9Fd83Cb0deB15b4af3e95613820F",
+      "block": 135970131,
+      "gasUsed": 1751728,
+      "effectiveGasPriceWei": "50000000"
+    }
+  ],
+  "postDeploy": {
+    "committeeWhitelist": "pending",
+    "ownershipAccepted": "n/a-deployer-is-owner",
+    "poolCreatedForWorld": "pending-after-world-deploy",
+    "sourceVerification": "verified"
+  },
+  "notes": [
+    "depositFromGame settles community rewards on previous stake before increasing stake.",
+    "ETH balance sweep refunds to tx.origin so intermediate World/routers do not trap native refunds.",
+    "19.2 factory remains on chain; new World-bound pools must use this 19.3 factory after Committee whitelist."
+  ],
+  "deployedAt": "2026-11-27T03:55:23.000Z",
+  "bscscan": {
+    "factory": "https://bscscan.com/address/0xC3C8180A675E9Fd83Cb0deB15b4af3e95613820F#code",
+    "template": "https://bscscan.com/address/0x2cCf6fd4A38faB4e39053Ca8F6091a08058E1B80#code",
+    "tx": "https://bscscan.com/tx/0x0c5f8f90cc23899cfe6986492b15f6fd6252009ea5655b8ca94d4a00c7b6843a"
+  },
+  "verification": {
+    "factory": "Pass - Verified",
+    "template": "Pass - Verified"
+  },
+  "whitelistCalldata": "0x54a7d6b1000000000000000000000000c3c8180a675e9fd83cb0deb15b4af3e95613820f"
+}

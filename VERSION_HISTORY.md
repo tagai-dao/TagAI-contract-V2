@@ -2,6 +2,20 @@
 
 本文档记录正式发布版本的源码提交、链上地址和部署批次，用于确认某一组线上合约对应的源码。
 
+## 2026-11-27 — DFXStar Score Staking V19.3（已部署并验证，待 Committee 白名单）
+
+- 相对 V19.2：`depositFromGame` 加仓前先按旧仓位结算社区奖励并固化 pending；合约 ETH 余额退款改为 `tx.origin`（避免 World/中间合约吞退款）。工厂仍为 World 绑定建池模型。
+- Factory：[`0xC3C8180A675E9Fd83Cb0deB15b4af3e95613820F`](https://bscscan.com/address/0xC3C8180A675E9Fd83Cb0deB15b4af3e95613820F#code)；模板：[`0x2cCf6fd4A38faB4e39053Ca8F6091a08058E1B80`](https://bscscan.com/address/0x2cCf6fd4A38faB4e39053Ca8F6091a08058E1B80#code)。
+- 部署交易 [`0x0c5f8f90cc23899cfe6986492b15f6fd6252009ea5655b8ca94d4a00c7b6843a`](https://bscscan.com/tx/0x0c5f8f90cc23899cfe6986492b15f6fd6252009ea5655b8ca94d4a00c7b6843a)，区块 `135970131`，部署账户 `0x78C2aF38330C5b41Ae7946A313e43cDCEEaf8611`。Factory 与模板均已 BscScan `Pass - Verified`。
+- 复用 CommunityFactory `0x5597e814399906095ecaA5769A40394F58E5E0Cf`、Committee `0xe10F967DD356504EDB731612789D0D0f0ba2929f`。新工厂尚未白名单；V19.2 工厂 `0xd436Bb8f…` 仍在链上，新 World 建池应使用本 V19.3 工厂（白名单完成后）。
+- [业务/部署说明](docs/DFXStarScoreStakingVersion19.3.md)、[正式记录](deployments/56/version19.3.json)、部署脚本 `script/DeployBSCDFXStarFactory19_3.s.sol`。
+
+## 2026-11-24 — DFXStar Score Staking V19.2（已部署、验证并白名单；新池改用 V19.3）
+
+- World 绑定积分池：`createPool` meta 为 `abi.encode(world)`；`depositFromGame` 仅接受绑定 World；一 World 一池。
+- Factory：[`0xd436Bb8fF9BdF45b85aAC0dB038F14a9Ad14610B`](https://bscscan.com/address/0xd436Bb8fF9BdF45b85aAC0dB038F14a9Ad14610B#code)；模板：[`0xa0803dAD0F07a6F5C3633AF9910f5cf8DC562FaB`](https://bscscan.com/address/0xa0803dAD0F07a6F5C3633AF9910f5cf8DC562FaB#code)。
+- 部署交易 [`0x817a0921ad2a86d81357a4c3d546756cfe700da44aba19a312e687adcecb188e`](https://bscscan.com/tx/0x817a0921ad2a86d81357a4c3d546756cfe700da44aba19a312e687adcecb188e)，区块 `135394031`。[说明](docs/DFXStarScoreStakingVersion19.2.md)、[记录](deployments/56/version19.2.json)。后续新池请改用 V19.3。
+
 ## 2026-11-04 — Pump V19 与 Handle NFT 模板合入 main
 
 - 按用户确认，将 `bsc-version19` 中已提交的 Pump V19 实现、部署与多签激活材料，以及本次 Binance Handle NFT 修改、部署验证材料、运维脚本和测试一起合入 main。

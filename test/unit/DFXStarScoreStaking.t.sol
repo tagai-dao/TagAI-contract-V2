@@ -134,6 +134,52 @@ contract DFXStarScoreStakingTest is Test {
         assertEq(pool.getTotalStakedAmount(), 1500);
     }
 
+    function test_depositFromGame_preservesEarnedCommunityRewardsOnRepeatedTopUp() public {
+        _startCommunityRewards();
+
+        vm.warp(11 hours);
+        uint256 earned = pool.getPendingCommunityRewards(user1);
+        assertEq(earned, 1000 ether);
+
+        vm.startPrank(world);
+        pool.depositFromGame(user1, 1000);
+        pool.depositFromGame(user1, 1000);
+        vm.stopPrank();
+        assertEq(pool.getPendingCommunityRewards(user1), earned);
+
+        vm.prank(user1);
+        community.withdrawPoolsRewards(_poolAddresses());
+        assertEq(token.balanceOf(user1), earned);
+        assertEq(pool.getPendingCommunityRewards(user1), 0);
+    }
+
+    function test_depositFromGame_allocatesPastRewardsBeforeNewStake() public {
+        _startCommunityRewards();
+
+        vm.warp(11 hours);
+        vm.prank(world);
+        pool.depositFromGame(user2, 1000);
+        assertEq(pool.getPendingCommunityRewards(user1), 1000 ether);
+        assertEq(pool.getPendingCommunityRewards(user2), 0);
+
+        vm.warp(12 hours);
+        assertEq(pool.getPendingCommunityRewards(user1), 1500 ether);
+        assertEq(pool.getPendingCommunityRewards(user2), 500 ether);
+    }
+
+    function test_depositFromGame_refundsAttachedValueToOrigin() public {
+        // World pays msg.value as msg.sender; refund goes to tx.origin (player).
+        uint256 worldBalance = world.balance;
+        uint256 playerBalance = user1.balance;
+        vm.prank(world, user1);
+        pool.depositFromGame{value: 0.001 ether}(user1, 1000);
+
+        assertEq(world.balance, worldBalance - 0.001 ether);
+        assertEq(user1.balance, playerBalance + 0.001 ether);
+        assertEq(pool.getUserStakedAmount(user1), 1000);
+        assertEq(address(pool).balance, 0);
+    }
+
     // ============ createPool meta Tests ============
 
     function test_createPool_revertEmptyMeta() public {
@@ -380,5 +426,18 @@ contract DFXStarScoreStakingTest is Test {
         pool.depositFromGame{value: 0}(user1, 1000);
 
         assertEq(pool.getUserStakedAmount(user1), 1000);
+    }
+
+    function _startCommunityRewards() private {
+        vm.warp(10 hours);
+        token.approve(address(calculator), 168_000 ether);
+        calculator.inject(address(community), 168_000 ether);
+        vm.prank(world);
+        pool.depositFromGame(user1, 1000);
+    }
+
+    function _poolAddresses() private view returns (address[] memory pools) {
+        pools = new address[](1);
+        pools[0] = address(pool);
     }
 }

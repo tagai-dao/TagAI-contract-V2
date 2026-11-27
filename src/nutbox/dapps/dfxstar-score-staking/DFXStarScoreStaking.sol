@@ -66,16 +66,25 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
 
         _updateExternalRewards(user);
 
-        userStakes[user] += amount;
+        ICommunity rewardCommunity = ICommunity(community);
+        // Allocate past rewards using the stakes that were active in that interval.
+        rewardCommunity.updatePools();
+        uint256 communityShareAcc = rewardCommunity.getShareAcc(address(this));
+        uint256 previousStake = userStakes[user];
+        if (previousStake != 0) {
+            uint256 accrued = (previousStake * communityShareAcc) / PRECISION;
+            uint256 pending = accrued - rewardCommunity.getUserDebt(address(this), user);
+            if (pending != 0) rewardCommunity.appendUserReward(user, pending);
+        }
+
+        uint256 newStake = previousStake + amount;
+        userStakes[user] = newStake;
         totalStaked += amount;
 
-        userExternalDebt[user] = (userStakes[user] * externalAccPerShare) / PRECISION;
+        userExternalDebt[user] = (newStake * externalAccPerShare) / PRECISION;
+        rewardCommunity.setUserDebt(user, (newStake * communityShareAcc) / PRECISION);
 
-        ICommunity(community).updatePools();
-
-        uint256 communityShareAcc = ICommunity(community).getShareAcc(address(this));
-        ICommunity(community).setUserDebt(user, (userStakes[user] * communityShareAcc) / PRECISION);
-
+        // Pool has no ETH withdraw path; sweep residual native balance to tx.origin.
         _refundEthToUser();
 
         emit Deposited(user, amount, msg.sender);
@@ -176,10 +185,12 @@ contract DFXStarScoreStaking is IPool, IDFXStarScoreStaking, ERC20Helper, Reentr
         require(ok, "Fee transfer failed");
     }
 
+    /// @dev Return all ETH held by this contract to tx.origin (overpaid fee + any residual).
+    /// Origin is used so intermediate game/router contracts do not trap the refund.
     function _refundEthToUser() internal {
         uint256 ethBal = address(this).balance;
         if (ethBal == 0) return;
-        (bool ok,) = payable(msg.sender).call{value: ethBal}("");
+        (bool ok,) = payable(tx.origin).call{value: ethBal}("");
         require(ok, "ETH refund failed");
     }
 

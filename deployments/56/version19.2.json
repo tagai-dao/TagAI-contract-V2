@@ -1,11 +1,12 @@
 {
   "version": "19.2",
   "chainId": 56,
-  "status": "deployed-whitelisted",
+  "status": "deployed-whitelisted-superseded-by-19.3-for-new-pools",
   "scope": [
     "World-bound DFXStarScoreStakingFactory + pool template",
     "Reuses Nutbox CommunityFactory and Committee",
-    "Does not replace Pump19 or the previous admin-gated DFX factory"
+    "Does not replace Pump19 or the previous admin-gated DFX factory",
+    "New World pools should use version 19.3 factory after its Committee whitelist"
   ],
   "sourceFiles": [
     "src/nutbox/dapps/dfxstar-score-staking/DFXStarScoreStakingFactory.sol",
